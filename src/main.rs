@@ -2,9 +2,8 @@
 
 mod dom;
 mod html_tokenizer;
-mod error;
+mod character_reference;
 
-use dom::*;
 use html_tokenizer::*;
 
 const HTML: &'static str = "
@@ -14,11 +13,12 @@ Hello World
 </body>
 </html>";
 
-
 fn main() {
     let mut tokenizer = Tokenizer::new(&HTML);
+    loop {
+        // tokenizer.step();
+    }
     // let mut root = DomNode::new("html".to_string());
     // root.append(DomNode::text("Hello World".to_string()));
     // root.append(DomNode::new("body".to_string()));
-
 }

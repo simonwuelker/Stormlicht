@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-
 #[derive(Debug)]
 pub struct DomNode {
     node_type: NodeType,
@@ -19,12 +18,10 @@ pub struct NodeData {
     attributes: HashMap<String, String>,
 }
 
-
-
 impl DomNode {
     pub fn new(name: String) -> Self {
         Self {
-            node_type: NodeType::Complex(NodeData{
+            node_type: NodeType::Complex(NodeData {
                 name: name,
                 attributes: HashMap::new(),
             }),
