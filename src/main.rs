@@ -8,15 +8,15 @@ use html_tokenizer::*;
 
 const HTML: &'static str = "
 <html>
-<body>
+<body id=abc>
 Hello World
 </body>
 </html>";
 
 fn main() {
     let mut tokenizer = Tokenizer::new(&HTML);
-    loop {
-        // tokenizer.step();
+    while tokenizer.run {
+        tokenizer.step();
     }
     // let mut root = DomNode::new("html".to_string());
     // root.append(DomNode::text("Hello World".to_string()));

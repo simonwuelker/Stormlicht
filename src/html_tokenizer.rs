@@ -149,6 +149,7 @@ pub struct Tokenizer<'source> {
     source: &'source str,
     state: TokenizerState,
     ptr: usize,
+    pub run: bool,
 
     /// Used by [TokenizerState::CharacterReferenceState]
     return_state: Option<TokenizerState>,
@@ -179,12 +180,19 @@ impl<'source> Tokenizer<'source> {
             character_reference_code: 0,
             buffer: None,
             ptr: 0,
+            run: true,
         }
     }
 
     fn emit(&mut self, token: Token) {
-        if let Token::Tag(TagData { opening: true, name, .. }) = &token {
-            self.last_emitted_start_tag_name = Some(name.clone());
+        match &token {
+            Token::Tag(TagData { opening: true, name, .. }) => {
+                self.last_emitted_start_tag_name = Some(name.clone());
+            },
+            Token::EOF => {
+                self.run = false;
+            },
+            _ => {},
         }
         println!("emitting {:?}", token);
     }
@@ -244,12 +252,14 @@ impl<'source> Tokenizer<'source> {
     /// All state transitions should call this method, which will
     /// ease debugging.
     fn switch_to(&mut self, state: TokenizerState) {
+        // println!("Switching to {:?}", state);
         self.state = state;
     }
 
     fn read_next(&mut self) -> Option<char> {
         let c = self.source[self.ptr..].chars().nth(0);
         self.ptr += 1;
+        // println!("reading {:?}", c);
         c
     }
 
@@ -380,9 +390,9 @@ impl<'source> Tokenizer<'source> {
             TokenizerState::EndTagOpenState => {
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
+                        self.current_token = Some(Token::Tag(TagData::default_close()));
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::TagNameState);
-                        todo!();
                     }
                     Some('>') => {
                         // missing-end-tag-name parse error
@@ -390,9 +400,10 @@ impl<'source> Tokenizer<'source> {
                     }
                     Some(c) => {
                         // invalid-first-character-of-tag-name parse error
+                        self.current_token = Some(Token::Comment(String::default()));
+                        self.ptr -= 1; // reconsume current character
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::BogusCommentState);
-                        todo!();
                     }
                     None => {
                         // eof-before-tag-name parse error
@@ -915,6 +926,8 @@ impl<'source> Tokenizer<'source> {
                     }
                     _ => {
                         self.get_current_tag().new_attribute();
+                        self.ptr -= 1;
+                        self.switch_to(TokenizerState::AttributeNameState);
                     }
                 }
             }
@@ -2058,7 +2071,7 @@ impl<'source> Tokenizer<'source> {
                     _ => {},
                 }
                 self.buffer = Some(char::from_u32(self.character_reference_code).unwrap().to_string());
-                todo!() // flush, again
+                todo!(); // flush, again
                 self.switch_to(self.return_state.unwrap());
 
             },
