@@ -1,4 +1,5 @@
 use super::character_reference::match_reference;
+use std::collections::VecDeque;
 
 const UNICODE_REPLACEMENT: char = '\u{FFFD}';
 
@@ -149,7 +150,8 @@ pub struct Tokenizer<'source> {
     source: &'source str,
     state: TokenizerState,
     ptr: usize,
-    pub run: bool,
+    pub done: bool,
+    token_buffer: VecDeque<Token>,
 
     /// Used by [TokenizerState::CharacterReferenceState]
     return_state: Option<TokenizerState>,
@@ -157,16 +159,6 @@ pub struct Tokenizer<'source> {
     buffer: Option<String>,
     current_token: Option<Token>,
     character_reference_code: u32,
-
-    // // The tokenizer continously builds and emits tokens.
-    // // We could use some complicated enum-option matching
-    // // to always only edit the tag that we are currently building.
-    // // But it's honestly a lot easier to just allocate the memory
-    // // for every tag type (there aren't that many) and don't deal
-    // // with a lot of unreachable!() s.
-    // current_tag: TagData,
-    // current_doctype: Doctype,
-    // current_comment: String,
 }
 
 impl<'source> Tokenizer<'source> {
@@ -180,21 +172,16 @@ impl<'source> Tokenizer<'source> {
             character_reference_code: 0,
             buffer: None,
             ptr: 0,
-            run: true,
+            done: false,
+            token_buffer: VecDeque::new(),
         }
     }
 
     fn emit(&mut self, token: Token) {
-        match &token {
-            Token::Tag(TagData { opening: true, name, .. }) => {
-                self.last_emitted_start_tag_name = Some(name.clone());
-            },
-            Token::EOF => {
-                self.run = false;
-            },
-            _ => {},
+        if let Token::Tag(TagData { opening: true, name, .. }) = &token {
+            self.last_emitted_start_tag_name = Some(name.clone());
         }
-        println!("emitting {:?}", token);
+        self.token_buffer.push_back(token);
     }
 
     fn emit_current_token(&mut self) {
@@ -2076,6 +2063,25 @@ impl<'source> Tokenizer<'source> {
 
             },
             _ => unimplemented!("{:?}", self.state),
+        }
+    }
+}
+
+impl Iterator for Tokenizer<'_> {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            None
+        } else {
+            while self.token_buffer.is_empty() {
+                self.step();
+            }
+            let first_token = self.token_buffer.pop_front();
+            if let Some(Token::EOF) = first_token {
+                self.done = true;
+            }
+            first_token
         }
     }
 }
