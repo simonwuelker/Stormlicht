@@ -1,12 +1,14 @@
 #![feature(option_result_contains)]
 
-mod tokenizer;
-mod parser;
-mod character_reference;
+pub mod character_reference;
+pub mod dom;
+pub mod parser;
+pub mod tokenizer;
 
-use tokenizer::*;
+use parser::Parser;
+use tokenizer::Tokenizer;
 
-const HTML: &'static str = "
+const HTML: &'static str = "\
 <html>
 <body id=abc>
 Hello World
@@ -15,7 +17,9 @@ Hello World
 
 fn main() {
     let mut tokenizer = Tokenizer::new(&HTML);
+    let mut parser = Parser::new();
     while let Some(t) = tokenizer.next() {
         println!("emitted {:?}", t);
+        parser.consume(t);
     }
 }

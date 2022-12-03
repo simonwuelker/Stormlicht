@@ -9,7 +9,7 @@ pub enum TokenizerState {
     RCDATAState,
     RAWTEXTState,
     ScriptDataState,
-    PLAINTEXTState,
+    // PLAINTEXTState,
     TagOpenState,
     EndTagOpenState,
     TagNameState,
@@ -92,24 +92,25 @@ pub enum Token {
     DOCTYPE(Doctype),
     Tag(TagData),
     Comment(String),
+    // TODO: emitting single characters is really inefficient, change this to be a string
     Character(char),
     EOF,
 }
 
 #[derive(Debug, Default)]
 pub struct Doctype {
-    name: Option<String>,
-    public_ident: Option<String>,
-    system_ident: Option<String>,
-    force_quirks: bool,
+    pub name: Option<String>,
+    pub public_ident: Option<String>,
+    pub system_ident: Option<String>,
+    pub force_quirks: bool,
 }
 
 #[derive(Debug)]
 pub struct TagData {
-    opening: bool,
-    name: String,
-    self_closing: bool,
-    attributes: Vec<(String, String)>,
+    pub opening: bool,
+    pub name: String,
+    pub self_closing: bool,
+    pub attributes: Vec<(String, String)>,
 }
 
 impl TagData {
@@ -178,7 +179,12 @@ impl<'source> Tokenizer<'source> {
     }
 
     fn emit(&mut self, token: Token) {
-        if let Token::Tag(TagData { opening: true, name, .. }) = &token {
+        if let Token::Tag(TagData {
+            opening: true,
+            name,
+            ..
+        }) = &token
+        {
             self.last_emitted_start_tag_name = Some(name.clone());
         }
         self.token_buffer.push_back(token);
@@ -218,7 +224,14 @@ impl<'source> Tokenizer<'source> {
         // * the token currently being emitted is an end token
         // * the name of the end token matches that of the start token
         match (&self.last_emitted_start_tag_name, &self.current_token) {
-            (Some(open_name), Some(Token::Tag(TagData{opening: false, name: close_name, .. }))) => open_name == close_name,
+            (
+                Some(open_name),
+                Some(Token::Tag(TagData {
+                    opening: false,
+                    name: close_name,
+                    ..
+                })),
+            ) => open_name == close_name,
             _ => false,
         }
     }
@@ -328,20 +341,20 @@ impl<'source> Tokenizer<'source> {
                     }
                 }
             }
-            TokenizerState::PLAINTEXTState => {
-                match self.read_next() {
-                    Some('\0') => {
-                        // Unexpected null character parse error - emit replacement token
-                        self.emit(Token::Character(UNICODE_REPLACEMENT));
-                    }
-                    Some(c) => {
-                        self.emit(Token::Character(c));
-                    }
-                    None => {
-                        self.emit(Token::EOF);
-                    }
-                }
-            }
+            // TokenizerState::PLAINTEXTState => {
+            //     match self.read_next() {
+            //         Some('\0') => {
+            //             // Unexpected null character parse error - emit replacement token
+            //             self.emit(Token::Character(UNICODE_REPLACEMENT));
+            //         }
+            //         Some(c) => {
+            //             self.emit(Token::Character(c));
+            //         }
+            //         None => {
+            //             self.emit(Token::EOF);
+            //         }
+            //     }
+            // }
             TokenizerState::TagOpenState => {
                 match self.read_next() {
                     Some('!') => {
@@ -361,7 +374,7 @@ impl<'source> Tokenizer<'source> {
                         self.ptr -= 1; // reconsume current character
                         self.switch_to(TokenizerState::BogusCommentState);
                     }
-                    Some(c) => {
+                    Some(_) => {
                         // invalid-first-character-of-tag-name
                         self.ptr -= 1; // reconsume current token
                         self.switch_to(TokenizerState::DataState);
@@ -385,7 +398,7 @@ impl<'source> Tokenizer<'source> {
                         // missing-end-tag-name parse error
                         self.switch_to(TokenizerState::DataState);
                     }
-                    Some(c) => {
+                    Some(_) => {
                         // invalid-first-character-of-tag-name parse error
                         self.current_token = Some(Token::Comment(String::default()));
                         self.ptr -= 1; // reconsume current character
@@ -937,8 +950,7 @@ impl<'source> Tokenizer<'source> {
                     }
                     Some('\0') => {
                         // unexpected null character parse error
-                        self.get_current_tag()
-                            .add_to_attr_name(UNICODE_REPLACEMENT);
+                        self.get_current_tag().add_to_attr_name(UNICODE_REPLACEMENT);
                     }
                     Some(c @ ('"' | '\'' | '<')) => {
                         // unexpected character in attribute name parse error
@@ -963,7 +975,7 @@ impl<'source> Tokenizer<'source> {
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
                     }
-                    Some(c) => {
+                    Some(_) => {
                         self.get_current_tag().new_attribute();
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::AttributeNameState);
@@ -1086,7 +1098,7 @@ impl<'source> Tokenizer<'source> {
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
                     }
-                    Some(c) => {
+                    Some(_) => {
                         // missing whitespace between attributes parse error
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::BeforeAttributeNameState);
@@ -1104,7 +1116,7 @@ impl<'source> Tokenizer<'source> {
                         self.get_current_tag().self_closing = true;
                         self.emit_current_token();
                     }
-                    Some(c) => {
+                    Some(_) => {
                         // unexpected solidus in tag parse error
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::BeforeAttributeNameState);
@@ -1120,29 +1132,29 @@ impl<'source> Tokenizer<'source> {
                     Some('>') => {
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
+                    }
                     Some('\0') => {
                         // unexpected null character parse error
                         self.get_current_comment().push(UNICODE_REPLACEMENT);
-                    },
+                    }
                     Some(c) => {
                         self.get_current_comment().push(c);
-                    },
+                    }
                     None => {
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::MarkupDeclarationOpenState => {
-                if &self.source[self.ptr..self.ptr+2] == "--" {
+                if &self.source[self.ptr..self.ptr + 2] == "--" {
                     self.ptr += 2;
                     self.current_token = Some(Token::Comment(String::default()));
                     self.switch_to(TokenizerState::CommentStartState);
-                } else if self.source[self.ptr..self.ptr+7].eq_ignore_ascii_case("DOCTYPE") {
+                } else if self.source[self.ptr..self.ptr + 7].eq_ignore_ascii_case("DOCTYPE") {
                     self.ptr += 7;
                     self.switch_to(TokenizerState::DOCTYPEState);
-                } else if &self.source[self.ptr..self.ptr+7] == "[CDATA[" {
+                } else if &self.source[self.ptr..self.ptr + 7] == "[CDATA[" {
                     self.ptr += 7;
                     todo!();
                 } else {
@@ -1150,103 +1162,97 @@ impl<'source> Tokenizer<'source> {
                     self.current_token = Some(Token::Comment(String::default()));
                     self.switch_to(TokenizerState::BogusCommentState);
                 }
-            },
+            }
             TokenizerState::CommentStartState => {
                 match self.read_next() {
                     Some('-') => {
                         self.switch_to(TokenizerState::CommentStartDashState);
-                    },
+                    }
                     Some('>') => {
                         // abrupt closing of empty comment parse error
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
+                    }
                     _ => {
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::CommentState);
                     }
                 }
-            },
+            }
             TokenizerState::CommentStartDashState => {
                 match self.read_next() {
                     Some('-') => {
                         self.switch_to(TokenizerState::CommentEndState);
-                    },
+                    }
                     Some('>') => {
                         // abrupt closing of empty comment parse error
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         self.get_current_comment().push('-');
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::CommentState);
-                    },
+                    }
                     None => {
                         // eof in comment parse error
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::CommentState => {
                 match self.read_next() {
                     Some('>') => {
                         self.get_current_comment().push('<');
                         self.switch_to(TokenizerState::CommentLessThanSignState);
-                    },
+                    }
                     Some('-') => {
                         self.switch_to(TokenizerState::CommentEndDashState);
-                    },
+                    }
                     Some('\0') => {
                         // unexpected null character parse error
                         self.get_current_comment().push(UNICODE_REPLACEMENT);
-                    },
+                    }
                     Some(c) => {
                         self.get_current_comment().push(c);
-                    },
+                    }
                     None => {
                         // eof in comment parse error
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
-                }
-            },
-            TokenizerState::CommentLessThanSignState => {
-                match self.read_next() {
-                    Some('!') => {
-                        self.get_current_comment().push('!');
-                        self.switch_to(TokenizerState::CommentLessThanSignBangState);
-                    },
-                    Some('<') => {
-                        self.get_current_comment().push('<');
-                    },
-                    _ => {
-                        self.ptr -= 1;
-                        self.switch_to(TokenizerState::CommentState);
                     }
                 }
-            },
-            TokenizerState::CommentLessThanSignBangState => {
-                match self.read_next() {
-                    Some('-') => {
-                        self.switch_to(TokenizerState::CommentLessThanSignBangDashState);
-                    },
-                    _ => {
-                        self.ptr -= 1;
-                        self.switch_to(TokenizerState::CommentState);
-                    },
+            }
+            TokenizerState::CommentLessThanSignState => match self.read_next() {
+                Some('!') => {
+                    self.get_current_comment().push('!');
+                    self.switch_to(TokenizerState::CommentLessThanSignBangState);
+                }
+                Some('<') => {
+                    self.get_current_comment().push('<');
+                }
+                _ => {
+                    self.ptr -= 1;
+                    self.switch_to(TokenizerState::CommentState);
                 }
             },
-            TokenizerState::CommentLessThanSignBangDashState =>{
-                match self.read_next() {
-                    Some('-') => {
-                        self.switch_to(TokenizerState::CommentLessThanSignBangDashDashState);
-                    },
-                    _ => {
-                        self.ptr -= 1;
-                        self.switch_to(TokenizerState::CommentEndDashState);
-                    },
+            TokenizerState::CommentLessThanSignBangState => match self.read_next() {
+                Some('-') => {
+                    self.switch_to(TokenizerState::CommentLessThanSignBangDashState);
+                }
+                _ => {
+                    self.ptr -= 1;
+                    self.switch_to(TokenizerState::CommentState);
+                }
+            },
+            TokenizerState::CommentLessThanSignBangDashState => match self.read_next() {
+                Some('-') => {
+                    self.switch_to(TokenizerState::CommentLessThanSignBangDashDashState);
+                }
+                _ => {
+                    self.ptr -= 1;
+                    self.switch_to(TokenizerState::CommentEndDashState);
                 }
             },
             TokenizerState::CommentLessThanSignBangDashDashState => {
@@ -1254,44 +1260,44 @@ impl<'source> Tokenizer<'source> {
                     Some('>') | None => {
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::CommentEndState);
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         // nested comment parse error
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::CommentEndState);
                     }
                 }
-            },
+            }
             TokenizerState::CommentEndDashState => {
                 match self.read_next() {
                     Some('-') => {
                         self.switch_to(TokenizerState::CommentEndState);
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         self.get_current_comment().push('-');
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::CommentState);
-                    },
+                    }
                     None => {
                         // eof in comment parse error
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::CommentEndState => {
                 match self.read_next() {
                     Some('>') => {
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
+                    }
                     Some('!') => {
                         self.switch_to(TokenizerState::CommentEndBangState);
-                    },
+                    }
                     Some('-') => {
                         self.get_current_comment().push('-');
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         self.get_current_comment().push_str("--");
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::CommentState);
@@ -1300,138 +1306,147 @@ impl<'source> Tokenizer<'source> {
                         // eof in comment parse error
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::CommentEndBangState => {
                 match self.read_next() {
                     Some('-') => {
                         self.get_current_comment().push_str("--!");
                         self.switch_to(TokenizerState::CommentEndDashState);
-                    },
+                    }
                     Some('>') => {
                         // incorrectly closed comment parse error
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         self.get_current_comment().push_str("--!");
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::CommentState);
-                    },
+                    }
                     None => {
                         // eof in comment parse error
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::DOCTYPEState => {
                 match self.read_next() {
                     //       tab       line feed    form feed     space
                     Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {
                         self.switch_to(TokenizerState::BeforeDOCTYPENameState);
-                    },
+                    }
                     Some('>') => {
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::BeforeDOCTYPENameState);
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         // missing whitespace before doctype name parse error
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::BeforeDOCTYPENameState);
-                    },
+                    }
                     None => {
                         // eof in doctype parse error
                         self.current_token = Some(Token::DOCTYPE(Doctype::default()));
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::BeforeDOCTYPENameState => {
                 // Note: this code potentially emits tokens *without* modifying self.current_token!
                 let mut doctype_token = Doctype::default();
 
                 match self.read_next() {
                     //       tab       line feed    form feed     space
-                    Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {},
+                    Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {}
                     Some(c @ 'A'..='Z') => {
                         doctype_token.name = Some(c.to_ascii_lowercase().to_string());
                         self.current_token = Some(Token::DOCTYPE(doctype_token));
                         self.switch_to(TokenizerState::DOCTYPENameState);
-                    },
+                    }
                     Some('\0') => {
                         // unexpected null character parse error
                         doctype_token.name = Some(UNICODE_REPLACEMENT.to_string());
                         self.current_token = Some(Token::DOCTYPE(doctype_token));
                         self.switch_to(TokenizerState::DOCTYPENameState);
-                    },
+                    }
                     Some('>') => {
                         // missing doctype name parse error
                         doctype_token.force_quirks = true;
                         self.emit(Token::DOCTYPE(doctype_token));
                         self.switch_to(TokenizerState::DataState);
-                    },
+                    }
                     Some(c) => {
                         doctype_token.name = Some(c.to_string());
                         self.current_token = Some(Token::DOCTYPE(doctype_token));
                         self.switch_to(TokenizerState::DOCTYPENameState);
-                    },
+                    }
                     None => {
                         // eof in doctype parse error
                         doctype_token.force_quirks = true;
                         self.emit(Token::DOCTYPE(doctype_token));
                         self.emit(Token::EOF)
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::DOCTYPENameState => {
                 match self.read_next() {
                     //       tab       line feed    form feed     space
                     Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {
                         self.switch_to(TokenizerState::AfterDOCTYPENameState);
-                    },
+                    }
                     Some('>') => {
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
+                    }
                     Some(c @ 'A'..='Z') => {
-                        self.get_current_doctype().name.as_mut().map(|name| name.push(c.to_ascii_lowercase()));
-                    },
+                        self.get_current_doctype()
+                            .name
+                            .as_mut()
+                            .map(|name| name.push(c.to_ascii_lowercase()));
+                    }
                     Some('\0') => {
                         // unexpected null character parse error
-                        self.get_current_doctype().name.as_mut().map(|name| name.push(UNICODE_REPLACEMENT));
-                    },
+                        self.get_current_doctype()
+                            .name
+                            .as_mut()
+                            .map(|name| name.push(UNICODE_REPLACEMENT));
+                    }
                     Some(c) => {
-                        self.get_current_doctype().name.as_mut().map(|name| name.push(c));
-                    },
+                        self.get_current_doctype()
+                            .name
+                            .as_mut()
+                            .map(|name| name.push(c));
+                    }
                     None => {
                         // eof in doctype parse error
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::AfterDOCTYPENameState => {
                 match self.read_next() {
                     //       tab       line feed    form feed     space
-                    Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {},
+                    Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {}
                     Some('>') => {
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
+                    }
                     None => {
                         // eof in doctype parse error
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                     Some(_) => {
                         self.ptr -= 1;
-                        let next_six_chars = &self.source[self.ptr..self.ptr+6];
+                        let next_six_chars = &self.source[self.ptr..self.ptr + 6];
                         if next_six_chars.eq_ignore_ascii_case("PUBLIC") {
                             self.ptr += 6;
                             self.switch_to(TokenizerState::AfterDOCTYPEPublicKeywordState);
@@ -1447,393 +1462,406 @@ impl<'source> Tokenizer<'source> {
                         }
                     }
                 }
-            },
+            }
             TokenizerState::AfterDOCTYPEPublicKeywordState => {
                 match self.read_next() {
                     //       tab       line feed    form feed     space
                     Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {
                         self.switch_to(TokenizerState::BeforeDOCTYPEPublicIdentifierState);
-                    },
+                    }
                     Some('"') => {
                         // missing whitespace after doctype public keyword parse error
                         self.get_current_doctype().public_ident = Some(String::new());
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierDoublequotedState);
-                    },
+                    }
                     Some('\'') => {
                         // missing whitespace after doctype public keyword parse error
                         self.get_current_doctype().public_ident = Some(String::new());
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierSinglequotedState);
-                    },
+                    }
                     Some('>') => {
                         // missing doctype public identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         // missing quote before doctype public identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::BogusDOCTYPEState);
-                    },
+                    }
                     None => {
                         // eof in doctype parse error
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::BeforeDOCTYPEPublicIdentifierState => {
                 match self.read_next() {
                     //       tab       line feed    form feed     space
-                    Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {},
+                    Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {}
                     Some('"') => {
                         self.get_current_doctype().public_ident = Some(String::new());
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierDoublequotedState);
-                    },
+                    }
                     Some('\'') => {
                         self.get_current_doctype().public_ident = Some(String::new());
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierSinglequotedState);
-                    },
+                    }
                     Some('>') => {
                         // missing doctype public identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         // missing quote before doctype public identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::BogusDOCTYPEState);
-                    },
+                    }
                     None => {
                         // eof in doctype parse error
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::DOCTYPEPublicIdentifierDoublequotedState => {
                 match self.read_next() {
                     Some('"') => {
                         self.switch_to(TokenizerState::AfterDOCTYPEPublicIdentifierState);
-                    },
+                    }
                     Some('\0') => {
                         // unexpected null character parse error
-                        self.get_current_doctype().public_ident.as_mut()
+                        self.get_current_doctype()
+                            .public_ident
+                            .as_mut()
                             .map(|ident| ident.push(UNICODE_REPLACEMENT));
-                    },
+                    }
                     Some('>') => {
                         // abrupt doctype public identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
+                    }
                     Some(c) => {
-                        self.get_current_doctype().public_ident.as_mut()
+                        self.get_current_doctype()
+                            .public_ident
+                            .as_mut()
                             .map(|ident| ident.push(c));
-                    },
+                    }
                     None => {
                         // eof in doctype parse error
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::DOCTYPEPublicIdentifierSinglequotedState => {
                 match self.read_next() {
                     Some('\'') => {
                         self.switch_to(TokenizerState::AfterDOCTYPEPublicIdentifierState);
-                    },
+                    }
                     Some('\0') => {
                         // unexpected null character parse error
-                        self.get_current_doctype().public_ident.as_mut()
+                        self.get_current_doctype()
+                            .public_ident
+                            .as_mut()
                             .map(|ident| ident.push(UNICODE_REPLACEMENT));
-                    },
+                    }
                     Some('>') => {
                         // abrupt doctype public identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
+                    }
                     Some(c) => {
-                        self.get_current_doctype().public_ident.as_mut()
+                        self.get_current_doctype()
+                            .public_ident
+                            .as_mut()
                             .map(|ident| ident.push(c));
-                    },
+                    }
                     None => {
                         // eof in doctype parse error
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::AfterDOCTYPEPublicIdentifierState => {
                 match self.read_next() {
                     //       tab       line feed    form feed     space
                     Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {
-                        self.switch_to(TokenizerState::BetweenDOCTYPEPublicAndSystemIdentifiersState);
-                    },
+                        self.switch_to(
+                            TokenizerState::BetweenDOCTYPEPublicAndSystemIdentifiersState,
+                        );
+                    }
                     Some('>') => {
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
+                    }
                     Some('"') => {
                         // missing whitespace between doctype public and system identifiers parse error
                         self.get_current_doctype().system_ident = Some(String::new());
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequotedState);
-                    },
+                    }
                     Some('\'') => {
                         // missing whitespace between doctype public and system identifiers parse error
                         self.get_current_doctype().system_ident = Some(String::new());
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequotedState);
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         // missing quote before doctype system identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::BogusDOCTYPEState);
-                    },
+                    }
                     None => {
                         // eof in doctype parse error
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::BetweenDOCTYPEPublicAndSystemIdentifiersState => {
                 match self.read_next() {
                     //       tab       line feed    form feed     space
-                    Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {},
+                    Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {}
                     Some('>') => {
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
+                    }
                     Some('"') => {
                         self.get_current_doctype().system_ident = Some(String::new());
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequotedState);
-                    },
+                    }
                     Some('\'') => {
                         self.get_current_doctype().system_ident = Some(String::new());
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequotedState);
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         // missing quote before doctype system identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::BogusDOCTYPEState);
-                    },
+                    }
                     None => {
                         // eof in doctype parse error
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::AfterDOCTYPESystemKeywordState => {
                 match self.read_next() {
                     //       tab       line feed    form feed     space
                     Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {
                         self.switch_to(TokenizerState::BeforeDOCTYPESystemIdentifierState);
-                    },
+                    }
                     Some('"') => {
                         // missing whitespace after doctype system keyword parse error
                         self.get_current_doctype().system_ident = Some(String::new());
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequotedState);
-                    },
+                    }
                     Some('\'') => {
                         // missing whitespace after doctype system keyword parse error
                         self.get_current_doctype().system_ident = Some(String::new());
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequotedState);
-                    },
+                    }
                     Some('>') => {
                         // missing doctype system identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         // missing quote before doctype system identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::BogusDOCTYPEState);
-                    },
+                    }
                     None => {
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
-
+                    }
                 }
-            },
+            }
             TokenizerState::BeforeDOCTYPESystemIdentifierState => {
                 match self.read_next() {
                     //       tab       line feed    form feed     space
-                    Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {},
+                    Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {}
                     Some('"') => {
                         self.get_current_doctype().system_ident = Some(String::new());
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequotedState);
-                    },
+                    }
                     Some('\'') => {
                         self.get_current_doctype().system_ident = Some(String::new());
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequotedState);
-                    },
+                    }
                     Some('>') => {
                         // missing doctype system identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         // missing quote before doctype system identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::BogusDOCTYPEState);
-                    },
+                    }
                     None => {
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::DOCTYPESystemIdentifierDoublequotedState => {
                 match self.read_next() {
                     Some('"') => {
                         self.switch_to(TokenizerState::AfterDOCTYPESystemIdentifierState);
-                    },
+                    }
                     Some('\0') => {
                         // unexpected null character parse error
-                        self.get_current_doctype().system_ident.as_mut()
+                        self.get_current_doctype()
+                            .system_ident
+                            .as_mut()
                             .map(|ident| ident.push(UNICODE_REPLACEMENT));
-                    },
+                    }
                     Some('>') => {
                         // abrupt doctype system identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
+                    }
                     Some(c) => {
-                        self.get_current_doctype().system_ident.as_mut()
+                        self.get_current_doctype()
+                            .system_ident
+                            .as_mut()
                             .map(|ident| ident.push(c));
-                    },
+                    }
                     None => {
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::DOCTYPESystemIdentifierSinglequotedState => {
                 match self.read_next() {
                     Some('\'') => {
                         self.switch_to(TokenizerState::AfterDOCTYPESystemIdentifierState);
-                    },
+                    }
                     Some('\0') => {
                         // unexpected null character parse error
-                        self.get_current_doctype().system_ident.as_mut()
+                        self.get_current_doctype()
+                            .system_ident
+                            .as_mut()
                             .map(|ident| ident.push(UNICODE_REPLACEMENT));
-                    },
+                    }
                     Some('>') => {
                         // abrupt doctype system identifier parse error
                         self.get_current_doctype().force_quirks = true;
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
+                    }
                     Some(c) => {
-                        self.get_current_doctype().system_ident.as_mut()
+                        self.get_current_doctype()
+                            .system_ident
+                            .as_mut()
                             .map(|ident| ident.push(c));
-                    },
+                    }
                     None => {
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::AfterDOCTYPESystemIdentifierState => {
                 match self.read_next() {
                     //       tab       line feed    form feed     space
-                    Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {},
+                    Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {}
                     Some('>') => {
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
-                    Some(c) => {
+                    }
+                    Some(_) => {
                         // unexpected character after doctype system identifier parse error
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::BogusDOCTYPEState);
-                    },
+                    }
                     None => {
                         // eof in doctype parse error
                         self.get_current_doctype().force_quirks = true;
                         self.emit_current_token();
                         self.emit(Token::EOF);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::BogusDOCTYPEState => {
                 match self.read_next() {
                     Some('>') => {
                         self.switch_to(TokenizerState::DataState);
                         self.emit_current_token();
-                    },
+                    }
                     Some('\0') => {
                         // unexpected null character parse error
-                    },
-                    Some(_) => {},
+                    }
+                    Some(_) => {}
                     None => {
                         self.emit_current_token();
                         self.emit(Token::EOF);
                     }
                 }
-            },
-            TokenizerState::CDATASectionState =>  {
+            }
+            TokenizerState::CDATASectionState => {
                 match self.read_next() {
                     Some(']') => {
                         self.switch_to(TokenizerState::CDATASectionBracketState);
-                    },
+                    }
                     Some(c) => {
                         self.emit(Token::Character(c));
-                    },
+                    }
                     None => {
                         // eof in cdata parse error
                         self.emit(Token::EOF);
-                    },
+                    }
+                }
+            }
+            TokenizerState::CDATASectionBracketState => match self.read_next() {
+                Some(']') => {
+                    self.switch_to(TokenizerState::CDATASectionEndState);
+                }
+                _ => {
+                    self.emit(Token::Character(']'));
+                    self.ptr -= 1;
+                    self.switch_to(TokenizerState::CDATASectionState);
                 }
             },
-            TokenizerState::CDATASectionBracketState => {
-                match self.read_next() {
-                    Some(']') => {
-                        self.switch_to(TokenizerState::CDATASectionEndState);
-                    },
-                    _ => {
-                        self.emit(Token::Character(']'));
-                        self.ptr -= 1;
-                        self.switch_to(TokenizerState::CDATASectionState);
-                    },
+            TokenizerState::CDATASectionEndState => match self.read_next() {
+                Some(']') => {
+                    self.emit(Token::Character(']'));
                 }
-            },
-            TokenizerState::CDATASectionEndState => {
-                match self.read_next() {
-                    Some(']') => {
-                        self.emit(Token::Character(']'));
-                    },
-                    Some('>') => {
-                        self.switch_to(TokenizerState::DataState);
-                    },
-                    _ => {
-                        self.emit(Token::Character(']'));
-                        self.emit(Token::Character(']'));
-                        self.ptr -= 1;
-                        self.switch_to(TokenizerState::CDATASectionState);
-                    },
+                Some('>') => {
+                    self.switch_to(TokenizerState::DataState);
+                }
+                _ => {
+                    self.emit(Token::Character(']'));
+                    self.emit(Token::Character(']'));
+                    self.ptr -= 1;
+                    self.switch_to(TokenizerState::CDATASectionState);
                 }
             },
             TokenizerState::CharacterReferenceState => {
@@ -1842,11 +1870,11 @@ impl<'source> Tokenizer<'source> {
                     Some('a'..='z' | 'A'..='Z' | '0'..='9') => {
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::NamedCharacterReferenceState);
-                    },
+                    }
                     Some('#') => {
                         self.add_to_buffer('#');
                         self.switch_to(TokenizerState::NumericCharacterReferenceState);
-                    },
+                    }
                     _ => {
                         // we are supposed to flush the buffer as tokens - but we just set it to "&".
                         // Let's just emit a single '&' token i guess?
@@ -1854,85 +1882,85 @@ impl<'source> Tokenizer<'source> {
                         self.emit(Token::Character('&'));
                         self.ptr -= 1;
                         self.switch_to(self.return_state.unwrap());
-                    },
-
+                    }
                 }
-            },
+            }
             TokenizerState::NamedCharacterReferenceState => {
                 match match_reference(&self.source[self.ptr..]) {
                     Some(unicode_val) => {
+                        _ = unicode_val;
                         todo!();
-                    },
+                    }
                     None => {
                         self.switch_to(TokenizerState::AmbiguousAmpersandState);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::AmbiguousAmpersandState => {
                 match self.read_next() {
                     Some(c @ ('a'..='z' | 'A'..='Z' | '0'..='9')) => {
-                        todo!();
                         let was_consumed_as_part_of_attr = false;
                         if was_consumed_as_part_of_attr {
                             self.get_current_tag().add_to_attr_value(c);
                         } else {
                             self.emit(Token::Character(c));
                         }
-                    },
+                        todo!();
+                    }
                     Some(';') => {
                         // unknown named character reference parse error
                         self.ptr -= 1;
                         self.switch_to(self.return_state.unwrap());
-                    },
+                    }
                     _ => {
                         self.ptr -= 1;
                         self.switch_to(self.return_state.unwrap());
                     }
                 }
-            },
+            }
             TokenizerState::NumericCharacterReferenceState => {
                 self.character_reference_code = 0;
                 match self.read_next() {
                     Some(c @ ('X' | 'x')) => {
                         self.add_to_buffer(c);
                         self.switch_to(TokenizerState::HexadecimalCharacterReferenceStartState);
-                    },
+                    }
                     _ => {
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::DecimalCharacterReferenceStartState);
                     }
                 }
-            },
+            }
             TokenizerState::HexadecimalCharacterReferenceStartState => {
                 match self.read_next() {
                     Some('0'..='9' | 'a'..='f' | 'A'..='F') => {
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::HexadecimalCharacterReferenceState);
-                    },
+                    }
                     _ => {
                         // absence of digits in numeric character reference parse error
-                        todo!();
                         // flush code points consumed as a character reference
                         self.ptr -= 1;
                         self.switch_to(self.return_state.unwrap());
+                        todo!();
                     }
                 }
-            },
+            }
             TokenizerState::DecimalCharacterReferenceStartState => {
                 match self.read_next() {
                     Some('0'..='9') => {
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::DecimalCharacterReferenceState);
-                    },
+                    }
                     _ => {
                         // absence of digits in numeric character reference parse error
-                        todo!();
                         // flush code points consumed as a character reference
                         self.ptr -= 1;
                         self.switch_to(self.return_state.unwrap());
+                        todo!();
                     }
                 }
-            },
+            }
             TokenizerState::HexadecimalCharacterReferenceState => {
                 match self.read_next() {
                     Some(c @ ('0'..='9' | 'a'..='f' | 'A'..='F')) => {
@@ -1941,14 +1969,14 @@ impl<'source> Tokenizer<'source> {
                     }
                     Some(';') => {
                         self.switch_to(TokenizerState::NumericCharacterReferenceEndState);
-                    },
+                    }
                     _ => {
                         // missing semicolon after character reference parse error
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::NumericCharacterReferenceEndState);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::DecimalCharacterReferenceState => {
                 match self.read_next() {
                     Some(c @ '0'..='9') => {
@@ -1957,112 +1985,168 @@ impl<'source> Tokenizer<'source> {
                     }
                     Some(';') => {
                         self.switch_to(TokenizerState::NumericCharacterReferenceEndState);
-                    },
+                    }
                     _ => {
                         // missing semicolon after character reference parse error
                         self.ptr -= 1;
                         self.switch_to(TokenizerState::NumericCharacterReferenceEndState);
-                    },
+                    }
                 }
-            },
+            }
             TokenizerState::NumericCharacterReferenceEndState => {
                 match self.character_reference_code {
                     0x00 => {
                         // null character reference parse error
                         self.character_reference_code = 0xFFFD;
-                    },
-                    0x10FFFF.. => {
+                    }
+                    0x110000.. => {
                         // character reference outside unicode range parse error
                         self.character_reference_code = 0xFFFD;
-                    },
+                    }
                     // check for surrogates
                     0xD800..=0xDFFF => {
                         // surrogate character reference parse error
                         self.character_reference_code = 0xFFFD;
-                    },
+                    }
                     // check for noncharacters
                     0xFDD0..=0xFDEF
-                        | 0x0FFFE
-                        | 0x0FFFF
-                        | 0x1FFFE
-                        | 0x1FFFF
-                        | 0x2FFFE
-                        | 0x2FFFF
-                        | 0x3FFFE
-                        | 0x3FFFF
-                        | 0x4FFFE
-                        | 0x4FFFF
-                        | 0x5FFFE
-                        | 0x5FFFF
-                        | 0x6FFFE
-                        | 0x6FFFF
-                        | 0x7FFFE
-                        | 0x7FFFF
-                        | 0x8FFFE
-                        | 0x8FFFF
-                        | 0x9FFFE
-                        | 0x9FFFF
-                        | 0xAFFFE
-                        | 0xAFFFF
-                        | 0xBFFFE
-                        | 0xBFFFF
-                        | 0xCFFFE
-                        | 0xCFFFF
-                        | 0xDFFFE
-                        | 0xDFFFF
-                        | 0xEFFFE
-                        | 0xEFFFF
-                        | 0xFFFFE
-                        | 0xFFFFF
-                        | 0x10FFFE
-                        | 0x10FFFF => {
+                    | 0x0FFFE
+                    | 0x0FFFF
+                    | 0x1FFFE
+                    | 0x1FFFF
+                    | 0x2FFFE
+                    | 0x2FFFF
+                    | 0x3FFFE
+                    | 0x3FFFF
+                    | 0x4FFFE
+                    | 0x4FFFF
+                    | 0x5FFFE
+                    | 0x5FFFF
+                    | 0x6FFFE
+                    | 0x6FFFF
+                    | 0x7FFFE
+                    | 0x7FFFF
+                    | 0x8FFFE
+                    | 0x8FFFF
+                    | 0x9FFFE
+                    | 0x9FFFF
+                    | 0xAFFFE
+                    | 0xAFFFF
+                    | 0xBFFFE
+                    | 0xBFFFF
+                    | 0xCFFFE
+                    | 0xCFFFF
+                    | 0xDFFFE
+                    | 0xDFFFF
+                    | 0xEFFFE
+                    | 0xEFFFF
+                    | 0xFFFFE
+                    | 0xFFFFF
+                    | 0x10FFFE
+                    | 0x10FFFF => {
                         // noncharacter character reference parse error
                         self.character_reference_code = 0xFFFD;
-                    },
+                    }
                     c @ (0x0D | 0xC0 | 0x007F..=0x009F) => {
                         //       tab       line feed    form feed     space
                         if c != 0x009 || c != 0x000A || c != 0x000C || c != 0x0020 {
                             // control character reference parse error
                             match c {
-                                0x80 => { self.character_reference_code = 0x20AC; },
-                                0x82 => { self.character_reference_code = 0x201A; },
-                                0x83 => { self.character_reference_code = 0x0192; },
-                                0x84 => { self.character_reference_code = 0x201E; },
-                                0x85 => { self.character_reference_code = 0x2026; },
-                                0x86 => { self.character_reference_code = 0x2020; },
-                                0x87 => { self.character_reference_code = 0x2021; },
-                                0x88 => { self.character_reference_code = 0x02C6; },
-                                0x89 => { self.character_reference_code = 0x2030; },
-                                0x8A => { self.character_reference_code = 0x0160; },
-                                0x8B => { self.character_reference_code = 0x2039; },
-                                0x8C => { self.character_reference_code = 0x0152; },
-                                0x8E => { self.character_reference_code = 0x017D; },
-                                0x91 => { self.character_reference_code = 0x2018; },
-                                0x92 => { self.character_reference_code = 0x2019; },
-                                0x93 => { self.character_reference_code = 0x201C; },
-                                0x94 => { self.character_reference_code = 0x201D; },
-                                0x95 => { self.character_reference_code = 0x2022; },
-                                0x96 => { self.character_reference_code = 0x2013; },
-                                0x97 => { self.character_reference_code = 0x2014; },
-                                0x98 => { self.character_reference_code = 0x02DC; },
-                                0x99 => { self.character_reference_code = 0x2122; },
-                                0x9A => { self.character_reference_code = 0x0161; },
-                                0x9B => { self.character_reference_code = 0x203A; },
-                                0x9C => { self.character_reference_code = 0x0153; },
-                                0x9E => { self.character_reference_code = 0x017E; },
-                                0x9F => { self.character_reference_code = 0x0178; },
-                                _ => {}, // no mapping
+                                0x80 => {
+                                    self.character_reference_code = 0x20AC;
+                                }
+                                0x82 => {
+                                    self.character_reference_code = 0x201A;
+                                }
+                                0x83 => {
+                                    self.character_reference_code = 0x0192;
+                                }
+                                0x84 => {
+                                    self.character_reference_code = 0x201E;
+                                }
+                                0x85 => {
+                                    self.character_reference_code = 0x2026;
+                                }
+                                0x86 => {
+                                    self.character_reference_code = 0x2020;
+                                }
+                                0x87 => {
+                                    self.character_reference_code = 0x2021;
+                                }
+                                0x88 => {
+                                    self.character_reference_code = 0x02C6;
+                                }
+                                0x89 => {
+                                    self.character_reference_code = 0x2030;
+                                }
+                                0x8A => {
+                                    self.character_reference_code = 0x0160;
+                                }
+                                0x8B => {
+                                    self.character_reference_code = 0x2039;
+                                }
+                                0x8C => {
+                                    self.character_reference_code = 0x0152;
+                                }
+                                0x8E => {
+                                    self.character_reference_code = 0x017D;
+                                }
+                                0x91 => {
+                                    self.character_reference_code = 0x2018;
+                                }
+                                0x92 => {
+                                    self.character_reference_code = 0x2019;
+                                }
+                                0x93 => {
+                                    self.character_reference_code = 0x201C;
+                                }
+                                0x94 => {
+                                    self.character_reference_code = 0x201D;
+                                }
+                                0x95 => {
+                                    self.character_reference_code = 0x2022;
+                                }
+                                0x96 => {
+                                    self.character_reference_code = 0x2013;
+                                }
+                                0x97 => {
+                                    self.character_reference_code = 0x2014;
+                                }
+                                0x98 => {
+                                    self.character_reference_code = 0x02DC;
+                                }
+                                0x99 => {
+                                    self.character_reference_code = 0x2122;
+                                }
+                                0x9A => {
+                                    self.character_reference_code = 0x0161;
+                                }
+                                0x9B => {
+                                    self.character_reference_code = 0x203A;
+                                }
+                                0x9C => {
+                                    self.character_reference_code = 0x0153;
+                                }
+                                0x9E => {
+                                    self.character_reference_code = 0x017E;
+                                }
+                                0x9F => {
+                                    self.character_reference_code = 0x0178;
+                                }
+                                _ => {} // no mapping
                             }
                         }
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 }
-                self.buffer = Some(char::from_u32(self.character_reference_code).unwrap().to_string());
-                todo!(); // flush, again
+                self.buffer = Some(
+                    char::from_u32(self.character_reference_code)
+                        .unwrap()
+                        .to_string(),
+                );
                 self.switch_to(self.return_state.unwrap());
-
-            },
-            _ => unimplemented!("{:?}", self.state),
+                todo!(); // flush, again
+            }
         }
     }
 }
