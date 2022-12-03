@@ -35,7 +35,7 @@ pub struct BinaryExpression {
 }
 
 impl ASTNode for Identifier {
-    fn traverse(&self, interpreter: &mut JSInterpreter) {
+    fn traverse(&self, _interpreter: &mut JSInterpreter) {
         todo!();
     }
 }

@@ -45,7 +45,7 @@ pub fn to_uint32(input: JSType) -> JSCompletionRecord<IntegralNumber> {
     JSCompletionRecord::normal(int as IntegralNumber)
 }
 
-pub fn string_to_number(s: String) -> Number {
+pub fn string_to_number(_s: String) -> Number {
     todo!();
 }
 

@@ -1,9 +1,5 @@
 //! Implements the JS Number type according to https://262.ecma-international.org/13.0
 
-use crate::{
-    abstract_ops,
-};
-
 pub type IntegralNumber = i64;
 
 #[derive(Debug, PartialOrd, PartialEq)]
@@ -59,8 +55,8 @@ impl Number {
         }
     }
 
-    pub fn bitwise_not(x: Self) -> Self {
-        let old = todo!("Let oldValue be ! ToInt32(x).");
+    pub fn bitwise_not(_x: Self) -> Self {
+        todo!("Let oldValue be ! ToInt32(x).");
     }
 
     pub fn exponentiate(base: Self, exponent: Self) -> Self {
