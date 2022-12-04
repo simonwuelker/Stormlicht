@@ -8,6 +8,7 @@ pub mod tokenizer;
 use parser::Parser;
 
 const HTML: &'static str = "\
+<!DOCTYPE html>
 <html>
 <body id=abc>
 Hello World
@@ -15,5 +16,6 @@ Hello World
 </html>";
 
 fn main() {
+    env_logger::init();
     Parser::new(&HTML).parse();
 }
