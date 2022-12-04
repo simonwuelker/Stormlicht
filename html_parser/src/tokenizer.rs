@@ -87,7 +87,7 @@ pub enum TokenizerState {
     NumericCharacterReferenceEndState,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Token {
     DOCTYPE(Doctype),
     Tag(TagData),
@@ -97,7 +97,7 @@ pub enum Token {
     EOF,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Doctype {
     pub name: Option<String>,
     pub public_ident: Option<String>,
@@ -105,7 +105,7 @@ pub struct Doctype {
     pub force_quirks: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TagData {
     pub opening: bool,
     pub name: String,
@@ -149,7 +149,7 @@ impl TagData {
 
 pub struct Tokenizer<'source> {
     source: &'source str,
-    state: TokenizerState,
+    pub state: TokenizerState,
     ptr: usize,
     pub done: bool,
     token_buffer: VecDeque<Token>,
@@ -251,15 +251,14 @@ impl<'source> Tokenizer<'source> {
     /// Sets the current state to a specific state.
     /// All state transitions should call this method, which will
     /// ease debugging.
-    fn switch_to(&mut self, state: TokenizerState) {
-        // println!("Switching to {:?}", state);
+    pub fn switch_to(&mut self, state: TokenizerState) {
         self.state = state;
     }
 
+    /// Reads the next character from the input strea,
     fn read_next(&mut self) -> Option<char> {
         let c = self.source[self.ptr..].chars().nth(0);
         self.ptr += 1;
-        // println!("reading {:?}", c);
         c
     }
 

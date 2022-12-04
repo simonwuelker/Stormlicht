@@ -6,7 +6,6 @@ pub mod parser;
 pub mod tokenizer;
 
 use parser::Parser;
-use tokenizer::Tokenizer;
 
 const HTML: &'static str = "\
 <html>
@@ -16,10 +15,5 @@ Hello World
 </html>";
 
 fn main() {
-    let mut tokenizer = Tokenizer::new(&HTML);
-    let mut parser = Parser::new();
-    while let Some(t) = tokenizer.next() {
-        println!("emitted {:?}", t);
-        parser.consume(t);
-    }
+    Parser::new(&HTML).parse();
 }

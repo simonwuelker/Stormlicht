@@ -1,5 +1,5 @@
 use crate::dom::{DOMNode, DOMNodeType, SharedDOMNode};
-use crate::tokenizer::{TagData, Token};
+use crate::tokenizer::{Tokenizer, TokenizerState, TagData, Token};
 
 #[derive(Debug, Clone, Copy)]
 pub enum InsertionMode {
@@ -28,18 +28,33 @@ pub enum InsertionMode {
     AfterAfterFrameset,
 }
 
-pub struct Parser {
+pub struct Parser<'source> {
+    tokenizer: Tokenizer<'source>,
+    /// When the insertion mode is switched to "text" or "in table text", the original insertion
+    /// mode is also set. This is the insertion mode to which the tree construction stage will
+    /// return.
+    original_insertion_mode: Option<InsertionMode>,
     insertion_mode: InsertionMode,
     open_elements: Vec<SharedDOMNode>,
     head: Option<SharedDOMNode>,
+    scripting: bool,
 }
 
-impl Parser {
-    pub fn new() -> Self {
+impl<'source> Parser<'source> {
+    pub fn new(source: &'source str) -> Self {
         Self {
+            tokenizer: Tokenizer::new(source),
+            original_insertion_mode: None,
             insertion_mode: InsertionMode::Initial,
             open_elements: vec![DOMNode::new(DOMNodeType::Document).to_shared()],
             head: None,
+            scripting: false,
+        }
+    }
+
+    pub fn parse(mut self) {
+        while let Some(token) = self.tokenizer.next() {
+            self.consume(token);
         }
     }
 
@@ -160,14 +175,151 @@ impl Parser {
                     _ => self.before_head_anything_else(token),
                 }
             }
-            InsertionMode::InHead => match token {
-                Token::Character(c @ ('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}')) => {
-                    self.current_node().borrow().add_text(c.to_string());
+            InsertionMode::InHead => {
+                match token {
+                    Token::Character(c @ ('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}')) => {
+                        self.current_node().borrow().add_text(c.to_string());
+                    },
+                    Token::Comment(data) => DOMNode::add_child(
+                        self.current_node().clone(),
+                        DOMNode::new(DOMNodeType::Comment {
+                            data: data,
+                        })
+                        .to_shared(),
+                    ),
+                    Token::DOCTYPE(_) => {} // parse error, ignore token
+                    Token::Tag(tagdata @ TagData { opening: true, .. }) => {
+                        match tagdata.name.as_str() {
+                            "html" => {
+                                // Process the token using the rules for the "in body" insertion mode.
+                                self.consume_in_mode(InsertionMode::InBody, Token::Tag(tagdata));
+                            },
+                            "base" | "basefont" | "bgsound" | "link" => {
+                                // Insert an HTML element for the token. Immediately pop the
+                                // current node off the stack of open elements.
+                                //
+                                // Acknowledge the token's self-closing flag, if it is set.
+                                DOMNode::add_child(self.current_node().clone(), DOMNode::from(tagdata).to_shared());
+                            }
+                            "meta" => {
+                                // Insert an HTML element for the token. Immediately pop the current
+                                // node off the stack of open elements.
+                                //
+                                // Acknowledge the token's self-closing flag, if it is set.
+                                //
+                                // If the active speculative HTML parser is null, then:
+                                //
+                                //     If the element has a charset attribute, and getting an encoding
+                                //     from its value results in an encoding, and the confidence is
+                                //     currently tentative, then change the encoding to the resulting
+                                //     encoding.
+                                //
+                                //     Otherwise, if the element has an http-equiv attribute whose
+                                //     value is an ASCII case-insensitive match for the string
+                                //     "Content-Type", and the element has a content attribute, and
+                                //     applying the algorithm for extracting a character encoding
+                                //     from a meta element to that attribute's value returns an
+                                //     encoding, and the confidence is currently tentative, then
+                                //     change the encoding to the extracted encoding.
+                                let meta_node = DOMNode::new(DOMNodeType::Meta).to_shared();
+                                DOMNode::add_child(self.current_node().clone(), meta_node);
+                            }
+                            "title" => {
+                                // Follow the generic RCDATA element parsing algorithm.
+                                self.generic_rcdata_element_parsing_algorithm(tagdata);
+                            },
+                            "noscript" => {
+                                if self.scripting {
+                                    // Follow the generic raw text element parsing algorithm.
+                                    self.generic_raw_text_element_parsing_algorithm(tagdata);
+                                } else {
+                                    // Insert an HTML element for the token.
+                                    let domnode = DOMNode::new(DOMNodeType::NoScript).to_shared();
+                                    DOMNode::add_child(self.current_node().clone(), domnode);
+
+                                    // Switch the insertion mode to "in head noscript".
+                                    self.insertion_mode = InsertionMode::InHeadNoscript;
+                                }
+                            },
+                            "noframes" | "style" => {
+                                // Follow the generic raw text element parsing algorithm.
+                                self.generic_raw_text_element_parsing_algorithm(tagdata);
+                            },
+                            "script" => unimplemented!(),
+                            "template" => {
+                                // Insert an HTML element for the token.
+                                let domnode = DOMNode::new(DOMNodeType::Template).to_shared();
+                                DOMNode::add_child(self.current_node().clone(), domnode);
+
+                                // Insert a marker at the end of the list of active formatting
+                                // elements.
+                                todo!();
+
+                                // Set the frameset-ok flag to "not ok".
+                                // todo!();
+
+                                // Switch the insertion mode to "in template".
+                                // self.insertion_mode = InsertionMode::InTemplate;
+
+                                // Push "in template" onto the stack of template insertion modes so
+                                // that it is the new current template insertion mode.
+                                // todo!();
+                            },
+                            "head" => {}, // Parse error, ignore the token
+                            _ => self.in_head_anything_else(Token::Tag(tagdata))
+                        }
+                    },
+                    Token::Tag(tagdata @ TagData { opening: false, .. }) => {
+                        match tagdata.name.as_str() {
+                            "head" => {
+                                // Pop the current node (which will be the head element) off the stack of open elements.
+                                let top_node = self.open_elements.pop();
+                                assert!(top_node.is_some());
+                                assert_eq!(top_node.unwrap().borrow().node_type, DOMNodeType::Head);
+
+                                // Switch the insertion mode to "after head".
+                                self.insertion_mode = InsertionMode::AfterHead;
+                            },
+                            "body" | "html" | "br" => self.in_head_anything_else(Token::Tag(tagdata)),
+                            "template" => todo!(),
+                            _ => {}, // Parse error. Ignore the token.
+                        }
+                    },
+                    _ => self.in_head_anything_else(token.clone()),
                 }
-                _ => unimplemented!(),
-            },
+            }
             _ => todo!(),
         }
+    }
+
+    fn generic_rcdata_element_parsing_algorithm(&mut self, tagdata: TagData) {
+        // Insert an HTML element for the token.
+        let domnode = DOMNode::from(tagdata).to_shared();
+        DOMNode::add_child(self.current_node().clone(), domnode);
+
+        // switch the tokenizer to the RCDATA state.
+        self.tokenizer.switch_to(TokenizerState::RCDATAState);
+
+        // Let the original insertion mode be the current insertion mode.
+        self.original_insertion_mode = Some(self.insertion_mode);
+
+        // Then, switch the insertion mode to "text".
+        self.insertion_mode = InsertionMode::Text;
+    }
+
+    fn generic_raw_text_element_parsing_algorithm(&mut self, tagdata: TagData) {
+        // Insert an HTML element for the token.
+        let domnode = DOMNode::from(tagdata).to_shared();
+        DOMNode::add_child(self.current_node().clone(), domnode);
+
+        // switch the tokenizer to the RCDATA state.
+        self.tokenizer.switch_to(TokenizerState::RAWTEXTState);
+
+        // Let the original insertion mode be the current insertion mode.
+        self.original_insertion_mode = Some(self.insertion_mode);
+
+        // Then, switch the insertion mode to "text".
+        self.insertion_mode = InsertionMode::Text;
     }
 
     fn before_html_anything_else(&mut self, token: Token) {
@@ -185,5 +337,19 @@ impl Parser {
         self.open_elements.push(head);
         self.insertion_mode = InsertionMode::InHead;
         self.consume(token); // reconsume
+    }
+
+    fn in_head_anything_else(&mut self, token: Token) {
+        // Pop the current node (which will be the head element) off the stack of open elements.
+        let top_node = self.open_elements.pop();
+        assert!(top_node.is_some());
+        assert_eq!(top_node.unwrap().borrow().node_type, DOMNodeType::Head);
+
+        // Switch the insertion mode to "after head".
+        self.insertion_mode = InsertionMode::AfterHead;
+
+        // Reprocess the token.
+        self.consume(token);
+
     }
 }

@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use crate::tokenizer::TagData;
 
 pub type SharedDOMNode = Rc<RefCell<DOMNode>>;
 
@@ -7,11 +8,12 @@ pub type SharedDOMNode = Rc<RefCell<DOMNode>>;
 pub struct DOMNode {
     /// None for the root document node
     parent: Option<(SharedDOMNode, usize)>,
-    node_type: DOMNodeType,
+    pub node_type: DOMNodeType,
     children: Vec<SharedDOMNode>,
 }
 
 // node specific behaviour goes here
+#[derive(Debug, PartialEq)]
 pub enum DOMNodeType {
     Document,
     Comment {
@@ -25,6 +27,15 @@ pub enum DOMNodeType {
     Html,
     Head,
     Text(String),
+    Base,
+    BaseFont,
+    BGSound,
+    Link,
+    Meta,
+    Title,
+    NoScript,
+    Template,
+    Foreign(String),
 }
 
 impl DOMNode {
@@ -73,5 +84,27 @@ impl DOMNode {
             let text_node = DOMNode::new(DOMNodeType::Text(text)).to_shared();
             Self::add_child(parent.clone(), text_node);
         }
+    }
+}
+
+impl From<TagData> for DOMNode {
+    fn from(from: TagData) -> Self {
+        // Note that not all DOMNode's can be constructed from tagdata
+        // For example, comments or DOCTYPEs cannot be created
+        let domnode_type = match from.name.as_str() {
+            "document" => DOMNodeType::Document,
+            "html" => DOMNodeType::Html,
+            "head" => DOMNodeType::Head,
+            "base" => DOMNodeType::Base,
+            "basefont" => DOMNodeType::BaseFont,
+            "bgsound" => DOMNodeType::BGSound,
+            "link" => DOMNodeType::Link,
+            "meta" => DOMNodeType::Meta,
+            "title" => DOMNodeType::Title,
+            "noscript" => DOMNodeType::NoScript,
+            "template" => DOMNodeType::Template,
+            _ => DOMNodeType::Foreign(from.name),
+        };
+        DOMNode::new(domnode_type)
     }
 }
