@@ -5,6 +5,7 @@ use std::rc::Rc;
 pub type SharedDOMNode = Rc<RefCell<DOMNode>>;
 
 // behaviour that is shared by all dom nodes goes here
+#[derive(Debug, PartialEq)]
 pub struct DOMNode {
     /// None for the root document node
     parent: Option<(SharedDOMNode, usize)>,
@@ -35,6 +36,15 @@ pub enum DOMNodeType {
     Title,
     NoScript,
     Template,
+    Body,
+    Frameset,
+    P,
+    H1,
+    H2,
+    H3,
+    H4,
+    H5,
+    H6,
     Foreign(String),
 }
 
@@ -103,6 +113,15 @@ impl From<TagData> for DOMNode {
             "title" => DOMNodeType::Title,
             "noscript" => DOMNodeType::NoScript,
             "template" => DOMNodeType::Template,
+            "body" => DOMNodeType::Body,
+            "frameset" => DOMNodeType::Frameset,
+            "p" => DOMNodeType::P,
+            "h1" => DOMNodeType::H1,
+            "h2" => DOMNodeType::H2,
+            "h3" => DOMNodeType::H3,
+            "h4" => DOMNodeType::H4,
+            "h5" => DOMNodeType::H5,
+            "h6" => DOMNodeType::H6,
             _ => DOMNodeType::Foreign(from.name),
         };
         DOMNode::new(domnode_type)
