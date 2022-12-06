@@ -9,7 +9,7 @@ pub enum TokenizerState {
     RCDATAState,
     RAWTEXTState,
     ScriptDataState,
-    // PLAINTEXTState,
+    PLAINTEXTState,
     TagOpenState,
     EndTagOpenState,
     TagNameState,
@@ -364,24 +364,24 @@ impl<'source> Tokenizer<'source> {
                     }
                 }
             }
-            // TokenizerState::PLAINTEXTState => {
-            //     // Consume the next input character:
-            //     match self.read_next() {
-            //         Some('\0') => {
-            //             // This is an unexpected-null-character parse error.
-            //             // Emit the current input character as a character token.
-            //             self.emit(Token::Character(UNICODE_REPLACEMENT));
-            //         }
-            //         Some(c) => {
-            //             // Emit the current input character as a character token.
-            //             self.emit(Token::Character(c));
-            //         }
-            //         None => {
-            //             // Emit an end-of-file token.
-            //             self.emit(Token::EOF);
-            //         }
-            //     }
-            // }
+            TokenizerState::PLAINTEXTState => {
+                // Consume the next input character:
+                match self.read_next() {
+                    Some('\0') => {
+                        // This is an unexpected-null-character parse error.
+                        // Emit the current input character as a character token.
+                        self.emit(Token::Character(UNICODE_REPLACEMENT));
+                    }
+                    Some(c) => {
+                        // Emit the current input character as a character token.
+                        self.emit(Token::Character(c));
+                    }
+                    None => {
+                        // Emit an end-of-file token.
+                        self.emit(Token::EOF);
+                    }
+                }
+            }
             TokenizerState::TagOpenState => {
                 // Consume the next input character:
                 match self.read_next() {

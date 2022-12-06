@@ -4,6 +4,15 @@ use crate::tokenizer::{TagData, Token, Tokenizer, TokenizerState};
 const DEFAULT_SCOPE: Vec<DOMNodeType> = vec![]; // FIXME
 const BUTTON_SCOPE: Vec<DOMNodeType> = vec![]; // FIXME
 
+const HEADINGS: [DOMNodeType; 6] = [
+    DOMNodeType::H1,
+    DOMNodeType::H2,
+    DOMNodeType::H3,
+    DOMNodeType::H4,
+    DOMNodeType::H5,
+    DOMNodeType::H6,
+];
+
 #[derive(Debug, Clone, Copy)]
 pub enum InsertionMode {
     Initial,
@@ -41,6 +50,7 @@ pub struct Parser<'source> {
     open_elements: Vec<SharedDOMNode>,
     head: Option<SharedDOMNode>,
     scripting: bool,
+    done: bool,
 }
 
 impl<'source> Parser<'source> {
@@ -52,13 +62,19 @@ impl<'source> Parser<'source> {
             open_elements: vec![DOMNode::new(DOMNodeType::Document).to_shared()],
             head: None,
             scripting: false,
+            done: false,
         }
     }
 
-    pub fn parse(mut self) {
+    pub fn parse(mut self) -> SharedDOMNode {
         while let Some(token) = self.tokenizer.next() {
             self.consume(token);
+
+            if self.done {
+                break;
+            }
         }
+        return self.open_elements[0].clone();
     }
 
     fn current_node(&self) -> &SharedDOMNode {
@@ -71,6 +87,7 @@ impl<'source> Parser<'source> {
     }
 
     fn consume_in_mode(&mut self, mode: InsertionMode, token: Token) {
+        log::info!("Consuming {:?} in {:?}", token, mode);
         match mode {
             InsertionMode::Initial => {
                 match token {
@@ -192,7 +209,7 @@ impl<'source> Parser<'source> {
                 match token {
                     Token::Character(c @ ('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}')) => {
                         // Insert the character.
-                        self.current_node().borrow().add_text(c.to_string());
+                        DOMNode::add_text(self.current_node(), c.to_string());
                     }
                     Token::Comment(data) => {
                         // Insert a comment.
@@ -413,7 +430,7 @@ impl<'source> Parser<'source> {
                     //                        tab       line feed    form feed     space
                     Token::Character(c @ ('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}')) => {
                         // Insert the character.
-                        self.current_node().borrow_mut().add_text(c.to_string());
+                        DOMNode::add_text(self.current_node(), c.to_string());
                     }
                     Token::Comment(data) => {
                         // Insert a comment.
@@ -507,7 +524,7 @@ impl<'source> Parser<'source> {
                         // Reconstruct the active formatting elements, if any.
 
                         // Insert the character.
-                        self.current_node().borrow().add_text(c.to_string());
+                        DOMNode::add_text(self.current_node(), c.to_string());
                     }
                     Token::Comment(data) => {
                         // Insert a comment.
@@ -592,11 +609,11 @@ impl<'source> Parser<'source> {
                         //     element, or the html element, then this is a parse error.
                         //
                         //     Stop parsing.
-                        // FIXME how do we stop parsing?
+                        self.done = true;
                     }
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "body" => {
                         // If the stack of open elements does not have a body element in scope
-                        if !self.is_element_in_scope(DOMNodeType::Body, DEFAULT_SCOPE) {
+                        if !self.is_element_in_scope(&DOMNodeType::Body, DEFAULT_SCOPE) {
                         }
                         // , this is a parse error; ignore the token.
                         else {
@@ -616,7 +633,7 @@ impl<'source> Parser<'source> {
 
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "body" => {
                         // If the stack of open elements does not have a body element in scope
-                        if !self.is_element_in_scope(DOMNodeType::Body, DEFAULT_SCOPE) {
+                        if !self.is_element_in_scope(&DOMNodeType::Body, DEFAULT_SCOPE) {
                         }
                         // , this is a parse error; ignore the token.
                         else {
@@ -675,18 +692,287 @@ impl<'source> Parser<'source> {
                                 || tagdata.name == "h6") =>
                     {
                         // If the stack of open elements has a p element in button scope
-                        if self.is_element_in_scope(DOMNodeType::P, BUTTON_SCOPE) {
+                        if self.is_element_in_scope(&DOMNodeType::P, BUTTON_SCOPE) {
                             // , then close a p element.
                             self.close_p_element();
+                        }
 
-                            // If the current node is an HTML element whose tag name is one of
-                            // "h1", "h2", "h3", "h4", "h5", or "h6"
+                        // If the current node is an HTML element whose tag name is one of
+                        // "h1", "h2", "h3", "h4", "h5", or "h6"
+                        if HEADINGS.iter().any(|h| h == &self.current_node().borrow().node_type) {
+                            // , then this is a parse error; 
+                            // pop the current node off the stack of open elements.
+                            self.open_elements.pop();
+                        }
+
+                        // Insert an HTML element for the token.
+                        let domnode = DOMNode::from(tagdata).to_shared();
+                        DOMNode::add_child(self.current_node().clone(), domnode.clone());
+                        self.open_elements.push(domnode);
+                    }
+                    Token::Tag(tagdata) if tagdata.opening && (tagdata.name == "pre" || tagdata.name == "listing") => {
+                        // If the stack of open elements has a p element in button scope
+                        if self.is_element_in_scope(&DOMNodeType::P, BUTTON_SCOPE) {
+                            // , then close a p element.
+                            self.close_p_element();
+                        }
+
+                        // Insert an HTML element for the token.
+                        let domnode = DOMNode::from(tagdata).to_shared();
+                        DOMNode::add_child(self.current_node().clone(), domnode.clone());
+                        self.open_elements.push(domnode);
+
+                        // If the next token is a U+000A LINE FEED (LF) character token, then
+                        // ignore that token and move on to the next one. (Newlines at the start of
+                        // pre blocks are ignored as an authoring convenience.)
+                        let next_token_or_none = self.tokenizer.next();
+                        match next_token_or_none {
+                            Some(Token::Character('\n')) | None => {},
+                            Some(next_token) => self.consume(next_token),
+                        }
+
+                        // Set the frameset-ok flag to "not ok".
+                        // FIXME we don't have a frameset-ok flag
+                    }
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "form" => {
+                        // If the form element pointer is not null, and there is no template
+                        // element on the stack of open elements, then this is a parse error;
+                        // ignore the token.
+                        // FIXME
+
+                        // If the stack of open elements has a p element in button scope
+                        if self.is_element_in_scope(&DOMNodeType::P, BUTTON_SCOPE) {
+                            // , then close a p element.
+                            self.close_p_element();
+                        }
+
+                        // Insert an HTML element for the token
+                        let domnode = DOMNode::new(DOMNodeType::Form).to_shared();
+                        DOMNode::add_child(self.current_node().clone(), domnode.clone());
+                        self.open_elements.push(domnode);
+
+                        // if there is no template element on the stack of open elements, set the
+                        // form element pointer to point to the element created.
+                        // FIXME
+                    }
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "li" => todo!("handle li"),
+                    Token::Tag(tagdata) if tagdata.opening && (tagdata.name == "dd" || tagdata.name == "dt") => 
+                        todo!("handle dd/dt"),
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "plaintext" => {
+                        // If the stack of open elements has a p element in button scope
+                        if self.is_element_in_scope(&DOMNodeType::P, BUTTON_SCOPE) {
+                            // , then close a p element.
+                            self.close_p_element();
+                        }
+
+                        // Insert an HTML element for the token.
+                        let domnode = DOMNode::new(DOMNodeType::Plaintext).to_shared();
+                        DOMNode::add_child(self.current_node().clone(), domnode.clone());
+                        self.open_elements.push(domnode);
+
+                        // Switch the tokenizer to the PLAINTEXT state.
+                        // NOTE: Once a start tag with the tag name "plaintext" has been seen, that will
+                        // be the last token ever seen other than character tokens (and the end-of-file
+                        // token), because there is no way to switch out of the PLAINTEXT state.
+                        self.tokenizer.switch_to(TokenizerState::PLAINTEXTState);
+                    }
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "button" => {
+                        // If the stack of open elements has a button element in scope
+                        if self.is_element_in_scope(&DOMNodeType::Button, DEFAULT_SCOPE) {
+                            // Parse error.
+
+                            // Generate implied end tags.
+                            self.generate_implied_end_tags();
+
+                            // Pop elements from the stack of open elements until a button element has
+                            // been popped from the stack.
+                            while let Some(node) = self.open_elements.pop() {
+                                if matches!(node.borrow().node_type, DOMNodeType::Button) {
+                                    break;
+                                }
+                            }
+                        }
+                        // Reconstruct the active formatting elements, if any.
+                        // FIXME
+
+                        // Insert an HTML element for the token.
+                        let domnode = DOMNode::new(DOMNodeType::Button).to_shared();
+                        DOMNode::add_child(self.current_node().clone(), domnode.clone());
+                        self.open_elements.push(domnode);
+
+                        // Set the frameset-ok flag to "not ok".
+                        // FIXME
+                    },
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening
+                            && (tagdata.name == "address"
+                                || tagdata.name == "article"
+                                || tagdata.name == "aside"
+                                || tagdata.name == "blockquote"
+                                || tagdata.name == "center"
+                                || tagdata.name == "details"
+                                || tagdata.name == "dialog"
+                                || tagdata.name == "dir"
+                                || tagdata.name == "div"
+                                || tagdata.name == "dl"
+                                || tagdata.name == "fieldset"
+                                || tagdata.name == "figcaption"
+                                || tagdata.name == "figure"
+                                || tagdata.name == "footer"
+                                || tagdata.name == "header"
+                                || tagdata.name == "hgroup"
+                                || tagdata.name == "main"
+                                || tagdata.name == "menu"
+                                || tagdata.name == "nav"
+                                || tagdata.name == "ol"
+                                || tagdata.name == "p"
+                                || tagdata.name == "section"
+                                || tagdata.name == "summary"
+                                || tagdata.name == "ul") => todo!(),
+                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "form" => todo!(),
+                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "p" => {
+                        // If the stack of open elements does not have a p element in button scope
+                        if !self.is_element_in_scope(&DOMNodeType::P, DEFAULT_SCOPE) {
+                            // , then this is a parse error; insert an HTML element for a "p" start
+                            // tag token with no attributes.
+                            let domnode = DOMNode::new(DOMNodeType::P).to_shared();
+                            DOMNode::add_child(self.current_node().clone(), domnode.clone());
+                            self.open_elements.push(domnode);
+                        }
+
+                        // Close a p element.
+                        self.close_p_element();
+                    },
+                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "li" => todo!("handle li closing tag"),
+                    Token::Tag(ref tagdata) if !tagdata.opening && (tagdata.name == "dd"
+                                                                    || tagdata.name == "dt") => todo!("handle dd/dt closing tag"),
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening
+                            && (tagdata.name == "h1"
+                                || tagdata.name == "h2"
+                                || tagdata.name == "h3"
+                                || tagdata.name == "h4"
+                                || tagdata.name == "h5"
+                                || tagdata.name == "h6") => {
+                        // If the stack of open elements does not have an element in scope that is
+                        // an HTML element and whose tag name is one of "h1", "h2", "h3", "h4",
+                        // "h5", or "h6"
+                        let required = DOMNodeType::from(tagdata.name.as_str());
+                        if !self.is_element_in_scope(&required, DEFAULT_SCOPE) {
+                            // , then this is a parse error; ignore the token.
+                        } else {
+                            // Generate implied end tags.
+                            self.generate_implied_end_tags();
+
+                            // If the current node is not an HTML element with the same tag name as
+                            // that of the token, then this is a parse error.
+                            // FIXME i don't really care about parse errors right now
+
+                            // Pop elements from the stack of open elements until an HTML element
+                            // whose tag name is one of "h1", "h2", "h3", "h4", "h5", or "h6" has
+                            // been popped from the stack.
+                            while let Some(node) = self.open_elements.pop() {
+                                if node.borrow().node_type == required {
+                                    break;
+                                }
+                            }
                         }
                     }
+                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "a" => todo!("handle a tag opening"),
 
+                    // FIXME a lot of (for now) irrelevant rules are missing here
+                    Token::Tag(tagdata) if tagdata.opening => {
+                        // Reconstruct the active formatting elements, if any.
+                        // FIXME
+                        
+                        let domnode = DOMNode::from(tagdata).to_shared();
+                        DOMNode::add_child(self.current_node().clone(), domnode.clone());
+                        self.open_elements.push(domnode);
+                    }
+                    
                     _ => todo!(),
+                    
                 }
             }
+            InsertionMode::AfterBody => {
+                match token {
+                    //                   tab       line feed    form feed     space
+                    Token::Character('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {
+                        // Process the token using the rules for the "in body" insertion mode.
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                    },
+                    Token::Comment(data) => {
+                        // Insert a comment as the last child of the first element in the stack of
+                        // open elements (the html element).
+                        DOMNode::add_child(
+                            self.open_elements.first().unwrap().clone(),
+                            DOMNode::new(DOMNodeType::Comment {
+                                data: data.to_string(),
+                            })
+                            .to_shared(),
+                        )
+                    },
+                    Token::DOCTYPE(_) => {} // parse error, ignore token
+                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
+                        // Process the token using the rules for the "in body" insertion mode.
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                    }
+                    Token::Tag(tagdata) if !tagdata.opening && tagdata.name == "html" => {
+                        // FIXME
+                        // If the parser was created as part of the HTML fragment parsing
+                        // algorithm, this is a parse error; ignore the token. (fragment case)
+
+                        // Otherwise, switch the insertion mode to "after after body".
+                        self.insertion_mode = InsertionMode::AfterAfterBody;
+                    }
+                    Token::EOF => {
+                        // Stop parsing.
+                        self.done = true;
+                    }
+                    _ => {
+                        // Parse error. Switch the insertion mode to "in body" and reprocess the
+                        // token.
+                        self.insertion_mode = InsertionMode::InBody;
+                        self.consume(token);
+                    }
+                }
+            }
+            InsertionMode::AfterAfterBody => {
+                match token {
+                    Token::Comment(data) => {
+                        // Insert a comment as the last child of the Document object. FIXME is the
+                        // first element the document?
+                        DOMNode::add_child(
+                            self.open_elements.first().unwrap().clone(),
+                            DOMNode::new(DOMNodeType::Comment {
+                                data: data.to_string(),
+                            })
+                            .to_shared(),
+                        );
+                    }
+                    //                   tab       line feed    form feed     space
+                    Token::Character('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') |
+                    Token::DOCTYPE(_)  => {
+                        // Process the token using the rules for the "in body" insertion mode.
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                    }
+                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
+                        // Process the token using the rules for the "in body" insertion mode.
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                    }
+                    Token::EOF => {
+                        // Stop parsing.
+                        self.done = true;
+                    }
+                    _ => {
+                        // Parse error. Switch the insertion mode to "in body" and reprocess the
+                        // token.
+                        self.insertion_mode = InsertionMode::InBody;
+                        self.consume(token);
+                    }
+
+                }
+            },
             _ => todo!(),
         }
     }
@@ -721,7 +1007,7 @@ impl<'source> Parser<'source> {
         self.insertion_mode = InsertionMode::Text;
     }
 
-    fn is_element_in_scope(&self, target_node_type: DOMNodeType, scope: Vec<DOMNodeType>) -> bool {
+    fn is_element_in_scope(&self, target_node_type: &DOMNodeType, scope: Vec<DOMNodeType>) -> bool {
         // The stack of open elements is said to have an element target node in a specific scope
         // consisting of a list of element types list when the following algorithm terminates in a
         // match state:
@@ -732,7 +1018,7 @@ impl<'source> Parser<'source> {
             let node = &self.open_elements[index];
             let node_type = &node.borrow().node_type;
             // If node is the target node
-            if node_type == &target_node_type {
+            if node_type == target_node_type {
                 // , terminate in a match state.
                 return true;
             }
@@ -758,6 +1044,10 @@ impl<'source> Parser<'source> {
                 break;
             }
         }
+    }
+
+    fn generate_implied_end_tags(&mut self) {
+        self.generate_implied_end_tags_excluding(None);
     }
 
     fn generate_implied_end_tags_excluding(&mut self, exclude: Option<DOMNodeType>) {

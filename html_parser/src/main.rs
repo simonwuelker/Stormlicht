@@ -17,5 +17,6 @@ Hello World
 
 fn main() {
     env_logger::init();
-    Parser::new(&HTML).parse();
+    let document = Parser::new(&HTML).parse();
+    println!("{:?}", document.borrow());
 }
