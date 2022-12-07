@@ -1,4 +1,6 @@
 mod pixelbuffer;
+mod ttf;
+mod cmap;
 
 use pixelbuffer::{PixelBuffer, RendererTarget};
 
@@ -50,10 +52,14 @@ fn build_ui(application: &gtk::Application) {
 }
 
 fn main() {
-    let app = gtk::Application::builder()
-        .application_id("com.github.wuelle.iguana")
-        .build();
+    // Parse OpenSans font
+    let font_bytes = include_bytes!("../Envy Code R.ttf");
+    ttf::parse_font_face(font_bytes).unwrap();
 
-    app.connect_activate(build_ui);
-    app.run();
+    // let app = gtk::Application::builder()
+    //     .application_id("com.github.wuelle.iguana")
+    //     .build();
+
+    // app.connect_activate(build_ui);
+    // app.run();
 }
