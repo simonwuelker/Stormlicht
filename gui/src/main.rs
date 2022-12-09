@@ -1,6 +1,7 @@
 mod pixelbuffer;
 mod ttf;
 mod tables;
+mod quad_bezier;
 
 use pixelbuffer::{PixelBuffer, RendererTarget};
 
@@ -19,6 +20,7 @@ fn build_ui(application: &gtk::Application) {
         .build();
 
     let canvas = gtk::DrawingArea::new();
+
     canvas.set_draw_func(move |_area, context, viewport_width, viewport_height| {
         let format = cairo::Format::Rgb24;
         let stride = format.stride_for_width(viewport_width as u32).unwrap();
@@ -32,7 +34,8 @@ fn build_ui(application: &gtk::Application) {
             viewport_height as usize,
             stride as usize,
         );
-        pixelbuffer.fill((255, 255, 255));
+        pixelbuffer.fill((0, 255, 0));
+        pixelbuffer.line((10, 10), (300, 100), (255, 0, 0));
 
         let surface = cairo::ImageSurface::create_for_data(
             data,

@@ -1,4 +1,5 @@
 pub type Color = (u8, u8, u8);
+pub type Point = (usize, usize);
 
 pub struct PixelBuffer<'a> {
     data: &'a mut [u8],
@@ -19,6 +20,20 @@ pub trait RendererTarget {
             for y in 0..self.height() {
                 self.set_pixel(x, y, color);
             }
+        }
+    }
+
+    fn line(&mut self, from: Point, to: Point, color: Color) {
+        assert!(0 < from.0 && from.0 < self.width(), "X Coordinate outside of canvas");
+        assert!(0 < from.1 && from.1 < self.height(), "Y Coordinate outside of canvas");
+        assert!(from.0 <= to.0 && from.1 < to.1, "'to' must be further from origin than 'from'");
+
+        let d_x = to.0 - from.0;
+        let d_y = to.1 - from.1;
+
+        for x in 0..d_x {
+            let y = (d_y * x) / d_x;
+            self.set_pixel(from.0 + x, from.1 + y, color);
         }
     }
 }
