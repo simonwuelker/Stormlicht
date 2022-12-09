@@ -1,6 +1,6 @@
 mod pixelbuffer;
 mod ttf;
-mod cmap;
+mod tables;
 
 use pixelbuffer::{PixelBuffer, RendererTarget};
 
