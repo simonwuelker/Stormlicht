@@ -8,6 +8,13 @@ pub struct PixelBuffer<'a> {
     stride: usize,
 }
 
+pub struct RendererTargetView<T: RendererTarget> {
+    offset: Point,
+    inner: T,
+    width: usize,
+    height: usize,
+}
+
 /// Implementors may override default implementations if more performant solutions are available.
 pub trait RendererTarget {
     fn set_pixel(&mut self, x: usize, y: usize, color: Color);
@@ -49,6 +56,7 @@ impl<'a> PixelBuffer<'a> {
     }
 }
 
+
 impl<'a> RendererTarget for PixelBuffer<'a> {
     fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
         let index = y * self.stride + x * 4;
@@ -72,5 +80,37 @@ impl<'a> RendererTarget for PixelBuffer<'a> {
             self.data[4 * i + 1] = color.1;
             self.data[4 * i + 2] = color.0;
         }
+    }
+}
+
+impl<T: RendererTarget> RendererTarget for RendererTargetView<T> {
+    fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
+        if x > self.width() || y > self.height() {
+            return;
+        }
+        self.inner.set_pixel(self.offset.0 + x, self.offset.1 + y, color);
+    }
+
+    fn width(&self) -> usize {
+        self.width
+    }
+
+    fn height(&self) -> usize {
+        self.height
+    }
+}
+
+impl<T: RendererTarget> RendererTargetView<T> {
+    pub fn new(inner: T, offset: Point, width: usize, height: usize) -> Self {
+        Self {
+            offset: offset,
+            inner: inner,
+            width: width,
+            height: height,
+        }
+    }
+
+    pub fn release(self) -> T {
+        self.inner
     }
 }

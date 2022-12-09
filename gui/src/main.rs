@@ -3,7 +3,7 @@ mod ttf;
 mod tables;
 mod quad_bezier;
 
-use pixelbuffer::{PixelBuffer, RendererTarget};
+use pixelbuffer::{PixelBuffer, RendererTargetView, RendererTarget};
 
 use gtk::cairo;
 use gtk::prelude::*;
@@ -34,8 +34,13 @@ fn build_ui(application: &gtk::Application) {
             viewport_height as usize,
             stride as usize,
         );
+
         pixelbuffer.fill((0, 255, 0));
         pixelbuffer.line((10, 10), (300, 100), (255, 0, 0));
+
+        let mut view = RendererTargetView::new(pixelbuffer, (100, 100), 50, 100);
+        view.fill((0, 0, 255));
+        let pixelbuffer = view.release();
 
         let surface = cairo::ImageSurface::create_for_data(
             data,
@@ -56,13 +61,13 @@ fn build_ui(application: &gtk::Application) {
 
 fn main() {
     // Parse OpenSans font
-    let font_bytes = include_bytes!("../Envy Code R.ttf");
-    ttf::parse_font_face(font_bytes).unwrap();
+    // let font_bytes = include_bytes!("../Envy Code R.ttf");
+    // ttf::parse_font_face(font_bytes).unwrap();
 
-    // let app = gtk::Application::builder()
-    //     .application_id("com.github.wuelle.iguana")
-    //     .build();
+    let app = gtk::Application::builder()
+        .application_id("com.github.wuelle.iguana")
+        .build();
 
-    // app.connect_activate(build_ui);
-    // app.run();
+    app.connect_activate(build_ui);
+    app.run();
 }
