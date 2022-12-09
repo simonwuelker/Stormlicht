@@ -1,11 +1,8 @@
 [package]
-name = "browser"
+name = "font_rasterizer"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-http = { path = "../http" }
-log = "0.4"
-simple_logger = "4"

@@ -1,2 +1,2 @@
 [workspace]
-members = ["html_parser", "http", "browser", "js", "gui"]
+members = ["html_parser", "http", "js", "gui", "font_rasterizer"]

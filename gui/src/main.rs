@@ -1,7 +1,7 @@
 mod pixelbuffer;
-mod ttf;
-mod tables;
 mod quad_bezier;
+
+use font_rasterizer::ttf;
 
 use pixelbuffer::{PixelBuffer, RendererTargetView, RendererTarget};
 
@@ -61,8 +61,8 @@ fn build_ui(application: &gtk::Application) {
 
 fn main() {
     // Parse OpenSans font
-    // let font_bytes = include_bytes!("../Envy Code R.ttf");
-    // ttf::parse_font_face(font_bytes).unwrap();
+    let font_bytes = include_bytes!("../Envy Code R.ttf");
+    ttf::parse_font_face(font_bytes).unwrap();
 
     let app = gtk::Application::builder()
         .application_id("com.github.wuelle.iguana")
