@@ -1,9 +1,9 @@
-use crate::ttf::{read_i16_at, Readable, TTFParseError};
+use crate::ttf::{read_i16_at, TTFParseError};
 use std::fmt;
 
-pub struct Head<'a>(&'a [u8]);
+pub struct HeadTable<'a>(&'a [u8]);
 
-impl<'a> Head<'a> {
+impl<'a> HeadTable<'a> {
     pub fn new(data: &'a [u8], offset: usize) -> Self {
         Self(&data[offset..][..54])
     }
@@ -13,7 +13,7 @@ impl<'a> Head<'a> {
     }
 }
 
-impl<'a> fmt::Debug for Head<'a> {
+impl<'a> fmt::Debug for HeadTable<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Head Table")
             .field("index_to_loc_format", &self.index_to_loc_format())

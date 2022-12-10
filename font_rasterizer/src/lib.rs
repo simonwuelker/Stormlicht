@@ -1,4 +1,5 @@
 pub mod tables;
+pub mod target;
 pub mod ttf;
 
 use std::fmt;

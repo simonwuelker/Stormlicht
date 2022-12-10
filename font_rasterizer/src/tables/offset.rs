@@ -1,4 +1,4 @@
-use crate::ttf::{read_u16_at, read_u32_at, Readable, TTFParseError};
+use crate::ttf::{read_u16_at, read_u32_at, TTFParseError};
 use std::fmt;
 
 pub struct OffsetTable<'a>(&'a [u8]);
