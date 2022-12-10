@@ -14,7 +14,7 @@ pub struct CMAPTable<'a>(&'a [u8]);
 impl<'a> CMAPTable<'a> {
     /// You can technically construct a CMAPTable without calling this method.
     /// But using this will protect you from out of bound reads
-    pub fn new(data: &'a[u8], offset: usize) -> Self {
+    pub fn new(data: &'a [u8], offset: usize) -> Self {
         let num_subtables = read_u16_at(&data[offset..], 2) as usize;
         // 4 bytes header + 8 bytes per table
         Self(&data[offset..][..4 + num_subtables * 8])

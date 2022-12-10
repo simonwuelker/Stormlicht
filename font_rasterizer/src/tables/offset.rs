@@ -30,7 +30,7 @@ impl<'a> OffsetTable<'a> {
         read_u32_at(self.0, 8)
     }
 
-    pub fn get_table(&self, target_tag: u32) -> Option<TableEntry>{
+    pub fn get_table(&self, target_tag: u32) -> Option<TableEntry> {
         // Remove offset table header
         Self::get_table_inner(&self.0[12..], target_tag, self.search_range())
     }
@@ -94,7 +94,10 @@ impl<'a> TableEntry<'a> {
 impl<'a> fmt::Debug for TableEntry<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Table Entry")
-            .field("tag", &std::str::from_utf8(&self.tag().to_be_bytes()).unwrap())
+            .field(
+                "tag",
+                &std::str::from_utf8(&self.tag().to_be_bytes()).unwrap(),
+            )
             .field("checksum", &self.checksum())
             .field("offset", &self.offset())
             .field("length", &self.length())

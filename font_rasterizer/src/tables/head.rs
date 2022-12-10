@@ -1,7 +1,6 @@
 use crate::ttf::{read_i16_at, Readable, TTFParseError};
 use std::fmt;
 
-
 pub struct Head<'a>(&'a [u8]);
 
 impl<'a> Head<'a> {
