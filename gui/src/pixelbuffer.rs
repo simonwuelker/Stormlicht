@@ -31,9 +31,18 @@ pub trait RendererTarget {
     }
 
     fn line(&mut self, from: Point, to: Point, color: Color) {
-        assert!(0 < from.0 && from.0 < self.width(), "X Coordinate outside of canvas");
-        assert!(0 < from.1 && from.1 < self.height(), "Y Coordinate outside of canvas");
-        assert!(from.0 <= to.0 && from.1 < to.1, "'to' must be further from origin than 'from'");
+        assert!(
+            0 < from.0 && from.0 < self.width(),
+            "X Coordinate outside of canvas"
+        );
+        assert!(
+            0 < from.1 && from.1 < self.height(),
+            "Y Coordinate outside of canvas"
+        );
+        assert!(
+            from.0 <= to.0 && from.1 < to.1,
+            "'to' must be further from origin than 'from'"
+        );
 
         let d_x = to.0 - from.0;
         let d_y = to.1 - from.1;
@@ -42,6 +51,12 @@ pub trait RendererTarget {
             let y = (d_y * x) / d_x;
             self.set_pixel(from.0 + x, from.1 + y, color);
         }
+    }
+
+    fn quad_bezier(&mut self, p1: Point, p2: Point, p3: Point, color: Color) {
+        // Stub, only draws lines for now
+        self.line(p1, p2, color);
+        self.line(p2, p3, color);
     }
 }
 
@@ -55,7 +70,6 @@ impl<'a> PixelBuffer<'a> {
         }
     }
 }
-
 
 impl<'a> RendererTarget for PixelBuffer<'a> {
     fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
@@ -88,7 +102,8 @@ impl<T: RendererTarget> RendererTarget for RendererTargetView<T> {
         if x > self.width() || y > self.height() {
             return;
         }
-        self.inner.set_pixel(self.offset.0 + x, self.offset.1 + y, color);
+        self.inner
+            .set_pixel(self.offset.0 + x, self.offset.1 + y, color);
     }
 
     fn width(&self) -> usize {
