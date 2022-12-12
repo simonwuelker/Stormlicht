@@ -134,8 +134,10 @@ impl<'a> GlyphOutline<'a> {
     pub fn points(&'a self) -> GlyphPointIterator<'a> {
         // The iterator only needs the data from the flags onwards
         let first_flag_addr = 10 + self.num_contours() * 2 + 2 + self.instruction_length();
+        let contour_end_points = &self.data[10..][..self.num_contours() * 2];
 
         GlyphPointIterator::new(
+            contour_end_points,
             &self.data[first_flag_addr..],
             self.num_points(),
             self.x_starts_at,
@@ -206,6 +208,7 @@ impl GlyphFlag {
 #[derive(Debug)]
 pub struct GlyphPoint {
     pub is_on_curve: bool,
+    pub is_last_point_of_contour: bool,
     pub x: i16,
     pub y: i16,
 }
@@ -233,6 +236,7 @@ impl GlyphCoordinateType {
 }
 
 pub struct GlyphPointIterator<'a> {
+    contour_end_points: &'a [u8],
     data: &'a [u8],
     // TODO: make this an option (more idiomatic)
     // This requires error handling in the iterator
@@ -241,23 +245,28 @@ pub struct GlyphPointIterator<'a> {
     flag_index: usize,
     x_index: usize,
     y_index: usize,
-    points_remaining: usize,
     previous_x: i16,
     previous_y: i16,
+    points_emitted: usize,
+    contours_emitted: usize,
+    num_points: usize,
 }
 
 impl<'a> GlyphPointIterator<'a> {
-    pub fn new(data: &'a [u8], num_points: usize, x_starts_at: usize, y_starts_at: usize) -> Self {
+    pub fn new(contour_end_points: &'a [u8], data: &'a [u8], num_points: usize, x_starts_at: usize, y_starts_at: usize) -> Self {
         Self {
+            contour_end_points: contour_end_points,
             data: data,
             current_flag: GlyphFlag(0),
             times_to_repeat_flag: 0,
             flag_index: 0,
             x_index: x_starts_at,
             y_index: y_starts_at,
-            points_remaining: num_points,
             previous_x: 0,
             previous_y: 0,
+            points_emitted: 0,
+            contours_emitted: 0,
+            num_points: num_points,
         }
     }
 }
@@ -266,7 +275,7 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
     type Item = GlyphPoint;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.points_remaining == 0 {
+        if self.points_emitted == self.num_points {
             return None;
         }
         if self.times_to_repeat_flag == 0 {
@@ -305,11 +314,18 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
         let new_y = self.previous_y + delta_y;
         self.previous_y = new_y;
 
-        self.points_remaining -= 1;
-        Some(GlyphPoint {
+        let is_last_point = read_u16_at(self.contour_end_points, self.contours_emitted * 2) as usize == self.points_emitted;
+        if is_last_point {
+            self.contours_emitted += 1;
+        }
+
+        let glyph_point = GlyphPoint {
             is_on_curve: self.current_flag.is_on_curve(), // All other flags are just relevant for parsing
+            is_last_point_of_contour: is_last_point,
             x: new_x,
             y: new_y,
-        })
+        };
+        self.points_emitted += 1;
+        Some(glyph_point)
     }
 }
