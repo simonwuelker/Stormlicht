@@ -37,8 +37,10 @@ impl HTTPRequest {
         }
     }
 
-    pub fn write_to<W>(self, mut writer: W) -> std::io::Result<()> 
-    where W: std::io::Write {
+    pub fn write_to<W>(self, mut writer: W) -> std::io::Result<()>
+    where
+        W: std::io::Write,
+    {
         let method_name = match self.method {
             HTTPMethod::GET => b"GET".as_slice(),
             HTTPMethod::POST => b"POST".as_slice(),
@@ -74,10 +76,12 @@ mod tests {
         let mut request = HTTPRequest::new(HTTPMethod::GET, "/".to_string());
         request.set_header(HTTPHeader::UserAgent, "test".to_string());
         request.write_to(&mut tcpstream).unwrap();
-        assert_eq!(String::from_utf8(tcpstream).unwrap(), "\
+        assert_eq!(
+            String::from_utf8(tcpstream).unwrap(),
+            "\
         GET / HTTP/1.1\r\n\
         User-Agent: test\r\n\
-        \r\n");
+        \r\n"
+        );
     }
 }
-

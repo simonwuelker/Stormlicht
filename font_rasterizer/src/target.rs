@@ -6,7 +6,6 @@ pub struct Surface {
     data: Vec<u8>,
 }
 
-
 impl Surface {
     pub fn new(width: usize, height: usize) -> Self {
         Self {
@@ -17,7 +16,10 @@ impl Surface {
     }
 
     fn is_point_on_map(&self, point: Vec2D) -> bool {
-        point.x.is_sign_positive() && point.y.is_sign_positive() && (point.x.round() as usize) < self.width && (point.y.round() as usize) < self.height
+        point.x.is_sign_positive()
+            && point.y.is_sign_positive()
+            && (point.x.round() as usize) < self.width
+            && (point.y.round() as usize) < self.height
     }
 
     pub fn set_pixel(&mut self, point: Vec2D, value: u8) {
@@ -31,18 +33,10 @@ impl Surface {
         assert!(self.is_point_on_map(to));
 
         let delta_x = (to.x - from.x).abs();
-        let step_x = if from.x < to.x {
-            1.
-        } else {
-            -1.
-        };
+        let step_x = if from.x < to.x { 1. } else { -1. };
 
         let delta_y = -(to.y - from.y).abs();
-        let step_y = if from.y < to.y {
-            1.
-        } else {
-            -1.
-        };
+        let step_y = if from.y < to.y { 1. } else { -1. };
         let mut error = delta_x + delta_y;
 
         let mut current = from;
@@ -130,13 +124,10 @@ impl fmt::Debug for Vec2D {
 
 impl Vec2D {
     pub fn new(x: f32, y: f32) -> Self {
-        Self {
-            x: x,
-            y: y,
-        }
+        Self { x: x, y: y }
     }
 
-    pub fn lerp(a: Self, b: Self, t: f32) -> Self{
+    pub fn lerp(a: Self, b: Self, t: f32) -> Self {
         let delta_x = b.x - a.x;
         let delta_y = b.y - a.y;
 

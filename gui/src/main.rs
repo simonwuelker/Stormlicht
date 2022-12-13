@@ -68,8 +68,11 @@ fn main() {
         println!("{p:?}");
     }
     let mut surface = target::Surface::new(20, 20);
-    surface.quad_bezier(target::Vec2D::new(1., 1.), target::Vec2D::new(5., 10.),
-    target::Vec2D::new(15., 1.));
+    surface.quad_bezier(
+        target::Vec2D::new(1., 1.),
+        target::Vec2D::new(5., 10.),
+        target::Vec2D::new(15., 1.),
+    );
     println!("{}", surface);
 
     // let app = gtk::Application::builder()

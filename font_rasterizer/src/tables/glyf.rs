@@ -253,7 +253,13 @@ pub struct GlyphPointIterator<'a> {
 }
 
 impl<'a> GlyphPointIterator<'a> {
-    pub fn new(contour_end_points: &'a [u8], data: &'a [u8], num_points: usize, x_starts_at: usize, y_starts_at: usize) -> Self {
+    pub fn new(
+        contour_end_points: &'a [u8],
+        data: &'a [u8],
+        num_points: usize,
+        x_starts_at: usize,
+        y_starts_at: usize,
+    ) -> Self {
         Self {
             contour_end_points: contour_end_points,
             data: data,
@@ -314,7 +320,9 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
         let new_y = self.previous_y + delta_y;
         self.previous_y = new_y;
 
-        let is_last_point = read_u16_at(self.contour_end_points, self.contours_emitted * 2) as usize == self.points_emitted;
+        let is_last_point = read_u16_at(self.contour_end_points, self.contours_emitted * 2)
+            as usize
+            == self.points_emitted;
         if is_last_point {
             self.contours_emitted += 1;
         }

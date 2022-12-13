@@ -2,12 +2,8 @@
 
 use nom::{
     bytes::streaming::{tag, take_while},
-    character::{
-        is_alphabetic, 
-        is_digit,
-        streaming::space0,
-    },
-    combinator::{map_res},
+    character::{is_alphabetic, is_digit, streaming::space0},
+    combinator::map_res,
     multi::many0,
     sequence::{delimited, separated_pair, terminated},
     IResult,
@@ -49,10 +45,7 @@ pub fn parse_response(input: &[u8]) -> IResult<&[u8], Response> {
     let (input, _) = tag(b" ")(input)?;
     let (input, response_code) = decimal(input)?;
     let (input, _) = tag(b" ")(input)?;
-    let (input, _) = terminated(
-        take_while(is_alphabetic),
-        tag(NEWLINE),
-    )(input)?; // response text SHOULD not be relied upon
+    let (input, _) = terminated(take_while(is_alphabetic), tag(NEWLINE))(input)?; // response text SHOULD not be relied upon
 
     let (input, headers) = terminated(
         many0(terminated(

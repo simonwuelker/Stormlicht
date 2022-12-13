@@ -9,9 +9,7 @@ pub struct Position {
 
 impl Position {
     pub fn new(index: u64) -> Self {
-        Self {
-            index: index,
-        }
+        Self { index: index }
     }
 }
 
@@ -30,7 +28,6 @@ impl Span {
     }
 }
 
-
 pub trait Parser {
     /// Try to apply the parser to the source text. Returns the span
     /// of matched text on success and a position with a syntax error on failure
@@ -45,9 +42,7 @@ pub struct Literal {
 
 impl Literal {
     pub fn new(value: &'static [u8]) -> Self {
-        Self {
-            value: value,
-        }
+        Self { value: value }
     }
 }
 
@@ -55,7 +50,9 @@ impl Parser for Literal {
     fn parse(&self, source: &mut Cursor<SourceText>) -> Result<Span, Position> {
         let start = Position::new(source.stream_position().unwrap());
         let mut buffer = vec![0; self.value.len()];
-        source.read_exact(&mut buffer).map_err(|_| Position::new(source.stream_position().unwrap()))?;
+        source
+            .read_exact(&mut buffer)
+            .map_err(|_| Position::new(source.stream_position().unwrap()))?;
 
         let end = Position::new(source.stream_position().unwrap());
         if buffer == self.value {
@@ -93,23 +90,32 @@ impl Parser for Many {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{Cursor, Seek};
     use super::*;
+    use std::io::{Cursor, Seek};
 
     #[test]
     fn test_literal_parser() {
         let mut source_text = Cursor::new(&b"foo"[..]);
         let succeeding_parser = Literal::new(&b"fo"[..]);
         let failing_parser = Literal::new(&b"bar"[..]);
-        assert_eq!(succeeding_parser.parse(&mut source_text), Ok(Span::new(Position::new(0), Position::new(2))));
+        assert_eq!(
+            succeeding_parser.parse(&mut source_text),
+            Ok(Span::new(Position::new(0), Position::new(2)))
+        );
         source_text.rewind().unwrap();
-        assert_eq!(failing_parser.parse(&mut source_text), Err(Position::new(0)));
+        assert_eq!(
+            failing_parser.parse(&mut source_text),
+            Err(Position::new(0))
+        );
     }
 
     #[test]
     fn test_many_parser() {
         let mut source_text = Cursor::new(&b"foofoofoobar"[..]);
         let parser = Many::new(Literal::new(&b"foo"[..]));
-        assert_eq!(parser.parse(&mut source_text), Ok(Span::new(Position::new(0), Position::new(9))));
+        assert_eq!(
+            parser.parse(&mut source_text),
+            Ok(Span::new(Position::new(0), Position::new(9)))
+        );
     }
 }
