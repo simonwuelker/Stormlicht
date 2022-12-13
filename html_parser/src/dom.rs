@@ -1,7 +1,7 @@
 use crate::tokenizer::TagData;
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::fmt;
+use std::rc::Rc;
 
 pub type SharedDOMNode = Rc<RefCell<DOMNode>>;
 
@@ -66,7 +66,6 @@ impl DOMNode {
         child.borrow_mut().parent = Some((parent.clone(), child_index));
         parent.borrow_mut().children.push(child);
     }
-
 
     pub fn to_shared(self) -> SharedDOMNode {
         Rc::new(RefCell::new(self))

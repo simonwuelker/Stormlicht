@@ -37,7 +37,9 @@ impl Number {
         self.0.is_finite()
     }
 
-    fn abs(self) -> Self { todo!() }
+    fn abs(self) -> Self {
+        todo!()
+    }
 
     // Spec functions start here
 

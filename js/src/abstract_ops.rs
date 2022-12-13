@@ -1,8 +1,8 @@
 use crate::{
-    handle_completion,
     completion::{JSCompletionRecord, JSCompletionRecordType},
     error::TypeError,
-    js_type::{JSType, Number, IntegralNumber},
+    handle_completion,
+    js_type::{IntegralNumber, JSType, Number},
 };
 
 pub fn to_primitive(input: JSType) -> JSType {
@@ -18,7 +18,7 @@ pub fn to_number(input: JSType) -> JSCompletionRecord<Number> {
         JSType::Null => JSCompletionRecord::normal(Number::ZERO),
         JSType::Boolean(b) => {
             JSCompletionRecord::normal(if b { Number::ONE } else { Number::ZERO })
-        }
+        },
         JSType::Number(n) => JSCompletionRecord::normal(n),
         JSType::String(s) => JSCompletionRecord::normal(string_to_number(s)),
         JSType::Symbol => JSCompletionRecord::error(Box::new(TypeError)),
@@ -48,5 +48,3 @@ pub fn to_uint32(input: JSType) -> JSCompletionRecord<IntegralNumber> {
 pub fn string_to_number(_s: String) -> Number {
     todo!();
 }
-
-

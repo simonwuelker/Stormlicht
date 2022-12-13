@@ -1,6 +1,6 @@
 mod number;
 
-pub use number::{Number, IntegralNumber};
+pub use number::{IntegralNumber, Number};
 
 pub enum JSType {
     Undefined,

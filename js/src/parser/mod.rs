@@ -2,7 +2,7 @@ pub mod error;
 pub mod parser_combinators;
 
 use error::SyntaxError;
-use parser_combinators::{SourceText, Literal, Many};
+use parser_combinators::{Literal, Many, SourceText};
 use std::io::Cursor;
 
 /// Contains information about a script being evaluated
@@ -11,7 +11,6 @@ pub struct ScriptRecord {
 }
 
 struct ParseNode;
-
 
 // JS Grammar defintion
 // const STATEMENT_LIST_ITEM: Literal = Literal::new(&b"test"[..]);
@@ -23,4 +22,3 @@ pub fn parse_script(source_text: SourceText) -> Result<ScriptRecord, Vec<SyntaxE
 
     Ok(ScriptRecord { code: ParseNode })
 }
-

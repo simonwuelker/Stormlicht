@@ -92,7 +92,7 @@ impl<'source> Parser<'source> {
             InsertionMode::Initial => {
                 match token {
                     //                   tab       line feed    form feed     space
-                    Token::Character('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {}
+                    Token::Character('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {},
                     Token::Comment(data) => DOMNode::add_child(
                         self.current_node().clone(),
                         DOMNode::new(DOMNodeType::Comment { data: data }).to_shared(),
@@ -110,18 +110,18 @@ impl<'source> Parser<'source> {
                             DOMNode::new(domnode_type).to_shared(),
                         );
                         self.insertion_mode = InsertionMode::BeforeHtml;
-                    }
+                    },
                     _ => {
                         // TODO check for quirks mode
                         self.insertion_mode = InsertionMode::BeforeHtml;
                         self.consume(token); // reconsume
-                    }
+                    },
                 }
-            }
+            },
             InsertionMode::BeforeHtml => {
                 match &token {
                     //                   tab       line feed    form feed     space
-                    Token::Character('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {}
+                    Token::Character('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {},
                     Token::Comment(data) => DOMNode::add_child(
                         self.current_node().clone(),
                         DOMNode::new(DOMNodeType::Comment {
@@ -129,32 +129,32 @@ impl<'source> Parser<'source> {
                         })
                         .to_shared(),
                     ),
-                    Token::DOCTYPE(_) => {} // parse error, ignore token
+                    Token::DOCTYPE(_) => {}, // parse error, ignore token
                     Token::Tag(ref tagdata)
                         if !tagdata.opening
                             && tagdata.name != "head"
                             && tagdata.name != "body"
                             && tagdata.name != "html"
-                            && tagdata.name != "br" => {} // Parse error. Ignore the token.
+                            && tagdata.name != "br" => {}, // Parse error. Ignore the token.
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
                         let dom_element = DOMNode::new(DOMNodeType::Html).to_shared();
                         DOMNode::add_child(self.current_node().clone(), dom_element.clone());
                         self.open_elements.push(dom_element);
                         self.insertion_mode = InsertionMode::BeforeHead;
-                    }
+                    },
                     _ => {
                         let dom_element = DOMNode::new(DOMNodeType::Html).to_shared();
                         DOMNode::add_child(self.current_node().clone(), dom_element.clone());
                         self.open_elements.push(dom_element);
                         self.insertion_mode = InsertionMode::BeforeHead;
                         self.consume(token); // reconsume
-                    }
+                    },
                 }
-            }
+            },
             InsertionMode::BeforeHead => {
                 match &token {
                     //                   tab       line feed    form feed     space
-                    Token::Character('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {} // Ignore the token.
+                    Token::Character('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') => {}, // Ignore the token.
                     Token::Comment(data) => {
                         // Insert a comment.
                         DOMNode::add_child(
@@ -164,12 +164,12 @@ impl<'source> Parser<'source> {
                             })
                             .to_shared(),
                         )
-                    }
-                    Token::DOCTYPE(_) => {} // parse error, ignore token
+                    },
+                    Token::DOCTYPE(_) => {}, // parse error, ignore token
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
                         // Process the token using the rules for the "in body" insertion mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
-                    }
+                    },
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "head" => {
                         // Insert an HTML element for the token.
                         let head = DOMNode::new(DOMNodeType::Head).to_shared();
@@ -181,13 +181,13 @@ impl<'source> Parser<'source> {
 
                         // Switch the insertion mode to "in head".
                         self.insertion_mode = InsertionMode::InHead;
-                    }
+                    },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening
                             && tagdata.name != "head"
                             && tagdata.name != "body"
                             && tagdata.name != "html"
-                            && tagdata.name != "br" => {} // Parse error. Ignore the token.
+                            && tagdata.name != "br" => {}, // Parse error. Ignore the token.
                     _ => {
                         // Insert an HTML element for a "head" start tag token with no attributes.
                         let head = DOMNode::new(DOMNodeType::Head).to_shared();
@@ -202,27 +202,27 @@ impl<'source> Parser<'source> {
 
                         // Reprocess the current token.
                         self.consume(token);
-                    }
+                    },
                 }
-            }
+            },
             InsertionMode::InHead => {
                 match token {
                     Token::Character(c @ ('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}')) => {
                         // Insert the character.
                         DOMNode::add_text(self.current_node(), c.to_string());
-                    }
+                    },
                     Token::Comment(data) => {
                         // Insert a comment.
                         DOMNode::add_child(
                             self.current_node().clone(),
                             DOMNode::new(DOMNodeType::Comment { data: data }).to_shared(),
                         )
-                    }
-                    Token::DOCTYPE(_) => {} // parse error, ignore token
+                    },
+                    Token::DOCTYPE(_) => {}, // parse error, ignore token
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
                         // Process the token using the rules for the "in body" insertion mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
-                    }
+                    },
                     Token::Tag(tagdata)
                         if tagdata.opening
                             && (tagdata.name == "base"
@@ -238,7 +238,7 @@ impl<'source> Parser<'source> {
                             self.current_node().clone(),
                             DOMNode::from(tagdata).to_shared(),
                         );
-                    }
+                    },
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "meta" => {
                         // Insert an HTML element for the token. Immediately pop the current
                         // node off the stack of open elements.
@@ -261,24 +261,24 @@ impl<'source> Parser<'source> {
                         //     change the encoding to the extracted encoding.
                         let meta_node = DOMNode::new(DOMNodeType::Meta).to_shared();
                         DOMNode::add_child(self.current_node().clone(), meta_node);
-                    }
+                    },
                     Token::Tag(tagdata) if tagdata.opening && tagdata.name == "title" => {
                         // Follow the generic RCDATA element parsing algorithm.
                         self.generic_rcdata_element_parsing_algorithm(tagdata);
-                    }
+                    },
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == "noscript" && self.scripting =>
                     {
                         // Follow the generic raw text element parsing algorithm.
                         self.generic_raw_text_element_parsing_algorithm(tagdata);
-                    }
+                    },
                     Token::Tag(tagdata)
                         if tagdata.opening
                             && (tagdata.name == "noframes" || tagdata.name == "style") =>
                     {
                         // Follow the generic raw text element parsing algorithm.
                         self.generic_raw_text_element_parsing_algorithm(tagdata);
-                    }
+                    },
                     Token::Tag(ref tagdata)
                         if tagdata.opening && tagdata.name == "noscript" && !self.scripting =>
                     {
@@ -288,10 +288,10 @@ impl<'source> Parser<'source> {
 
                         // Switch the insertion mode to "in head noscript".
                         self.insertion_mode = InsertionMode::InHeadNoscript;
-                    }
+                    },
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "script" => {
                         unimplemented!();
-                    }
+                    },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "head" => {
                         // Pop the current node (which will be the head element) off the stack of open elements.
                         let top_node = self.open_elements.pop();
@@ -300,7 +300,7 @@ impl<'source> Parser<'source> {
 
                         // Switch the insertion mode to "after head".
                         self.insertion_mode = InsertionMode::AfterHead;
-                    }
+                    },
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "template" => {
                         // Insert an HTML element for the token.
                         let domnode = DOMNode::new(DOMNodeType::Template).to_shared();
@@ -319,7 +319,7 @@ impl<'source> Parser<'source> {
                         // Push "in template" onto the stack of template insertion modes so
                         // that it is the new current template insertion mode.
                         // todo!();
-                    }
+                    },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "template" => {
                         // If there is no template element on the stack of open elements, then
                         // this is a parse error; ignore the token.
@@ -344,13 +344,13 @@ impl<'source> Parser<'source> {
                         //
                         //     Reset the insertion mode appropriately.
                         todo!();
-                    }
+                    },
                     Token::Tag(ref tagdata)
                         if (tagdata.opening && tagdata.name == "head")
                             || (!tagdata.opening
                                 && tagdata.name != "body"
                                 && tagdata.name != "html"
-                                && tagdata.name != "br") => {} // Parse error. Ignore the token.
+                                && tagdata.name != "br") => {}, // Parse error. Ignore the token.
                     _ => {
                         // Pop the current node (which will be the head element) off the stack of open elements.
                         let top_node = self.open_elements.pop();
@@ -362,17 +362,17 @@ impl<'source> Parser<'source> {
 
                         // Reprocess the token.
                         self.consume(token);
-                    }
+                    },
                 }
-            }
+            },
             InsertionMode::InHeadNoscript => {
                 match token {
-                    Token::DOCTYPE(_) => {} // Parse error. Ignore the token.
+                    Token::DOCTYPE(_) => {}, // Parse error. Ignore the token.
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
                         // Process the token using the rules for the "in body" insertion
                         // mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
-                    }
+                    },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "noscript" => {
                         // Pop the current node (which will be a noscript element) from
                         // the stack of open elements; the new current node will be a
@@ -384,13 +384,13 @@ impl<'source> Parser<'source> {
 
                         // Switch the insertion mode to "in head".
                         self.insertion_mode = InsertionMode::InHead;
-                    }
+                    },
                     Token::Character('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}')
                     | Token::Comment(_) => {
                         // Process the token using the rules for the "in head" insertion
                         // mode.
                         self.consume_in_mode(InsertionMode::InHead, token);
-                    }
+                    },
                     Token::Tag(ref tagdata)
                         if tagdata.opening
                             && (tagdata.name == "basefont"
@@ -402,11 +402,11 @@ impl<'source> Parser<'source> {
                         // Process the token using the rules for the "in head" insertion
                         // mode.
                         self.consume_in_mode(InsertionMode::InHead, token);
-                    }
+                    },
                     Token::Tag(ref tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "head" || tagdata.name == "noscript") => {} // Parse error. Ignore the token.
-                    Token::Tag(ref tagdata) if !tagdata.opening && (tagdata.name != "br") => {} // Parse error. Ignore the token.
+                            && (tagdata.name == "head" || tagdata.name == "noscript") => {}, // Parse error. Ignore the token.
+                    Token::Tag(ref tagdata) if !tagdata.opening && (tagdata.name != "br") => {}, // Parse error. Ignore the token.
                     _ => {
                         // Parse error.
 
@@ -422,28 +422,28 @@ impl<'source> Parser<'source> {
 
                         // Reprocess the token.
                         self.consume(token);
-                    }
+                    },
                 }
-            }
+            },
             InsertionMode::AfterHead => {
                 match token {
                     //                        tab       line feed    form feed     space
                     Token::Character(c @ ('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}')) => {
                         // Insert the character.
                         DOMNode::add_text(self.current_node(), c.to_string());
-                    }
+                    },
                     Token::Comment(data) => {
                         // Insert a comment.
                         DOMNode::add_child(
                             self.current_node().clone(),
                             DOMNode::new(DOMNodeType::Comment { data: data }).to_shared(),
                         );
-                    }
-                    Token::DOCTYPE(_) => {} // Parse error. Ignore the token.
+                    },
+                    Token::DOCTYPE(_) => {}, // Parse error. Ignore the token.
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
                         // Process the token using the rules for the "in body" insertion mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
-                    }
+                    },
                     Token::Tag(tagdata) if tagdata.opening && tagdata.name == "body" => {
                         // Insert an HTML element for the token.
                         let domnode = DOMNode::new(DOMNodeType::Body).to_shared();
@@ -454,7 +454,7 @@ impl<'source> Parser<'source> {
 
                         // Switch the insertion mode to "in body".
                         self.insertion_mode = InsertionMode::InBody;
-                    }
+                    },
                     Token::Tag(tagdata) if tagdata.opening && tagdata.name == "frameset" => {
                         // Insert an HTML element for the token.
                         let domnode = DOMNode::new(DOMNodeType::Frameset).to_shared();
@@ -463,7 +463,7 @@ impl<'source> Parser<'source> {
 
                         // Switch the insertion mode to "in frameset".
                         self.insertion_mode = InsertionMode::InFrameset;
-                    }
+                    },
                     Token::Tag(ref tagdata)
                         if tagdata.opening
                             && (tagdata.name == "base"
@@ -492,17 +492,17 @@ impl<'source> Parser<'source> {
                         // point.)
                         self.open_elements
                             .retain(|node| !matches!(node.borrow().node_type, DOMNodeType::Head));
-                    }
+                    },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "template" => {
                         // Process the token using the rules for the "in head" insertion mode.
                         self.consume_in_mode(InsertionMode::InHead, token);
-                    }
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "head" => {} // Parse error. Ignore the token.
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "head" => {}, // Parse error. Ignore the token.
                     Token::Tag(tagdata)
                         if !tagdata.opening
                             && tagdata.name != "body"
                             && tagdata.name != "html"
-                            && tagdata.name != "br" => {} // Parse error. Ignore the token.
+                            && tagdata.name != "br" => {}, // Parse error. Ignore the token.
                     _ => {
                         // Insert an HTML element for a "body" start tag token with no attributes.
                         let domnode = DOMNode::new(DOMNodeType::Body).to_shared();
@@ -514,26 +514,26 @@ impl<'source> Parser<'source> {
 
                         // Reprocess the current token.
                         self.consume(token);
-                    }
+                    },
                 }
-            }
+            },
             InsertionMode::InBody => {
                 match token {
-                    Token::Character('\0') => {} // Parse error. Ignore the token.
+                    Token::Character('\0') => {}, // Parse error. Ignore the token.
                     Token::Character(c) => {
                         // Reconstruct the active formatting elements, if any.
 
                         // Insert the character.
                         DOMNode::add_text(self.current_node(), c.to_string());
-                    }
+                    },
                     Token::Comment(data) => {
                         // Insert a comment.
                         DOMNode::add_child(
                             self.current_node().clone(),
                             DOMNode::new(DOMNodeType::Comment { data: data }).to_shared(),
                         );
-                    }
-                    Token::DOCTYPE(_) => {} // Parse error. Ignore the token.
+                    },
+                    Token::DOCTYPE(_) => {}, // Parse error. Ignore the token.
                     Token::Tag(tagdata) if tagdata.opening && tagdata.name == "html" => {
                         // Parse error.
 
@@ -544,7 +544,7 @@ impl<'source> Parser<'source> {
                         // already present on the top element of the stack of open elements. If it is
                         // not, add the attribute and its corresponding value to that element.
                         todo!();
-                    }
+                    },
                     Token::Tag(ref tagdata)
                         if (tagdata.opening
                             && (tagdata.name == "base"
@@ -561,7 +561,7 @@ impl<'source> Parser<'source> {
                     {
                         // Process the token using the rules for the "in head" insertion mode.
                         self.consume_in_mode(InsertionMode::InHead, token);
-                    }
+                    },
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "body" => {
                         // Parse error.
 
@@ -575,7 +575,7 @@ impl<'source> Parser<'source> {
                         // element (the second element) on the stack of open elements, and if it is
                         // not, add the attribute and its corresponding value to that element.
                         todo!();
-                    }
+                    },
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "frameset" => {
                         // Parse error.
 
@@ -594,7 +594,7 @@ impl<'source> Parser<'source> {
                         }
                         // If the frameset-ok flag is set to "not ok", ignore the token.
                         todo!();
-                    }
+                    },
                     Token::EOF => {
                         // If the stack of template insertion modes is not empty, then process the
                         // token using the rules for the "in template" insertion mode.
@@ -610,7 +610,7 @@ impl<'source> Parser<'source> {
                         //
                         //     Stop parsing.
                         self.done = true;
-                    }
+                    },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "body" => {
                         // If the stack of open elements does not have a body element in scope
                         if !self.is_element_in_scope(&DOMNodeType::Body, DEFAULT_SCOPE) {
@@ -629,7 +629,7 @@ impl<'source> Parser<'source> {
                             // Switch the insertion mode to "after body".
                             self.insertion_mode = InsertionMode::AfterBody;
                         }
-                    }
+                    },
 
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "body" => {
                         // If the stack of open elements does not have a body element in scope
@@ -652,7 +652,7 @@ impl<'source> Parser<'source> {
                             // Reprocess the token.
                             self.consume(token);
                         }
-                    }
+                    },
                     Token::Tag(ref tagdata)
                         if tagdata.opening
                             && (tagdata.name == "address"
@@ -681,7 +681,7 @@ impl<'source> Parser<'source> {
                                 || tagdata.name == "ul") =>
                     {
                         todo!();
-                    }
+                    },
                     Token::Tag(tagdata)
                         if tagdata.opening
                             && (tagdata.name == "h1"
@@ -699,8 +699,11 @@ impl<'source> Parser<'source> {
 
                         // If the current node is an HTML element whose tag name is one of
                         // "h1", "h2", "h3", "h4", "h5", or "h6"
-                        if HEADINGS.iter().any(|h| h == &self.current_node().borrow().node_type) {
-                            // , then this is a parse error; 
+                        if HEADINGS
+                            .iter()
+                            .any(|h| h == &self.current_node().borrow().node_type)
+                        {
+                            // , then this is a parse error;
                             // pop the current node off the stack of open elements.
                             self.open_elements.pop();
                         }
@@ -709,8 +712,11 @@ impl<'source> Parser<'source> {
                         let domnode = DOMNode::from(tagdata).to_shared();
                         DOMNode::add_child(self.current_node().clone(), domnode.clone());
                         self.open_elements.push(domnode);
-                    }
-                    Token::Tag(tagdata) if tagdata.opening && (tagdata.name == "pre" || tagdata.name == "listing") => {
+                    },
+                    Token::Tag(tagdata)
+                        if tagdata.opening
+                            && (tagdata.name == "pre" || tagdata.name == "listing") =>
+                    {
                         // If the stack of open elements has a p element in button scope
                         if self.is_element_in_scope(&DOMNodeType::P, BUTTON_SCOPE) {
                             // , then close a p element.
@@ -733,7 +739,7 @@ impl<'source> Parser<'source> {
 
                         // Set the frameset-ok flag to "not ok".
                         // FIXME we don't have a frameset-ok flag
-                    }
+                    },
                     Token::Tag(tagdata) if tagdata.opening && tagdata.name == "form" => {
                         // If the form element pointer is not null, and there is no template
                         // element on the stack of open elements, then this is a parse error;
@@ -754,10 +760,15 @@ impl<'source> Parser<'source> {
                         // if there is no template element on the stack of open elements, set the
                         // form element pointer to point to the element created.
                         // FIXME
-                    }
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "li" => todo!("handle li"),
-                    Token::Tag(tagdata) if tagdata.opening && (tagdata.name == "dd" || tagdata.name == "dt") => 
-                        todo!("handle dd/dt"),
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "li" => {
+                        todo!("handle li")
+                    },
+                    Token::Tag(tagdata)
+                        if tagdata.opening && (tagdata.name == "dd" || tagdata.name == "dt") =>
+                    {
+                        todo!("handle dd/dt")
+                    },
                     Token::Tag(tagdata) if tagdata.opening && tagdata.name == "plaintext" => {
                         // If the stack of open elements has a p element in button scope
                         if self.is_element_in_scope(&DOMNodeType::P, BUTTON_SCOPE) {
@@ -775,7 +786,7 @@ impl<'source> Parser<'source> {
                         // be the last token ever seen other than character tokens (and the end-of-file
                         // token), because there is no way to switch out of the PLAINTEXT state.
                         self.tokenizer.switch_to(TokenizerState::PLAINTEXTState);
-                    }
+                    },
                     Token::Tag(tagdata) if tagdata.opening && tagdata.name == "button" => {
                         // If the stack of open elements has a button element in scope
                         if self.is_element_in_scope(&DOMNodeType::Button, DEFAULT_SCOPE) {
@@ -828,8 +839,13 @@ impl<'source> Parser<'source> {
                                 || tagdata.name == "p"
                                 || tagdata.name == "section"
                                 || tagdata.name == "summary"
-                                || tagdata.name == "ul") => todo!(),
-                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "form" => todo!(),
+                                || tagdata.name == "ul") =>
+                    {
+                        todo!()
+                    },
+                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "form" => {
+                        todo!()
+                    },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "p" => {
                         // If the stack of open elements does not have a p element in button scope
                         if !self.is_element_in_scope(&DOMNodeType::P, DEFAULT_SCOPE) {
@@ -843,9 +859,14 @@ impl<'source> Parser<'source> {
                         // Close a p element.
                         self.close_p_element();
                     },
-                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "li" => todo!("handle li closing tag"),
-                    Token::Tag(ref tagdata) if !tagdata.opening && (tagdata.name == "dd"
-                                                                    || tagdata.name == "dt") => todo!("handle dd/dt closing tag"),
+                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "li" => {
+                        todo!("handle li closing tag")
+                    },
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening && (tagdata.name == "dd" || tagdata.name == "dt") =>
+                    {
+                        todo!("handle dd/dt closing tag")
+                    },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening
                             && (tagdata.name == "h1"
@@ -853,7 +874,8 @@ impl<'source> Parser<'source> {
                                 || tagdata.name == "h3"
                                 || tagdata.name == "h4"
                                 || tagdata.name == "h5"
-                                || tagdata.name == "h6") => {
+                                || tagdata.name == "h6") =>
+                    {
                         // If the stack of open elements does not have an element in scope that is
                         // an HTML element and whose tag name is one of "h1", "h2", "h3", "h4",
                         // "h5", or "h6"
@@ -877,23 +899,24 @@ impl<'source> Parser<'source> {
                                 }
                             }
                         }
-                    }
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "a" => todo!("handle a tag opening"),
+                    },
+                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "a" => {
+                        todo!("handle a tag opening")
+                    },
 
                     // FIXME a lot of (for now) irrelevant rules are missing here
                     Token::Tag(tagdata) if tagdata.opening => {
                         // Reconstruct the active formatting elements, if any.
                         // FIXME
-                        
+
                         let domnode = DOMNode::from(tagdata).to_shared();
                         DOMNode::add_child(self.current_node().clone(), domnode.clone());
                         self.open_elements.push(domnode);
-                    }
-                    
+                    },
+
                     _ => todo!(),
-                    
                 }
-            }
+            },
             InsertionMode::AfterBody => {
                 match token {
                     //                   tab       line feed    form feed     space
@@ -912,11 +935,11 @@ impl<'source> Parser<'source> {
                             .to_shared(),
                         )
                     },
-                    Token::DOCTYPE(_) => {} // parse error, ignore token
+                    Token::DOCTYPE(_) => {}, // parse error, ignore token
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
                         // Process the token using the rules for the "in body" insertion mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
-                    }
+                    },
                     Token::Tag(tagdata) if !tagdata.opening && tagdata.name == "html" => {
                         // FIXME
                         // If the parser was created as part of the HTML fragment parsing
@@ -924,19 +947,19 @@ impl<'source> Parser<'source> {
 
                         // Otherwise, switch the insertion mode to "after after body".
                         self.insertion_mode = InsertionMode::AfterAfterBody;
-                    }
+                    },
                     Token::EOF => {
                         // Stop parsing.
                         self.done = true;
-                    }
+                    },
                     _ => {
                         // Parse error. Switch the insertion mode to "in body" and reprocess the
                         // token.
                         self.insertion_mode = InsertionMode::InBody;
                         self.consume(token);
-                    }
+                    },
                 }
-            }
+            },
             InsertionMode::AfterAfterBody => {
                 match token {
                     Token::Comment(data) => {
@@ -949,28 +972,27 @@ impl<'source> Parser<'source> {
                             })
                             .to_shared(),
                         );
-                    }
+                    },
                     //                   tab       line feed    form feed     space
-                    Token::Character('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}') |
-                    Token::DOCTYPE(_)  => {
+                    Token::Character('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}')
+                    | Token::DOCTYPE(_) => {
                         // Process the token using the rules for the "in body" insertion mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
-                    }
+                    },
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
                         // Process the token using the rules for the "in body" insertion mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
-                    }
+                    },
                     Token::EOF => {
                         // Stop parsing.
                         self.done = true;
-                    }
+                    },
                     _ => {
                         // Parse error. Switch the insertion mode to "in body" and reprocess the
                         // token.
                         self.insertion_mode = InsertionMode::InBody;
                         self.consume(token);
-                    }
-
+                    },
                 }
             },
             _ => todo!(),

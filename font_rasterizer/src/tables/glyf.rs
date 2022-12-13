@@ -351,7 +351,6 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
             self.previous_point.y + delta_y,
         );
         self.previous_point = new_point;
-
         let is_last_point = read_u16_at(self.contour_end_points, self.contours_emitted * 2)
             as usize
             == self.points_emitted;

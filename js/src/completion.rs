@@ -69,5 +69,5 @@ macro_rules! handle_completion {
             JSCompletionRecordType::Throw(error) => return JSCompletionRecord::error(error),
             _ => todo!(),
         }
-    }
+    };
 }
