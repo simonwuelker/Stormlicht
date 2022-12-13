@@ -1,4 +1,7 @@
-use crate::ttf::{read_i16_at, read_u16_at, TTFParseError};
+use crate::{
+    target::{BoundingBox, Point, RasterizerTarget},
+    ttf::{read_i16_at, read_u16_at},
+};
 use std::fmt;
 
 pub struct GlyphOutlineTable<'a>(&'a [u8]);
@@ -131,6 +134,10 @@ impl<'a> GlyphOutline<'a> {
         read_u16_at(&self.data, 10 + self.num_contours() * 2 - 2) as usize + 1
     }
 
+    pub fn bounding_box(&self) -> BoundingBox {
+        BoundingBox::new(self.min_x(), self.min_y(), self.max_x(), self.max_y())
+    }
+
     pub fn points(&'a self) -> GlyphPointIterator<'a> {
         // The iterator only needs the data from the flags onwards
         let first_flag_addr = 10 + self.num_contours() * 2 + 2 + self.instruction_length();
@@ -143,6 +150,32 @@ impl<'a> GlyphOutline<'a> {
             self.x_starts_at,
             self.y_starts_at,
         )
+    }
+
+    pub fn rasterize<T: RasterizerTarget>(&self, target: &mut T, into: BoundingBox) {
+        let mut previous_point = None;
+        let mut first_point_of_contour = None;
+        let glyph_bb = BoundingBox::new(self.min_x(), self.min_y(), self.max_x(), self.max_y());
+
+        for glyph_vertex in self.points() {
+            let current_point_unflipped = glyph_bb.translate(glyph_vertex.coordinates, into);
+            let current_point = Point::new(
+                current_point_unflipped.x,
+                into.height() - current_point_unflipped.y + into.min_y,
+            );
+
+            match previous_point {
+                Some(previous_point) => target.line(previous_point, current_point),
+                None => first_point_of_contour = Some(current_point),
+            }
+
+            if glyph_vertex.is_last_point_of_contour {
+                target.line(current_point, first_point_of_contour.unwrap());
+                previous_point = None;
+            } else {
+                previous_point = Some(current_point);
+            }
+        }
     }
 }
 
@@ -209,8 +242,7 @@ impl GlyphFlag {
 pub struct GlyphPoint {
     pub is_on_curve: bool,
     pub is_last_point_of_contour: bool,
-    pub x: i16,
-    pub y: i16,
+    pub coordinates: Point,
 }
 
 #[derive(Debug)]
@@ -245,15 +277,20 @@ pub struct GlyphPointIterator<'a> {
     flag_index: usize,
     x_index: usize,
     y_index: usize,
-    previous_x: i16,
-    previous_y: i16,
+    previous_point: Point,
     points_emitted: usize,
     contours_emitted: usize,
     num_points: usize,
 }
 
 impl<'a> GlyphPointIterator<'a> {
-    pub fn new(contour_end_points: &'a [u8], data: &'a [u8], num_points: usize, x_starts_at: usize, y_starts_at: usize) -> Self {
+    pub fn new(
+        contour_end_points: &'a [u8],
+        data: &'a [u8],
+        num_points: usize,
+        x_starts_at: usize,
+        y_starts_at: usize,
+    ) -> Self {
         Self {
             contour_end_points: contour_end_points,
             data: data,
@@ -262,8 +299,7 @@ impl<'a> GlyphPointIterator<'a> {
             flag_index: 0,
             x_index: x_starts_at,
             y_index: y_starts_at,
-            previous_x: 0,
-            previous_y: 0,
+            previous_point: Point::new(0, 0),
             points_emitted: 0,
             contours_emitted: 0,
             num_points: num_points,
@@ -300,8 +336,6 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
             GlyphCoordinateType::Positive8B => self.data[self.x_index] as i16,
         };
         self.x_index += self.current_flag.coordinate_type_x().size();
-        let new_x = self.previous_x + delta_x;
-        self.previous_x = new_x;
 
         // Update y coordinate
         let delta_y = match self.current_flag.coordinate_type_y() {
@@ -311,10 +345,16 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
             GlyphCoordinateType::Positive8B => self.data[self.y_index] as i16,
         };
         self.y_index += self.current_flag.coordinate_type_y().size();
-        let new_y = self.previous_y + delta_y;
-        self.previous_y = new_y;
 
-        let is_last_point = read_u16_at(self.contour_end_points, self.contours_emitted * 2) as usize == self.points_emitted;
+        let new_point = Point::new(
+            self.previous_point.x + delta_x,
+            self.previous_point.y + delta_y,
+        );
+        self.previous_point = new_point;
+
+        let is_last_point = read_u16_at(self.contour_end_points, self.contours_emitted * 2)
+            as usize
+            == self.points_emitted;
         if is_last_point {
             self.contours_emitted += 1;
         }
@@ -322,8 +362,7 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
         let glyph_point = GlyphPoint {
             is_on_curve: self.current_flag.is_on_curve(), // All other flags are just relevant for parsing
             is_last_point_of_contour: is_last_point,
-            x: new_x,
-            y: new_y,
+            coordinates: new_point,
         };
         self.points_emitted += 1;
         Some(glyph_point)

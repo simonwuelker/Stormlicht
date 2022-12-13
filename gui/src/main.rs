@@ -1,8 +1,8 @@
 mod pixelbuffer;
 
-use font_rasterizer::{target, ttf};
+use font_rasterizer::{target::BoundingBox, ttf};
 
-use pixelbuffer::{PixelBuffer, RendererTarget, RendererTargetView};
+use pixelbuffer::{PixelBuffer, RendererTarget};
 
 use gtk::cairo;
 use gtk::prelude::*;
@@ -34,12 +34,19 @@ fn build_ui(application: &gtk::Application) {
             stride as usize,
         );
 
-        pixelbuffer.fill((0, 255, 0));
-        pixelbuffer.line((10, 10), (300, 100), (255, 0, 0));
+        pixelbuffer.fill((255, 255, 255));
 
-        let mut view = RendererTargetView::new(pixelbuffer, (100, 100), 50, 100);
-        view.fill((0, 0, 255));
-        let pixelbuffer = view.release();
+        let font_bytes = include_bytes!("../Envy Code R.ttf");
+        let font = ttf::Font::new(font_bytes.as_slice()).unwrap();
+
+        let text = "Hello";
+
+        let mut x = 0;
+        for c in text.chars() {
+            let a_glyph = font.get_glyph(c as u16).unwrap();
+            a_glyph.rasterize(&mut pixelbuffer, BoundingBox::new(10 + x, 10, 60 + x, 60));
+            x += 70;
+        }
 
         let surface = cairo::ImageSurface::create_for_data(
             data,
@@ -59,23 +66,10 @@ fn build_ui(application: &gtk::Application) {
 }
 
 fn main() {
-    // Parse OpenSans font
-    let font_bytes = include_bytes!("../Envy Code R.ttf");
-    let font = ttf::Font::new(font_bytes.as_slice()).unwrap();
+    let app = gtk::Application::builder()
+        .application_id("com.github.wuelle.iguana")
+        .build();
 
-    let a_glyph = font.get_glyph('A' as u16).unwrap();
-    for p in a_glyph.points() {
-        println!("{p:?}");
-    }
-    let mut surface = target::Surface::new(20, 20);
-    surface.quad_bezier(target::Vec2D::new(1., 1.), target::Vec2D::new(5., 10.),
-    target::Vec2D::new(15., 1.));
-    println!("{}", surface);
-
-    // let app = gtk::Application::builder()
-    //     .application_id("com.github.wuelle.iguana")
-    //     .build();
-
-    // app.connect_activate(build_ui);
-    // app.run();
+    app.connect_activate(build_ui);
+    app.run();
 }

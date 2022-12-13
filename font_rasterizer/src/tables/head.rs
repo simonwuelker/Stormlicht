@@ -1,4 +1,4 @@
-use crate::ttf::{read_i16_at, TTFParseError};
+use crate::ttf::read_i16_at;
 use std::fmt;
 
 pub struct HeadTable<'a>(&'a [u8]);
