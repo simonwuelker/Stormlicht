@@ -69,7 +69,7 @@ impl<'a> Font<'a> {
         })
     }
 
-    pub fn get_glyph(&self, codepoint: u16) -> Result<glyf::GlyphOutline<'a>, TTFParseError> {
+    pub fn get_glyph(&self, codepoint: u16) -> Result<glyf::Glyph<'a>, TTFParseError> {
         // Any character that does not exist is mapped to index zero, which is defined to be the
         // missing character glyph
         let glyph_index = self.format4.get_glyph_index(codepoint).unwrap_or(0);
@@ -77,7 +77,7 @@ impl<'a> Font<'a> {
         let glyph_offset = self
             .loca_table
             .get_glyph_offset(glyph_index, self.head_table.index_to_loc_format())?;
-        Ok(self.glyph_table.get_glyph_outline(glyph_offset))
+        Ok(self.glyph_table.get_glyph(glyph_offset))
     }
 }
 

@@ -11,19 +11,70 @@ impl<'a> GlyphOutlineTable<'a> {
         Self(&data[offset..][..length])
     }
 
-    pub fn get_glyph_outline(&self, glyph_index: u32) -> GlyphOutline<'a> {
+    pub fn get_glyph(&self, glyph_index: u32) -> Glyph<'a> {
         let data = &self.0[glyph_index as usize..];
-        let num_contours_maybe_negative = read_i16_at(data, 0);
-        assert!(
-            num_contours_maybe_negative >= 0,
-            "compound glyphs are not supported"
-        );
-        let num_contours = num_contours_maybe_negative as usize;
+        Glyph(data)
+    }
+}
 
-        // 8 bytes of coordinates follow
-        let last_index = read_u16_at(data, 10 + num_contours * 2 - 2) as usize;
-        let instruction_length = read_u16_at(data, 10 + num_contours * 2) as usize;
+pub struct Glyph<'a>(&'a [u8]);
 
+impl<'a> Glyph<'a> {
+    pub fn is_simple(&self) -> bool {
+       self.num_contours()  >= 0
+    }
+
+    pub fn num_contours(&self) -> i16 {
+        read_i16_at(self.0, 0)
+    }
+
+    pub fn min_x(&self) -> i16 {
+        read_i16_at(self.0, 2)
+    }
+
+    pub fn min_y(&self) -> i16 {
+        read_i16_at(self.0, 4)
+    }
+
+    pub fn max_x(&self) -> i16 {
+        read_i16_at(self.0, 6)
+    }
+
+    pub fn max_y(&self) -> i16 {
+        read_i16_at(self.0, 8)
+    }
+
+    pub fn bounding_box(&self) -> BoundingBox {
+        BoundingBox::new(self.min_x(), self.min_y(), self.max_x(), self.max_y())
+    }
+
+    pub fn rasterize<T: RasterizerTarget>(&self, target: &mut T, into: BoundingBox) {
+        let mut previous_point = None;
+        let mut first_point_of_contour = None;
+        let glyph_bb = BoundingBox::new(self.min_x(), self.min_y(), self.max_x(), self.max_y());
+
+        for glyph_vertex in self.outline().points() {
+            let current_point_unflipped = glyph_bb.translate(glyph_vertex.coordinates, into);
+            let current_point = Point::new(
+                current_point_unflipped.x,
+                into.height() - current_point_unflipped.y + into.min_y,
+            );
+
+            match previous_point {
+                Some(previous_point) => target.line(previous_point, current_point),
+                None => first_point_of_contour = Some(current_point),
+            }
+
+            if glyph_vertex.is_last_point_of_contour {
+                target.line(current_point, first_point_of_contour.unwrap());
+                previous_point = None;
+            } else {
+                previous_point = Some(current_point);
+            }
+        }
+    }
+
+    pub fn outline(&self) -> GlyphOutline<'a> {
         // Memory map is like this:
         // num contours          : i16
         // min x                 : i16
@@ -36,9 +87,14 @@ impl<'a> GlyphOutlineTable<'a> {
         // flags                 : [u8; unknown]
         // x coords              : [u16; last value in "end points of contours" + 1]
         // y coords              : [u16; last value in "end points of contours" + 1]
+        
+        assert!(self.is_simple());
+
+        let num_contours = self.num_contours() as usize;
+        let instruction_length = read_u16_at(self.0, 10 + num_contours * 2) as usize;
 
         // last value in end_points_of_contours
-        let n_points = read_u16_at(data, 10 + num_contours * 2 - 2) + 1;
+        let n_points = read_u16_at(self.0, 10 + num_contours * 2 - 2) + 1;
 
         let first_flag_addr = 10 + num_contours * 2 + 2 + instruction_length;
 
@@ -57,13 +113,13 @@ impl<'a> GlyphOutlineTable<'a> {
 
         while remaining_flags > 0 {
             remaining_flags -= 1;
-            let flag = GlyphFlag(data[first_flag_addr + num_flag_bytes_read]);
+            let flag = GlyphFlag(self.0[first_flag_addr + num_flag_bytes_read]);
             num_flag_bytes_read += 1;
 
             if flag.repeat() {
                 // read another byte, this is the number of times the flag should be
                 // repeated
-                let repeat_for = data[first_flag_addr + num_flag_bytes_read];
+                let repeat_for = self.0[first_flag_addr + num_flag_bytes_read];
                 num_flag_bytes_read += 1;
 
                 remaining_flags -= repeat_for as u16;
@@ -80,7 +136,7 @@ impl<'a> GlyphOutlineTable<'a> {
             10 + num_contours * 2 + 2 + instruction_length + flag_array_size + x_size + y_size;
 
         GlyphOutline {
-            data: &data[..total_size],
+            data: &self.0[..total_size],
             x_starts_at: flag_array_size,
             y_starts_at: flag_array_size + x_size,
         }
@@ -109,22 +165,6 @@ impl<'a> GlyphOutline<'a> {
         read_i16_at(self.data, 0) as usize
     }
 
-    pub fn min_x(&self) -> i16 {
-        read_i16_at(self.data, 2)
-    }
-
-    pub fn min_y(&self) -> i16 {
-        read_i16_at(self.data, 4)
-    }
-
-    pub fn max_x(&self) -> i16 {
-        read_i16_at(self.data, 6)
-    }
-
-    pub fn max_y(&self) -> i16 {
-        read_i16_at(self.data, 8)
-    }
-
     pub fn instruction_length(&self) -> usize {
         read_u16_at(self.data, 10 + self.num_contours() * 2) as usize
     }
@@ -134,9 +174,6 @@ impl<'a> GlyphOutline<'a> {
         read_u16_at(&self.data, 10 + self.num_contours() * 2 - 2) as usize + 1
     }
 
-    pub fn bounding_box(&self) -> BoundingBox {
-        BoundingBox::new(self.min_x(), self.min_y(), self.max_x(), self.max_y())
-    }
 
     pub fn points(&'a self) -> GlyphPointIterator<'a> {
         // The iterator only needs the data from the flags onwards
@@ -152,31 +189,6 @@ impl<'a> GlyphOutline<'a> {
         )
     }
 
-    pub fn rasterize<T: RasterizerTarget>(&self, target: &mut T, into: BoundingBox) {
-        let mut previous_point = None;
-        let mut first_point_of_contour = None;
-        let glyph_bb = BoundingBox::new(self.min_x(), self.min_y(), self.max_x(), self.max_y());
-
-        for glyph_vertex in self.points() {
-            let current_point_unflipped = glyph_bb.translate(glyph_vertex.coordinates, into);
-            let current_point = Point::new(
-                current_point_unflipped.x,
-                into.height() - current_point_unflipped.y + into.min_y,
-            );
-
-            match previous_point {
-                Some(previous_point) => target.line(previous_point, current_point),
-                None => first_point_of_contour = Some(current_point),
-            }
-
-            if glyph_vertex.is_last_point_of_contour {
-                target.line(current_point, first_point_of_contour.unwrap());
-                previous_point = None;
-            } else {
-                previous_point = Some(current_point);
-            }
-        }
-    }
 }
 
 // TODO: this panics if the glyf is not simple :^(
@@ -185,10 +197,6 @@ impl<'a> fmt::Debug for GlyphOutline<'a> {
         f.debug_struct("Glyph Outline")
             .field("is_simple", &self.is_simple())
             .field("num_contours", &self.num_contours())
-            .field("min_x", &self.min_x())
-            .field("min_y", &self.min_y())
-            .field("max_x", &self.max_x())
-            .field("max_y", &self.max_y())
             .field("instruction_length", &self.instruction_length())
             .finish()
     }
@@ -365,5 +373,61 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
         };
         self.points_emitted += 1;
         Some(glyph_point)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct CompoundGlyphFlag(u16);
+
+impl CompoundGlyphFlag {
+    const ARG_1_AND_2_ARE_WORDS: u16 = 1 << 0;
+    const ARGS_ARE_XY_VALUES: u16 = 1 << 1;
+    const ROUND_XY_TO_GRID: u16 = 1 << 2;
+    const WE_HAVE_A_SCALE: u16 = 1 << 3;
+    const MORE_COMPONENTS: u16 = 1 << 5;
+    const WE_HAVE_AN_X_AND_Y_SCALE: u16 = 1 << 6;
+    const WE_HAVE_A_TWO_BY_TWO: u16 = 1 << 7;
+    const WE_HAVE_INSTRUCTIONS: u16 = 1 << 8;
+    const USE_MY_METRICS: u16 = 1 << 9;
+    const OVERLAP_COMPOUND: u16 = 1 << 10;
+
+    pub fn arg_1_and_2_are_words(&self) -> bool {
+        self.0 & Self::ARG_1_AND_2_ARE_WORDS != 0
+    }
+
+    pub fn args_are_xy_values(&self) -> bool {
+        self.0 & Self::ARGS_ARE_XY_VALUES != 0
+    }
+
+    pub fn round_xy_to_grid(&self) -> bool {
+        self.0 & Self::ROUND_XY_TO_GRID != 0
+    }
+
+    pub fn has_scale(&self) -> bool {
+        self.0 & Self::WE_HAVE_A_SCALE != 0
+    }
+
+    pub fn is_last_component(&self) -> bool {
+        self.0 & Self::MORE_COMPONENTS == 0
+    }
+
+    pub fn has_xy_scale(&self) -> bool {
+        self.0 & Self::WE_HAVE_AN_X_AND_Y_SCALE != 0
+    }
+
+    pub fn has_two_by_two(&self) -> bool {
+        self.0 & Self::WE_HAVE_A_TWO_BY_TWO != 0
+    }
+
+    pub fn has_instructions(&self) -> bool {
+        self.0 & Self::WE_HAVE_INSTRUCTIONS == 0
+    }
+
+    pub fn use_my_metrics(&self) -> bool {
+        self.0 & Self::USE_MY_METRICS != 0
+    }
+
+    pub fn overlap_compound(&self) -> bool {
+        self.0 & Self::OVERLAP_COMPOUND != 0
     }
 }

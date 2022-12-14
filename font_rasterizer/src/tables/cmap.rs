@@ -1,4 +1,4 @@
-use crate::ttf::{read_u16_at, read_u32_at, TTFParseError};
+use crate::ttf::{read_u16_at, read_u32_at};
 use std::fmt;
 
 #[derive(Debug)]
@@ -46,7 +46,7 @@ impl<'a> CMAPTable<'a> {
         // so binary search really doesn't make a lot of sense
         for i in 0..self.num_subtables() as usize {
             let subtable = self.get_nth_subtable(i);
-            let platform_id = read_u16_at(self.0, 4 + i * 8);
+            let _platform_id = read_u16_at(self.0, 4 + i * 8);
 
             if subtable.platform_id() == target_id {
                 return Some(subtable.offset());
