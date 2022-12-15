@@ -7,4 +7,9 @@ edition = "2021"
 
 [dependencies]
 font_rasterizer = { path = "../font_rasterizer" }
-gtk = { version = "0.5", package = "gtk4" }
+gtk = { version = "0.5", package = "gtk4", optional = true}
+
+[features]
+default = ["backend-wayland"]
+backend-wayland = []
+backend-gtk = ["dep:gtk"]
