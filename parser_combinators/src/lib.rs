@@ -21,6 +21,13 @@ pub trait ParserCombinator: Parser + Sized {
             map_fn: map_fn,
         }
     }
+
+    fn or<P: Parser<In = Self::In>>(self, other: P) -> OneOf<Self, P> {
+        OneOf {
+            first: self,
+            second: other,
+        }
+    }
 }
 
 impl<T: Parser + Sized> ParserCombinator for T {}
@@ -162,6 +169,61 @@ pub fn optional<P: Parser>(inner: P) -> Optional<P> {
     Optional { inner }
 }
 
+/// Tries to apply one parser. If that parser fails, tries to apply another one.
+pub struct OneOf<P1, P2> {
+    first: P1,
+    second: P2,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Either<A, B> {
+    First(A),
+    Second(B),
+}
+
+impl<I: ?Sized, P1: Parser<In = I>, P2: Parser<In = I>> Parser for OneOf<P1, P2> {
+    type In = I;
+    type Out = Either<P1::Out, P2::Out>;
+
+    fn parse<'a>(&self, data: &'a Self::In) -> ParseResult<&'a Self::In, Self::Out> {
+        match self.first.parse(data) {
+            Ok((remaining, resulting)) => Ok((remaining, Either::First(resulting))),
+            Err(_) => match self.second.parse(data) {
+                Ok((remaining, resulting)) => Ok((remaining, Either::Second(resulting))),
+                Err(e) => Err(e),
+            },
+        }
+    }
+}
+
+pub struct PredicateParser<I: ?Sized, O, F: for<'a> Fn(&'a I) -> ParseResult<&'a I, O>> {
+    predicate: F,
+    // rust complains about unused parameters even though they are not unused - TODO: investigate
+    _m1: std::marker::PhantomData<I>,
+    _m2: std::marker::PhantomData<O>,
+}
+
+impl<I: ?Sized, O, F: for<'a> Fn(&'a I) -> ParseResult<&'a I, O>> Parser
+    for PredicateParser<I, O, F>
+{
+    type In = I;
+    type Out = O;
+
+    fn parse<'a>(&self, data: &'a Self::In) -> ParseResult<&'a Self::In, Self::Out> {
+        (self.predicate)(data)
+    }
+}
+
+pub fn predicate<I: ?Sized, O, F: for<'a> Fn(&'a I) -> ParseResult<&'a I, O>>(
+    predicate: F,
+) -> PredicateParser<I, O, F> {
+    PredicateParser {
+        predicate: predicate,
+        _m1: std::marker::PhantomData,
+        _m2: std::marker::PhantomData,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,6 +281,22 @@ mod tests {
             p.parse(b"abcabcabcd"),
             Ok((b"d".as_slice(), vec![(), (), ()]))
         );
+        assert_eq!(p.parse(b"def"), Err(0));
+    }
+
+    #[test]
+    fn test_or() {
+        let p = literal(b"abc").or(literal(b"def"));
+
+        assert_eq!(p.parse(b"abc"), Ok((b"".as_slice(), Either::First(()))));
+        assert_eq!(p.parse(b"def"), Ok((b"".as_slice(), Either::Second(()))));
+    }
+
+    #[test]
+    fn test_predicate() {
+        let p = predicate(|x: &[u8]| if x == b"abc" { Ok((b"", 1)) } else { Err(0) });
+
+        assert_eq!(p.parse(b"abc"), Ok((b"".as_slice(), 1)));
         assert_eq!(p.parse(b"def"), Err(0));
     }
 }
