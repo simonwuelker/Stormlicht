@@ -87,7 +87,6 @@ impl<'source> Parser<'source> {
     }
 
     fn consume_in_mode(&mut self, mode: InsertionMode, token: Token) {
-        log::info!("Consuming {:?} in {:?}", token, mode);
         match mode {
             InsertionMode::Initial => {
                 match token {

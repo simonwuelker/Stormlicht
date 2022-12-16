@@ -2815,7 +2815,7 @@ impl Iterator for Tokenizer<'_> {
                 self.step();
             }
             let first_token = self.token_buffer.pop_front();
-            log::info!("{:?}", first_token);
+
             if let Some(Token::EOF) = first_token {
                 self.done = true;
             }
