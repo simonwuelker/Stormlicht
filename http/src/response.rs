@@ -1,18 +1,9 @@
-//! HTTP response parser
+//! HTTP/1.1 response parser
 
-use nom::{
-    bytes::streaming::{tag, take_while},
-    character::{is_alphabetic, is_digit, streaming::space0},
-    combinator::map_res,
-    multi::many0,
-    sequence::{delimited, separated_pair, terminated},
-    IResult,
-};
+use parser_combinators::{literal, predicate, some, ParseResult, Parser, ParserCombinator};
 use std::collections::HashMap;
 
-use status_code::StatusCode;
-
-const NEWLINE: &[u8] = b"\r\n";
+use crate::status_code::StatusCode;
 
 #[derive(Debug)]
 pub struct Response {
@@ -20,64 +11,46 @@ pub struct Response {
     pub headers: HashMap<String, String>,
 }
 
-fn decimal(input: &[u8]) -> IResult<&[u8], usize> {
-    map_res(take_while(is_digit), |out: &[u8]| {
-        Ok::<usize, &[u8]>(
-            out.iter()
-                .map(|c| c - 0x30) // map to numeric value
-                .reduce(|acc, x| (10 * acc) + x)
-                .unwrap()
-                .into(),
-        )
-    })(input)
-}
+pub fn parse_status_line<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], u32> {
+    let http_version = literal(b"HTTP/1.1");
+    let whitespace = literal(b" ");
+    let linebreak = literal(b"\r\n");
+    let digit = predicate(|input: &[u8]| {
+        if input.len() == 0 {
+            Err(0)
+        } else {
+            let maybe_char = input[0];
+            if 0x30 <= maybe_char && maybe_char < 0x3A {
+                Ok((&input[1..], maybe_char - 0x30))
+            } else {
+                Err(0)
+            }
+        }
+    });
+    let character = predicate(|input: &[u8]| {
+        if input.len() == 0 {
+            Err(0)
+        } else {
+            match input[0] {
+                0x20 | 0x41..=0x5A | 0x61..=0x7A => Ok((&input[1..], ())),
+                _ => Err(0),
+            }
+        }
+    });
 
-fn is_field(c: u8) -> bool {
-    // ascii printable, no space and no colon
-    0x21 <= c && c <= 0x7e && c != 0x3a
-}
-
-pub fn parse_response(input: &[u8]) -> IResult<&[u8], Response> {
-    let (input, _) = tag(b"HTTP/")(input)?;
-    let (input, (major, minor)) = separated_pair(decimal, tag(b"."), decimal)(input)?;
-    assert_eq!((major, minor), (1, 1), "unsupported http version");
-
-    let (input, _) = tag(b" ")(input)?;
-    let (input, response_code) = decimal(input)?;
-    let (input, _) = tag(b" ")(input)?;
-    let (input, _) = terminated(take_while(is_alphabetic), tag(NEWLINE))(input)?; // response text SHOULD not be relied upon
-
-    let (input, headers) = terminated(
-        many0(terminated(
-            separated_pair(
-                take_while(is_field), // field name
-                tag(b":"),
-                delimited(
-                    space0,
-                    take_while(is_field), // field value
-                    space0,
-                ),
-            ),
-            tag(NEWLINE),
-        )),
-        tag(NEWLINE),
-    )(input)?;
-
-    let mut header_map = HashMap::new();
-    for (key, value) in headers {
-        header_map.insert(
-            std::str::from_utf8(key).unwrap().to_owned(),
-            std::str::from_utf8(value).unwrap().to_owned(),
-        );
-    }
-
-    Ok((
-        input,
-        Response {
-            status: StatusCode::try_from(response_code).unwrap(),
-            headers: header_map,
-        },
-    ))
+    let status_code =
+        some(digit).map(|digits| digits.iter().fold(0_u32, |acc, x| 10 * acc + *x as u32));
+    let parser = http_version
+        .then(whitespace)
+        .then(status_code)
+        .map(|res| res.1)
+        .then(whitespace)
+        .map(|res| res.0)
+        .then(some(character))
+        .map(|res| res.0)
+        .then(linebreak)
+        .map(|res| res.0);
+    parser.parse(input)
 }
 
 #[cfg(test)]
@@ -85,13 +58,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_simple_response() {
-        let response_raw = b"HTTP/1.1 200 OK\r\n\
-        host: google\r\n\
-        \r\n";
-        let (_, response) = parse_response(response_raw).unwrap();
+    fn test_parse_status_line() {
+        let response_raw = b"HTTP/1.1 200 OK\r\n";
+        let parse_result = parse_status_line(response_raw);
+        assert!(parse_result.is_ok());
 
-        assert_eq!(response.status, StatusCode::Ok);
-        assert_eq!(response.headers["host"], "google");
+        let (_, response_code) = parse_result.unwrap();
+        assert_eq!(response_code, 200);
     }
 }
