@@ -33,6 +33,7 @@ pub trait ParserCombinator: Parser + Sized {
 impl<T: Parser + Sized> ParserCombinator for T {}
 
 /// Runs a parser and applies a transformation to the result
+#[derive(Clone, Copy)]
 pub struct MappingParser<O, P: Parser, F: Fn(P::Out) -> O> {
     parser: P,
     map_fn: F,
@@ -51,6 +52,7 @@ impl<O, P: Parser, F: Fn(P::Out) -> O> Parser for MappingParser<O, P, F> {
 }
 
 /// Applies two parsers, returning both results
+#[derive(Clone, Copy)]
 pub struct ChainedParser<A, B> {
     first: A,
     second: B,
@@ -71,6 +73,7 @@ impl<T: ?Sized, A: Parser<In = T>, B: Parser<In = T>> Parser for ChainedParser<A
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Literal<T: 'static> {
     want: &'static [T],
 }
@@ -91,11 +94,12 @@ impl<T: Eq> Parser for Literal<T> {
     }
 }
 
-pub fn literal<T: 'static>(want: &'static [T]) -> Literal<T> {
+pub const fn literal<T: 'static>(want: &'static [T]) -> Literal<T> {
     Literal { want }
 }
 
 /// Applies one parser multiple times (as often as possible, including not at all)
+#[derive(Clone, Copy)]
 pub struct Many<P: Parser> {
     parser: P,
 }
@@ -149,6 +153,7 @@ pub fn some<P: Parser>(parser: P) -> Some<P> {
     Some { parser }
 }
 
+#[derive(Clone, Copy)]
 pub struct Optional<P> {
     inner: P,
 }
@@ -196,13 +201,14 @@ impl<I: ?Sized, P1: Parser<In = I>, P2: Parser<In = I>> Parser for OneOf<P1, P2>
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct PredicateParser<I: ?Sized, O, F: for<'a> Fn(&'a I) -> ParseResult<&'a I, O>> {
     predicate: F,
     // rust complains about unused parameters even though they are not unused - TODO: investigate
     _m1: std::marker::PhantomData<I>,
     _m2: std::marker::PhantomData<O>,
 }
-
+ 
 impl<I: ?Sized, O, F: for<'a> Fn(&'a I) -> ParseResult<&'a I, O>> Parser
     for PredicateParser<I, O, F>
 {
