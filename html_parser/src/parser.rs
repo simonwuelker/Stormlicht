@@ -1,3 +1,5 @@
+//! Implements the [Tree Construction Stage](https://html.spec.whatwg.org/multipage/parsing.html#tree-construction)
+
 use crate::dom::{DOMNode, DOMNodeType, SharedDOMNode};
 use crate::tokenizer::{TagData, Token, Tokenizer, TokenizerState};
 
@@ -14,6 +16,7 @@ const HEADINGS: [DOMNodeType; 6] = [
 ];
 
 #[derive(Debug, Clone, Copy)]
+/// https://html.spec.whatwg.org/multipage/parsing.html#parse-state
 pub enum InsertionMode {
     Initial,
     BeforeHtml,
