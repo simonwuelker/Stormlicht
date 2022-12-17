@@ -55,7 +55,7 @@ macro_rules! warn {
 #[cfg(feature = "log-info")]
 #[macro_export]
 macro_rules! info {
-    (target = $target:expr, $($arg:tt)+) => (log::log!(target = $target, log::Level::Warn, $($arg)+));
+    (target = $target:expr, $($arg:tt)+) => (log::log!(target = $target, log::Level::Info, $($arg)+));
     ($($arg:tt)+) => (log::log!(log::Level::Info, $($arg)+))
 }
 
@@ -69,7 +69,7 @@ macro_rules! info {
 #[cfg(feature = "log-debug")]
 #[macro_export]
 macro_rules! debug {
-    (target = $target:expr, $($arg:tt)+) => (log::log!(target = $target, log::Level::Warn, $($arg)+));
+    (target = $target:expr, $($arg:tt)+) => (log::log!(target = $target, log::Level::Debug, $($arg)+));
     ($($arg:tt)+) => (log::log!(log::Level::Debug, $($arg)+))
 }
 
@@ -83,7 +83,7 @@ macro_rules! debug {
 #[cfg(feature = "log-trace")]
 #[macro_export]
 macro_rules! trace {
-    (target = $target:expr, $($arg:tt)+) => (log::log!(target = $target, log::Level::Warn, $($arg)+));
+    (target = $target:expr, $($arg:tt)+) => (log::log!(target = $target, log::Level::Trace, $($arg)+));
     ($($arg:tt)+) => (log::log!(log::Level::Trace, $($arg)+))
 }
 
