@@ -1,0 +1,25 @@
+[package]
+name = "log"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[features]
+default = ["max-level-info"]
+
+max-level-trace = ["log-trace", "log-debug", "log-info", "log-warn", "log-error"]
+max-level-debug = ["log-debug", "log-info", "log-warn", "log-error"]
+max-level-info = ["log-info", "log-warn", "log-error"]
+max-level-warn = ["log-warn", "log-error"]
+max-level-error = ["log-error"]
+
+# You shouldn't need to set these manually,
+# they are enabled/disabled via the features above.
+log-trace = []
+log-debug = []
+log-info = []
+log-warn = []
+log-error = []
