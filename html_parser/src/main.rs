@@ -9,9 +9,10 @@ use parser::Parser;
 
 const HTML: &'static str = "\
 <!DOCTYPE html>
-<html>
+<html attribute=value>
 <body id=abc>
 Hello World
+<!-- Comment -->
 </body>
 </html>";
 

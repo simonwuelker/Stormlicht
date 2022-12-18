@@ -12,6 +12,7 @@ pub struct DOMNode {
     parent: Option<(SharedDOMNode, usize)>,
     pub node_type: DOMNodeType,
     children: Vec<SharedDOMNode>,
+    pub attributes: Vec<(String, String)>,
 }
 
 // node specific behaviour goes here
@@ -58,6 +59,7 @@ impl DOMNode {
             parent: None,
             node_type: node_type,
             children: vec![],
+            attributes: vec![],
         }
     }
 
@@ -142,16 +144,12 @@ impl From<TagData> for DOMNode {
 
 impl fmt::Debug for DOMNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "DOMNode {:?}", self.node_type)?;
+        writeln!(f, "DOMNode {:?} {:?}", self.node_type, self.attributes)?;
         for child in &self.children {
             for childline in format!("{:?}", child.borrow()).lines() {
                 writeln!(f, "   {}", childline)?;
             }
         }
         Ok(())
-        // f.debug_struct("DOMNode")
-        //     .field("x", &self.x)
-        //     .field("y", &self.y)
-        //     .finish()
     }
 }
