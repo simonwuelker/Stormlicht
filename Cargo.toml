@@ -1,7 +1,8 @@
 [workspace]
 members = [
-    "html_parser", 
-    "http", 
+    "web/html", 
+    "web/http", 
+    "web/url",
     "js", 
     "gui", 
     "font_rasterizer", 

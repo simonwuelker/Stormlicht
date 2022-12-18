@@ -403,6 +403,7 @@ dependencies = [
  "executor",
  "font_rasterizer",
  "gtk4",
+ "http",
  "log",
 ]
 
@@ -413,8 +414,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2540771e65fc8cb83cd6e8a237f70c319bd5c29f78ed1084ba5d50eeac86f7f9"
 
 [[package]]
-name = "html_parser"
+name = "html"
 version = "0.1.0"
+dependencies = [
+ "log",
+]
 
 [[package]]
 name = "http"
@@ -675,6 +679,10 @@ name = "unicode-ident"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ceab39d59e4c9499d4e5a8ee0e2735b891bb7308ac83dfb4e80cad195c9f6f3"
+
+[[package]]
+name = "url"
+version = "0.1.0"
 
 [[package]]
 name = "version-compare"

@@ -28,12 +28,12 @@ pub struct HTTPRequest {
 
 impl HTTPRequest {
     pub fn get(url: &str) -> Self {
-        let path = todo!();
-        Self {
-            method: HTTPMethod::GET,
-            path: path.to_string(),
-            headers: HashMap::new(),
-        }
+        todo!();
+        // Self {
+        //     method: HTTPMethod::GET,
+        //     path: path,
+        //     headers: HashMap::new(),
+        // }
     }
 
     pub fn write_to<W>(self, mut writer: W) -> std::io::Result<()>

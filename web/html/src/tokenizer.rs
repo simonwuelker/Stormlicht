@@ -270,7 +270,7 @@ impl<'source> Tokenizer<'source> {
 
     /// Reads the next character from the input strea,
     fn read_next(&mut self) -> Option<char> {
-        let c = self.source[self.ptr..].chars().nth(0);
+        let c = self.source.chars().nth(self.ptr);
         self.ptr += 1;
         c
     }

@@ -2,14 +2,14 @@
 
 pub type Port = u16;
 // https://url.spec.whatwg.org/#ip-address
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum IP {
     IPv4(u32),
     IPv6(u128),
 }
 
 // https://url.spec.whatwg.org/#concept-host
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum Host {
     Domain(String),
     IP(IP),
@@ -17,6 +17,7 @@ pub enum Host {
     EmptyHost,
 }
 
+#[derive(Clone)]
 pub enum Path {
     Opaque(String),
     NotOpaque(Vec<String>),
@@ -62,7 +63,12 @@ fn is_special_scheme(scheme: &str) -> (bool, Option<Port>) {
 
 impl URL {
     // https://url.spec.whatwg.org/#concept-basic-url-parser
-    pub fn parse_with_base(mut input: String, base: Option<URL>, given_url: Option<URL>) -> Self {
+    pub fn parse_with_base(
+        mut input: String,
+        base: Option<URL>,
+        given_url: Option<URL>,
+        state_override: Option<URLParserState>,
+    ) -> Self {
         let url = match given_url {
             Some(url) => url,
             None => {
@@ -92,12 +98,39 @@ impl URL {
             .collect();
 
         // Let state be state override if given, or scheme start state otherwise.
-        todo!();
+        let state = state_override.unwrap_or(URLParserState::Scheme);
+
+        // Set encoding to the result of getting an output encoding from encoding.
+
+        // Let buffer be the empty string.
+        let buffer = String::new();
+
+        // Let atSignSeen, insideBrackets, and passwordTokenSeen be false.
+        let at_sign_seen = false;
+        let inside_brackets = false;
+        let password_token_seen = false;
+
+        let ptr = 0;
+
+        let mut state_machine = URLParser {
+            url: url,
+            state: state,
+            buffer: buffer,
+            ptr: ptr,
+            base: base,
+            input: &input,
+            state_override: state_override,
+            at_sign_seen: at_sign_seen,
+            inside_brackets: inside_brackets,
+            password_token_seen: password_token_seen,
+        };
+        _ = state_machine.run();
+        state_machine.url
     }
 
     // https://url.spec.whatwg.org/#concept-basic-url-parser
     pub fn parse(input: String) -> Self {
-        Self::parse_with_base(input, None, None)
+        Self::parse_with_base(input, None, None, None)
     }
 
     // https://url.spec.whatwg.org/#include-credentials
@@ -119,7 +152,8 @@ impl URL {
     }
 }
 
-enum URLParserState {
+#[derive(Clone, Copy)]
+pub enum URLParserState {
     SchemeStart,
     Scheme,
     NoScheme,
@@ -287,7 +321,7 @@ impl<'a> URLParser<'a> {
                         }
 
                         // Set url’s scheme to buffer.
-                        self.url.scheme = self.buffer;
+                        self.url.scheme = self.buffer.clone();
 
                         // If state override is given, then:
                         if self.state_override.is_some() {
@@ -318,10 +352,10 @@ impl<'a> URLParser<'a> {
                         // Otherwise, if url is special, base is non-null, and base’s scheme is url’s scheme:
                         else if self.url.is_special()
                             && self.base.is_some()
-                            && self.base.unwrap().scheme == self.url.scheme
+                            && self.base.as_ref().unwrap().scheme == self.url.scheme
                         {
                             // Assert: base is is special (and therefore does not have an opaque path).
-                            assert!(self.base.unwrap().is_special());
+                            assert!(self.base.as_ref().unwrap().is_special());
 
                             // Set state to special relative or authority state.
                             self.state = URLParserState::SpecialRelativeOrAuthority;
@@ -365,23 +399,23 @@ impl<'a> URLParser<'a> {
             URLParserState::NoScheme => {
                 // If base is null, or base has an opaque path and c is not U+0023 (#),
                 if self.base.is_none()
-                    || (self.base.unwrap().has_opaque_path() && self.c() != Some('#'))
+                    || (self.base.as_ref().unwrap().has_opaque_path() && self.c() != Some('#'))
                 {
                     // validation error, return failure.
                     return Err(());
                 }
-                let base = self.base.unwrap();
+                let base = self.base.as_ref().unwrap();
 
                 // Otherwise, if base has an opaque path and c is U+0023 (#)
                 if base.has_opaque_path() && self.c() == Some('#') {
                     // set url’s scheme to base’s scheme,
-                    self.url.scheme = base.scheme;
+                    self.url.scheme = base.scheme.clone();
 
                     // url’s path to base’s path,
-                    self.url.path = base.path;
+                    self.url.path = base.path.clone();
 
                     // url’s query to base’s query,
-                    self.url.query = base.query;
+                    self.url.query = base.query.clone();
 
                     // url’s fragment to the empty string,
                     self.url.fragment = Some(String::new());
@@ -446,11 +480,11 @@ impl<'a> URLParser<'a> {
             URLParserState::Relative => {
                 // Assert: base’s scheme is not "file".
                 assert!(self.base.is_some());
-                let base = self.base.unwrap();
+                let base = self.base.as_ref().unwrap();
                 assert!(base.scheme != "file");
 
                 // Set url’s scheme to base’s scheme.
-                self.url.scheme = base.scheme;
+                self.url.scheme = base.scheme.clone();
 
                 // If c is U+002F (/)
                 if self.c() == Some('/') {
@@ -466,22 +500,22 @@ impl<'a> URLParser<'a> {
                 // Otherwise:
                 else {
                     // Set url’s username to base’s username
-                    self.url.username = base.username;
+                    self.url.username = base.username.clone();
 
                     // url’s password to base’s password
-                    self.url.password = base.password;
+                    self.url.password = base.password.clone();
 
                     // url’s host to base’s host
-                    self.url.host = base.host;
+                    self.url.host = base.host.clone();
 
                     // url’s port to base’s port
                     self.url.port = base.port;
 
                     // url’s path to a clone of base’s path
-                    self.url.path = base.path;
+                    self.url.path = base.path.clone();
 
                     // and url’s query to base’s query.
-                    self.url.query = base.query;
+                    self.url.query = base.query.clone();
 
                     // If c is U+003F (?)
                     if self.c() == Some('?') {
@@ -520,15 +554,15 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise
                 else {
-                    let base = self.base.unwrap();
+                    let base = self.base.as_ref().unwrap();
                     // set url’s username to base’s username,
-                    self.url.username = base.username;
+                    self.url.username = base.username.clone();
 
                     // url’s password to base’s password,
-                    self.url.password = base.password;
+                    self.url.password = base.password.clone();
 
                     // url’s host to base’s host,
-                    self.url.host = base.host;
+                    self.url.host = base.host.clone();
 
                     // url’s port to base’s port,
                     self.url.port = base.port;
