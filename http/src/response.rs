@@ -1,6 +1,8 @@
 //! HTTP/1.1 response parser
 
-use parser_combinators::{literal, predicate, some, optional, ParseResult, Parser, ParserCombinator};
+use parser_combinators::{
+    literal, optional, predicate, some, ParseResult, Parser, ParserCombinator,
+};
 use std::collections::HashMap;
 
 use crate::status_code::StatusCode;
@@ -77,7 +79,14 @@ pub fn parse_header<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], (String, Strin
         }
     });
     let linebreak = literal(b"\r\n");
-    let to_string = |chars: Vec<u8>| chars.iter().map(|byte| char::from_u32(*byte as u32).unwrap()).collect::<String>().trim().to_string();
+    let to_string = |chars: Vec<u8>| {
+        chars
+            .iter()
+            .map(|byte| char::from_u32(*byte as u32).unwrap())
+            .collect::<String>()
+            .trim()
+            .to_string()
+    };
     let colon = literal(b":");
     let whitespace = literal(b" ");
     some(legal_name_chars)
@@ -91,7 +100,6 @@ pub fn parse_header<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], (String, Strin
         .then(linebreak)
         .map(|res| res.0)
         .parse(input)
-
 }
 
 #[cfg(test)]
@@ -115,6 +123,9 @@ mod tests {
         assert!(parse_result.is_ok());
 
         let (_, header) = parse_result.unwrap();
-        assert_eq!(header, ("User-Agent".to_string(), "curl/7.64.1".to_string()));
+        assert_eq!(
+            header,
+            ("User-Agent".to_string(), "curl/7.64.1".to_string())
+        );
     }
 }

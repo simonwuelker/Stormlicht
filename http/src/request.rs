@@ -27,13 +27,12 @@ pub struct HTTPRequest {
 }
 
 impl HTTPRequest {
-    pub fn new(method: HTTPMethod, path: String) -> Self {
-        let mut headers = HashMap::new();
-        headers.insert(HTTPHeader::UserAgent, "browser".to_string());
+    pub fn get(url: &str) -> Self {
+        let path = todo!();
         Self {
-            method: method,
-            path: path,
-            headers: headers,
+            method: HTTPMethod::GET,
+            path: path.to_string(),
+            headers: HashMap::new(),
         }
     }
 
@@ -62,8 +61,8 @@ impl HTTPRequest {
         Ok(())
     }
 
-    pub fn set_header(&mut self, header: HTTPHeader, value: String) {
-        self.headers.insert(header, value);
+    pub fn set_header(&mut self, header: HTTPHeader, value: &str) {
+        self.headers.insert(header, value.to_string());
     }
 }
 
@@ -73,8 +72,8 @@ mod tests {
     #[test]
     fn basic_get_request() {
         let mut tcpstream: Vec<u8> = vec![];
-        let mut request = HTTPRequest::new(HTTPMethod::GET, "/".to_string());
-        request.set_header(HTTPHeader::UserAgent, "test".to_string());
+        let mut request = HTTPRequest::get("www.example.com");
+        request.set_header(HTTPHeader::UserAgent, "test");
         request.write_to(&mut tcpstream).unwrap();
         assert_eq!(
             String::from_utf8(tcpstream).unwrap(),
