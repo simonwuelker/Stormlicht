@@ -2,7 +2,7 @@ use crate::{
     host::{self, Host},
     scheme_default_port, scheme_is_special,
     urlencode::{is_userinfo_percent_encode_set, percent_encode_char},
-    Path, URL,
+    util, Path, URL,
 };
 
 #[derive(Clone, Copy)]
@@ -518,7 +518,240 @@ impl<'a> URLParser<'a> {
                     }
 
                     // Let host be the result of host parsing buffer with url is not special.
-                    let _ = host::host_parse_with_special(self.buffer.as_str(), true);
+                    let host_or_failure = host::host_parse_with_special(self.buffer.as_str(), true);
+
+                    // If host is failure, then return failure.
+                    let host = host_or_failure?;
+
+                    // Set url’s host to host,
+                    self.url.host = Some(host);
+
+                    // buffer to the empty string,
+                    self.buffer = String::new();
+
+                    // and state to port state.
+                    self.state = URLParserState::Port;
+                }
+                // Otherwise, if one of the following is true:
+                // * c is the EOF code point, U+002F (/), U+003F (?), or U+0023 (#)
+                // * url is special and c is U+005C (\)
+                else if (self.c().is_none()
+                    || self.c() == Some('/')
+                    || self.c() == Some('?')
+                    || self.c() == Some('#'))
+                    || (self.url.is_special() && self.c() == Some('\\'))
+                {
+                    // then decrease pointer by 1,
+                    self.ptr -= 1;
+
+                    // and then:
+                    // If url is special and buffer is the empty string
+                    if self.url.is_special() && self.buffer.is_empty() {
+                        // validation error, return failure.
+                        return Err(());
+                    }
+                    // Otherwise, if state override is given, buffer is the empty string,
+                    // and either url includes credentials or url’s port is non-null
+                    else if self.state_override.is_some()
+                        && self.buffer.is_empty()
+                        && (self.url.includes_credentials() || self.url.port.is_some())
+                    {
+                        //  return.
+                        return Ok(());
+                    }
+
+                    // Let host be the result of host parsing buffer with url is not special.
+                    let host_or_failure = host::host_parse_with_special(self.buffer.as_str(), true);
+
+                    // If host is failure, then return failure.
+                    let host = host_or_failure?;
+
+                    // Set url’s host to host,
+                    self.url.host = Some(host);
+
+                    // buffer to the empty string,
+                    self.buffer = String::new();
+
+                    // and state to path start state.
+                    self.state = URLParserState::PathStart;
+
+                    // If state override is given, then return.
+                    if self.state_override.is_some() {
+                        return Ok(());
+                    }
+                }
+                // Otherwise:
+                else {
+                    // If c is U+005B ([),
+                    if self.c() == Some('[') {
+                        // then set insideBrackets to true.
+                        self.inside_brackets = true;
+                    }
+                    // If c is U+005D (])
+                    else if self.c() == Some(']') {
+                        // then set insideBrackets to false.
+                        self.inside_brackets = false;
+                    }
+
+                    // Append c to buffer.
+                    self.buffer.push(self.c().unwrap());
+                }
+            },
+            // https://url.spec.whatwg.org/#port-state
+            URLParserState::Port => {
+                if self.c().is_some() && self.c().unwrap().is_ascii_digit() {
+                    // append c to buffer.
+                }
+                // Otherwise, if one of the following is true:
+                // * c is the EOF code point, U+002F (/), U+003F (?), or U+0023 (#)
+                // * url is special and c is U+005C (\)
+                // * state override is given
+                else if (self.c().is_none()
+                    || self.c() == Some('/')
+                    || self.c() == Some('?')
+                    || self.c() == Some('#'))
+                    || (self.url.is_special() && self.c() == Some('\\'))
+                    || (self.state_override.is_some())
+                {
+                    // If buffer is not the empty string, then:
+                    if !self.buffer.is_empty() {
+                        // Let port be the mathematical integer value that is
+                        // represented by buffer in radix-10 using ASCII digits
+                        // for digits with values 0 through 9.
+
+                        // If port is greater than 2^16 − 1
+                        // validation error, return failure.
+                        let port = u16::from_str_radix(&self.buffer, 10).map_err(|_| ())?;
+
+                        // Set url’s port to null, if port is url’s scheme’s default port; otherwise to port.
+                        if scheme_default_port(&self.url.scheme) == Some(port) {
+                            self.url.port = None;
+                        } else {
+                            self.url.port = Some(port);
+                        }
+
+                        // Set buffer to the empty string.
+                        self.buffer = String::new();
+                    }
+
+                    // If state override is given
+                    if self.state_override.is_some() {
+                        // then return.
+                        return Ok(());
+                    }
+
+                    // Set state to path start state
+                    self.state = URLParserState::PathStart;
+
+                    // and decrease pointer by 1.
+                    self.ptr -= 1;
+                }
+                // Otherwise
+                else {
+                    // validation error, return failure.
+                    return Err(());
+                }
+            },
+            // https://url.spec.whatwg.org/#file-state
+            URLParserState::File => {
+                // Set url’s scheme to "file".
+                self.url.scheme = "file".to_string();
+
+                // Set url’s host to the empty string.
+                self.url.host = Some(Host::OpaqueHost("".to_string()));
+
+                // If c is U+002F (/) or U+005C (\), then:
+                if self.c() == Some('/') || self.c() == Some('\\') {
+                    // If c is U+005C (\),
+                    if self.c() == Some('\\') {
+                        // validation error.
+                    }
+
+                    // Set state to file slash state.
+                    self.state = URLParserState::FileSlash;
+                }
+                // Otherwise, if base is non-null and base’s scheme is "file":
+                else if self.base.is_some() && self.base.as_ref().unwrap().scheme == "file" {
+                    let base = self.base.as_ref().unwrap();
+
+                    // Set url’s host to base’s host,
+                    self.url.host = base.host.clone();
+
+                    // url’s path to a clone of base’s path,
+                    self.url.path = base.path.clone();
+
+                    // and url’s query to base’s query.
+                    self.url.query = base.query.clone();
+
+                    // If c is U+003F (?)
+                    if self.c() == Some('?') {
+                        // then set url’s query to the empty string
+                        self.url.query = Some(String::new());
+
+                        // and state to query state.
+                        self.state = URLParserState::Query;
+                    }
+                    // Otherwise, if c is U+0023 (#)
+                    else if self.c() == Some('#') {
+                        // set url’s fragment to the empty string
+                        self.url.fragment = Some(String::new());
+
+                        // and state to fragment state.
+                        self.state = URLParserState::Fragment;
+                    }
+                    // Otherwise, if c is not the EOF code point:
+                    else if self.c().is_some() {
+                        // Set url’s query to null.
+                        self.url.query = None;
+                    }
+
+                    // If the code point substring from pointer to the end of input
+                    // does not start with a Windows drive letter,
+                    if !util::starts_with_windows_drive_letter(self.remaining()) {
+                        // then shorten url’s path.
+                        self.url.shorten_path();
+                    }
+                    // Otherwise:
+                    else {
+                        // Validation error.
+
+                        // Set url’s path to an empty list.
+                        self.url.path = Path::NotOpaque(vec![]);
+                    }
+
+                    // Set state to path state
+                    self.state = URLParserState::Path;
+
+                    // and decrease pointer by 1.
+                    self.ptr -= 1;
+                }
+                // Otherwise
+                else {
+                    // set state to path state,
+                    self.state = URLParserState::Path;
+
+                    // and decrease pointer by 1.
+                    self.ptr -= 1;
+                }
+            },
+            // https://url.spec.whatwg.org/#file-slash-state
+            URLParserState::FileSlash => {
+                // If c is U+002F (/) or U+005C (\), then:
+                if self.c() == Some('/') || self.c() == Some('\\') {
+                    // If c is U+005C (\)
+                    if self.c() == Some('\\') {
+                        // validation error.
+                    }
+
+                    // Set state to file host state.
+                    self.state = URLParserState::FileHost;
+                }
+                // Otherwise:
+                else {
+                    // If base is non-null and base’s scheme is "file", then:
+                    if self.base.is_some() && self.base.as_ref().unwrap().scheme == "file" {
+                        // Set url’s host to base’s host.
+                    }
                 }
             },
             _ => todo!(),

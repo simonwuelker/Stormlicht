@@ -3,6 +3,7 @@
 use crate::{
     host::Host,
     urlparser::{URLParser, URLParserState},
+    util,
 };
 
 // https://url.spec.whatwg.org/#url-code-points
@@ -199,8 +200,29 @@ impl URL {
             _ => false,
         }
     }
-}
 
+    // https://url.spec.whatwg.org/#shorten-a-urls-path
+    pub(crate) fn shorten_path(&mut self) {
+        // Assert: url does not have an opaque path.
+        // Let path be url’s path.
+        let path = match &mut self.path {
+            Path::Opaque(_) => panic!("assertion failed"),
+            Path::NotOpaque(elements) => elements,
+        };
+
+        // If url’s scheme is "file", path’s size is 1, and path[0] is a normalized Windows drive letter,
+        if self.scheme == "file"
+            && path.len() == 1
+            && util::is_normalized_windows_drive_letter(&path[0])
+        {
+            // then return.
+            return;
+        }
+
+        // Remove path’s last item, if any.
+        path.pop();
+    }
+}
 impl Default for Path {
     fn default() -> Self {
         Self::Opaque(String::new())

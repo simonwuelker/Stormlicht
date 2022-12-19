@@ -1,8 +1,4 @@
-use crate::{
-    url::is_url_codepoint,
-    urlencode::{is_c0_percent_encode_set, percent_encode},
-    urlparser::is_c0_control,
-};
+use crate::{url::is_url_codepoint, urlencode::percent_encode, urlparser::is_c0_control};
 
 // https://url.spec.whatwg.org/#forbidden-host-code-point
 fn is_forbidden_host_code_point(c: char) -> bool {
@@ -27,7 +23,7 @@ fn is_forbidden_domain_code_point(c: char) -> bool {
 #[derive(PartialEq, Clone)]
 pub enum IP {
     IPv4(u32),
-    IPv6(u128),
+    IPv6([u16; 8]),
 }
 
 // https://url.spec.whatwg.org/#concept-host
@@ -51,7 +47,7 @@ pub(crate) fn host_parse_with_special(input: &str, is_not_special: bool) -> Resu
         }
 
         // Return the result of IPv6 parsing input with its leading U+005B ([) and trailing U+005D (]) removed.
-        todo!();
+        return Ok(Host::IP(IP::IPv6(ipv6_parse(&input[1..input.len() - 1])?)));
     }
 
     // If isNotSpecial is true
@@ -204,7 +200,7 @@ fn ipv4_parse(input: &str) -> Result<u32, ()> {
     // For each n of numbers:
     for n in numbers {
         // Increment ipv4 by n × 256^(3 − counter).
-        ipv4 += 256_u32.pow(3 - counter);
+        ipv4 += n * 256_u32.pow(3 - counter);
 
         // Increment counter by 1.
         counter += 1;
@@ -272,9 +268,9 @@ fn ipv4_number_parse(mut input: &str) -> Result<(u32, bool), ()> {
 }
 
 // https://url.spec.whatwg.org/#concept-ipv6-parser
-fn ipv6_parse(input: &str) -> Result<u128, ()> {
+fn ipv6_parse(input: &str) -> Result<[u16; 8], ()> {
     // Let address be a new IPv6 address whose IPv6 pieces are all 0.
-    let mut address: u128 = 0;
+    let mut address = [0_u16; 8];
 
     // Let pieceIndex be 0.
     let mut piece_index = 0;
@@ -331,13 +327,13 @@ fn ipv6_parse(input: &str) -> Result<u128, ()> {
         }
 
         // Let value and length be 0.
-        let mut value = 0;
+        let mut value: u16 = 0;
         let mut length = 0;
 
         // While length is less than 4 and c is an ASCII hex digit
         while length < 4 && input.chars().nth(ptr).unwrap().is_ascii_hexdigit() {
             // set value to value × 0x10 + c interpreted as hexadecimal number
-            value = value * 0x10 + input.chars().nth(ptr).unwrap().to_digit(16).unwrap();
+            value = value * 0x10 + input.chars().nth(ptr).unwrap().to_digit(16).unwrap() as u16;
 
             // and increase pointer and length by 1.
             ptr += 1;
@@ -345,7 +341,7 @@ fn ipv6_parse(input: &str) -> Result<u128, ()> {
         }
 
         // If c is U+002E (.), then:
-        if c == '.' {
+        if input.chars().nth(ptr) == Some('.') {
             // If length is 0
             if length == 0 {
                 // validation error, return failure.
@@ -367,7 +363,7 @@ fn ipv6_parse(input: &str) -> Result<u128, ()> {
             // While c is not the EOF code point:
             while input.chars().nth(ptr).is_some() {
                 // Let ipv4Piece be null.
-                let mut ipv4_piece: Option<u32> = None;
+                let mut ipv4_piece: Option<u16> = None;
 
                 // If numbersSeen is greater than 0, then:
                 if numbers_seen > 0 {
@@ -390,10 +386,108 @@ fn ipv6_parse(input: &str) -> Result<u128, ()> {
                 }
 
                 // While c is an ASCII digit:
-                todo!()
+                while input.chars().nth(ptr).unwrap().is_ascii_digit() {
+                    // Let number be c interpreted as decimal number.
+                    let number = input.chars().nth(ptr).unwrap().to_digit(10).unwrap() as u16;
+
+                    // If ipv4Piece is null,
+                    if ipv4_piece.is_none() {
+                        // then set ipv4Piece to number.
+                        ipv4_piece = Some(number);
+                    }
+                    // Otherwise, if ipv4Piece is 0
+                    else if ipv4_piece == Some(0) {
+                        // validation error, return failure.
+                        return Err(());
+                    }
+                    // Otherwise
+                    else {
+                        // set ipv4Piece to ipv4Piece × 10 + number.
+                        ipv4_piece = Some(ipv4_piece.unwrap() * 10 + number);
+                    }
+
+                    // If ipv4Piece is greater than 255
+                    if ipv4_piece.unwrap() > 255 {
+                        // validation error, return failure.
+                        return Err(());
+                    }
+
+                    // Increase pointer by 1.
+                    ptr += 1;
+                }
+
+                // Set address[pieceIndex] to address[pieceIndex] × 0x100 + ipv4Piece.
+                address[piece_index] = address[piece_index] * 0x100 + ipv4_piece.unwrap();
+
+                // Increase numbersSeen by 1.
+                numbers_seen += 1;
+
+                // If numbersSeen is 2 or 4
+                if numbers_seen == 2 || numbers_seen == 4 {
+                    // then increase pieceIndex by 1.
+                    piece_index += 1;
+                }
+            }
+
+            // If numbersSeen is not 4
+            if numbers_seen != 4 {
+                // validation error, return failure.
+                return Err(());
+            }
+
+            // Break.
+            break;
+        }
+        // Otherwise, if c is U+003A (:):
+        else if input.chars().nth(ptr) == Some(':') {
+            // Increase pointer by 1.
+            ptr += 1;
+
+            // If c is the EOF code point,
+            if input.chars().nth(ptr).is_none() {
+                // validation error, return failure.
+                return Err(());
             }
         }
+        // Otherwise, if c is not the EOF code point
+        else if !input.chars().nth(ptr).is_none() {
+            // validation error, return failure.
+            return Err(());
+        }
+
+        // Set address[pieceIndex] to value.
+        address[piece_index] = value;
+
+        // Increase pieceIndex by 1.
+        piece_index += 1
     }
 
-    todo!();
+    // If compress is non-null, then:
+    if let Some(compress_value) = compress {
+        // Let swaps be pieceIndex − compress.
+        let mut swaps = piece_index - compress_value;
+
+        // Set pieceIndex to 7.
+        piece_index = 7;
+
+        // While pieceIndex is not 0 and swaps is greater than 0
+        while piece_index != 0 && swaps > 0 {
+            // swap address[pieceIndex] with address[compress + swaps − 1]
+            let tmp = address[piece_index];
+            address[piece_index] = address[compress_value + swaps - 1];
+            address[compress_value + swaps - 1] = tmp;
+
+            // and then decrease both pieceIndex and swaps by 1.
+            piece_index -= 1;
+            swaps -= 1;
+        }
+    }
+    // Otherwise, if compress is null and pieceIndex is not 8
+    else if piece_index != 8 {
+        // validation error, return failure.
+        return Err(());
+    }
+
+    // Return address.
+    Ok(address)
 }
