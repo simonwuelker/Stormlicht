@@ -21,7 +21,7 @@ pub struct Glyph<'a>(&'a [u8]);
 
 impl<'a> Glyph<'a> {
     pub fn is_simple(&self) -> bool {
-       self.num_contours()  >= 0
+        self.num_contours() >= 0
     }
 
     pub fn num_contours(&self) -> i16 {
@@ -87,7 +87,7 @@ impl<'a> Glyph<'a> {
         // flags                 : [u8; unknown]
         // x coords              : [u16; last value in "end points of contours" + 1]
         // y coords              : [u16; last value in "end points of contours" + 1]
-        
+
         assert!(self.is_simple());
 
         let num_contours = self.num_contours() as usize;
@@ -174,7 +174,6 @@ impl<'a> GlyphOutline<'a> {
         read_u16_at(&self.data, 10 + self.num_contours() * 2 - 2) as usize + 1
     }
 
-
     pub fn points(&'a self) -> GlyphPointIterator<'a> {
         // The iterator only needs the data from the flags onwards
         let first_flag_addr = 10 + self.num_contours() * 2 + 2 + self.instruction_length();
@@ -188,7 +187,6 @@ impl<'a> GlyphOutline<'a> {
             self.y_starts_at,
         )
     }
-
 }
 
 // TODO: this panics if the glyf is not simple :^(

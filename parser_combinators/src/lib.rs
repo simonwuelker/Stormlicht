@@ -208,7 +208,7 @@ pub struct PredicateParser<I: ?Sized, O, F: for<'a> Fn(&'a I) -> ParseResult<&'a
     _m1: std::marker::PhantomData<I>,
     _m2: std::marker::PhantomData<O>,
 }
- 
+
 impl<I: ?Sized, O, F: for<'a> Fn(&'a I) -> ParseResult<&'a I, O>> Parser
     for PredicateParser<I, O, F>
 {

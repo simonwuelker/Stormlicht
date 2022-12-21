@@ -1,9 +1,8 @@
-use std::io::Read;
 use super::{
-    WaylandError,
-    WaylandHeader,
-    types::{WaylandUInt, WaylandObjectID, WaylandString, WaylandType},
+    types::{WaylandObjectID, WaylandString, WaylandType, WaylandUInt},
+    WaylandError, WaylandHeader,
 };
+use std::io::Read;
 
 pub const WL_DISPLAY_ID: WaylandObjectID = WaylandObjectID(1);
 
@@ -28,7 +27,7 @@ impl TryFrom<WaylandUInt> for WaylandDisplayError {
             1 => Ok(Self::InvalidMethod),
             2 => Ok(Self::OutOfMemory),
             3 => Ok(Self::Implementation),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -37,11 +36,12 @@ pub fn handle_response<R: Read>(header: WaylandHeader, mut reader: R) -> Result<
     match header.opcode {
         0 => {
             // Error
-            let _object_id =  WaylandObjectID::read(&mut reader)?;
-            let _error = WaylandDisplayError::try_from(WaylandUInt::read(&mut reader)?).map_err(|_| WaylandError::FailedToParseResponse)?;
+            let _object_id = WaylandObjectID::read(&mut reader)?;
+            let _error = WaylandDisplayError::try_from(WaylandUInt::read(&mut reader)?)
+                .map_err(|_| WaylandError::FailedToParseResponse)?;
             let string = WaylandString::read(&mut reader)?;
             println!("Error: {string:?}");
-        }
+        },
         _ => todo!(),
     }
     Ok(())

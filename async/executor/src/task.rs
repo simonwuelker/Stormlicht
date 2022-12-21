@@ -2,9 +2,8 @@ use std::{
     future::Future,
     pin::Pin,
     sync::atomic::{AtomicU64, Ordering},
-    task::{Poll, Context},
+    task::{Context, Poll},
 };
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TaskID(u64);
@@ -26,12 +25,11 @@ impl Task {
     pub fn new(task: Pin<Box<dyn Future<Output = ()> + 'static>>) -> Self {
         Self {
             id: TaskID::new(),
-            task: task
+            task: task,
         }
     }
 
     pub(crate) fn poll(&mut self, context: &mut Context) -> Poll<()> {
         self.task.as_mut().poll(context)
-
     }
 }

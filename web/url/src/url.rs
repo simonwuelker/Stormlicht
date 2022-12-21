@@ -1,5 +1,7 @@
 //! Implements https://url.spec.whatwg.org
 
+use std::ops::Index;
+
 use crate::{
     host::Host,
     urlparser::{URLParser, URLParserState},
@@ -96,21 +98,6 @@ pub struct URL {
     pub fragment: Option<String>,
 }
 
-// https://infra.spec.whatwg.org/#c0-control
-fn is_c0_or_space(c: char) -> bool {
-    match c {
-        '\u{0000}'..='\u{001F}' | '\u{0020}' => true,
-        _ => false,
-    }
-}
-
-fn is_ascii_tab_or_newline(c: char) -> bool {
-    match c {
-        '\u{0009}' | '\u{000A}' | '\u{000D}' => true,
-        _ => false,
-    }
-}
-
 impl URL {
     // https://url.spec.whatwg.org/#concept-basic-url-parser
     pub fn parse_with_base(
@@ -130,8 +117,8 @@ impl URL {
 
                 // Remove any leading and trailing C0 control or space from input.
                 input = input
-                    .trim_start_matches(is_c0_or_space)
-                    .trim_end_matches(is_c0_or_space)
+                    .trim_start_matches(util::is_c0_or_space)
+                    .trim_end_matches(util::is_c0_or_space)
                     .to_string();
                 url
             },
@@ -144,7 +131,7 @@ impl URL {
         // would be nice here, but it's not stabilized yet
         input = input
             .chars()
-            .filter(|c| !is_ascii_tab_or_newline(*c))
+            .filter(|c| !util::is_ascii_tab_or_newline(*c))
             .collect();
 
         // Let state be state override if given, or scheme start state otherwise.
@@ -226,5 +213,16 @@ impl URL {
 impl Default for Path {
     fn default() -> Self {
         Self::Opaque(String::new())
+    }
+}
+
+impl Index<usize> for Path {
+    type Output = String;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match self {
+            Self::Opaque(path) => path,
+            Self::NotOpaque(parts) => &parts[index],
+        }
     }
 }

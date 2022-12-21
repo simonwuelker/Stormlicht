@@ -1,5 +1,5 @@
-mod task;
 mod executor;
+mod task;
 mod waker;
 
 pub use executor::Executor;

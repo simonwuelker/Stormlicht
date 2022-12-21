@@ -1,11 +1,11 @@
-use std::{
-    collections::{BTreeMap, VecDeque},
-    task::{Poll, Context, Waker},
-    sync::{Mutex, Arc},
-};
 use crate::{
     task::{Task, TaskID},
     waker::TaskWaker,
+};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    sync::{Arc, Mutex},
+    task::{Context, Poll, Waker},
 };
 
 pub struct Executor {
@@ -48,20 +48,19 @@ impl Executor {
                 None => continue,
             };
 
-            let waker = self.waker_cache
+            let waker = self
+                .waker_cache
                 .entry(task_id)
                 .or_insert_with(|| TaskWaker::new(task_id, Arc::clone(&self.task_queue)));
-            
+
             let mut context = Context::from_waker(waker);
             match task.poll(&mut context) {
                 Poll::Ready(()) => {
                     // task done
                     self.tasks.remove(&task_id);
                     self.waker_cache.remove(&task_id);
-
-                }
-                Poll::Pending => {
                 },
+                Poll::Pending => {},
             }
         }
     }

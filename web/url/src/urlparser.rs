@@ -750,7 +750,23 @@ impl<'a> URLParser<'a> {
                 else {
                     // If base is non-null and base’s scheme is "file", then:
                     if self.base.is_some() && self.base.as_ref().unwrap().scheme == "file" {
+                        let base = self.base.as_ref().unwrap();
+
                         // Set url’s host to base’s host.
+                        self.url.host = base.host.clone();
+
+                        // If the code point substring from pointer to the end of input
+                        // does not start with a Windows drive letter
+                        // and base’s path[0] is a normalized Windows drive letter
+                        if util::starts_with_windows_drive_letter(self.remaining())
+                            && util::is_normalized_windows_drive_letter(base.path[0].as_str())
+                        {
+                            // then append base’s path[0] to url’s path.
+                            todo!(
+                                "I first want to think about whether
+                            we really should distinguish between the two types of paths"
+                            );
+                        }
                     }
                 }
             },

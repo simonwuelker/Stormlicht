@@ -46,3 +46,18 @@ pub(crate) fn is_normalized_windows_drive_letter(letter: &str) -> bool {
     let second_character = letter.chars().nth(1).unwrap();
     first_character.is_ascii_alphabetic() && second_character == ':'
 }
+
+// https://infra.spec.whatwg.org/#c0-control
+pub(crate) fn is_c0_or_space(c: char) -> bool {
+    match c {
+        '\u{0000}'..='\u{001F}' | '\u{0020}' => true,
+        _ => false,
+    }
+}
+
+pub(crate) fn is_ascii_tab_or_newline(c: char) -> bool {
+    match c {
+        '\u{0009}' | '\u{000A}' | '\u{000D}' => true,
+        _ => false,
+    }
+}

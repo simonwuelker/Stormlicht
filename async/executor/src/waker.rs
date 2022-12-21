@@ -1,12 +1,10 @@
 use std::{
-    task::{Wake, Waker},
-    sync::{Arc, Mutex},
     collections::VecDeque,
+    sync::{Arc, Mutex},
+    task::{Wake, Waker},
 };
 
-use crate::{
-    task::TaskID,
-};
+use crate::task::TaskID;
 
 pub(crate) struct TaskWaker {
     task_id: TaskID,
