@@ -3,7 +3,6 @@ members = [
     "web/html", 
     "web/http", 
     "web/url",
-    "js", 
     "gui", 
     "font_rasterizer", 
     "parser_combinators", 
