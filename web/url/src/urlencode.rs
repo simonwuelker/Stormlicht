@@ -9,6 +9,15 @@ pub fn is_c0_percent_encode_set(c: char) -> bool {
         }
 }
 
+// https://url.spec.whatwg.org/#fragment-percent-encode-set
+pub fn is_fragment_percent_encode_set(c: char) -> bool {
+    is_c0_percent_encode_set(c)
+        | match c {
+            ' ' | '"' | '#' | '<' | '>' => true,
+            _ => false,
+        }
+}
+
 // https://url.spec.whatwg.org/#query-percent-encode-set
 pub fn is_query_percent_encode_set(c: char) -> bool {
     is_c0_percent_encode_set(c)
@@ -16,6 +25,11 @@ pub fn is_query_percent_encode_set(c: char) -> bool {
             ' ' | '"' | '#' | '<' | '>' => true,
             _ => false,
         }
+}
+
+// https://url.spec.whatwg.org/#special-query-percent-encode-set
+pub fn is_special_query_percent_encode_set(c: char) -> bool {
+    is_query_percent_encode_set(c) || c == '\''
 }
 
 // https://url.spec.whatwg.org/#path-percent-encode-set

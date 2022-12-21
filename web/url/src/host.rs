@@ -1,4 +1,4 @@
-use crate::{url::is_url_codepoint, urlencode::percent_encode, urlparser::is_c0_control};
+use crate::{urlencode::percent_encode, urlparser::is_c0_control, util};
 
 // https://url.spec.whatwg.org/#forbidden-host-code-point
 fn is_forbidden_host_code_point(c: char) -> bool {
@@ -20,14 +20,14 @@ fn is_forbidden_domain_code_point(c: char) -> bool {
 }
 
 // https://url.spec.whatwg.org/#ip-address
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum IP {
     IPv4(u32),
     IPv6([u16; 8]),
 }
 
 // https://url.spec.whatwg.org/#concept-host
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum Host {
     Domain(String),
     IP(IP),
@@ -89,11 +89,6 @@ pub(crate) fn host_parse_with_special(input: &str, is_not_special: bool) -> Resu
     Ok(Host::Domain(ascii_domain.to_string()))
 }
 
-// https://url.spec.whatwg.org/#concept-host-parser
-pub(crate) fn host_parse(input: &str) -> Result<Host, ()> {
-    host_parse_with_special(input, false)
-}
-
 // https://url.spec.whatwg.org/#concept-opaque-host-parser
 fn opaque_host_parse(input: &str) -> Result<String, ()> {
     // If input contains a forbidden host code point
@@ -103,7 +98,7 @@ fn opaque_host_parse(input: &str) -> Result<String, ()> {
     }
 
     // If input contains a code point that is not a URL code point and not U+0025 (%)
-    if input.contains(|c| !is_url_codepoint(c) && c != '%') {
+    if input.contains(|c| !util::is_url_codepoint(c) && c != '%') {
         // validation error
     }
 

@@ -1,65 +1,10 @@
-//! Implements https://url.spec.whatwg.org
-
-use std::ops::Index;
+//! Implements <https://url.spec.whatwg.org>
 
 use crate::{
     host::Host,
     urlparser::{URLParser, URLParserState},
     util,
 };
-
-// https://url.spec.whatwg.org/#url-code-points
-pub(crate) fn is_url_codepoint(c: char) -> bool {
-    c.is_alphanumeric()
-        | match c {
-            '!' | '$' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | '/' | ':' | ';'
-            | '=' | '?' | '@' | '_' | '~' => true,
-            // range excludes surrogates and noncharacters
-            '\u{00A0}'..='\u{D7FF}' | '\u{E000}'..='\u{10FFFD}' => {
-                // check for noncharacters
-                // return true if c is not a noncharacter
-                match c {
-                    '\u{FDD0}'..='\u{FDEF}'
-                    | '\u{FFFE}'
-                    | '\u{FFFF}'
-                    | '\u{1FFFE}'
-                    | '\u{1FFFF}'
-                    | '\u{2FFFE}'
-                    | '\u{2FFFF}'
-                    | '\u{3FFFE}'
-                    | '\u{3FFFF}'
-                    | '\u{4FFFE}'
-                    | '\u{4FFFF}'
-                    | '\u{5FFFE}'
-                    | '\u{5FFFF}'
-                    | '\u{6FFFE}'
-                    | '\u{6FFFF}'
-                    | '\u{7FFFE}'
-                    | '\u{7FFFF}'
-                    | '\u{8FFFE}'
-                    | '\u{8FFFF}'
-                    | '\u{9FFFE}'
-                    | '\u{9FFFF}'
-                    | '\u{AFFFE}'
-                    | '\u{AFFFF}'
-                    | '\u{BFFFE}'
-                    | '\u{BFFFF}'
-                    | '\u{CFFFE}'
-                    | '\u{CFFFF}'
-                    | '\u{DFFFE}'
-                    | '\u{DFFFF}'
-                    | '\u{EFFFE}'
-                    | '\u{EFFFF}'
-                    | '\u{FFFFE}'
-                    | '\u{FFFFF}'
-                    | '\u{10FFFE}'
-                    | '\u{10FFFF}' => false,
-                    _ => true,
-                }
-            },
-            _ => false,
-        }
-}
 
 pub fn scheme_is_special(scheme: &str) -> bool {
     match scheme {
@@ -79,29 +24,50 @@ pub fn scheme_default_port(scheme: &str) -> Option<Port> {
 
 pub type Port = u16;
 
-#[derive(Clone)]
-pub enum Path {
-    Opaque(String),
-    NotOpaque(Vec<String>),
-}
+pub type Path = Vec<String>;
 
-// https://url.spec.whatwg.org/#concept-url
-#[derive(Default)]
+/// [Specification](https://url.spec.whatwg.org/#concept-url)
+///
+/// A [URL] is a struct that represents a universal identifier
+#[derive(Default, Debug)]
 pub struct URL {
+    /// A [URL]’s scheme is an ASCII string that identifies the type of URL
+    /// and can be used to dispatch a URL for further processing after parsing.
+    /// It is initially the empty string.
     pub scheme: String,
+
+    /// A [URL]’s username is an ASCII string identifying a username.
+    /// It is initially the empty string.
     pub username: String,
+
+    /// A [URL]’s password is an ASCII string identifying a password.
+    /// It is initially the empty string.
     pub password: String,
+
+    /// A [URL]’s host is [None](Option::None) or a [host](Host).
+    /// It is initially [None](Option::None).
     pub host: Option<Host>,
+
+    /// A [URL]’s port is either [None](Option::None) or a 16-bit unsigned integer that identifies a networking port.
+    /// It is initially [None](Option::None).
     pub port: Option<Port>,
+
     pub path: Path,
+
+    /// A [URL]’s query is either [None](Option::None) or an ASCII string.
+    /// It is initially [None](Option::None).
     pub query: Option<String>,
+
+    /// A URL’s fragment is either [None](Option::None) or an ASCII string
+    /// that can be used for further processing on the resource the URL’s other components identify.
+    /// It is initially [None](Option::None).
     pub fragment: Option<String>,
 }
 
 impl URL {
     // https://url.spec.whatwg.org/#concept-basic-url-parser
     pub fn parse_with_base(
-        mut input: String,
+        mut input: &str,
         base: Option<URL>,
         given_url: Option<URL>,
         state_override: Option<URLParserState>,
@@ -118,8 +84,7 @@ impl URL {
                 // Remove any leading and trailing C0 control or space from input.
                 input = input
                     .trim_start_matches(util::is_c0_or_space)
-                    .trim_end_matches(util::is_c0_or_space)
-                    .to_string();
+                    .trim_end_matches(util::is_c0_or_space);
                 url
             },
         };
@@ -129,13 +94,13 @@ impl URL {
         // Remove all ASCII tab or newline from input.
         // TODO https://doc.rust-lang.org/std/string/struct.String.html#method.remove_matches
         // would be nice here, but it's not stabilized yet
-        input = input
+        let filtered_input: String = input
             .chars()
             .filter(|c| !util::is_ascii_tab_or_newline(*c))
             .collect();
 
         // Let state be state override if given, or scheme start state otherwise.
-        let state = state_override.unwrap_or(URLParserState::Scheme);
+        let state = state_override.unwrap_or(URLParserState::SchemeStart);
 
         // Set encoding to the result of getting an output encoding from encoding.
 
@@ -155,7 +120,7 @@ impl URL {
             buffer: buffer,
             ptr: ptr,
             base: base,
-            input: &input,
+            input: &filtered_input,
             state_override: state_override,
             at_sign_seen: at_sign_seen,
             inside_brackets: inside_brackets,
@@ -165,37 +130,39 @@ impl URL {
         state_machine.url
     }
 
-    // https://url.spec.whatwg.org/#concept-basic-url-parser
-    pub fn parse(input: String) -> Self {
+    /// [Specification](https://url.spec.whatwg.org/#concept-basic-url-parser)
+    pub fn parse(input: &str) -> Self {
         Self::parse_with_base(input, None, None, None)
     }
 
-    // https://url.spec.whatwg.org/#include-credentials
+    /// [Specification](https://url.spec.whatwg.org/#include-credentials)
+    ///
+    /// A [URL] includes credentials if its  [username](URL::username) or [password](URL::password) is not the empty string.
     pub fn includes_credentials(&self) -> bool {
         !self.username.is_empty() || !self.password.is_empty()
     }
 
-    // https://url.spec.whatwg.org/#is-special
+    /// [Specification](https://url.spec.whatwg.org/#is-special)
+    ///
+    /// A [URL] is special if its scheme is a special scheme. A [URL] is not special if its scheme is not a special scheme.
     pub fn is_special(&self) -> bool {
         scheme_is_special(&self.scheme)
     }
 
-    // https://url.spec.whatwg.org/#url-opaque-path
+    /// [Specification](https://url.spec.whatwg.org/#url-opaque-path)
+    ///
+    /// A [URL] has an opaque path if it only consists of a single string
     pub fn has_opaque_path(&self) -> bool {
-        match self.path {
-            Path::Opaque(_) => true,
-            _ => false,
-        }
+        self.path.len() == 1
     }
 
-    // https://url.spec.whatwg.org/#shorten-a-urls-path
+    /// [Specification](https://url.spec.whatwg.org/#shorten-a-urls-path)
     pub(crate) fn shorten_path(&mut self) {
         // Assert: url does not have an opaque path.
+        assert!(!self.has_opaque_path());
+
         // Let path be url’s path.
-        let path = match &mut self.path {
-            Path::Opaque(_) => panic!("assertion failed"),
-            Path::NotOpaque(elements) => elements,
-        };
+        let path = &mut self.path;
 
         // If url’s scheme is "file", path’s size is 1, and path[0] is a normalized Windows drive letter,
         if self.scheme == "file"
@@ -210,19 +177,60 @@ impl URL {
         path.pop();
     }
 }
-impl Default for Path {
-    fn default() -> Self {
-        Self::Opaque(String::new())
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_simple_url() {
+        let url = URL::parse("https://google.com");
+
+        assert_eq!(url.scheme, "https");
+        assert_eq!(url.username, "");
+        assert_eq!(url.password, "");
+        assert_eq!(url.host, Some(Host::OpaqueHost("google.com".to_string())));
+        assert_eq!(url.path, vec![""]);
+        assert_eq!(url.query, None);
+        assert_eq!(url.fragment, None);
     }
-}
 
-impl Index<usize> for Path {
-    type Output = String;
+    #[test]
+    fn test_with_query() {
+        let url = URL::parse("https://google.com?a=b");
 
-    fn index(&self, index: usize) -> &Self::Output {
-        match self {
-            Self::Opaque(path) => path,
-            Self::NotOpaque(parts) => &parts[index],
-        }
+        assert_eq!(url.scheme, "https");
+        assert_eq!(url.username, "");
+        assert_eq!(url.password, "");
+        assert_eq!(url.host, Some(Host::OpaqueHost("google.com".to_string())));
+        assert_eq!(url.path, vec![""]);
+        assert_eq!(url.query.as_deref(), Some("a=b"));
+        assert_eq!(url.fragment, None);
+    }
+
+    #[test]
+    fn test_with_fragment() {
+        let url = URL::parse("https://google.com#foo");
+
+        assert_eq!(url.scheme, "https");
+        assert_eq!(url.username, "");
+        assert_eq!(url.password, "");
+        assert_eq!(url.host, Some(Host::OpaqueHost("google.com".to_string())));
+        assert_eq!(url.path, vec![""]);
+        assert_eq!(url.query, None);
+        assert_eq!(url.fragment.as_deref(), Some("foo"));
+    }
+
+    #[test]
+    fn test_with_credentials() {
+        let url = URL::parse("https://user:password@google.com");
+
+        assert_eq!(url.scheme, "https");
+        assert_eq!(url.username, "user");
+        assert_eq!(url.password, "password");
+        assert_eq!(url.host, Some(Host::OpaqueHost("google.com".to_string())));
+        assert_eq!(url.path, vec![""]);
+        assert_eq!(url.query, None);
+        assert_eq!(url.fragment, None);
     }
 }

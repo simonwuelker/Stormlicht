@@ -1,11 +1,15 @@
 use crate::{
-    host::{self, Host},
+    host::{self, host_parse_with_special, Host},
     scheme_default_port, scheme_is_special,
-    urlencode::{is_userinfo_percent_encode_set, percent_encode_char},
-    util, Path, URL,
+    urlencode::{
+        is_c0_percent_encode_set, is_fragment_percent_encode_set, is_path_percent_encode_set,
+        is_query_percent_encode_set, is_special_query_percent_encode_set,
+        is_userinfo_percent_encode_set, percent_encode, percent_encode_char,
+    },
+    util, URL,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum URLParserState {
     SchemeStart,
     Scheme,
@@ -53,8 +57,20 @@ pub(crate) fn is_c0_control(c: char) -> bool {
 
 impl<'a> URLParser<'a> {
     pub(crate) fn run(&mut self) -> Result<(), ()> {
-        while self.ptr < self.input.len() {
+        loop {
+            // Keep running the following state machine by switching on state.
             self.step()?;
+
+            // If after a run pointer points to the EOF code point
+            if self.c().is_none() {
+                // go to the next step
+                break;
+            }
+            // Otherwise,
+            else {
+                // increase pointer by 1 and continue with the state machine.
+                self.ptr += 1;
+            }
         }
         Ok(())
     }
@@ -67,142 +83,152 @@ impl<'a> URLParser<'a> {
         &self.input[self.ptr + 1..]
     }
 
+    fn set_state(&mut self, new_state: URLParserState) {
+        self.state = new_state;
+    }
+
     fn step(&mut self) -> Result<(), ()> {
         match self.state {
             // https://url.spec.whatwg.org/#scheme-start-state
             URLParserState::SchemeStart => {
-                match self.c() {
-                    Some(c @ 'A'..='Z') => {
-                        // Append c, lowercased, to buffer, and set state to scheme state.
-                        self.buffer.push(c.to_ascii_lowercase());
-                        self.state = URLParserState::Scheme;
-                    },
-                    _ => {
-                        // Otherwise, if state override is not given
-                        if self.state_override.is_none() {
-                            // Set state to no scheme state and decrease pointer by 1.
-                            self.state = URLParserState::NoScheme;
-                            self.ptr -= 1;
-                        } else {
-                            // Otherwise, validation error, return failure.
-                            return Err(());
-                        }
-                    },
+                // If c is an ASCII alpha,
+                if self.c().is_some() && self.c().unwrap().is_ascii_alphabetic() {
+                    // Append c, lowercased, to buffer,
+                    self.buffer.push(self.c().unwrap().to_ascii_lowercase());
+
+                    // and set state to scheme state.
+                    self.set_state(URLParserState::Scheme);
+                }
+                // Otherwise, if state override is not given
+                else if self.state_override.is_none() {
+                    // Set state to no scheme state
+                    self.set_state(URLParserState::NoScheme);
+
+                    // and decrease pointer by 1.
+                    self.ptr -= 1;
+                }
+                // Otherwise,
+                else {
+                    // validation error, return failure.
+                    return Err(());
                 }
             },
             // https://url.spec.whatwg.org/#scheme-state
             URLParserState::Scheme => {
-                match self.c() {
-                    Some(c @ ('A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '+' | '.')) => {
-                        // Append c, lowercased, to buffer
-                        self.buffer.push(c.to_ascii_lowercase());
-                    },
-                    Some(':') => {
-                        // If state override is given, then:
-                        if self.state_override.is_some() {
-                            // If url’s scheme is a special scheme and buffer is not a special scheme
-                            if scheme_is_special(&self.url.scheme)
-                                && !scheme_is_special(&self.buffer)
-                            {
-                                // then return.
-                                return Ok(());
-                            }
-                            // If url’s scheme is not a special scheme and buffer is a special scheme
-                            if !scheme_is_special(&self.url.scheme)
-                                && scheme_is_special(&self.buffer)
-                            {
-                                // then return.
-                                return Ok(());
-                            }
+                let c = self.c();
 
-                            // If url includes credentials or has a non-null port, and buffer is "file"
-                            if (self.url.includes_credentials() || self.url.port.is_some())
-                                && self.buffer == "file"
-                            {
-                                // then return.
-                                return Ok(());
-                            }
-
-                            // If url’s scheme is "file" and its host is an empty host
-                            if self.url.scheme == "file" && self.url.host == Some(Host::EmptyHost) {
-                                // then return.
-                                return Ok(());
-                            }
+                // If c is an ASCII alphanumeric, U+002B (+), U+002D (-), or U+002E (.),
+                if c.is_some() && c.unwrap().is_ascii_alphanumeric()
+                    || matches!(c, Some('+' | '#' | '.'))
+                {
+                    // Append c, lowercased, to buffer
+                    self.buffer.push(c.unwrap().to_ascii_lowercase());
+                }
+                // Otherwise, if c is U+003A (:), then:
+                else if c == Some(':') {
+                    // If state override is given, then:
+                    if self.state_override.is_some() {
+                        // If url’s scheme is a special scheme and buffer is not a special scheme
+                        if scheme_is_special(&self.url.scheme) && !scheme_is_special(&self.buffer) {
+                            // then return.
+                            return Ok(());
                         }
-
-                        // Set url’s scheme to buffer.
-                        self.url.scheme = self.buffer.clone();
-
-                        // If state override is given, then:
-                        if self.state_override.is_some() {
-                            // If url’s port is url’s scheme’s default port
-                            if self.url.port == scheme_default_port(&self.url.scheme) {
-                                // then set url’s port to null.
-                                self.url.port = None;
-                            }
-
-                            // Return.
+                        // If url’s scheme is not a special scheme and buffer is a special scheme
+                        if !scheme_is_special(&self.url.scheme) && scheme_is_special(&self.buffer) {
+                            // then return.
                             return Ok(());
                         }
 
-                        // Set buffer to the empty string.
-                        self.buffer = String::new();
-
-                        // If url’s scheme is "file", then:
-                        if self.url.scheme == "file" {
-                            // If remaining does not start with "//"
-                            if !self.remaining().starts_with("//") {
-                                // validation error.
-                                return Err(());
-                            }
-
-                            // Set state to file state.
-                            self.state = URLParserState::File;
-                        }
-                        // Otherwise, if url is special, base is non-null, and base’s scheme is url’s scheme:
-                        else if self.url.is_special()
-                            && self.base.is_some()
-                            && self.base.as_ref().unwrap().scheme == self.url.scheme
+                        // If url includes credentials or has a non-null port, and buffer is "file"
+                        if (self.url.includes_credentials() || self.url.port.is_some())
+                            && self.buffer == "file"
                         {
-                            // Assert: base is is special (and therefore does not have an opaque path).
-                            assert!(self.base.as_ref().unwrap().is_special());
+                            // then return.
+                            return Ok(());
+                        }
 
-                            // Set state to special relative or authority state.
-                            self.state = URLParserState::SpecialRelativeOrAuthority;
+                        // If url’s scheme is "file" and its host is an empty host
+                        if self.url.scheme == "file" && self.url.host == Some(Host::EmptyHost) {
+                            // then return.
+                            return Ok(());
                         }
-                        // Otherwise, if url is special
-                        else if self.url.is_special() {
-                            // set state to special authority slashes state.
-                            self.state = URLParserState::SpecialAuthoritySlashes;
-                        }
-                        // Otherwise, if remaining starts with an U+002F (/)
-                        else if self.remaining().starts_with('/') {
-                            // set state to path or authority state and increase pointer by 1.
-                            self.state = URLParserState::PathOrAuthority;
-                            self.ptr += 1;
-                        }
-                        // Otherwise,
-                        else {
-                            // set url’s path to the empty string and set state to opaque path state.
-                            self.url.path = Path::Opaque(String::new());
-                            self.state = URLParserState::OpaquePath;
-                        }
-                    },
-                    _ => {
-                        // Otherwise, if state override is not given
-                        if self.state_override.is_none() {
-                            // set buffer to the empty string,
-                            self.buffer = String::new();
+                    }
 
-                            // state to no scheme state,
-                            self.state = URLParserState::NoScheme;
+                    // Set url’s scheme to buffer.
+                    self.url.scheme = self.buffer.clone();
 
-                            // and start over (from the first code point in input).
-                            self.ptr = 0;
-                        } else {
-                            // Otherwise, validation error, return failure.
+                    // If state override is given, then:
+                    if self.state_override.is_some() {
+                        // If url’s port is url’s scheme’s default port
+                        if self.url.port == scheme_default_port(&self.url.scheme) {
+                            // then set url’s port to null.
+                            self.url.port = None;
                         }
-                    },
+
+                        // Return.
+                        return Ok(());
+                    }
+
+                    // Set buffer to the empty string.
+                    self.buffer = String::new();
+
+                    // If url’s scheme is "file", then:
+                    if self.url.scheme == "file" {
+                        // If remaining does not start with "//"
+                        if !self.remaining().starts_with("//") {
+                            // validation error.
+                            return Err(());
+                        }
+
+                        // Set state to file state.
+                        self.set_state(URLParserState::File);
+                    }
+                    // Otherwise, if url is special, base is non-null, and base’s scheme is url’s scheme:
+                    else if self.url.is_special()
+                        && self.base.is_some()
+                        && self.base.as_ref().unwrap().scheme == self.url.scheme
+                    {
+                        // Assert: base is is special (and therefore does not have an opaque path).
+                        assert!(self.base.as_ref().unwrap().is_special());
+
+                        // Set state to special relative or authority state.
+                        self.set_state(URLParserState::SpecialRelativeOrAuthority);
+                    }
+                    // Otherwise, if url is special
+                    else if self.url.is_special() {
+                        // set state to special authority slashes state.
+                        self.set_state(URLParserState::SpecialAuthoritySlashes);
+                    }
+                    // Otherwise, if remaining starts with an U+002F (/)
+                    else if self.remaining().starts_with('/') {
+                        // set state to path or authority state and increase pointer by 1.
+                        self.set_state(URLParserState::PathOrAuthority);
+                        self.ptr += 1;
+                    }
+                    // Otherwise,
+                    else {
+                        // set url’s path to the empty string
+                        self.url.path = vec![String::new()];
+
+                        // and set state to opaque path state.
+                        self.set_state(URLParserState::OpaquePath);
+                    }
+                }
+                // Otherwise, if state override is not given
+                else if self.state_override.is_none() {
+                    // set buffer to the empty string,
+                    self.buffer = String::new();
+
+                    // state to no scheme state,
+                    self.set_state(URLParserState::NoScheme);
+
+                    // and start over (from the first code point in input).
+                    self.ptr = 0;
+                }
+                // Otherwise,
+                else {
+                    // validation error, return failure.
+                    return Err(());
                 }
             },
             // https://url.spec.whatwg.org/#no-scheme-state
@@ -231,12 +257,12 @@ impl<'a> URLParser<'a> {
                     self.url.fragment = Some(String::new());
 
                     // and set state to fragment state.
-                    self.state = URLParserState::Fragment;
+                    self.set_state(URLParserState::Fragment);
                 }
                 // Otherwise, if base’s scheme is not "file"
                 else if base.scheme != "file" {
                     // set state to relative state
-                    self.state = URLParserState::Relative;
+                    self.set_state(URLParserState::Relative);
 
                     // and decrease pointer by 1.
                     self.ptr -= 1;
@@ -244,7 +270,7 @@ impl<'a> URLParser<'a> {
                 // Otherwise,
                 else {
                     // set state to file state
-                    self.state = URLParserState::File;
+                    self.set_state(URLParserState::File);
 
                     // and decrease pointer by 1.
                     self.ptr -= 1;
@@ -255,7 +281,7 @@ impl<'a> URLParser<'a> {
                 // If c is U+002F (/) and remaining starts with U+002F (/)
                 if self.c() == Some('/') && self.remaining().starts_with('/') {
                     // then set state to special authority ignore slashes state
-                    self.state = URLParserState::SpecialAuthorityIgnoreSlashes;
+                    self.set_state(URLParserState::SpecialAuthoritySlashes);
 
                     // and increase pointer by 1.
                     self.ptr += 1;
@@ -264,7 +290,7 @@ impl<'a> URLParser<'a> {
                 else {
                     // validation error,
                     // set state to relative state
-                    self.state = URLParserState::Relative;
+                    self.set_state(URLParserState::Relative);
 
                     // and decrease pointer by 1.
                     self.ptr -= 1;
@@ -275,12 +301,12 @@ impl<'a> URLParser<'a> {
                 // if c is U+002F (/),
                 if self.c() == Some('/') {
                     // then set state to authority state.
-                    self.state = URLParserState::Authority;
+                    self.set_state(URLParserState::Authority);
                 }
                 // Otherwise,
                 else {
                     // set state to path state,
-                    self.state = URLParserState::Path;
+                    self.set_state(URLParserState::Path);
 
                     // and decrease pointer by 1.
                     self.ptr -= 1;
@@ -299,13 +325,13 @@ impl<'a> URLParser<'a> {
                 // If c is U+002F (/)
                 if self.c() == Some('/') {
                     // then set state to relative slash state.
-                    self.state = URLParserState::RelativeSlash;
+                    self.set_state(URLParserState::RelativeSlash);
                 }
                 // Otherwise, if url is special and c is U+005C (\)
                 else if self.url.is_special() && self.c() == Some('\\') {
                     // validation error
                     // set state to relative slash state.
-                    self.state = URLParserState::RelativeSlash;
+                    self.set_state(URLParserState::RelativeSlash);
                 }
                 // Otherwise:
                 else {
@@ -333,7 +359,7 @@ impl<'a> URLParser<'a> {
                         self.url.query = Some(String::new());
 
                         // and state to query state.
-                        self.state = URLParserState::Query;
+                        self.set_state(URLParserState::Query);
                     }
                     // Otherwise, if c is U+0023 (#)
                     else if self.c() == Some('#') {
@@ -341,7 +367,7 @@ impl<'a> URLParser<'a> {
                         self.url.fragment = Some(String::new());
 
                         // and state to fragment state.
-                        self.state = URLParserState::Fragment;
+                        self.set_state(URLParserState::Fragment);
                     }
                 }
             },
@@ -355,12 +381,12 @@ impl<'a> URLParser<'a> {
                     }
 
                     // Set state to special authority ignore slashes state.
-                    self.state = URLParserState::SpecialAuthorityIgnoreSlashes;
+                    self.set_state(URLParserState::SpecialAuthorityIgnoreSlashes);
                 }
                 // Otherwise, if c is U+002F (/)
                 else if self.c() == Some('/') {
                     // then set state to authority state.
-                    self.state = URLParserState::Authority;
+                    self.set_state(URLParserState::Authority);
                 }
                 // Otherwise
                 else {
@@ -378,7 +404,7 @@ impl<'a> URLParser<'a> {
                     self.url.port = base.port;
 
                     // state to path state,
-                    self.state = URLParserState::Path;
+                    self.set_state(URLParserState::Path);
 
                     // and then, decrease pointer by 1.
                     self.ptr -= 1;
@@ -389,7 +415,7 @@ impl<'a> URLParser<'a> {
                 // If c is U+002F (/) and remaining starts with U+002F (/)
                 if self.c() == Some('/') && self.remaining().starts_with('/') {
                     // then set state to special authority ignore slashes state
-                    self.state = URLParserState::SpecialAuthorityIgnoreSlashes;
+                    self.set_state(URLParserState::SpecialAuthorityIgnoreSlashes);
 
                     // and increase pointer by 1.
                     self.ptr += 1;
@@ -398,7 +424,7 @@ impl<'a> URLParser<'a> {
                 else {
                     // validation error,
                     // set state to special authority ignore slashes state
-                    self.state = URLParserState::SpecialAuthorityIgnoreSlashes;
+                    self.set_state(URLParserState::SpecialAuthorityIgnoreSlashes);
 
                     // and decrease pointer by 1.
                     self.ptr -= 1;
@@ -409,7 +435,7 @@ impl<'a> URLParser<'a> {
                 // If c is neither U+002F (/) nor U+005C (\)
                 if self.c() != Some('/') && self.c() != Some('\\') {
                     // then set state to authority state
-                    self.state = URLParserState::Authority;
+                    self.set_state(URLParserState::Authority);
 
                     // and decrease pointer by 1.
                     self.ptr -= 1;
@@ -483,7 +509,7 @@ impl<'a> URLParser<'a> {
                     self.buffer = String::new();
 
                     // and set state to host state.
-                    self.state = URLParserState::Host;
+                    self.set_state(URLParserState::Host);
                 }
                 // Otherwise
                 else {
@@ -530,7 +556,7 @@ impl<'a> URLParser<'a> {
                     self.buffer = String::new();
 
                     // and state to port state.
-                    self.state = URLParserState::Port;
+                    self.set_state(URLParserState::Port);
                 }
                 // Otherwise, if one of the following is true:
                 // * c is the EOF code point, U+002F (/), U+003F (?), or U+0023 (#)
@@ -573,7 +599,7 @@ impl<'a> URLParser<'a> {
                     self.buffer = String::new();
 
                     // and state to path start state.
-                    self.state = URLParserState::PathStart;
+                    self.set_state(URLParserState::PathStart);
 
                     // If state override is given, then return.
                     if self.state_override.is_some() {
@@ -641,7 +667,7 @@ impl<'a> URLParser<'a> {
                     }
 
                     // Set state to path start state
-                    self.state = URLParserState::PathStart;
+                    self.set_state(URLParserState::PathStart);
 
                     // and decrease pointer by 1.
                     self.ptr -= 1;
@@ -668,7 +694,7 @@ impl<'a> URLParser<'a> {
                     }
 
                     // Set state to file slash state.
-                    self.state = URLParserState::FileSlash;
+                    self.set_state(URLParserState::FileSlash);
                 }
                 // Otherwise, if base is non-null and base’s scheme is "file":
                 else if self.base.is_some() && self.base.as_ref().unwrap().scheme == "file" {
@@ -689,7 +715,7 @@ impl<'a> URLParser<'a> {
                         self.url.query = Some(String::new());
 
                         // and state to query state.
-                        self.state = URLParserState::Query;
+                        self.set_state(URLParserState::Query);
                     }
                     // Otherwise, if c is U+0023 (#)
                     else if self.c() == Some('#') {
@@ -697,7 +723,7 @@ impl<'a> URLParser<'a> {
                         self.url.fragment = Some(String::new());
 
                         // and state to fragment state.
-                        self.state = URLParserState::Fragment;
+                        self.set_state(URLParserState::Fragment);
                     }
                     // Otherwise, if c is not the EOF code point:
                     else if self.c().is_some() {
@@ -716,11 +742,11 @@ impl<'a> URLParser<'a> {
                         // Validation error.
 
                         // Set url’s path to an empty list.
-                        self.url.path = Path::NotOpaque(vec![]);
+                        self.url.path = vec![];
                     }
 
                     // Set state to path state
-                    self.state = URLParserState::Path;
+                    self.set_state(URLParserState::Path);
 
                     // and decrease pointer by 1.
                     self.ptr -= 1;
@@ -728,7 +754,7 @@ impl<'a> URLParser<'a> {
                 // Otherwise
                 else {
                     // set state to path state,
-                    self.state = URLParserState::Path;
+                    self.set_state(URLParserState::Path);
 
                     // and decrease pointer by 1.
                     self.ptr -= 1;
@@ -744,7 +770,7 @@ impl<'a> URLParser<'a> {
                     }
 
                     // Set state to file host state.
-                    self.state = URLParserState::FileHost;
+                    self.set_state(URLParserState::FileHost);
                 }
                 // Otherwise:
                 else {
@@ -762,15 +788,332 @@ impl<'a> URLParser<'a> {
                             && util::is_normalized_windows_drive_letter(base.path[0].as_str())
                         {
                             // then append base’s path[0] to url’s path.
-                            todo!(
-                                "I first want to think about whether
-                            we really should distinguish between the two types of paths"
+                            self.url.path.push(base.path[0].clone());
+                        }
+                    }
+
+                    // Set state to path state,
+                    self.set_state(URLParserState::Path);
+
+                    // and decrease pointer by 1.
+                    self.ptr -= 1;
+                }
+            },
+            // https://url.spec.whatwg.org/#file-host-state
+            URLParserState::FileHost => {
+                // If c is the EOF code point, U+002F (/), U+005C (\), U+003F (?), or U+0023 (#)
+                if self.c().is_none()
+                    || self.c() == Some('/')
+                    || self.c() == Some('\\')
+                    || self.c() == Some('?')
+                    || self.c() == Some('#')
+                {
+                    // then decrease pointer by 1 and then:
+                    self.ptr -= 1;
+
+                    // If state override is not given and buffer is a Windows drive letter
+                    if self.state_override.is_none() && util::is_windows_drive_letter(&self.buffer)
+                    {
+                        // validation error,
+                        // set state to path state.
+                        self.set_state(URLParserState::Path);
+                    }
+                    // Otherwise, if buffer is the empty string, then:
+                    else if !self.buffer.is_empty() {
+                        // Set url’s host to the empty string.
+                        self.url.host = Some(Host::OpaqueHost(String::new()));
+
+                        // If state override is given,
+                        if self.state_override.is_some() {
+                            // then return.
+                            return Ok(());
+                        }
+
+                        // Set state to path start state.
+                        self.set_state(URLParserState::PathStart);
+                    }
+                    // Otherwise, run these steps:
+                    else {
+                        // Let host be the result of host parsing buffer with url is not special.
+                        // If host is failure, then return failure.
+                        let mut host = host_parse_with_special(&self.buffer, false)?;
+
+                        // If host is "localhost", then set host to the empty string.
+                        if Host::OpaqueHost("localhost".to_string()) == host {
+                            host = Host::OpaqueHost(String::new());
+                        }
+
+                        // Set url’s host to host.
+                        self.url.host = Some(host);
+
+                        // If state override is given,
+                        if self.state_override.is_some() {
+                            // then return.
+                            return Ok(());
+                        }
+
+                        // Set buffer to the empty string
+                        self.buffer = String::new();
+
+                        // and state to path start state.
+                        self.set_state(URLParserState::PathStart);
+                    }
+                }
+                // Otherwise, append c to buffer.
+                else {
+                    self.buffer.push(self.c().unwrap());
+                }
+            },
+
+            // https://url.spec.whatwg.org/#path-start-state
+            URLParserState::PathStart => {
+                // If url is special, then:
+                if self.url.is_special() {
+                    // If c is U+005C (\),
+                    if self.c() == Some('\\') {
+                        // validation error.
+                    }
+
+                    // Set state to path state.
+                    self.set_state(URLParserState::Path);
+
+                    // If c is neither U+002F (/) nor U+005C (\)
+                    if self.c() != Some('/') && self.c() != Some('\\') {
+                        // then decrease pointer by 1.
+                        self.ptr -= 1;
+                    }
+                }
+                // Otherwise, if state override is not given and c is U+003F (?)
+                else if self.state_override.is_none() && self.c() == Some('?') {
+                    // set url’s query to the empty string
+                    self.url.query = Some(String::new());
+
+                    // and state to query state.
+                    self.set_state(URLParserState::Query);
+                }
+                // Otherwise, if state override is not given and c is U+0023 (#)
+                else if self.state_override.is_none() && self.c() == Some('#') {
+                    // set url’s fragment to the empty string
+                    self.url.fragment = Some(String::new());
+
+                    // and state to fragment state.
+                    self.set_state(URLParserState::Fragment);
+                }
+                // Otherwise, if c is not the EOF code point:
+                else if self.c().is_some() {
+                    // Set state to path state.
+                    self.set_state(URLParserState::Path);
+
+                    // If c is not U+002F (/),
+                    if self.c() != Some('/') {
+                        // then decrease pointer by 1.
+                        self.ptr -= 1;
+                    }
+                }
+                // Otherwise, if state override is given and url’s host is null,
+                else if self.state_override.is_some() && self.url.host.is_none() {
+                    // append the empty string to url’s path.
+                    self.url.path.push(String::new());
+                }
+            },
+            // https://url.spec.whatwg.org/#path-state
+            URLParserState::Path => {
+                // If one of the following is true:
+                // * c is the EOF code point or U+002F (/)
+                // * url is special and c is U+005C (\)
+                // * state override is not given and c is U+003F (?) or U+0023 (#)
+                if (self.c().is_none() || self.c() == Some('/'))
+                    || (self.url.is_special() && self.c() == Some('\\'))
+                    || (self.state_override.is_none()
+                        && (self.c() == Some('?') || self.c() == Some('#')))
+                {
+                    // If url is special and c is U+005C (\)
+                    if self.url.is_special() && self.c() == Some('\\') {
+                        // validation error.
+                    }
+
+                    // If buffer is a double-dot path segment, then:
+                    if util::is_double_dot_path_segment(&self.buffer) {
+                        // Shorten url’s path.
+                        self.url.shorten_path();
+
+                        // If neither c is U+002F (/), nor url is special and c is U+005C (\)
+                        if self.c() != Some('/')
+                            && !(self.url.is_special() && self.c() == Some('\\'))
+                        {
+                            // append the empty string to url’s path.
+                            self.url.path.push(String::new());
+                        }
+                    }
+                    // Otherwise, if buffer is a single-dot path segment
+                    // and if neither c is U+002F (/), nor url is special and c is U+005C (\)
+                    else if util::is_single_dot_path_segment(&self.buffer)
+                        && self.c() != Some('/')
+                        && !(self.url.is_special() && self.c() == Some('\\'))
+                    {
+                        // append the empty string to url’s path.
+                        self.url.path.push(String::new());
+                    }
+                    // Otherwise, if buffer is not a single-dot path segment, then:
+                    else if !util::is_single_dot_path_segment(&self.buffer) {
+                        // If url’s scheme is "file", url’s path is empty, and buffer is a Windows drive letter
+                        if self.url.scheme == "file"
+                            && self.url.path.is_empty()
+                            && util::is_windows_drive_letter(&self.buffer)
+                        {
+                            // then replace the second code point in buffer with U+003A (:).
+                            // NOTE: unicode codepoint replace is nontrivial because the length is not known
+                            // https://stackoverflow.com/questions/66661118/how-do-i-change-characters-at-a-specific-index-within-a-string-in-rust
+                            self.buffer.replace_range(
+                                self.buffer
+                                    .char_indices()
+                                    .nth(2)
+                                    .map(|(pos, ch)| (pos..pos + ch.len_utf8()))
+                                    .unwrap(),
+                                ":",
                             );
                         }
+
+                        // Append buffer to url’s path.
+                        self.url.path.push(self.buffer.clone());
+                    }
+
+                    // Set buffer to the empty string.
+                    self.buffer = String::new();
+
+                    // If c is U+003F (?)
+                    if self.c() == Some('?') {
+                        // then set url’s query to the empty string
+                        self.url.query = Some(String::new());
+
+                        // and state to query state.
+                        self.set_state(URLParserState::Query);
+                    }
+
+                    // If c is U+0023 (#)
+                    if self.c() == Some('#') {
+                        // then set url’s fragment to the empty string
+                        self.url.fragment = Some(String::new());
+
+                        // and state to fragment state.
+                        self.set_state(URLParserState::Fragment);
+                    }
+                }
+                // Otherwise, run these steps:
+                else {
+                    // If c is not a URL code point and not U+0025 (%),
+                    if !util::is_url_codepoint(self.c().unwrap()) && self.c() != Some('%') {
+                        // validation error.
+                    }
+
+                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
+
+                    // UTF-8 percent-encode c using the path percent-encode set and append the result to buffer.
+                    let result = percent_encode_char(self.c().unwrap(), is_path_percent_encode_set);
+
+                    // and append the result to url’s path.
+                    self.url.path.push(result);
+                }
+            },
+            // https://url.spec.whatwg.org/#cannot-be-a-base-url-path-state
+            URLParserState::OpaquePath => {
+                // If c is U+003F (?)
+                if self.c() == Some('?') {
+                    //  then set url’s query to the empty string
+                    self.url.query = Some(String::new());
+
+                    // and state to query state.
+                    self.set_state(URLParserState::Query);
+                }
+                // Otherwise, if c is U+0023 (#)
+                else if self.c() == Some('#') {
+                    // then set url’s fragment to the empty string
+                    self.url.fragment = Some(String::new());
+
+                    // and state to fragment state.
+                    self.set_state(URLParserState::Fragment);
+                }
+                // Otherwise:
+                else {
+                    // If c is not the EOF code point, not a URL code point, and not U+0025 (%), validation error.
+
+                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
+
+                    // If c is not the EOF code point
+                    if self.c().is_some() {
+                        //  UTF-8 percent-encode c using the C0 control percent-encode set
+                        let result =
+                            percent_encode_char(self.c().unwrap(), is_c0_percent_encode_set);
+
+                        // and append the result to url’s path.
+                        self.url.path.push(result);
                     }
                 }
             },
-            _ => todo!(),
+            // https://url.spec.whatwg.org/#query-state
+            URLParserState::Query => {
+                // If encoding is not UTF-8 and one of the following is true:
+                // * url is not special
+                // * url’s scheme is "ws" or "wss"
+
+                // We don't support non-utf8 encoding
+
+                // If one of the following is true:
+                // * state override is not given and c is U+0023 (#)
+                // * c is the EOF code point
+                if (self.state_override.is_none() && self.c() == Some('#')) || self.c().is_none() {
+                    // Let queryPercentEncodeSet be the special-query percent-encode set
+                    // if url is special; otherwise the query percent-encode set.
+                    let query_percent_encode_set = if self.url.is_special() {
+                        is_special_query_percent_encode_set
+                    } else {
+                        is_query_percent_encode_set
+                    };
+
+                    // Percent-encode after encoding, with encoding, buffer, and queryPercentEncodeSet,
+                    let result = percent_encode(&self.buffer, query_percent_encode_set);
+
+                    // and append the result to url’s query.
+                    self.url.query.as_mut().unwrap().push_str(&result);
+
+                    // Set buffer to the empty string.
+                    self.buffer = String::new();
+
+                    // If c is U+0023 (#),
+                    if self.c() == Some('#') {
+                        // then set url’s fragment to the empty string
+                        self.url.fragment = Some(String::new());
+
+                        // and state to fragment state.
+                        self.set_state(URLParserState::Fragment);
+                    }
+                }
+                // Otherwise, if c is not the EOF code point:
+                else if self.c().is_some() {
+                    // If c is not a URL code point and not U+0025 (%), validation error.
+
+                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
+
+                    // Append c to buffer.
+                    self.buffer.push(self.c().unwrap())
+                }
+            },
+
+            // https://url.spec.whatwg.org/#fragment-state
+            URLParserState::Fragment => {
+                // If c is not the EOF code point, then:
+                if let Some(c) = self.c() {
+                    // If c is not a URL code point and not U+0025 (%), validation error.
+
+                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
+
+                    // UTF-8 percent-encode c using the fragment percent-encode set
+                    let result = percent_encode_char(c, is_fragment_percent_encode_set);
+
+                    // and append the result to url’s fragment.
+                    self.url.fragment.as_mut().unwrap().push_str(&result);
+                }
+            },
         }
         Ok(())
     }

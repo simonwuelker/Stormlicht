@@ -61,3 +61,68 @@ pub(crate) fn is_ascii_tab_or_newline(c: char) -> bool {
         _ => false,
     }
 }
+// https://url.spec.whatwg.org/#single-dot-path-segment
+pub(crate) fn is_single_dot_path_segment(input: &str) -> bool {
+    input == "." || input.eq_ignore_ascii_case("%2e")
+}
+
+// https://url.spec.whatwg.org/#double-dot-path-segment
+pub(crate) fn is_double_dot_path_segment(input: &str) -> bool {
+    input == ".."
+        || input.eq_ignore_ascii_case(".%2e")
+        || input.eq_ignore_ascii_case("%2e.")
+        || input.eq_ignore_ascii_case("%2e%2e")
+}
+
+// https://url.spec.whatwg.org/#url-code-points
+pub(crate) fn is_url_codepoint(c: char) -> bool {
+    c.is_alphanumeric()
+        | match c {
+            '!' | '$' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | '/' | ':' | ';'
+            | '=' | '?' | '@' | '_' | '~' => true,
+            // range excludes surrogates and noncharacters
+            '\u{00A0}'..='\u{D7FF}' | '\u{E000}'..='\u{10FFFD}' => {
+                // check for noncharacters
+                // return true if c is not a noncharacter
+                match c {
+                    '\u{FDD0}'..='\u{FDEF}'
+                    | '\u{FFFE}'
+                    | '\u{FFFF}'
+                    | '\u{1FFFE}'
+                    | '\u{1FFFF}'
+                    | '\u{2FFFE}'
+                    | '\u{2FFFF}'
+                    | '\u{3FFFE}'
+                    | '\u{3FFFF}'
+                    | '\u{4FFFE}'
+                    | '\u{4FFFF}'
+                    | '\u{5FFFE}'
+                    | '\u{5FFFF}'
+                    | '\u{6FFFE}'
+                    | '\u{6FFFF}'
+                    | '\u{7FFFE}'
+                    | '\u{7FFFF}'
+                    | '\u{8FFFE}'
+                    | '\u{8FFFF}'
+                    | '\u{9FFFE}'
+                    | '\u{9FFFF}'
+                    | '\u{AFFFE}'
+                    | '\u{AFFFF}'
+                    | '\u{BFFFE}'
+                    | '\u{BFFFF}'
+                    | '\u{CFFFE}'
+                    | '\u{CFFFF}'
+                    | '\u{DFFFE}'
+                    | '\u{DFFFF}'
+                    | '\u{EFFFE}'
+                    | '\u{EFFFF}'
+                    | '\u{FFFFE}'
+                    | '\u{FFFFF}'
+                    | '\u{10FFFE}'
+                    | '\u{10FFFF}' => false,
+                    _ => true,
+                }
+            },
+            _ => false,
+        }
+}

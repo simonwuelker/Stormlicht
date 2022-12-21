@@ -3,5 +3,5 @@ mod url;
 pub mod urlencode;
 mod urlparser;
 mod util;
-pub use url::*;
-pub use urlparser::*;
+pub use crate::url::*;
+pub use crate::urlparser::*;
