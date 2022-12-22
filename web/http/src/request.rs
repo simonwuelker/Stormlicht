@@ -1,39 +1,55 @@
 use std::collections::HashMap;
+use url::{URL, Host};
+use std::net::{TcpStream, SocketAddr};
+use std::io::{Read, Write};
+
+use crate::response::Response;
 
 #[derive(PartialEq, Eq, Hash)]
-pub enum HTTPHeader {
+pub enum Header {
     UserAgent,
     Other(String),
 }
 
-impl HTTPHeader {
+impl Header {
     pub fn as_bytes(&self) -> &[u8] {
         match self {
-            HTTPHeader::UserAgent => b"User-Agent".as_slice(),
-            HTTPHeader::Other(name) => name.as_bytes(),
+            Self::UserAgent => b"User-Agent".as_slice(),
+            Self::Other(name) => name.as_bytes(),
         }
     }
 }
 
-pub enum HTTPMethod {
+pub enum Method {
     GET,
     POST,
 }
 
-pub struct HTTPRequest {
-    method: HTTPMethod,
+pub struct Request {
+    method: Method,
     path: String,
-    headers: HashMap<HTTPHeader, String>,
+    headers: HashMap<Header, String>,
+    host: Host,
 }
 
-impl HTTPRequest {
-    pub fn get(url: &str) -> Self {
-        todo!();
-        // Self {
-        //     method: HTTPMethod::GET,
-        //     path: path,
-        //     headers: HashMap::new(),
-        // }
+#[derive(Debug)]
+pub enum CreateRequestError {
+    NotHTTP,
+    MissingHost,
+}
+
+impl Request {
+    pub fn get(url: URL) -> Result<Self, CreateRequestError> {
+        if url.scheme != "http" {
+            return Err(CreateRequestError::NotHTTP);
+        }
+
+        Ok(Self {
+            method: Method::GET,
+            path: "/".to_string(),
+            headers: HashMap::new(),
+            host: url.host.ok_or(CreateRequestError::MissingHost)?,
+        })
     }
 
     pub fn write_to<W>(self, mut writer: W) -> std::io::Result<()>
@@ -41,8 +57,8 @@ impl HTTPRequest {
         W: std::io::Write,
     {
         let method_name = match self.method {
-            HTTPMethod::GET => b"GET".as_slice(),
-            HTTPMethod::POST => b"POST".as_slice(),
+            Method::GET => b"GET".as_slice(),
+            Method::POST => b"POST".as_slice(),
         };
 
         writer.write_all(method_name)?;
@@ -61,8 +77,22 @@ impl HTTPRequest {
         Ok(())
     }
 
-    pub fn set_header(&mut self, header: HTTPHeader, value: &str) {
+    pub fn set_header(&mut self, header: Header, value: &str) {
         self.headers.insert(header, value.to_string());
+    }
+
+    pub fn send(self) -> Result<Response, ()> {
+        // resolve the hostname
+        let ip = match &self.host {
+            Host::Domain(domain) | Host::OpaqueHost(domain) => dns::resolve(b"www.ecosia.com").unwrap(),
+            Host::IP(ip) => todo!(),
+            Host::EmptyHost => todo!(),
+        };
+
+        // Establish a tcp connection
+        let mut stream = TcpStream::connect(SocketAddr::new(ip, 80)).unwrap();
+
+        todo!()
     }
 }
 
@@ -72,8 +102,8 @@ mod tests {
     #[test]
     fn basic_get_request() {
         let mut tcpstream: Vec<u8> = vec![];
-        let mut request = HTTPRequest::get("www.example.com");
-        request.set_header(HTTPHeader::UserAgent, "test");
+        let mut request = Request::get(URL::from("www.example.com")).unwrap();
+        request.set_header(Header::UserAgent, "test");
         request.write_to(&mut tcpstream).unwrap();
         assert_eq!(
             String::from_utf8(tcpstream).unwrap(),

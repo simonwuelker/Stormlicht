@@ -1,11 +1,9 @@
 [package]
-name = "http"
+name = "dns"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-parser_combinators = { path = "../../parser_combinators" }
-url = { path = "../url" }
-dns = { path = "../dns" }
+random = { path = "../../util/random" }
