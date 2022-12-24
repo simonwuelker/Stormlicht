@@ -1,84 +1,10 @@
 //! https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
-
 use random::RNG;
 
-use std::{io::{Read, Write}, vec, fmt};
+use std::{io::{Read, Write}, vec, fmt, net::IpAddr};
+use crate::{ResourceRecordType, ResourceRecordClass};
 
-/// Encodes a domain name for use in a DNS query.
-/// 
-/// Blocks are seperated by a byte specifying their length.
-/// The last byte is guaranteed to be a null byte
-/// 
-/// # Example
-/// ```
-/// # use dns::message::encode_domain_name; 
-/// let domain_name = b"www.example.com";
-/// let encoded_name = encode_domain_name(domain_name);
-/// 
-/// assert_eq!(encoded_name, b"\x03www\x07example\x03com\x00");
-/// ```
-pub fn encode_domain_name(domain_name: &[u8]) -> Vec<u8> {
-    let length = domain_name.len() + domain_name.iter().filter(|c| **c == 0x2e).count();
-    let mut result = vec![0; length];
-
-    let mut ptr = 0;
-    for chunk in domain_name.split(|c| *c == 0x2e) {
-        result[ptr] = chunk.len() as u8;
-        ptr += 1;
-        result[ptr..ptr + chunk.len()].copy_from_slice(chunk);
-        ptr += chunk.len();
-    }
-    debug_assert_eq!(ptr, length - 1);
-
-    result
-}
-
-/// Decodes a domain name from a DNS query.
-/// 
-/// Blocks are seperated by a byte specifying their length.
-/// The last byte is guaranteed to be a null byte
-/// 
-/// # Example
-/// ```
-/// # use dns::message::decode_domain_name; 
-/// let encoded_name = b"\x03www\x07example\x03com\x00";
-/// let domain_name = decode_domain_name(encoded_name);
-/// 
-/// assert_eq!(domain_name, b"www.example.com");
-/// ```
-/// 
-/// # Panics
-/// This function panics if the given byte buffer is not a valid encoded domain name,
-/// for example `\x03www\x07example\x04com`.
-pub fn decode_domain_name(source: &[u8]) -> Vec<u8> {
-    // NOTE: we overallocate, but just a bit (2-3 bytes most likely)
-    let mut result = vec![0; source.len() - 2];  // we dont need the null bytes & leading "."
-
-    // creating a second view here simplifies the logic a bit because we don't need
-    // to keep track of two indices
-    let without_leading_dot = &source[1..];
-
-    let mut block_size = source[0] as usize;
-    let mut ptr = 0;
-    
-    loop {
-        assert!(ptr + block_size < without_leading_dot.len(), "domain block reaches out of bounds");
-        result[ptr..ptr + block_size].copy_from_slice(&without_leading_dot[ptr..ptr + block_size]);
-
-        ptr += block_size;  
-
-        block_size = without_leading_dot[ptr] as usize;
-        if block_size == 0x00 {
-            break;
-        } else {
-            result[ptr] = 0x2e;
-            ptr += 1;
-        }
-
-    }
-
-    result
-}
+const DOMAIN_MAX_SEGMENTS: u8 = 10;
 
 #[derive(Debug)]
 pub enum QueryType {
@@ -88,30 +14,19 @@ pub enum QueryType {
     Reserved,
 }
 
-pub enum ResponseCode {
-    Ok = 0,
-    FormatError = 1,
-    ServerFailure = 2,
-    NameError = 3,
-    Unimplemented = 4,
-    Refused = 5,
-    Reserved
-}
-
 #[derive(Debug)]
 // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1
-pub struct Message {
-    header: Header,
-    question: Vec<Question>,
-    answer: Vec<Resource>,
-    authority: Vec<Resource>,
-    additional: Vec<Resource>,
+pub(crate) struct Message {
+    pub(crate) header: Header,
+    pub(crate) question: Vec<Question>,
+    pub(crate) answer: Vec<Resource>,
+    pub(crate) authority: Vec<Resource>,
+    pub(crate) additional: Vec<Resource>,
 }
 
-#[derive(Debug)]
 // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
 pub struct Header {
-    id: u16,
+    pub(crate) id: u16,
     flags: u16,
     num_questions: u16,
     num_answers: u16,
@@ -119,9 +34,10 @@ pub struct Header {
     num_additional: u16,
 }
 
+#[derive(Debug)]
 // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.2
 pub struct Question {
-    domain: Vec<u8>,
+    domain: Domain,
     query_type: QueryType,
     query_class: (),
 }
@@ -129,12 +45,40 @@ pub struct Question {
 #[derive(Debug)]
 // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.3
 pub struct Resource {
-    domain: Vec<u8>,
-    resource_type: u16,
-    class: u16,
+    domain: Domain,
+    resource_type: ResourceRecordType,
+    class: ResourceRecordClass,
     time_to_live: u32,
-    rdlength: u16,
-    data: Vec<u8>,
+}
+
+#[derive(Debug)]
+pub enum ResponseCode {
+    ///  No error condition
+    Ok,
+
+    /// Format error - The name server was unable to interpret the query.
+    FormatError,
+
+    /// Server failure - The name server was unable to process this query 
+    /// due to a problem with the name server.
+    ServerFailure,
+
+    /// Name Error - Meaningful only for responses from an authoritative name
+    /// server, this code signifies that the domain name referenced 
+    /// in the query does not exist.
+    NameError,
+
+    /// Not Implemented - The name server does not support the requested kind of query.
+    NotImplemented,
+
+    /// Refused - The name server refuses to perform the specified operation for
+    /// policy reasons.  For example, a name server may not wish to provide the
+    /// information to the particular requester, or a name server may not
+    /// wish to perform a particular operation (e.g., zone transfer) for particular data.
+    Refused,
+
+    /// Reserved for future use.
+    Reserved,
 }
 
 impl Header {
@@ -159,44 +103,50 @@ impl Header {
         bytes[10..12].copy_from_slice(&self.num_additional.to_be_bytes());
     }
 
-    pub fn read(buffer: &[u8]) -> Result<Self, ()> {
-        if buffer.len() < 12 {
-            return Err(());
+    pub fn recursion_available(&self) -> bool {
+        (self.flags >> 8) & 1 != 0
+    }
+
+    pub fn recursion_desired(&self) -> bool {
+        (self.flags >> 9) & 1 != 0
+    }
+
+    pub fn truncated(&self) -> bool {
+        (self.flags >> 10) & 1 != 0
+    }
+
+    pub fn authoritative(&self) -> bool {
+        (self.flags >> 11) & 1 != 0
+    }
+
+    pub fn response_code(&self) -> ResponseCode {
+        match self.flags & 0b1111 {
+            0 => ResponseCode::Ok,
+            1 => ResponseCode::FormatError,
+            2 => ResponseCode::ServerFailure,
+            3 => ResponseCode::NameError,
+            4 => ResponseCode::NotImplemented,
+            5 => ResponseCode::Refused,
+            _ => ResponseCode::Reserved,
         }
-        let id = u16::from_be_bytes(buffer[0..2].try_into().unwrap());
-        let flags = u16::from_be_bytes(buffer[2..4].try_into().unwrap());
-        let num_questions = u16::from_be_bytes(buffer[4..6].try_into().unwrap());
-        let num_answers = u16::from_be_bytes(buffer[6..8].try_into().unwrap());
-        let num_ressources = u16::from_be_bytes(buffer[8..10].try_into().unwrap());
-        let num_additional = u16::from_be_bytes(buffer[10..12].try_into().unwrap());
-
-        Ok(Self {
-            id,
-            flags,
-            num_questions,
-            num_answers,
-            num_ressources,
-            num_additional
-        })
-
     }
 }
 
 impl Question {
-    pub fn new(domain: Vec<u8>) -> Self {
+    pub fn new(domain_bytes: Vec<u8>) -> Self {
         Self {
-            domain: domain,
+            domain: Domain(domain_bytes),
             query_type: QueryType::Standard,
             query_class: (),
         }
     }
 
     fn size(&self) -> usize {
-        self.domain.len() + 4
+        self.domain.encode().len() + 4
     }
 
     pub fn write_to_buffer(&self, bytes: &mut [u8]) -> usize {
-        let encoded_domain = encode_domain_name(&self.domain);
+        let encoded_domain = self.domain.encode();
         bytes[..encoded_domain.len()].copy_from_slice(&encoded_domain);
 
         let mut ptr = encoded_domain.len();
@@ -207,22 +157,6 @@ impl Question {
         bytes[ptr..ptr + 2].copy_from_slice(&1_u16.to_be_bytes());
         ptr += 2;
         ptr
-    }
-
-    pub fn read(buffer: &[u8]) -> Result<(Self, usize), ()> {
-        // Everything up to the first null byte (inclusive) is the encoded domain
-        let domain_length = buffer.iter().position(|b| *b == 0x00).ok_or(())? + 1;
-        let domain = decode_domain_name(&buffer[..domain_length]);
-
-        let _query_type = u16::from_be_bytes(buffer[domain_length..domain_length + 2].try_into().unwrap());
-        let _query_class = u16::from_be_bytes(buffer[domain_length + 2..domain_length + 4].try_into().unwrap());
-
-        // FIXME properly parse the type/class
-        Ok((Self {
-            domain: domain,
-            query_type: QueryType::Standard,
-            query_class: (),
-        }, domain_length +  4))
     }
 }
 
@@ -254,40 +188,292 @@ impl Message {
         ptr
     }
 
-    pub fn read(buffer: &[u8]) -> Result<Self, ()> {
-        let header = Header::read(&buffer[..12])?;
+    pub fn get(&self, domain: &Domain) -> Result<IpAddr, ()> {
+        for answer in &self.answer {
+            if answer.domain == *domain {
+                match answer.resource_type {
+                    ResourceRecordType::A{ ipv4 } => return Ok(IpAddr::V4(ipv4)),
+                    ResourceRecordType::CNAME { ref alias } => {
+                        return self.get(alias);
+                    },
+                    _ => {},
+                }
+            } 
+        }
+
+        // Our question was not answered
+        Err(())
+    }
+}
+
+#[derive(PartialEq)]
+/// Stores the ascii bytes for an unencoded domain name
+pub(crate) struct Domain(Vec<u8>);
+
+impl fmt::Debug for Domain {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", &std::str::from_utf8(&self.0).unwrap())
+    }
+}
+
+/// Generic trait for DNS-related things that can be read from a
+/// byte buffer
+pub(crate) trait Consume {
+    /// Tries to consume the given data structure from a buffer at a given offset.
+    /// Fails if the buffer is too small or the data is invalid.
+    /// On success, returns the parsed data structure and the number of bytes (from ptr)
+    /// that were read
+    fn read(buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> where Self: Sized;
+}
+
+impl Consume for Message {
+    fn read(buffer: &[u8], mut ptr: usize) -> Result<(Self, usize), ()> {
+        let (header, bytes_read) = Header::read(&buffer, ptr)?;
+        ptr += bytes_read;
 
         let mut questions = Vec::with_capacity(header.num_questions as usize);
         let mut answers = Vec::with_capacity(header.num_answers as usize);
 
-
         println!("{header:?}");
 
-        let mut ptr = 12;
         for _ in 0..header.num_questions {
-            let (new_question, bytes_read) = Question::read(&buffer[ptr..])?;
+            let (new_question, bytes_read) = Question::read(&buffer, ptr)?;
+            println!("{new_question:?}");
             questions.push(new_question);
             ptr += bytes_read;
         }
 
-        println!("{questions:?}");
+        for _ in 0..header.num_answers {
+            let (new_answer, bytes_read) = Resource::read(&buffer, ptr)?;
+            println!("{new_answer:?}");
+            answers.push(new_answer);
+            ptr += bytes_read;
+        }
 
-
-
-        Ok(Self {
+        Ok((Self {
             header: header,
             question: questions,
             answer: answers,
             authority: vec![],
             additional: vec![],
-        })
+        }, ptr))
     }
 }
 
-impl fmt::Debug for Question {
+
+impl Consume for Question {
+    fn read(global_buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> {
+        let buffer = &global_buffer[ptr..];
+
+        let (domain, domain_length) = Domain::read(global_buffer, ptr)?;
+        
+        let _query_type = u16::from_be_bytes(buffer[domain_length..domain_length + 2].try_into().unwrap());
+        let _query_class = u16::from_be_bytes(buffer[domain_length + 2..domain_length + 4].try_into().unwrap());
+
+        // FIXME properly parse the type/class
+        Ok((Self {
+            domain: domain,
+            query_type: QueryType::Standard,
+            query_class: (),
+        }, domain_length +  4))
+    }
+}
+
+impl Consume for Header {
+    fn read(buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> {
+        if buffer.len() < 12 {
+            return Err(());
+        }
+        let id = u16::from_be_bytes(buffer[0..2].try_into().unwrap());
+        let flags = u16::from_be_bytes(buffer[2..4].try_into().unwrap());
+        let num_questions = u16::from_be_bytes(buffer[4..6].try_into().unwrap());
+        let num_answers = u16::from_be_bytes(buffer[6..8].try_into().unwrap());
+        let num_ressources = u16::from_be_bytes(buffer[8..10].try_into().unwrap());
+        let num_additional = u16::from_be_bytes(buffer[10..12].try_into().unwrap());
+
+        Ok((Self {
+            id,
+            flags,
+            num_questions,
+            num_answers,
+            num_ressources,
+            num_additional
+        }, 12))
+    }
+}
+
+impl Consume for Domain {
+    fn read(global_buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> {
+        let buffer = &global_buffer[ptr..];
+
+        let mut result: Vec<u8> = vec![];
+        
+        let mut ptr = 0;
+        let mut num_segments = 0;
+
+        loop {
+            if num_segments > DOMAIN_MAX_SEGMENTS {
+                return Err(());
+            }
+
+            // Check if it is a pointer to part of another domain
+            // See https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.4
+            if buffer[ptr] >> 6 == 0b11 {
+                // Compression
+                let compress_ptr = u16::from_be_bytes(buffer[ptr..ptr + 2].try_into().unwrap()) & !(0b11 << 14);
+                let (referenced_domain, _) = Self::read(global_buffer, compress_ptr as usize)?;
+
+                if num_segments != 0 {
+                    result.push(0x2e);
+                }
+                
+                result.extend(referenced_domain.0);
+
+                ptr += 2;
+                break; // No continuation after compress pointer
+            } else {
+                // No Compression
+                let block_length = buffer[ptr] as usize;
+                ptr += 1;
+
+                if block_length == 0x00 {
+                    break;
+                }
+
+                assert!(ptr + block_length < buffer.len(), "domain block reaches out of bounds");
+
+                let mut block_data = vec![0; block_length];
+                block_data[..].copy_from_slice(&buffer[ptr..ptr + block_length]);
+                
+                if num_segments != 0 {
+                    result.push(0x2e);
+                }
+
+                result.extend(block_data);
+
+                ptr += block_length;
+            }
+
+            num_segments += 1;
+        }
+        Ok((Domain(result), ptr))
+    }
+}
+
+impl Consume for Resource {
+    fn read(global_buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> {
+        let buffer = &global_buffer[ptr..];
+        let (domain, domain_length) = Domain::read(global_buffer, ptr)?;
+
+        let rtype = (global_buffer, ptr + domain_length).try_into()?;
+
+        let class = u16::from_be_bytes(buffer[domain_length + 2..domain_length + 4].try_into().unwrap()).into();
+        let ttl = u32::from_be_bytes(buffer[domain_length + 4..domain_length + 8].try_into().unwrap());
+        let rdlength = u16::from_be_bytes(buffer[domain_length + 8..domain_length + 10].try_into().unwrap()) as usize;
+
+        Ok((Self {
+            domain: domain,
+            resource_type: rtype,
+            class: class,
+            time_to_live: ttl,
+        }, domain_length + 10 + rdlength))
+    }
+}
+
+impl Domain {
+    pub(crate) fn new(source: &[u8]) -> Self {
+        Self (source.to_vec())
+    }
+
+    /// Encodes a domain name for use in a DNS query.
+    /// 
+    /// Blocks are seperated by a byte specifying their length.
+    /// The last byte is guaranteed to be a null byte
+    /// 
+    /// # Example
+    /// ```
+    /// # use dns::message::Domain; 
+    /// let domain = Domain::new(b"www.example.com");
+    /// let encoded_name = domain.encode();
+    /// 
+    /// assert_eq!(encoded_name, b"\x03www\x07example\x03com\x00");
+    /// ```
+    fn encode(&self) -> Vec<u8> {
+        let length = self.0.len() + self.0.iter().filter(|c| **c == 0x2e).count();
+        let mut result = vec![0; length];
+
+        let mut ptr = 0;
+        for chunk in self.0.split(|c| *c == 0x2e) {
+            result[ptr] = chunk.len() as u8;
+            ptr += 1;
+            result[ptr..ptr + chunk.len()].copy_from_slice(chunk);
+            ptr += chunk.len();
+        }
+        debug_assert_eq!(ptr, length - 1);
+
+        result
+    }
+
+    /// Decodes a domain name from a DNS query.
+    /// 
+    /// Blocks are seperated by a byte specifying their length.
+    /// The last byte is guaranteed to be a null byte
+    /// 
+    /// # Example
+    /// ```
+    /// # use dns::message::Domain; 
+    /// let encoded_name = b"\x03www\x07example\x03com\x00";
+    /// let domain_name = Domain::decode(encoded_name);
+    /// 
+    /// assert_eq!(domain_name, Domain::new(b"www.example.com");
+    /// ```
+    /// 
+    /// # Panics
+    /// This function panics if the given byte buffer is not a valid encoded domain name,
+    /// for example `\x03www\x07example\x04com`.
+    fn decode(source: &[u8]) -> Vec<u8> {
+        let mut result = vec![0; source.len() - 2];  // we dont need the null bytes & leading "."
+
+        // creating a second view here simplifies the logic a bit because we don't need
+        // to keep track of two indices
+        let without_leading_dot = &source[1..];
+
+        let mut block_size = source[0] as usize;
+        let mut ptr = 0;
+        
+        loop {
+            assert!(ptr + block_size < without_leading_dot.len(), "domain block reaches out of bounds");
+            result[ptr..ptr + block_size].copy_from_slice(&without_leading_dot[ptr..ptr + block_size]);
+
+            ptr += block_size;  
+
+            block_size = without_leading_dot[ptr] as usize;
+            if block_size == 0x00 {
+                break;
+            } else {
+                result[ptr] = 0x2e;
+                ptr += 1;
+            }
+
+        }
+
+        result
+    }
+}
+
+impl fmt::Debug for Header {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Question")
-         .field("domain", &std::str::from_utf8(&self.domain).unwrap())
+        f.debug_struct("Header")
+         .field("id", &self.id)
+         .field("num_questions", &self.num_questions)
+         .field("num_answers", &self.num_answers)
+         .field("num_ressources", &self.num_ressources)
+         .field("num_additional", &self.num_additional)
+         .field("response_code", &self.response_code())
+         .field("recursion_available", &self.recursion_available())
+         .field("recursion_desired", &self.recursion_desired())
+         .field("truncated", &self.truncated())
+         .field("authoritative", &self.authoritative())
          .finish()
     }
 }
