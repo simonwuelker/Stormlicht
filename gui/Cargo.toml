@@ -8,11 +8,14 @@ edition = "2021"
 [dependencies]
 log = { path = "../log"}
 font_rasterizer = { path = "../font_rasterizer" }
-executor = { path = "../async/executor" }
-http = { path = "../web/http" }
 gtk = { version = "0.5", package = "gtk4", optional = true}
+generic = { path = "../backends/generic" }
+
+[target]
+[target.'cfg(windows)'.dependencies]
+win32 = { path = "../backends/win32" }
 
 [features]
-default = ["backend-wayland"]
+default = []
 backend-wayland = []
 backend-gtk = ["dep:gtk"]

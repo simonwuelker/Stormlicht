@@ -1,8 +1,5 @@
 mod pixelbuffer;
 
-#[cfg(feature = "backend-wayland")]
-mod wayland;
-
 // use font_rasterizer::{target::BoundingBox, ttf};
 
 use pixelbuffer::{PixelBuffer, RendererTarget};
@@ -68,8 +65,12 @@ const HEIGHT: i32 = 600;
 //     window.show();
 // }
 
+use generic::Backend;
+use win32::Win32Backend;
+
 fn main() {
     log::info!("Loading website");
+    Win32Backend::init(100, 200).unwrap();
 
     // wayland::try_init().unwrap();
     // let app = gtk::Application::builder()

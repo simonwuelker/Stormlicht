@@ -202,6 +202,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "generic"
+version = "0.1.0"
+
+[[package]]
 name = "gio"
 version = "0.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -407,12 +411,11 @@ dependencies = [
 name = "gui"
 version = "0.1.0"
 dependencies = [
- "executor",
  "font_rasterizer",
+ "generic",
  "gtk4",
- "http",
  "log",
- "url",
+ "win32",
 ]
 
 [[package]]
@@ -705,6 +708,17 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "wayland"
+version = "0.1.0"
+
+[[package]]
+name = "win32"
+version = "0.1.0"
+dependencies = [
+ "generic",
+]
 
 [[package]]
 name = "winapi"
