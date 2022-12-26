@@ -1,12 +1,10 @@
-use crate::message::{Domain, Consume};
-use std::net::{Ipv4Addr};
+use crate::message::{Consume, Domain};
+use std::net::Ipv4Addr;
 
 #[derive(Debug)]
 /// See <https://en.wikipedia.org/wiki/List_of_DNS_record_types>
 pub(crate) enum ResourceRecordType {
-    A {
-        ipv4: Ipv4Addr,
-    },
+    A { ipv4: Ipv4Addr },
     AAAA,
     AFSDB,
     APL,
@@ -14,9 +12,7 @@ pub(crate) enum ResourceRecordType {
     CDNSKEY,
     CDS,
     CERT,
-    CNAME {
-        alias: Domain,
-    },
+    CNAME { alias: Domain },
     CSYNC,
     DHCID,
     DLV,
@@ -62,7 +58,7 @@ pub(crate) enum ResourceRecordType {
 impl TryFrom<(&[u8], usize)> for ResourceRecordType {
     type Error = ();
 
-    fn try_from(from:(&[u8], usize)) -> Result<Self, Self::Error> {
+    fn try_from(from: (&[u8], usize)) -> Result<Self, Self::Error> {
         let rtype = u16::from_be_bytes(from.0[from.1..from.1 + 2].try_into().unwrap());
         let rdata_starts_at = from.1 + 10;
 
@@ -73,7 +69,7 @@ impl TryFrom<(&[u8], usize)> for ResourceRecordType {
                     from.0[rdata_starts_at + 1],
                     from.0[rdata_starts_at + 2],
                     from.0[rdata_starts_at + 3],
-                )
+                ),
             },
             28 => Self::AAAA,
             18 => Self::AFSDB,

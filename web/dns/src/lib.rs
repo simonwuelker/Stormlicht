@@ -5,7 +5,7 @@ pub mod punycode;
 mod resource_type;
 
 use crate::message::Domain;
-use crate::resource_type::{ResourceRecordType, ResourceRecordClass};
+use crate::resource_type::{ResourceRecordClass, ResourceRecordType};
 
 use message::Consume;
 
@@ -16,7 +16,6 @@ use crate::message::Message;
 const MAX_DATAGRAM_SIZE: usize = 1024;
 const UDP_SOCKET: &'static str = "0.0.0.0:20000";
 const NAMESERVER: &'static str = "8.8.8.8:53";
-
 
 #[derive(Debug)]
 pub enum DNSError {
@@ -41,12 +40,17 @@ pub fn resolve(domain_name: &[u8]) -> Result<IpAddr, DNSError> {
 
     // Read the DNS response
     let mut response = [0; MAX_DATAGRAM_SIZE];
-    let response_length = socket.recv(&mut response).map_err(|_| DNSError::NetworkError)?;
-    let (parsed_message, _) = Message::read(&response[..response_length], 0).map_err(|_| DNSError::InvalidResponse)?;
+    let response_length = socket
+        .recv(&mut response)
+        .map_err(|_| DNSError::NetworkError)?;
+    let (parsed_message, _) =
+        Message::read(&response[..response_length], 0).map_err(|_| DNSError::InvalidResponse)?;
 
     if parsed_message.header.id != expected_id {
         return Err(DNSError::InvalidResponse);
     }
 
-    parsed_message.get(&Domain::new(domain_name)).map_err(|_| DNSError::InvalidResponse)
+    parsed_message
+        .get(&Domain::new(domain_name))
+        .map_err(|_| DNSError::InvalidResponse)
 }

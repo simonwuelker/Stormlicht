@@ -1,8 +1,8 @@
 //! https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
 use random::RNG;
 
-use std::{vec, fmt, net::IpAddr};
-use crate::{ResourceRecordType, ResourceRecordClass};
+use crate::{ResourceRecordClass, ResourceRecordType};
+use std::{fmt, net::IpAddr, vec};
 
 const DOMAIN_MAX_SEGMENTS: u8 = 10;
 
@@ -59,12 +59,12 @@ pub enum ResponseCode {
     /// Format error - The name server was unable to interpret the query.
     FormatError,
 
-    /// Server failure - The name server was unable to process this query 
+    /// Server failure - The name server was unable to process this query
     /// due to a problem with the name server.
     ServerFailure,
 
     /// Name Error - Meaningful only for responses from an authoritative name
-    /// server, this code signifies that the domain name referenced 
+    /// server, this code signifies that the domain name referenced
     /// in the query does not exist.
     NameError,
 
@@ -93,7 +93,7 @@ impl Header {
         }
     }
 
-    pub fn write_to_buffer(&self, bytes: &mut [u8]){
+    pub fn write_to_buffer(&self, bytes: &mut [u8]) {
         bytes[0..2].copy_from_slice(&self.id.to_be_bytes());
         bytes[2..4].copy_from_slice(&self.flags.to_be_bytes());
         bytes[4..6].copy_from_slice(&self.num_questions.to_be_bytes());
@@ -178,7 +178,7 @@ impl Message {
     /// returning the number of bytes that were written
     pub fn write_to_buffer(self, bytes: &mut [u8]) -> usize {
         self.header.write_to_buffer(&mut bytes[..12]);
-        
+
         let mut ptr = 12;
         for question in &self.question {
             ptr += question.write_to_buffer(&mut bytes[ptr..]);
@@ -191,13 +191,13 @@ impl Message {
         for answer in &self.answer {
             if answer.domain == *domain {
                 match answer.resource_type {
-                    ResourceRecordType::A{ ipv4 } => return Ok(IpAddr::V4(ipv4)),
+                    ResourceRecordType::A { ipv4 } => return Ok(IpAddr::V4(ipv4)),
                     ResourceRecordType::CNAME { ref alias } => {
                         return self.get(alias);
                     },
                     _ => {},
                 }
-            } 
+            }
         }
 
         // Our question was not answered
@@ -222,7 +222,9 @@ pub(crate) trait Consume {
     /// Fails if the buffer is too small or the data is invalid.
     /// On success, returns the parsed data structure and the number of bytes (from ptr)
     /// that were read
-    fn read(buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> where Self: Sized;
+    fn read(buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()>
+    where
+        Self: Sized;
 }
 
 impl Consume for Message {
@@ -261,32 +263,42 @@ impl Consume for Message {
             ptr += bytes_read;
         }
 
-        Ok((Self {
-            header: header,
-            question: questions,
-            answer: answers,
-            _authority: authority,
-            _additional: additional,
-        }, ptr))
+        Ok((
+            Self {
+                header: header,
+                question: questions,
+                answer: answers,
+                _authority: authority,
+                _additional: additional,
+            },
+            ptr,
+        ))
     }
 }
-
 
 impl Consume for Question {
     fn read(global_buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> {
         let buffer = &global_buffer[ptr..];
 
         let (domain, domain_length) = Domain::read(global_buffer, ptr)?;
-        
-        let _query_type = u16::from_be_bytes(buffer[domain_length..domain_length + 2].try_into().unwrap());
-        let _query_class = u16::from_be_bytes(buffer[domain_length + 2..domain_length + 4].try_into().unwrap());
+
+        let _query_type =
+            u16::from_be_bytes(buffer[domain_length..domain_length + 2].try_into().unwrap());
+        let _query_class = u16::from_be_bytes(
+            buffer[domain_length + 2..domain_length + 4]
+                .try_into()
+                .unwrap(),
+        );
 
         // FIXME properly parse the type/class
-        Ok((Self {
-            domain: domain,
-            _query_type: QueryType::Standard,
-            _query_class: (),
-        }, domain_length +  4))
+        Ok((
+            Self {
+                domain: domain,
+                _query_type: QueryType::Standard,
+                _query_class: (),
+            },
+            domain_length + 4,
+        ))
     }
 }
 
@@ -305,14 +317,17 @@ impl Consume for Header {
         let num_authorities = u16::from_be_bytes(buffer[8..10].try_into().unwrap());
         let num_additional = u16::from_be_bytes(buffer[10..12].try_into().unwrap());
 
-        Ok((Self {
-            id,
-            flags,
-            num_questions,
-            num_answers,
-            num_authorities,
-            num_additional
-        }, 12))
+        Ok((
+            Self {
+                id,
+                flags,
+                num_questions,
+                num_answers,
+                num_authorities,
+                num_additional,
+            },
+            12,
+        ))
     }
 }
 
@@ -321,7 +336,7 @@ impl Consume for Domain {
         let buffer = &global_buffer[ptr..];
 
         let mut result: Vec<u8> = vec![];
-        
+
         let mut ptr = 0;
         let mut num_segments = 0;
 
@@ -334,13 +349,14 @@ impl Consume for Domain {
             // See https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.4
             if buffer[ptr] >> 6 == 0b11 {
                 // Compression
-                let compress_ptr = u16::from_be_bytes(buffer[ptr..ptr + 2].try_into().unwrap()) & !(0b11 << 14);
+                let compress_ptr =
+                    u16::from_be_bytes(buffer[ptr..ptr + 2].try_into().unwrap()) & !(0b11 << 14);
                 let (referenced_domain, _) = Self::read(global_buffer, compress_ptr as usize)?;
 
                 if num_segments != 0 {
                     result.push(0x2e);
                 }
-                
+
                 result.extend(referenced_domain.0);
 
                 ptr += 2;
@@ -354,11 +370,14 @@ impl Consume for Domain {
                     break;
                 }
 
-                assert!(ptr + block_length < buffer.len(), "domain block reaches out of bounds");
+                assert!(
+                    ptr + block_length < buffer.len(),
+                    "domain block reaches out of bounds"
+                );
 
                 let mut block_data = vec![0; block_length];
                 block_data[..].copy_from_slice(&buffer[ptr..ptr + block_length]);
-                
+
                 if num_segments != 0 {
                     result.push(0x2e);
                 }
@@ -381,35 +400,51 @@ impl Consume for Resource {
 
         let rtype = (global_buffer, ptr + domain_length).try_into()?;
 
-        let class = u16::from_be_bytes(buffer[domain_length + 2..domain_length + 4].try_into().unwrap()).into();
-        let ttl = u32::from_be_bytes(buffer[domain_length + 4..domain_length + 8].try_into().unwrap());
-        let rdlength = u16::from_be_bytes(buffer[domain_length + 8..domain_length + 10].try_into().unwrap()) as usize;
+        let class = u16::from_be_bytes(
+            buffer[domain_length + 2..domain_length + 4]
+                .try_into()
+                .unwrap(),
+        )
+        .into();
+        let ttl = u32::from_be_bytes(
+            buffer[domain_length + 4..domain_length + 8]
+                .try_into()
+                .unwrap(),
+        );
+        let rdlength = u16::from_be_bytes(
+            buffer[domain_length + 8..domain_length + 10]
+                .try_into()
+                .unwrap(),
+        ) as usize;
 
-        Ok((Self {
-            domain: domain,
-            resource_type: rtype,
-            _class: class,
-            _time_to_live: ttl,
-        }, domain_length + 10 + rdlength))
+        Ok((
+            Self {
+                domain: domain,
+                resource_type: rtype,
+                _class: class,
+                _time_to_live: ttl,
+            },
+            domain_length + 10 + rdlength,
+        ))
     }
 }
 
 impl Domain {
     pub fn new(source: &[u8]) -> Self {
-        Self (source.to_vec())
+        Self(source.to_vec())
     }
 
     /// Encodes a domain name for use in a DNS query.
-    /// 
+    ///
     /// Blocks are seperated by a byte specifying their length.
     /// The last byte is guaranteed to be a null byte
-    /// 
+    ///
     /// # Example
     /// ```
-    /// # use dns::message::Domain; 
+    /// # use dns::message::Domain;
     /// let domain = Domain::new(b"www.example.com");
     /// let encoded_name = domain.encode();
-    /// 
+    ///
     /// assert_eq!(encoded_name, b"\x03www\x07example\x03com\x00");
     /// ```
     pub fn encode(&self) -> Vec<u8> {
@@ -429,24 +464,24 @@ impl Domain {
     }
 
     /// Decodes a domain name from a DNS query.
-    /// 
+    ///
     /// Blocks are seperated by a byte specifying their length.
     /// The last byte is guaranteed to be a null byte
-    /// 
+    ///
     /// # Example
     /// ```
-    /// # use dns::message::Domain; 
+    /// # use dns::message::Domain;
     /// let encoded_name = b"\x03www\x07example\x03com\x00";
     /// let domain_name = Domain::decode(encoded_name);
-    /// 
+    ///
     /// assert_eq!(domain_name, b"www.example.com");
     /// ```
-    /// 
+    ///
     /// # Panics
     /// This function panics if the given byte buffer is not a valid encoded domain name,
     /// for example `\x03www\x07example\x04com`.
     pub fn decode(source: &[u8]) -> Vec<u8> {
-        let mut result = vec![0; source.len() - 2];  // we dont need the null bytes & leading "."
+        let mut result = vec![0; source.len() - 2]; // we dont need the null bytes & leading "."
 
         // creating a second view here simplifies the logic a bit because we don't need
         // to keep track of two indices
@@ -454,12 +489,16 @@ impl Domain {
 
         let mut block_size = source[0] as usize;
         let mut ptr = 0;
-        
-        loop {
-            assert!(ptr + block_size < without_leading_dot.len(), "domain block reaches out of bounds");
-            result[ptr..ptr + block_size].copy_from_slice(&without_leading_dot[ptr..ptr + block_size]);
 
-            ptr += block_size;  
+        loop {
+            assert!(
+                ptr + block_size < without_leading_dot.len(),
+                "domain block reaches out of bounds"
+            );
+            result[ptr..ptr + block_size]
+                .copy_from_slice(&without_leading_dot[ptr..ptr + block_size]);
+
+            ptr += block_size;
 
             block_size = without_leading_dot[ptr] as usize;
             if block_size == 0x00 {
@@ -468,7 +507,6 @@ impl Domain {
                 result[ptr] = 0x2e;
                 ptr += 1;
             }
-
         }
 
         result
@@ -478,16 +516,16 @@ impl Domain {
 impl fmt::Debug for Header {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Header")
-         .field("id", &self.id)
-         .field("num_questions", &self.num_questions)
-         .field("num_answers", &self.num_answers)
-         .field("num_authorities", &self.num_authorities)
-         .field("num_additional", &self.num_additional)
-         .field("response_code", &self.response_code())
-         .field("recursion_available", &self.recursion_available())
-         .field("recursion_desired", &self.recursion_desired())
-         .field("truncated", &self.truncated())
-         .field("authoritative", &self.authoritative())
-         .finish()
+            .field("id", &self.id)
+            .field("num_questions", &self.num_questions)
+            .field("num_answers", &self.num_answers)
+            .field("num_authorities", &self.num_authorities)
+            .field("num_additional", &self.num_additional)
+            .field("response_code", &self.response_code())
+            .field("recursion_available", &self.recursion_available())
+            .field("recursion_desired", &self.recursion_desired())
+            .field("truncated", &self.truncated())
+            .field("authoritative", &self.authoritative())
+            .finish()
     }
 }
