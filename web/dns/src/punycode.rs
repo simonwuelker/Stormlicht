@@ -25,6 +25,7 @@ fn encode_digit(c: u32) -> char {
 fn decode_digit(c: char) -> u32 {
 	match c {
 		'a'..='z' => c as u32 - 'a' as u32,
+		'A'..='Z' => c as u32 - 'A' as u32,
 		'0'..='9' => c as u32 - '0' as u32 + 26,
 		_ => panic!("Invalid base 36 digit: {c}"),
 	}
