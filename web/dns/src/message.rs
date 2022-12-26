@@ -1,7 +1,7 @@
 //! https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
 use random::RNG;
 
-use std::{io::{Read, Write}, vec, fmt, net::IpAddr};
+use std::{vec, fmt, net::IpAddr};
 use crate::{ResourceRecordType, ResourceRecordClass};
 
 const DOMAIN_MAX_SEGMENTS: u8 = 10;
@@ -20,8 +20,8 @@ pub(crate) struct Message {
     pub(crate) header: Header,
     pub(crate) question: Vec<Question>,
     pub(crate) answer: Vec<Resource>,
-    pub(crate) authority: Vec<Resource>,
-    pub(crate) additional: Vec<Resource>,
+    pub(crate) _authority: Vec<Resource>,
+    pub(crate) _additional: Vec<Resource>,
 }
 
 // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
@@ -30,7 +30,7 @@ pub struct Header {
     flags: u16,
     num_questions: u16,
     num_answers: u16,
-    num_ressources: u16,
+    num_authorities: u16,
     num_additional: u16,
 }
 
@@ -38,8 +38,8 @@ pub struct Header {
 // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.2
 pub struct Question {
     domain: Domain,
-    query_type: QueryType,
-    query_class: (),
+    _query_type: QueryType,
+    _query_class: (),
 }
 
 #[derive(Debug)]
@@ -47,8 +47,8 @@ pub struct Question {
 pub struct Resource {
     domain: Domain,
     resource_type: ResourceRecordType,
-    class: ResourceRecordClass,
-    time_to_live: u32,
+    _class: ResourceRecordClass,
+    _time_to_live: u32,
 }
 
 #[derive(Debug)]
@@ -83,13 +83,12 @@ pub enum ResponseCode {
 
 impl Header {
     pub fn new(num_questions: u16) -> Self {
-        let id = RNG::default().next_u16();
         Self {
             id: RNG::default().next_u16(),
             flags: 0x100,
             num_questions: num_questions,
             num_answers: 0x0000,
-            num_ressources: 0x0000,
+            num_authorities: 0x0000,
             num_additional: 0x000,
         }
     }
@@ -99,7 +98,7 @@ impl Header {
         bytes[2..4].copy_from_slice(&self.flags.to_be_bytes());
         bytes[4..6].copy_from_slice(&self.num_questions.to_be_bytes());
         bytes[6..8].copy_from_slice(&self.num_answers.to_be_bytes());
-        bytes[8..10].copy_from_slice(&self.num_ressources.to_be_bytes());
+        bytes[8..10].copy_from_slice(&self.num_authorities.to_be_bytes());
         bytes[10..12].copy_from_slice(&self.num_additional.to_be_bytes());
     }
 
@@ -136,8 +135,8 @@ impl Question {
     pub fn new(domain_bytes: Vec<u8>) -> Self {
         Self {
             domain: Domain(domain_bytes),
-            query_type: QueryType::Standard,
-            query_class: (),
+            _query_type: QueryType::Standard,
+            _query_class: (),
         }
     }
 
@@ -166,8 +165,8 @@ impl Message {
             header: Header::new(1),
             question: vec![Question::new(domain_name.to_vec())],
             answer: vec![],
-            authority: vec![],
-            additional: vec![],
+            _authority: vec![],
+            _additional: vec![],
         }
     }
 
@@ -208,7 +207,7 @@ impl Message {
 
 #[derive(PartialEq)]
 /// Stores the ascii bytes for an unencoded domain name
-pub(crate) struct Domain(Vec<u8>);
+pub struct Domain(Vec<u8>);
 
 impl fmt::Debug for Domain {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -233,20 +232,32 @@ impl Consume for Message {
 
         let mut questions = Vec::with_capacity(header.num_questions as usize);
         let mut answers = Vec::with_capacity(header.num_answers as usize);
+        let mut authority = Vec::with_capacity(header.num_authorities as usize);
+        let mut additional = Vec::with_capacity(header.num_additional as usize);
 
         println!("{header:?}");
 
         for _ in 0..header.num_questions {
             let (new_question, bytes_read) = Question::read(&buffer, ptr)?;
-            println!("{new_question:?}");
             questions.push(new_question);
             ptr += bytes_read;
         }
 
         for _ in 0..header.num_answers {
             let (new_answer, bytes_read) = Resource::read(&buffer, ptr)?;
-            println!("{new_answer:?}");
             answers.push(new_answer);
+            ptr += bytes_read;
+        }
+
+        for _ in 0..header.num_authorities {
+            let (new_authority, bytes_read) = Resource::read(&buffer, ptr)?;
+            authority.push(new_authority);
+            ptr += bytes_read;
+        }
+
+        for _ in 0..header.num_additional {
+            let (new_additional, bytes_read) = Resource::read(&buffer, ptr)?;
+            additional.push(new_additional);
             ptr += bytes_read;
         }
 
@@ -254,8 +265,8 @@ impl Consume for Message {
             header: header,
             question: questions,
             answer: answers,
-            authority: vec![],
-            additional: vec![],
+            _authority: authority,
+            _additional: additional,
         }, ptr))
     }
 }
@@ -273,14 +284,17 @@ impl Consume for Question {
         // FIXME properly parse the type/class
         Ok((Self {
             domain: domain,
-            query_type: QueryType::Standard,
-            query_class: (),
+            _query_type: QueryType::Standard,
+            _query_class: (),
         }, domain_length +  4))
     }
 }
 
 impl Consume for Header {
-    fn read(buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> {
+    fn read(global_buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> {
+        // ptr is, in practice, always zero but we still properly use it
+        let buffer = &global_buffer[ptr..];
+
         if buffer.len() < 12 {
             return Err(());
         }
@@ -288,7 +302,7 @@ impl Consume for Header {
         let flags = u16::from_be_bytes(buffer[2..4].try_into().unwrap());
         let num_questions = u16::from_be_bytes(buffer[4..6].try_into().unwrap());
         let num_answers = u16::from_be_bytes(buffer[6..8].try_into().unwrap());
-        let num_ressources = u16::from_be_bytes(buffer[8..10].try_into().unwrap());
+        let num_authorities = u16::from_be_bytes(buffer[8..10].try_into().unwrap());
         let num_additional = u16::from_be_bytes(buffer[10..12].try_into().unwrap());
 
         Ok((Self {
@@ -296,7 +310,7 @@ impl Consume for Header {
             flags,
             num_questions,
             num_answers,
-            num_ressources,
+            num_authorities,
             num_additional
         }, 12))
     }
@@ -374,14 +388,14 @@ impl Consume for Resource {
         Ok((Self {
             domain: domain,
             resource_type: rtype,
-            class: class,
-            time_to_live: ttl,
+            _class: class,
+            _time_to_live: ttl,
         }, domain_length + 10 + rdlength))
     }
 }
 
 impl Domain {
-    pub(crate) fn new(source: &[u8]) -> Self {
+    pub fn new(source: &[u8]) -> Self {
         Self (source.to_vec())
     }
 
@@ -398,7 +412,7 @@ impl Domain {
     /// 
     /// assert_eq!(encoded_name, b"\x03www\x07example\x03com\x00");
     /// ```
-    fn encode(&self) -> Vec<u8> {
+    pub fn encode(&self) -> Vec<u8> {
         let length = self.0.len() + self.0.iter().filter(|c| **c == 0x2e).count();
         let mut result = vec![0; length];
 
@@ -425,13 +439,13 @@ impl Domain {
     /// let encoded_name = b"\x03www\x07example\x03com\x00";
     /// let domain_name = Domain::decode(encoded_name);
     /// 
-    /// assert_eq!(domain_name, Domain::new(b"www.example.com");
+    /// assert_eq!(domain_name, b"www.example.com");
     /// ```
     /// 
     /// # Panics
     /// This function panics if the given byte buffer is not a valid encoded domain name,
     /// for example `\x03www\x07example\x04com`.
-    fn decode(source: &[u8]) -> Vec<u8> {
+    pub fn decode(source: &[u8]) -> Vec<u8> {
         let mut result = vec![0; source.len() - 2];  // we dont need the null bytes & leading "."
 
         // creating a second view here simplifies the logic a bit because we don't need
@@ -467,7 +481,7 @@ impl fmt::Debug for Header {
          .field("id", &self.id)
          .field("num_questions", &self.num_questions)
          .field("num_answers", &self.num_answers)
-         .field("num_ressources", &self.num_ressources)
+         .field("num_authorities", &self.num_authorities)
          .field("num_additional", &self.num_additional)
          .field("response_code", &self.response_code())
          .field("recursion_available", &self.recursion_available())

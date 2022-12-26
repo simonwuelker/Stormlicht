@@ -1,6 +1,7 @@
 //! Implements <https://datatracker.ietf.org/doc/rfc1035/>
 
 pub mod message;
+pub mod punycode;
 mod resource_type;
 
 use crate::message::Domain;
@@ -8,10 +9,7 @@ use crate::resource_type::{ResourceRecordType, ResourceRecordClass};
 
 use message::Consume;
 
-use std::{
-    io::{Read, Write},
-    net::{IpAddr, Ipv4Addr, UdpSocket},
-};
+use std::net::{IpAddr, UdpSocket};
 
 use crate::message::Message;
 
