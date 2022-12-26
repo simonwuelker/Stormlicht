@@ -45,7 +45,7 @@ fn adapt(mut delta: u32, num_points: u32, is_first: bool) -> u32 {
     k + (((BASE - TMIN + 1) * delta) / (delta + SKEW))
 }
 
-pub fn encode(input: &str) -> Result<String, ()> {
+pub fn punycode_encode(input: &str) -> Result<String, ()> {
     let mut n = INITIAL_N;
     let mut delta: u32 = 0;
     let mut bias = INITIAL_BIAS;
@@ -104,7 +104,7 @@ pub fn encode(input: &str) -> Result<String, ()> {
     Ok(output)
 }
 
-pub fn decode(input: &str) -> Result<String, ()> {
+pub fn punycode_decode(input: &str) -> Result<String, ()> {
     if !input.is_ascii() {
         return Err(());
     }
@@ -163,6 +163,16 @@ pub fn decode(input: &str) -> Result<String, ()> {
         i += 1;
     }
     Ok(output.iter().collect())
+}
+
+/// The returned value is guaranteed to be pure ascii
+pub fn idna_encode(input: &str) -> Result<String, ()> {
+    // Don't encode strings that are already pure ascii
+    if input.is_ascii() {
+        Ok(input.to_string())
+    } else {
+        Ok(format!("xn--{}", punycode_encode(input)?))
+    }
 }
 
 #[cfg(test)]
@@ -236,48 +246,102 @@ mod tests {
     const PURE_ASCII_ENCODED: &'static str = "-> $1.00 <-";
 
     #[test]
-    fn test_decode() {
-        assert_eq!(decode(ARABIC_ENCODED).as_deref(), Ok(ARABIC));
-        assert_eq!(decode(CHINESE_ENCODED).as_deref(), Ok(CHINESE));
-        assert_eq!(decode(CHINESE_ENCODED_2).as_deref(), Ok(CHINESE_2));
-        assert_eq!(decode(CZECH_ENCODED).as_deref(), Ok(CZECH));
-        assert_eq!(decode(HEBREW_ENCODED).as_deref(), Ok(HEBREW));
-        assert_eq!(decode(HINDI_ENCODED).as_deref(), Ok(HINDI));
-        assert_eq!(decode(JAPANESE_ENCODED).as_deref(), Ok(JAPANESE));
-        assert_eq!(decode(KOREAN_ENCODED).as_deref(), Ok(KOREAN));
-        assert_eq!(decode(RUSSIAN_ENCODED).as_deref(), Ok(RUSSIAN));
-        assert_eq!(decode(SPANISH_ENCODED).as_deref(), Ok(SPANISH));
-        assert_eq!(decode(VIETNAMESE_ENCODED).as_deref(), Ok(VIETNAMESE));
-        assert_eq!(decode(JAPANESE_ENCODED_2).as_deref(), Ok(JAPANESE_2));
-        assert_eq!(decode(JAPANESE_ENCODED_3).as_deref(), Ok(JAPANESE_3));
-        assert_eq!(decode(JAPANESE_ENCODED_4).as_deref(), Ok(JAPANESE_4));
-        assert_eq!(decode(JAPANESE_ENCODED_5).as_deref(), Ok(JAPANESE_5));
-        assert_eq!(decode(JAPANESE_ENCODED_6).as_deref(), Ok(JAPANESE_6));
-        assert_eq!(decode(JAPANESE_ENCODED_7).as_deref(), Ok(JAPANESE_7));
-        assert_eq!(decode(JAPANESE_ENCODED_8).as_deref(), Ok(JAPANESE_8));
-        assert_eq!(decode(PURE_ASCII_ENCODED).as_deref(), Ok(PURE_ASCII));
+    fn test_punycode_decode() {
+        assert_eq!(punycode_decode(ARABIC_ENCODED).as_deref(), Ok(ARABIC));
+        assert_eq!(punycode_decode(CHINESE_ENCODED).as_deref(), Ok(CHINESE));
+        assert_eq!(punycode_decode(CHINESE_ENCODED_2).as_deref(), Ok(CHINESE_2));
+        assert_eq!(punycode_decode(CZECH_ENCODED).as_deref(), Ok(CZECH));
+        assert_eq!(punycode_decode(HEBREW_ENCODED).as_deref(), Ok(HEBREW));
+        assert_eq!(punycode_decode(HINDI_ENCODED).as_deref(), Ok(HINDI));
+        assert_eq!(punycode_decode(JAPANESE_ENCODED).as_deref(), Ok(JAPANESE));
+        assert_eq!(punycode_decode(KOREAN_ENCODED).as_deref(), Ok(KOREAN));
+        assert_eq!(punycode_decode(RUSSIAN_ENCODED).as_deref(), Ok(RUSSIAN));
+        assert_eq!(punycode_decode(SPANISH_ENCODED).as_deref(), Ok(SPANISH));
+        assert_eq!(
+            punycode_decode(VIETNAMESE_ENCODED).as_deref(),
+            Ok(VIETNAMESE)
+        );
+        assert_eq!(
+            punycode_decode(JAPANESE_ENCODED_2).as_deref(),
+            Ok(JAPANESE_2)
+        );
+        assert_eq!(
+            punycode_decode(JAPANESE_ENCODED_3).as_deref(),
+            Ok(JAPANESE_3)
+        );
+        assert_eq!(
+            punycode_decode(JAPANESE_ENCODED_4).as_deref(),
+            Ok(JAPANESE_4)
+        );
+        assert_eq!(
+            punycode_decode(JAPANESE_ENCODED_5).as_deref(),
+            Ok(JAPANESE_5)
+        );
+        assert_eq!(
+            punycode_decode(JAPANESE_ENCODED_6).as_deref(),
+            Ok(JAPANESE_6)
+        );
+        assert_eq!(
+            punycode_decode(JAPANESE_ENCODED_7).as_deref(),
+            Ok(JAPANESE_7)
+        );
+        assert_eq!(
+            punycode_decode(JAPANESE_ENCODED_8).as_deref(),
+            Ok(JAPANESE_8)
+        );
+        assert_eq!(
+            punycode_decode(PURE_ASCII_ENCODED).as_deref(),
+            Ok(PURE_ASCII)
+        );
     }
 
     #[test]
-    fn test_encode() {
-        assert_eq!(encode(ARABIC).as_deref(), Ok(ARABIC_ENCODED));
-        assert_eq!(encode(CHINESE).as_deref(), Ok(CHINESE_ENCODED));
-        assert_eq!(encode(CHINESE_2).as_deref(), Ok(CHINESE_ENCODED_2));
-        assert_eq!(encode(CZECH).as_deref(), Ok(CZECH_ENCODED));
-        assert_eq!(encode(HEBREW).as_deref(), Ok(HEBREW_ENCODED));
-        assert_eq!(encode(HINDI).as_deref(), Ok(HINDI_ENCODED));
-        assert_eq!(encode(JAPANESE).as_deref(), Ok(JAPANESE_ENCODED));
-        assert_eq!(encode(KOREAN).as_deref(), Ok(KOREAN_ENCODED));
-        assert_eq!(encode(RUSSIAN).as_deref(), Ok(RUSSIAN_ENCODED));
-        assert_eq!(encode(SPANISH).as_deref(), Ok(SPANISH_ENCODED));
-        assert_eq!(encode(VIETNAMESE).as_deref(), Ok(VIETNAMESE_ENCODED));
-        assert_eq!(encode(JAPANESE_2).as_deref(), Ok(JAPANESE_ENCODED_2));
-        assert_eq!(encode(JAPANESE_3).as_deref(), Ok(JAPANESE_ENCODED_3));
-        assert_eq!(encode(JAPANESE_4).as_deref(), Ok(JAPANESE_ENCODED_4));
-        assert_eq!(encode(JAPANESE_5).as_deref(), Ok(JAPANESE_ENCODED_5));
-        assert_eq!(encode(JAPANESE_6).as_deref(), Ok(JAPANESE_ENCODED_6));
-        assert_eq!(encode(JAPANESE_7).as_deref(), Ok(JAPANESE_ENCODED_7));
-        assert_eq!(encode(JAPANESE_8).as_deref(), Ok(JAPANESE_ENCODED_8));
-        assert_eq!(encode(PURE_ASCII).as_deref(), Ok(PURE_ASCII_ENCODED));
+    fn test_punycode_encode() {
+        assert_eq!(punycode_encode(ARABIC).as_deref(), Ok(ARABIC_ENCODED));
+        assert_eq!(punycode_encode(CHINESE).as_deref(), Ok(CHINESE_ENCODED));
+        assert_eq!(punycode_encode(CHINESE_2).as_deref(), Ok(CHINESE_ENCODED_2));
+        assert_eq!(punycode_encode(CZECH).as_deref(), Ok(CZECH_ENCODED));
+        assert_eq!(punycode_encode(HEBREW).as_deref(), Ok(HEBREW_ENCODED));
+        assert_eq!(punycode_encode(HINDI).as_deref(), Ok(HINDI_ENCODED));
+        assert_eq!(punycode_encode(JAPANESE).as_deref(), Ok(JAPANESE_ENCODED));
+        assert_eq!(punycode_encode(KOREAN).as_deref(), Ok(KOREAN_ENCODED));
+        assert_eq!(punycode_encode(RUSSIAN).as_deref(), Ok(RUSSIAN_ENCODED));
+        assert_eq!(punycode_encode(SPANISH).as_deref(), Ok(SPANISH_ENCODED));
+        assert_eq!(
+            punycode_encode(VIETNAMESE).as_deref(),
+            Ok(VIETNAMESE_ENCODED)
+        );
+        assert_eq!(
+            punycode_encode(JAPANESE_2).as_deref(),
+            Ok(JAPANESE_ENCODED_2)
+        );
+        assert_eq!(
+            punycode_encode(JAPANESE_3).as_deref(),
+            Ok(JAPANESE_ENCODED_3)
+        );
+        assert_eq!(
+            punycode_encode(JAPANESE_4).as_deref(),
+            Ok(JAPANESE_ENCODED_4)
+        );
+        assert_eq!(
+            punycode_encode(JAPANESE_5).as_deref(),
+            Ok(JAPANESE_ENCODED_5)
+        );
+        assert_eq!(
+            punycode_encode(JAPANESE_6).as_deref(),
+            Ok(JAPANESE_ENCODED_6)
+        );
+        assert_eq!(
+            punycode_encode(JAPANESE_7).as_deref(),
+            Ok(JAPANESE_ENCODED_7)
+        );
+        assert_eq!(
+            punycode_encode(JAPANESE_8).as_deref(),
+            Ok(JAPANESE_ENCODED_8)
+        );
+        assert_eq!(
+            punycode_encode(PURE_ASCII).as_deref(),
+            Ok(PURE_ASCII_ENCODED)
+        );
     }
 }

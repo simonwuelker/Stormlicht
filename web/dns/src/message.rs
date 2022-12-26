@@ -1,10 +1,8 @@
 //! https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
 use random::RNG;
 
-use crate::{ResourceRecordClass, ResourceRecordType};
+use crate::{domain::Domain, ResourceRecordClass, ResourceRecordType};
 use std::{fmt, net::IpAddr, vec};
-
-const DOMAIN_MAX_SEGMENTS: u8 = 10;
 
 #[derive(Debug)]
 pub enum QueryType {
@@ -20,8 +18,8 @@ pub(crate) struct Message {
     pub(crate) header: Header,
     pub(crate) question: Vec<Question>,
     pub(crate) answer: Vec<Resource>,
-    pub(crate) _authority: Vec<Resource>,
-    pub(crate) _additional: Vec<Resource>,
+    pub(crate) authority: Vec<Resource>,
+    pub(crate) additional: Vec<Resource>,
 }
 
 // https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
@@ -132,9 +130,9 @@ impl Header {
 }
 
 impl Question {
-    pub fn new(domain_bytes: Vec<u8>) -> Self {
+    pub fn new(domain: Domain) -> Self {
         Self {
-            domain: Domain(domain_bytes),
+            domain: domain,
             _query_type: QueryType::Standard,
             _query_class: (),
         }
@@ -160,13 +158,13 @@ impl Question {
 }
 
 impl Message {
-    pub fn new(domain_name: &[u8]) -> Self {
+    pub fn new(domain: &Domain) -> Self {
         Self {
             header: Header::new(1),
-            question: vec![Question::new(domain_name.to_vec())],
+            question: vec![Question::new(domain.clone())],
             answer: vec![],
-            _authority: vec![],
-            _additional: vec![],
+            authority: vec![],
+            additional: vec![],
         }
     }
 
@@ -187,13 +185,13 @@ impl Message {
         ptr
     }
 
-    pub fn get(&self, domain: &Domain) -> Result<IpAddr, ()> {
-        for answer in &self.answer {
+    pub fn get_answer(&self, domain: &Domain) -> Option<IpAddr> {
+        for answer in self.answer.iter().chain(&self.additional) {
             if answer.domain == *domain {
                 match answer.resource_type {
-                    ResourceRecordType::A { ipv4 } => return Ok(IpAddr::V4(ipv4)),
+                    ResourceRecordType::A { ipv4 } => return Some(IpAddr::V4(ipv4)),
                     ResourceRecordType::CNAME { ref alias } => {
-                        return self.get(alias);
+                        return self.get_answer(alias);
                     },
                     _ => {},
                 }
@@ -201,17 +199,19 @@ impl Message {
         }
 
         // Our question was not answered
-        Err(())
+        None
     }
-}
 
-#[derive(PartialEq)]
-/// Stores the ascii bytes for an unencoded domain name
-pub struct Domain(Vec<u8>);
+    pub fn get_authority(&self, _domain: &Domain) -> Option<Domain> {
+        for authority in &self.authority {
+            match &authority.resource_type {
+                ResourceRecordType::NS { ns } => return Some(ns.clone()),
+                _ => {},
+            }
+        }
 
-impl fmt::Debug for Domain {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", &std::str::from_utf8(&self.0).unwrap())
+        // No authoritative nameserver was provided
+        None
     }
 }
 
@@ -236,8 +236,6 @@ impl Consume for Message {
         let mut answers = Vec::with_capacity(header.num_answers as usize);
         let mut authority = Vec::with_capacity(header.num_authorities as usize);
         let mut additional = Vec::with_capacity(header.num_additional as usize);
-
-        println!("{header:?}");
 
         for _ in 0..header.num_questions {
             let (new_question, bytes_read) = Question::read(&buffer, ptr)?;
@@ -268,8 +266,8 @@ impl Consume for Message {
                 header: header,
                 question: questions,
                 answer: answers,
-                _authority: authority,
-                _additional: additional,
+                authority: authority,
+                additional: additional,
             },
             ptr,
         ))
@@ -331,68 +329,6 @@ impl Consume for Header {
     }
 }
 
-impl Consume for Domain {
-    fn read(global_buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> {
-        let buffer = &global_buffer[ptr..];
-
-        let mut result: Vec<u8> = vec![];
-
-        let mut ptr = 0;
-        let mut num_segments = 0;
-
-        loop {
-            if num_segments > DOMAIN_MAX_SEGMENTS {
-                return Err(());
-            }
-
-            // Check if it is a pointer to part of another domain
-            // See https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.4
-            if buffer[ptr] >> 6 == 0b11 {
-                // Compression
-                let compress_ptr =
-                    u16::from_be_bytes(buffer[ptr..ptr + 2].try_into().unwrap()) & !(0b11 << 14);
-                let (referenced_domain, _) = Self::read(global_buffer, compress_ptr as usize)?;
-
-                if num_segments != 0 {
-                    result.push(0x2e);
-                }
-
-                result.extend(referenced_domain.0);
-
-                ptr += 2;
-                break; // No continuation after compress pointer
-            } else {
-                // No Compression
-                let block_length = buffer[ptr] as usize;
-                ptr += 1;
-
-                if block_length == 0x00 {
-                    break;
-                }
-
-                assert!(
-                    ptr + block_length < buffer.len(),
-                    "domain block reaches out of bounds"
-                );
-
-                let mut block_data = vec![0; block_length];
-                block_data[..].copy_from_slice(&buffer[ptr..ptr + block_length]);
-
-                if num_segments != 0 {
-                    result.push(0x2e);
-                }
-
-                result.extend(block_data);
-
-                ptr += block_length;
-            }
-
-            num_segments += 1;
-        }
-        Ok((Domain(result), ptr))
-    }
-}
-
 impl Consume for Resource {
     fn read(global_buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> {
         let buffer = &global_buffer[ptr..];
@@ -426,90 +362,6 @@ impl Consume for Resource {
             },
             domain_length + 10 + rdlength,
         ))
-    }
-}
-
-impl Domain {
-    pub fn new(source: &[u8]) -> Self {
-        Self(source.to_vec())
-    }
-
-    /// Encodes a domain name for use in a DNS query.
-    ///
-    /// Blocks are seperated by a byte specifying their length.
-    /// The last byte is guaranteed to be a null byte
-    ///
-    /// # Example
-    /// ```
-    /// # use dns::message::Domain;
-    /// let domain = Domain::new(b"www.example.com");
-    /// let encoded_name = domain.encode();
-    ///
-    /// assert_eq!(encoded_name, b"\x03www\x07example\x03com\x00");
-    /// ```
-    pub fn encode(&self) -> Vec<u8> {
-        let length = self.0.len() + self.0.iter().filter(|c| **c == 0x2e).count();
-        let mut result = vec![0; length];
-
-        let mut ptr = 0;
-        for chunk in self.0.split(|c| *c == 0x2e) {
-            result[ptr] = chunk.len() as u8;
-            ptr += 1;
-            result[ptr..ptr + chunk.len()].copy_from_slice(chunk);
-            ptr += chunk.len();
-        }
-        debug_assert_eq!(ptr, length - 1);
-
-        result
-    }
-
-    /// Decodes a domain name from a DNS query.
-    ///
-    /// Blocks are seperated by a byte specifying their length.
-    /// The last byte is guaranteed to be a null byte
-    ///
-    /// # Example
-    /// ```
-    /// # use dns::message::Domain;
-    /// let encoded_name = b"\x03www\x07example\x03com\x00";
-    /// let domain_name = Domain::decode(encoded_name);
-    ///
-    /// assert_eq!(domain_name, b"www.example.com");
-    /// ```
-    ///
-    /// # Panics
-    /// This function panics if the given byte buffer is not a valid encoded domain name,
-    /// for example `\x03www\x07example\x04com`.
-    pub fn decode(source: &[u8]) -> Vec<u8> {
-        let mut result = vec![0; source.len() - 2]; // we dont need the null bytes & leading "."
-
-        // creating a second view here simplifies the logic a bit because we don't need
-        // to keep track of two indices
-        let without_leading_dot = &source[1..];
-
-        let mut block_size = source[0] as usize;
-        let mut ptr = 0;
-
-        loop {
-            assert!(
-                ptr + block_size < without_leading_dot.len(),
-                "domain block reaches out of bounds"
-            );
-            result[ptr..ptr + block_size]
-                .copy_from_slice(&without_leading_dot[ptr..ptr + block_size]);
-
-            ptr += block_size;
-
-            block_size = without_leading_dot[ptr] as usize;
-            if block_size == 0x00 {
-                break;
-            } else {
-                result[ptr] = 0x2e;
-                ptr += 1;
-            }
-        }
-
-        result
     }
 }
 

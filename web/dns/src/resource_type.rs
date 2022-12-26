@@ -1,4 +1,4 @@
-use crate::message::{Consume, Domain};
+use crate::{domain::Domain, message::Consume};
 use std::net::Ipv4Addr;
 
 #[derive(Debug)]
@@ -30,7 +30,7 @@ pub(crate) enum ResourceRecordType {
     LOC,
     MX,
     NAPTR,
-    NS,
+    NS { ns: Domain },
     NSEC,
     NSEC3,
     NSEC3PARAM,
@@ -40,7 +40,7 @@ pub(crate) enum ResourceRecordType {
     RP,
     SIG,
     SMIMEA,
-    SOA,
+    SOA { ns: Domain, _mail: Domain },
     SRV,
     SSHFP,
     SVCB,
@@ -98,7 +98,9 @@ impl TryFrom<(&[u8], usize)> for ResourceRecordType {
             29 => Self::LOC,
             15 => Self::MX,
             35 => Self::NAPTR,
-            2 => Self::NS,
+            2 => Self::NS {
+                ns: Domain::read(from.0, rdata_starts_at)?.0,
+            },
             47 => Self::NSEC,
             50 => Self::NSEC3,
             51 => Self::NSEC3PARAM,
@@ -108,7 +110,19 @@ impl TryFrom<(&[u8], usize)> for ResourceRecordType {
             17 => Self::RP,
             24 => Self::SIG,
             53 => Self::SMIMEA,
-            6 => Self::SOA,
+            6 => {
+                let mut ptr = rdata_starts_at;
+                let (ns, bytes_read) = Domain::read(from.0, ptr)?;
+                ptr += bytes_read;
+
+                let (mail, _bytes_read) = Domain::read(from.0, ptr)?;
+
+                Self::SOA {
+                    ns: ns,
+                    _mail: mail,
+                    // TODO missing fields
+                }
+            },
             33 => Self::SRV,
             44 => Self::SSHFP,
             64 => Self::SVCB,
