@@ -41,7 +41,7 @@ fn adapt(mut delta: u32, num_points: u32, is_first: bool) -> u32 {
 		k += BASE;
 	}
 
-	(BASE * k) + (((BASE - TMIN + 1) * delta) / (delta + SKEW))
+	k + (((BASE - TMIN + 1) * delta) / (delta + SKEW))
 }
 
 pub fn encode(input: &str) -> Result<String, ()> {
@@ -107,10 +107,10 @@ pub fn decode(input: &str) -> Result<String, ()> {
 
 	let (mut output, extended) = match input.rfind('-') {
 		Some(i) => {
-			(input[..i].to_string(), &input[i + 1..])
+			(input[..i].chars().collect(), &input[i + 1..])
 		}
 		None => {
-			(String::new(), input)
+			(vec![], input)
 		}
 	};
 
