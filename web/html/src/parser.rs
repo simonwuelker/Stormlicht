@@ -1173,7 +1173,7 @@ impl<'source> Parser<'source> {
                     },
                 }
             },
-            _ => todo!(),
+            _ => todo!("Implement '{mode:?}' state"),
         }
     }
 }
