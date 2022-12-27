@@ -1,6 +1,6 @@
 //! [HTTP status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status)
 
-macro_rules! usize_to_enum {
+macro_rules! u32_to_enum {
     ($(#[$meta:meta])* $vis:vis enum $name:ident {
         $($(#[$vmeta:meta])* $vname:ident $(= $val:expr)?,)*
     }) => {
@@ -9,20 +9,18 @@ macro_rules! usize_to_enum {
             $($(#[$vmeta])* $vname $(= $val)?,)*
         }
 
-        impl std::convert::TryFrom<usize> for $name {
-            type Error = ();
-
-            fn try_from(v: usize) -> Result<Self, Self::Error> {
+        impl std::convert::From<u32> for $name {
+            fn from(v: u32) -> Self {
                 match v {
-                    $(x if x == $name::$vname as usize => Ok($name::$vname),)*
-                    _ => Err(()),
+                    $(x if x == $name::$vname as u32 => $name::$vname,)*
+                    _ => $name::Unknown,
                 }
             }
         }
     }
 }
 
-usize_to_enum! {
+u32_to_enum! {
     #[derive(Debug, PartialEq)]
     pub enum StatusCode {
         // information
@@ -97,5 +95,7 @@ usize_to_enum! {
         LoopDetected = 508,
         NotExtended = 510,
         NetworkAuthenticationRequired = 511,
+
+        Unknown,
     }
 }

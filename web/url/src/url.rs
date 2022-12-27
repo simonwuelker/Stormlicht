@@ -178,6 +178,12 @@ impl URL {
     }
 }
 
+impl From<&str> for URL {
+    fn from(from: &str) -> Self {
+        Self::parse(from)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -3,7 +3,7 @@ use url::{URL, Host};
 use std::net::{TcpStream, SocketAddr};
 use std::io::{Read, Write};
 
-use crate::response::Response;
+use crate::response::{Response, parse_response};
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum Header {
@@ -84,15 +84,44 @@ impl Request {
     pub fn send(self) -> Result<Response, ()> {
         // resolve the hostname
         let ip = match &self.host {
-            Host::Domain(domain) | Host::OpaqueHost(domain) => dns::resolve(b"www.ecosia.com").unwrap(),
+            Host::Domain(host_str) | Host::OpaqueHost(host_str) => dns::resolve(&dns::Domain::new(host_str)).unwrap(),
             Host::IP(ip) => todo!(),
             Host::EmptyHost => todo!(),
         };
 
         // Establish a tcp connection
         let mut stream = TcpStream::connect(SocketAddr::new(ip, 80)).unwrap();
+        self.write_to(&mut stream);
 
-        todo!()
+        let mut response_bytes = vec![];
+        let mut response_body_bytes = vec![];
+        let mut buffer = [0; 0x100];
+
+        let needle = b"\r\n\r\n";
+        loop {
+            stream.read_exact(&mut buffer).map_err(|_| ())?;
+
+            match buffer.windows(needle.len()).position(|w| w == needle) {
+                Some(i) => {
+                    response_bytes.extend(&buffer[..i  + needle.len()]);
+                    response_body_bytes.extend(&buffer[i  + needle.len()..]);
+                    break;
+                }
+                None => {
+                    response_bytes.extend(&buffer);
+                }
+            }
+        }
+
+        println!("{:?}", String::from_utf8(response_body_bytes));
+
+        let response = parse_response(&response_bytes).unwrap().1;
+
+        if let Some(transfer_encoding) = response.get_header("Transfer-encoding") {
+            println!("chunked!");
+        }
+
+        Ok(response)
     }
 }
 

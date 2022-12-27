@@ -1,19 +1,29 @@
 //! HTTP/1.1 response parser
 
 use parser_combinators::{
-    literal, optional, predicate, some, ParseResult, Parser, ParserCombinator,
+    literal, optional, predicate, some, many, ParseResult, Parser, ParserCombinator,
 };
-use std::collections::HashMap;
 
 use crate::status_code::StatusCode;
 
 #[derive(Debug)]
 pub struct Response {
     pub status: StatusCode,
-    pub headers: HashMap<String, String>,
+    pub headers: Vec<(String, String)>,
 }
 
-pub fn parse_status_line<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], u32> {
+impl Response {
+    pub fn get_header(&self, header: &str) -> Option<&str> {
+        for (key, value) in &self.headers {
+            if key.eq_ignore_ascii_case(header) {
+                return Some(value);
+            }
+        }
+        None
+    }
+}
+
+pub(crate) fn parse_response<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], Response> {
     let http_version = literal(b"HTTP/1.1");
     let whitespace = literal(b" ");
     let linebreak = literal(b"\r\n");
@@ -42,7 +52,8 @@ pub fn parse_status_line<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], u32> {
 
     let status_code =
         some(digit).map(|digits| digits.iter().fold(0_u32, |acc, x| 10 * acc + *x as u32));
-    let parser = http_version
+
+    let status_line = http_version
         .then(whitespace)
         .then(status_code)
         .map(|res| res.1)
@@ -52,10 +63,7 @@ pub fn parse_status_line<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], u32> {
         .map(|res| res.0)
         .then(linebreak)
         .map(|res| res.0);
-    parser.parse(input)
-}
 
-pub fn parse_header<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], (String, String)> {
     let legal_name_chars = predicate(|input: &[u8]| {
         if input.len() == 0 {
             Err(0)
@@ -89,7 +97,7 @@ pub fn parse_header<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], (String, Strin
     };
     let colon = literal(b":");
     let whitespace = literal(b" ");
-    some(legal_name_chars)
+    let headers = many(some(legal_name_chars)
         .map(to_string)
         .then(colon)
         .map(|res| res.0)
@@ -98,34 +106,18 @@ pub fn parse_header<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], (String, Strin
         .then(some(legal_value_chars))
         .map(|(field, value_bytes)| (field, to_string(value_bytes)))
         .then(linebreak)
-        .map(|res| res.0)
+        .map(|res| res.0));
+
+    status_line
+        .then(headers)
+        .map(|(response_code, headers)| Response { 
+            status: StatusCode::try_from(response_code).unwrap(),
+            headers: headers
+        })
         .parse(input)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_parse_status_line() {
-        let response_raw = b"HTTP/1.1 200 OK\r\n";
-        let parse_result = parse_status_line(response_raw);
-        assert!(parse_result.is_ok());
-
-        let (_, response_code) = parse_result.unwrap();
-        assert_eq!(response_code, 200);
-    }
-
-    #[test]
-    fn test_parse_header() {
-        let header_raw = b"User-Agent: curl/7.64.1\r\n";
-        let parse_result = parse_header(header_raw);
-        assert!(parse_result.is_ok());
-
-        let (_, header) = parse_result.unwrap();
-        assert_eq!(
-            header,
-            ("User-Agent".to_string(), "curl/7.64.1".to_string())
-        );
-    }
 }
