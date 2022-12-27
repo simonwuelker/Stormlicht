@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use url::{URL, Host};
 use std::net::{TcpStream, SocketAddr};
-use std::io::{Read, Write};
+use std::io::{Read, Write, BufReader, BufRead};
 
 use crate::response::{Response, parse_response};
 
@@ -36,6 +36,28 @@ pub struct Request {
 pub enum CreateRequestError {
     NotHTTP,
     MissingHost,
+}
+
+/// Like [BufReader::read_until], except the needle may have arbitrary length
+fn read_until<R: Read>(reader: &mut BufReader<R>, needle: &[u8]) -> Result<Vec<u8>, ()> {
+    let mut result = vec![];
+
+    loop {
+        match reader.buffer().windows(needle.len()).position(|w| w == needle) {
+            Some(i) => {
+                let bytes_to_consume = i  + needle.len();
+
+                result.extend(&reader.buffer()[..bytes_to_consume]);
+                reader.consume(bytes_to_consume);
+                return Ok(result)
+            }
+            None => {
+                result.extend(reader.buffer());
+                reader.consume(reader.capacity());
+                reader.fill_buf();
+            }
+        }
+    }
 }
 
 impl Request {
@@ -91,37 +113,46 @@ impl Request {
 
         // Establish a tcp connection
         let mut stream = TcpStream::connect(SocketAddr::new(ip, 80)).unwrap();
+
+        // Send our request
         self.write_to(&mut stream);
 
-        let mut response_bytes = vec![];
-        let mut response_body_bytes = vec![];
-        let mut buffer = [0; 0x100];
-
+        // Parse the response
+        // TODO all of this is very insecure - we blindly trust the size in Transfer-Encoding: chunked,
+        // no timeouts, stuff like that.
+        let mut reader = BufReader::new(stream);
         let needle = b"\r\n\r\n";
-        loop {
-            stream.read_exact(&mut buffer).map_err(|_| ())?;
+        let header_bytes = read_until(&mut reader, needle)?;
 
-            match buffer.windows(needle.len()).position(|w| w == needle) {
-                Some(i) => {
-                    response_bytes.extend(&buffer[..i  + needle.len()]);
-                    response_body_bytes.extend(&buffer[i  + needle.len()..]);
+        let mut response = parse_response(&header_bytes).unwrap().1; 
+
+        if let Some(transfer_encoding) = response.get_header("Transfer-encoding") {
+            let needle = b"\r\n";
+            loop {
+                let size_bytes_with_newline = read_until(&mut reader, needle)?;
+                let size_bytes = &size_bytes_with_newline[..size_bytes_with_newline.len() - needle.len()];
+                let size = size_bytes.iter().fold(0, |acc, x| acc * 16 + hex_digit(*x) as usize);
+
+                if size == 0 {
                     break;
                 }
-                None => {
-                    response_bytes.extend(&buffer);
-                }
+
+                let mut buffer = vec![0; size];
+                reader.read_exact(&mut buffer).map_err(|_| ())?;
+                response.body.extend(&buffer)
             }
         }
 
-        println!("{:?}", String::from_utf8(response_body_bytes));
-
-        let response = parse_response(&response_bytes).unwrap().1;
-
-        if let Some(transfer_encoding) = response.get_header("Transfer-encoding") {
-            println!("chunked!");
-        }
-
         Ok(response)
+    }
+}
+
+fn hex_digit(byte: u8) -> u8 {
+    match byte {
+        65..=90 => byte - 55, // ascii lowercase
+        97..=122 => byte - 87, // ascii uppercase
+        48..=57 => byte - 48, // ascii digit
+        _ => panic!("invalid hex digit"),
     }
 }
 

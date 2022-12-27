@@ -10,6 +10,7 @@ use crate::status_code::StatusCode;
 pub struct Response {
     pub status: StatusCode,
     pub headers: Vec<(String, String)>,
+    pub body: Vec<u8>,
 }
 
 impl Response {
@@ -112,7 +113,8 @@ pub(crate) fn parse_response<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], Respo
         .then(headers)
         .map(|(response_code, headers)| Response { 
             status: StatusCode::try_from(response_code).unwrap(),
-            headers: headers
+            headers: headers,
+            body: vec![],
         })
         .parse(input)
 }
