@@ -1,7 +1,7 @@
 //! HTTP/1.1 response parser
 
 use parser_combinators::{
-    literal, optional, predicate, some, many, ParseResult, Parser, ParserCombinator,
+    literal, many, optional, predicate, some, ParseResult, Parser, ParserCombinator,
 };
 
 use crate::status_code::StatusCode;
@@ -98,20 +98,22 @@ pub(crate) fn parse_response<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], Respo
     };
     let colon = literal(b":");
     let whitespace = literal(b" ");
-    let headers = many(some(legal_name_chars)
-        .map(to_string)
-        .then(colon)
-        .map(|res| res.0)
-        .then(optional(whitespace))
-        .map(|res| res.0)
-        .then(some(legal_value_chars))
-        .map(|(field, value_bytes)| (field, to_string(value_bytes)))
-        .then(linebreak)
-        .map(|res| res.0));
+    let headers = many(
+        some(legal_name_chars)
+            .map(to_string)
+            .then(colon)
+            .map(|res| res.0)
+            .then(optional(whitespace))
+            .map(|res| res.0)
+            .then(some(legal_value_chars))
+            .map(|(field, value_bytes)| (field, to_string(value_bytes)))
+            .then(linebreak)
+            .map(|res| res.0),
+    );
 
     status_line
         .then(headers)
-        .map(|(response_code, headers)| Response { 
+        .map(|(response_code, headers)| Response {
             status: StatusCode::try_from(response_code).unwrap(),
             headers: headers,
             body: vec![],

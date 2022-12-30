@@ -6,7 +6,7 @@ pub struct RNG {
 
 impl RNG {
     pub fn next_u64(&mut self) -> u64 {
-        self.state  ^= self.state << 13;
+        self.state ^= self.state << 13;
         self.state ^= self.state >> 7;
         self.state ^= self.state << 17;
         self.state

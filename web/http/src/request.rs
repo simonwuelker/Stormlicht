@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use url::{URL, Host};
-use std::net::{TcpStream, SocketAddr};
-use std::io::{Read, Write, BufReader, BufRead};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{SocketAddr, TcpStream};
+use url::{Host, URL};
 
-use crate::response::{Response, parse_response};
+use crate::response::{parse_response, Response};
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum Header {
@@ -43,19 +43,23 @@ fn read_until<R: Read>(reader: &mut BufReader<R>, needle: &[u8]) -> Result<Vec<u
     let mut result = vec![];
 
     loop {
-        match reader.buffer().windows(needle.len()).position(|w| w == needle) {
+        match reader
+            .buffer()
+            .windows(needle.len())
+            .position(|w| w == needle)
+        {
             Some(i) => {
-                let bytes_to_consume = i  + needle.len();
+                let bytes_to_consume = i + needle.len();
 
                 result.extend(&reader.buffer()[..bytes_to_consume]);
                 reader.consume(bytes_to_consume);
-                return Ok(result)
-            }
+                return Ok(result);
+            },
             None => {
                 result.extend(reader.buffer());
                 reader.consume(reader.capacity());
                 reader.fill_buf();
-            }
+            },
         }
     }
 }
@@ -106,7 +110,9 @@ impl Request {
     pub fn send(self) -> Result<Response, ()> {
         // resolve the hostname
         let ip = match &self.host {
-            Host::Domain(host_str) | Host::OpaqueHost(host_str) => dns::resolve(&dns::Domain::new(host_str)).unwrap(),
+            Host::Domain(host_str) | Host::OpaqueHost(host_str) => {
+                dns::resolve(&dns::Domain::new(host_str)).unwrap()
+            },
             Host::IP(ip) => todo!(),
             Host::EmptyHost => todo!(),
         };
@@ -124,14 +130,17 @@ impl Request {
         let needle = b"\r\n\r\n";
         let header_bytes = read_until(&mut reader, needle)?;
 
-        let mut response = parse_response(&header_bytes).unwrap().1; 
+        let mut response = parse_response(&header_bytes).unwrap().1;
 
         if let Some(transfer_encoding) = response.get_header("Transfer-encoding") {
             let needle = b"\r\n";
             loop {
                 let size_bytes_with_newline = read_until(&mut reader, needle)?;
-                let size_bytes = &size_bytes_with_newline[..size_bytes_with_newline.len() - needle.len()];
-                let size = size_bytes.iter().fold(0, |acc, x| acc * 16 + hex_digit(*x) as usize);
+                let size_bytes =
+                    &size_bytes_with_newline[..size_bytes_with_newline.len() - needle.len()];
+                let size = size_bytes
+                    .iter()
+                    .fold(0, |acc, x| acc * 16 + hex_digit(*x) as usize);
 
                 if size == 0 {
                     break;
@@ -141,6 +150,10 @@ impl Request {
                 reader.read_exact(&mut buffer).map_err(|_| ())?;
                 response.body.extend(&buffer)
             }
+        } else if let Some(content_length) = response.get_header("Content-Length") {
+            let mut buffer = vec![0; usize::from_str_radix(content_length, 10).unwrap()];
+            reader.read_exact(&mut buffer).map_err(|_| ())?;
+            response.body.extend(&buffer)
         }
 
         Ok(response)
@@ -149,9 +162,9 @@ impl Request {
 
 fn hex_digit(byte: u8) -> u8 {
     match byte {
-        65..=90 => byte - 55, // ascii lowercase
+        65..=90 => byte - 55,  // ascii lowercase
         97..=122 => byte - 87, // ascii uppercase
-        48..=57 => byte - 48, // ascii digit
+        48..=57 => byte - 48,  // ascii digit
         _ => panic!("invalid hex digit"),
     }
 }

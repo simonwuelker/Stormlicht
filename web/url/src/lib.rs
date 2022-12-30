@@ -1,9 +1,9 @@
 mod host;
 mod url;
+pub mod urlencode;
 mod urlparser;
 mod util;
-pub mod urlencode;
 
-pub use host::Host;
 pub use crate::url::*;
 pub use crate::urlparser::*;
+pub use host::Host;
