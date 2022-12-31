@@ -6,14 +6,14 @@ use crate::{
     util,
 };
 
-pub fn scheme_is_special(scheme: &str) -> bool {
+pub(crate) fn scheme_is_special(scheme: &str) -> bool {
     match scheme {
         "ftp" | "file" | "http" | "https" | "ws" | "wss" => true,
         _ => false,
     }
 }
 
-pub fn scheme_default_port(scheme: &str) -> Option<Port> {
+pub(crate) fn scheme_default_port(scheme: &str) -> Option<Port> {
     match scheme {
         "ftp" => Some(21),
         "http" | "ws" => Some(80),
@@ -26,9 +26,9 @@ pub type Port = u16;
 
 pub type Path = Vec<String>;
 
-/// [Specification](https://url.spec.whatwg.org/#concept-url)
+/// A **U**niform **R**esource **L**ocator
 ///
-/// A [URL] is a struct that represents a universal identifier
+/// [Specification](https://url.spec.whatwg.org/#concept-url)
 #[derive(Default, Debug)]
 pub struct URL {
     /// A [URL]’s scheme is an ASCII string that identifies the type of URL

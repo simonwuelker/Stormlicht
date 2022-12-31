@@ -26,7 +26,10 @@ pub enum IP {
     IPv6([u16; 8]),
 }
 
-// https://url.spec.whatwg.org/#concept-host
+/// Typically either a network address or a opaque identifier in situations
+/// where a network address is not required.
+///
+/// [Specification](https://url.spec.whatwg.org/#concept-host)
 #[derive(PartialEq, Clone, Debug)]
 pub enum Host {
     Domain(String),

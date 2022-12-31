@@ -1,7 +1,7 @@
 use crate::urlparser::is_c0_control;
 
 // https://url.spec.whatwg.org/#c0-control-percent-encode-set
-pub fn is_c0_percent_encode_set(c: char) -> bool {
+pub(crate) fn is_c0_percent_encode_set(c: char) -> bool {
     is_c0_control(c)
         | match c {
             '\u{007F}'.. => true,
@@ -10,7 +10,7 @@ pub fn is_c0_percent_encode_set(c: char) -> bool {
 }
 
 // https://url.spec.whatwg.org/#fragment-percent-encode-set
-pub fn is_fragment_percent_encode_set(c: char) -> bool {
+pub(crate) fn is_fragment_percent_encode_set(c: char) -> bool {
     is_c0_percent_encode_set(c)
         | match c {
             ' ' | '"' | '#' | '<' | '>' => true,
@@ -19,7 +19,7 @@ pub fn is_fragment_percent_encode_set(c: char) -> bool {
 }
 
 // https://url.spec.whatwg.org/#query-percent-encode-set
-pub fn is_query_percent_encode_set(c: char) -> bool {
+pub(crate) fn is_query_percent_encode_set(c: char) -> bool {
     is_c0_percent_encode_set(c)
         | match c {
             ' ' | '"' | '#' | '<' | '>' => true,
@@ -28,12 +28,12 @@ pub fn is_query_percent_encode_set(c: char) -> bool {
 }
 
 // https://url.spec.whatwg.org/#special-query-percent-encode-set
-pub fn is_special_query_percent_encode_set(c: char) -> bool {
+pub(crate) fn is_special_query_percent_encode_set(c: char) -> bool {
     is_query_percent_encode_set(c) || c == '\''
 }
 
 // https://url.spec.whatwg.org/#path-percent-encode-set
-pub fn is_path_percent_encode_set(c: char) -> bool {
+pub(crate) fn is_path_percent_encode_set(c: char) -> bool {
     is_query_percent_encode_set(c)
         | match c {
             '?' | '`' | '{' | '}' => true,
@@ -42,7 +42,7 @@ pub fn is_path_percent_encode_set(c: char) -> bool {
 }
 
 // https://url.spec.whatwg.org/#userinfo-percent-encode-set
-pub fn is_userinfo_percent_encode_set(c: char) -> bool {
+pub(crate) fn is_userinfo_percent_encode_set(c: char) -> bool {
     is_path_percent_encode_set(c)
         | match c {
             '/' | ':' | ';' | '=' | '@' | '['..='^' | '|' => true,
