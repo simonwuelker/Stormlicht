@@ -9,7 +9,7 @@ members = [
     "backends/generic",
     "util/random",
     "gui", 
-    "font_rasterizer", 
+    "font", 
     "parser_combinators", 
     "async/executor",
     "log",
