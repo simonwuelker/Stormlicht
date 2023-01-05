@@ -175,7 +175,10 @@ mod tests {
     #[test]
     fn basic_get_request() {
         let mut tcpstream: Vec<u8> = vec![];
-        let mut request = Request::get(URL::from("www.example.com")).unwrap();
+
+        let mut request = Request::get(URL::from("http://www.example.com")).unwrap();
+        request.headers.clear();
+
         request.set_header(Header::UserAgent, "test");
         request.write_to(&mut tcpstream).unwrap();
         assert_eq!(

@@ -14,10 +14,10 @@ fn test_brotli_decode() -> Result<(), std::io::Error> {
 
                 let mut compressed_buffer = vec![];
                 fs::File::open(testfile.path())?.read_to_end(&mut compressed_buffer)?;
-
+                
                 let mut uncompressed_buffer = vec![];
                 fs::File::open(testfile.path())?.read_to_end(&mut uncompressed_buffer)?;
-
+                
                 let decompressed = brotli::decode(&compressed_buffer).expect("Brotli decompression failed");
 
                 assert!(decompressed.iter().zip(&uncompressed_buffer).all(|(a, b)| a == b) && decompressed.len() == uncompressed_buffer.len());

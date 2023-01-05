@@ -1,5 +1,3 @@
-use std::io::Read;
-
 /// Wraps a [Read] instance to allow reading individual bits
 #[derive(Debug)]
 pub struct BitReader<'a> {
@@ -60,14 +58,20 @@ impl<'a> BitReader<'a> {
 		Ok(())
 	}
 
+	pub fn read_single_bit(&mut self) -> Result<bool, BitReaderError> {
+		Ok(self.read_bits::<u8>(1)? == 1)
+	}
+
 	pub fn read_bits<T: From<u8> + std::ops::BitOrAssign<T> + std::ops::Shl<u8, Output=T>>(&mut self, mut bits_to_read: u8) -> Result<T, BitReaderError> 
 	where u8: Into<T> {
 		if std::mem::size_of::<T>() * 8 < bits_to_read as usize {
 			return Err(BitReaderError::TooLargeRead);
 		}
+		// println!("reading {bits_to_read} bits");
+		// println!("relevant buffer: {:0>8b} {:0>8b} {:0>8b} {:0>8b}", self.bytes[self.byte_ptr], self.bytes[self.byte_ptr + 1], self.bytes[self.byte_ptr + 2], 1);
+		// println!("current bit ptr: {}", self.bit_ptr);
 
 		let mut bits_available_from_current_byte = 8 - self.bit_ptr;
-		let current_byte = self.bytes[self.byte_ptr];
 
 		let mut result = T::from(0);
 		let mut bits_already_read = 0;
@@ -92,6 +96,7 @@ impl<'a> BitReader<'a> {
 
 		if self.bit_ptr == 8 {
 			self.bit_ptr = 0;
+			self.byte_ptr += 1;
 		}
 		
 		Ok(result)

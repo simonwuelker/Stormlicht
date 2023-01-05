@@ -1,12 +1,16 @@
 //! Implements the [Brotli](https://datatracker.ietf.org/doc/html/rfc7932) compression algorithm
 
-use std::io::Read;
+pub mod huffman;
+
 use crate::compress::bit_reader::{BitReader, BitReaderError};
+
+use self::huffman::{HuffmanTree, Bits, Code};
 
 #[derive(Debug)]
 pub enum BrotliError {
 	UnexpectedEOF,
 	InvalidFormat,
+	InvalidSymbol,
 }
 
 impl From<BitReaderError> for BrotliError {
@@ -54,11 +58,11 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 	while !is_last {
 		// read meta block header
 		// read ISLAST bit
-		is_last = reader.read_bits::<u8>(1).map_err(BrotliError::from)? == 1;
+		is_last = reader.read_single_bit().map_err(BrotliError::from)?;
 
 		if is_last {
 			// read ISLASTEMPTY bit
-			if reader.read_bits::<u8>(1).map_err(BrotliError::from)? == 1 {
+			if reader.read_single_bit().map_err(BrotliError::from)? {
 				break;
 			}
 		}
@@ -72,9 +76,11 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 			_ => unreachable!(),
 		};
 
+		println!("mnibbles: {}", mnibbles);
+
 		let mlen = if mnibbles == 0 {
 			// verify reserved bit is zero
-			if reader.read_bits::<u8>(1).map_err(BrotliError::from)? != 0 {
+			if reader.read_single_bit().map_err(BrotliError::from)? {
 				return Err(BrotliError::InvalidFormat);
 			}
 
@@ -83,13 +89,11 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 			// skip any bits up to the next byte boundary
 		} else {
 			// read MLEN
-			reader.read_bits::<u32>(4 * mnibbles).map_err(BrotliError::from)? as usize
+			reader.read_bits::<u32>(4 * mnibbles).map_err(BrotliError::from)? as usize + 1
 		};
 
-		println!("mlen: {mlen}");
-
 		if !is_last {
-			let is_uncompressed = reader.read_bits::<u8>(1).map_err(BrotliError::from)? == 1;
+			let is_uncompressed = reader.read_single_bit().map_err(BrotliError::from)?;
 
 			if is_uncompressed {
 				reader.align_to_byte_boundary();
@@ -119,10 +123,13 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 
 		// read NPOSTFIX and NDIRECT
 		let npostfix = reader.read_bits::<u8>(2).map_err(BrotliError::from)?;
+
+		// number of direct-instance codes
 		let ndirect = reader.read_bits::<u8>(4).map_err(BrotliError::from)? << npostfix;
 
-		let mut context_modes_for_literal_block_types = Vec::with_capacity(num_blocks[NBLTYPESL] as usize);
+		println!("npostfix {npostfix} ndirect {ndirect}");
 
+		let mut context_modes_for_literal_block_types = Vec::with_capacity(num_blocks[NBLTYPESL] as usize);
 		for _ in 0..num_blocks[NBLTYPESL] {
 			let context_mode = reader.read_bits::<u8>(2).map_err(BrotliError::from)?;
 			context_modes_for_literal_block_types.push(context_mode);
@@ -130,14 +137,24 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 
 		// read NTREES
 		let ntreesl = decode_blocknum(&mut reader)?;
-		if ntreesl > 2 {
-			todo!();
+		if ntreesl >= 2 {
+			// parse context map literals
+			decode_context_map(&mut reader, ntreesl, 64 * num_blocks[NBLTYPESL] as usize)?;
+		} else {
+			// fill cmapl with zeros
 		}
 
 		let ntreesd = decode_blocknum(&mut reader)?;
-		if ntreesd > 2 {
-			todo!()
+		if ntreesd >= 2 {
+			// decode_context_map(&mut reader, ntreesd, 4 * num_blocks[NBLTYPESD] as usize)?;
+			todo!();
+		} else {
+			// fill cmapd with zeros
 		}
+
+		println!("trees {ntreesl} {ntreesd}");
+
+		// read array of literal prefix codes, HTREEL[]
 
 
 
@@ -146,22 +163,65 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 	Ok(result)
 }
 
-fn read_prefix_code(reader: &mut BitReader, alphabet_bits: u8) -> Result<(), BrotliError> {
-	let ident = reader.read_bits::<u8>(2).map_err(BrotliError::from)?;
+fn read_prefix_code(reader: &mut BitReader, alphabet_size: usize) -> Result<HuffmanTree<Bits<u32>>, BrotliError> {
+	let alphabet_width = 16 - (alphabet_size as u16 - 1).leading_zeros() as u8;
 
-	if ident == 1 {
+	let ident = reader.read_bits::<u8>(2).map_err(BrotliError::from)?;
+	let mut symbols_raw = vec![];
+
+	let huffmantree = if ident == 1 {
 		// Simple prefix code
 		let nsym = reader.read_bits::<u8>(2).map_err(BrotliError::from)? + 1;
 
+		// read nsym symbols
+		for _ in 0..nsym {
+			let symbol_raw = reader.read_bits::<u32>(alphabet_width).map_err(BrotliError::from)?;
+			if symbol_raw >= alphabet_size as u32 {
+				return Err(BrotliError::InvalidSymbol);
+			}
+			symbols_raw.push(symbol_raw);
+		}
+
+		// TODO we should check for duplicate symbols here
+
+		let lengths = match nsym {
+			0 => vec![0],
+			1 => {
+				symbols_raw.sort();
+				vec![1, 1]
+			},
+			3 => {
+				symbols_raw[1..].sort();
+				vec![1, 2, 2]
+			},
+			4 => {
+				if reader.read_single_bit().map_err(BrotliError::from)? {
+					symbols_raw[2..].sort();
+					vec![1, 2, 3, 3]
+				} else {
+					symbols_raw.sort();
+					vec![2, 2, 2, 2]
+				}
+			},
+			_ => unreachable!(),
+		};
+
+		// Associate the symbols with their bit length. We didn't to this earlier so
+		// we could sort the symbols without worrying about bit length.
+		let symbols = symbols_raw.into_iter()
+			.map(|raw_symbol|Bits::new(raw_symbol, alphabet_width as usize))
+			.collect();
+
+		HuffmanTree::new_infer_codes(symbols, lengths)
 	} else {
 		// Complex prefix code
-		todo!()
-	}
-	Ok(())
+		todo!("complex prefix codes")
+	};
+	Ok(huffmantree)
 }
 
 fn decode_blocknum(reader: &mut BitReader) -> Result<u8, BrotliError> {
-	if reader.read_bits::<u8>(1).map_err(BrotliError::from)? == 1 {
+	if reader.read_single_bit().map_err(BrotliError::from)? {
 		let num_extrabits = reader.read_bits::<u8>(3).map_err(BrotliError::from)?;
 
 		if num_extrabits > 7 {
@@ -173,4 +233,20 @@ fn decode_blocknum(reader: &mut BitReader) -> Result<u8, BrotliError> {
 	} else {
 		Ok(1)
 	}
+}
+
+/// https://www.rfc-editor.org/rfc/rfc7932#section-7.3
+fn decode_context_map(reader: &mut BitReader, num_trees: u8, size: usize) -> Result<Vec<u8>, BrotliError> {
+	let rle_max = match reader.read_single_bit().map_err(BrotliError::from)? {
+		false => 0,
+		true => {
+			reader.read_bits::<u8>(4).map_err(BrotliError::from)? + 1
+		}
+	};
+
+	let prefix_code = read_prefix_code(reader, (num_trees + rle_max) as usize)?;
+
+	let mut context_map = Vec::with_capacity(size);
+
+	Ok(context_map)
 }
