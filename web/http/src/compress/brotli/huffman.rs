@@ -155,6 +155,5 @@ mod tests {
         assert_eq!(*htree.lookup_symbol(Code::new(0b00, 2)), Some('F'));
         assert_eq!(*htree.lookup_symbol(Code::new(0b1110, 4)), Some('G'));
         assert_eq!(*htree.lookup_symbol(Code::new(0b1111, 4)), Some('H'));
-
     }
 }

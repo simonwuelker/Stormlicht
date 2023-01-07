@@ -11,6 +11,8 @@ pub enum BrotliError {
 	UnexpectedEOF,
 	InvalidFormat,
 	InvalidSymbol,
+	/// A run-length encoded value (in a context map) decoded to more symbols than expected
+	RunlengthEncodingExceedsContextMapSize
 }
 
 impl From<BitReaderError> for BrotliError {
@@ -137,28 +139,28 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 
 		// read NTREES
 		let ntreesl = decode_blocknum(&mut reader)?;
-		if ntreesl >= 2 {
+		let literal_cmap = if ntreesl >= 2 {
 			// parse context map literals
-			decode_context_map(&mut reader, ntreesl, 64 * num_blocks[NBLTYPESL] as usize)?;
+			decode_context_map(&mut reader, ntreesl, 64 * num_blocks[NBLTYPESL] as usize)?
 		} else {
 			// fill cmapl with zeros
-		}
+			vec![0; 64 * num_blocks[NBLTYPESL] as usize]
+		};
 
 		let ntreesd = decode_blocknum(&mut reader)?;
-		if ntreesd >= 2 {
+		let distance_cmap = if ntreesd >= 2 {
 			// decode_context_map(&mut reader, ntreesd, 4 * num_blocks[NBLTYPESD] as usize)?;
-			todo!();
+			decode_context_map(&mut reader, ntreesl, 4 * num_blocks[NBLTYPESD] as usize)?
 		} else {
 			// fill cmapd with zeros
+			vec![0; 4 * num_blocks[NBLTYPESD] as usize]
+		};
+
+		// Read literal prefix codes
+		let mut literal_prefix_codes = Vec::with_capacity(ntreesl as usize);
+		for _ in 0..ntreesl {
+			literal_prefix_codes.push(read_prefix_code(&mut reader, 256)?);
 		}
-
-		println!("trees {ntreesl} {ntreesd}");
-
-		// read array of literal prefix codes, HTREEL[]
-
-
-
-
 	}
 	Ok(result)
 }
@@ -248,5 +250,66 @@ fn decode_context_map(reader: &mut BitReader, num_trees: u8, size: usize) -> Res
 
 	let mut context_map = Vec::with_capacity(size);
 
+	// Values are encoded using a combination of prefix coding and run-length encoding
+	// The alphabet looks like this (taken from the specification):
+	//
+	// 0: value zero
+	// 1: repeat a zero 2 to 3 times, read 1 bit for repeat length
+	// 2: repeat a zero 4 to 7 times, read 2 bits for repeat length
+	// ...
+	// RLEMAX: repeat a zero (1 << RLEMAX) to (1 << (RLEMAX+1))-1
+	// 		times, read RLEMAX bits for repeat length
+	// RLEMAX + 1: value 1
+	// ...
+	// RLEMAX + NTREES - 1: value NTREES - 1
+	while context_map.len() < size {
+		let symbol = prefix_code.lookup_incrementally(reader).map_err(|_| BrotliError::UnexpectedEOF)?.val();
+		
+		if symbol <= rle_max as u32 {
+			// This is a run-length encoded value
+
+			// Casting to u8 here is safe because rle_max can never exceed 255
+			let extra_bits = reader.read_bits::<u32>(symbol as u8).map_err(BrotliError::from)?;
+			let repeat_for = (1 << symbol) + extra_bits as usize;
+
+			if context_map.len() + repeat_for > size {
+				return Err(BrotliError::RunlengthEncodingExceedsContextMapSize);
+			}
+
+			context_map.reserve(repeat_for);
+			for _ in 0..repeat_for {
+				context_map.push(0);
+			}
+		} else {
+			context_map.push((symbol - rle_max as u32) as u8);
+		}
+	}
+
+	// Check whether we need to do an inverse move-to-front transform
+	if reader.read_single_bit().map_err(BrotliError::from)? {
+		inverse_move_to_front_transform(&mut context_map);
+	}
+
 	Ok(context_map)
+}
+
+fn inverse_move_to_front_transform(data: &mut [u8]) {
+	let mut mtf = [0; 256];
+
+	for i in 0..256 {
+		mtf[i] = i as u8;
+	}
+
+	for i in 0..data.len() {
+		let index = data[i] as usize;
+		let value = mtf[index];
+
+		data[i] = value;
+
+		// TODO i feel like we can make this faster, perhaps with some sort of queue?
+		for j in (1..index + 1).rev() {
+			mtf[j] = mtf[j - 1];
+		}
+		mtf[0] = value;
+	}
 }
