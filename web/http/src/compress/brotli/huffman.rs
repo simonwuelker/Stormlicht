@@ -1,12 +1,11 @@
 //! Huffman Tree implementation.
-//! 
+//!
 //! For the purposes of this module, "Symbol" shall refer to an unencoded
 //! codepoint and "Code" shall refer to an encoded codepoint.
 
 use std::fmt;
 
 use crate::compress::bit_reader::BitReader;
-
 
 /// Tuple of (data, nbits) for representing an arbitrary number of bits
 #[derive(Clone, Copy)]
@@ -21,20 +20,24 @@ pub struct HuffmanTree<T: PartialOrd + PartialEq> {
 }
 
 impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
-    pub fn new_infer_codes(symbols: Vec<T>, lengths: Vec<usize>) -> Self {
-        assert_eq!(symbols.len(), lengths.len(), "Every symbol must be assigned exactly one length");
+    pub fn new_infer_codes(symbols: &[T], lengths: &[usize]) -> Self {
+        assert_eq!(
+            symbols.len(),
+            lengths.len(),
+            "Every symbol must be assigned exactly one length"
+        );
 
         let max_bits = *lengths.iter().max().unwrap_or(&0);
         let mut length_count = vec![0; max_bits + 1];
-    
+
         for length in lengths.iter() {
             length_count[*length] += 1;
         }
-    
+
         let mut next_code = Vec::with_capacity(max_bits);
         let mut code = 0;
         length_count[0] = 0;
-    
+
         for bits in 1..=max_bits {
             code = (code + length_count[bits - 1]) << 1;
             next_code.push(code);
@@ -43,11 +46,11 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
         let mut tree = Self::new_with_depth(max_bits);
 
         // The alphabet is assumed to be sorted by the caller
-        for (symbol, length) in symbols.into_iter().zip(lengths) {
-            if length != 0 {
-                let code = Code::new(next_code[length - 1], length);
-                tree.insert(code, symbol);
-                
+        for (symbol, length) in symbols.iter().zip(lengths) {
+            if *length != 0 {
+                let code = Code::new(next_code[length - 1], *length);
+                tree.insert(code, symbol.clone());
+
                 next_code[length - 1] += 1;
             }
         }
@@ -71,12 +74,12 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
 
     pub fn lookup_incrementally(&self, reader: &mut BitReader) -> Result<&T, ()> {
         let mut val = reader.read_bits::<u8>(1).map_err(|_| ())?;
-        
+
         for length in 1..8 {
             let code = Code::new(val, length);
 
             if let Some(symbol) = self.lookup_symbol(code) {
-                return Ok(symbol)
+                return Ok(symbol);
             }
 
             val <<= 1;
@@ -113,10 +116,15 @@ impl<T: Copy> Bits<T> {
     }
 }
 
-impl<T: Copy + fmt::Display + fmt::Binary+ PartialEq> fmt::Debug for Bits<T> {
+impl<T: Copy + fmt::Display + fmt::Binary + PartialEq> fmt::Debug for Bits<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let unpadded = format!("{:b}", self.val());
-        write!(f, "{}{}", "0".repeat(self.1 as usize - unpadded.len()), self.0)
+        write!(
+            f,
+            "{}{}",
+            "0".repeat(self.1 as usize - unpadded.len()),
+            self.0
+        )
     }
 }
 
@@ -145,7 +153,7 @@ mod tests {
         // Example 1 Section 3.4
         let symbols = vec!['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         let lengths = vec![3, 3, 3, 3, 3, 2, 4, 4];
-        let htree = HuffmanTree::new_infer_codes(symbols, lengths);
+        let htree = HuffmanTree::new_infer_codes(&symbols, &lengths);
 
         assert_eq!(*htree.lookup_symbol(Code::new(0b010, 3)), Some('A'));
         assert_eq!(*htree.lookup_symbol(Code::new(0b011, 3)), Some('B'));
