@@ -2,8 +2,8 @@
 #[derive(Debug)]
 pub struct BitReader<'a> {
     bytes: &'a [u8],
-    byte_ptr: usize,
-    bit_ptr: u8,
+    pub byte_ptr: usize,
+    pub bit_ptr: u8,
 }
 
 // this enum might grow once we add streaming (ie the reader wraps a Read instance)
@@ -59,7 +59,7 @@ impl<'a> BitReader<'a> {
     }
 
     pub fn read_single_bit(&mut self) -> Result<bool, BitReaderError> {
-        Ok(self.read_bits::<u8>(1)? == 1)
+        self.read_bits::<u8>(1).map(|val| val == 1)
     }
 
     pub fn read_bits<T: From<u8> + std::ops::BitOrAssign<T> + std::ops::Shl<u8, Output = T>>(
@@ -72,9 +72,6 @@ impl<'a> BitReader<'a> {
         if std::mem::size_of::<T>() * 8 < bits_to_read as usize {
             return Err(BitReaderError::TooLargeRead);
         }
-        // println!("reading {bits_to_read} bits");
-        // println!("relevant buffer: {:0>8b} {:0>8b} {:0>8b} {:0>8b}", self.bytes[self.byte_ptr], self.bytes[self.byte_ptr + 1], self.bytes[self.byte_ptr + 2], 1);
-        // println!("current bit ptr: {}", self.bit_ptr);
 
         let mut bits_available_from_current_byte = 8 - self.bit_ptr;
 

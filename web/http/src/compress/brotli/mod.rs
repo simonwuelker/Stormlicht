@@ -11,10 +11,12 @@ pub enum BrotliError {
     UnexpectedEOF,
     InvalidFormat,
     InvalidSymbol,
+    MismatchedChecksum,
     /// A run-length encoded value decoded to more symbols than expected
     RunlengthEncodingExceedsExpectedSize,
     /// A complex prefix code contained less than two nonzero code lengths
     NotEnoughCodeLengths,
+    SymbolNotFound,
 }
 
 impl From<BitReaderError> for BrotliError {
@@ -226,9 +228,9 @@ fn read_prefix_code(
         let hskip = ident as usize;
 
         // Complex prefix code
-        let symbols = [1, 2, 3, 4, 0, 5, 17, 6, 16, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+        let symbols = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
         let mut code_lengths = [0; 18];
-        let mut num_nonzero_code_lengths = 0;
+        let mut checksum = 0;
 
         // the first hskip code lengths are assumed to be 0
         for i in hskip..18 {
@@ -258,44 +260,57 @@ fn read_prefix_code(
                 },
                 _ => unreachable!(),
             };
+            code_lengths[i] = code_length;
 
             if code_length != 0 {
-                num_nonzero_code_lengths += 1;
+                checksum += 32 >> code_length;
+
+                if checksum == 32 {
+                    break;
+                }
             }
-
-            code_lengths[i] = code_length;
         }
 
-        // Every complex prefix code must contain at least two nonzero code lengths
-        if num_nonzero_code_lengths < 2 {
-            return Err(BrotliError::NotEnoughCodeLengths);
+        if code_lengths.iter().filter(|x| **x != 0).count() >= 2 {
+            if checksum != 32 {
+                return Err(BrotliError::MismatchedChecksum);
+            }
         }
 
-        // remove any trailing zero code lengths
-        if *code_lengths.last().unwrap() == 0 {
-            todo!("remove trailing zero code lengths");
-        }
+        // Code lengths are not given in the correct order but our huffmantree implementation requires that
+        code_lengths[..5].rotate_right(1);
+        code_lengths[6..].rotate_left(1);
+        code_lengths[7..17].rotate_left(1);
 
         let code_length_encoding = HuffmanTree::new_infer_codes(&symbols, &code_lengths);
 
         let mut checksum = 0;
-        let mut symbol_lengths = Vec::with_capacity(alphabet_size);
+        let mut symbol_lengths = vec![0; alphabet_size];
         let mut previous_nonzero_code = None;
         let mut previous_repeat_count = None;
+        let mut i = 0;
 
-        while symbol_lengths.len() < alphabet_size {
+        'read_length_codes: while i < alphabet_size {
             let symbol_length_code = *code_length_encoding
                 .lookup_incrementally(reader)
-                .map_err(|_| BrotliError::UnexpectedEOF)?;
+                .map_err(|_| BrotliError::UnexpectedEOF)?
+                .ok_or(BrotliError::SymbolNotFound)?;
 
             match symbol_length_code {
                 0..=15 => {
-                    symbol_lengths.push(symbol_length_code as usize);
+                    symbol_lengths[i] = symbol_length_code as usize;
+                    i += 1;
 
                     if symbol_length_code != 0 {
                         checksum += 32768 >> symbol_length_code;
                         previous_nonzero_code = Some(symbol_length_code);
+
+                        if checksum == 32768 {
+                            break 'read_length_codes;
+                        }
                     }
+
+                    previous_repeat_count = None;
                 },
                 16 => {
                     let extra_bits = reader.read_bits::<usize>(2).map_err(BrotliError::from)?;
@@ -303,7 +318,7 @@ fn read_prefix_code(
                     let repeat_for = match previous_repeat_count {
                         Some((16, previous_repetitions)) => {
                             // There was a 16 previously, update repeat count
-                            let new_repeat = 4 * (previous_repetitions - 2) + extra_bits;
+                            let new_repeat = 4 * (previous_repetitions - 2) + 3 + extra_bits;
                             new_repeat - previous_repetitions
                         },
                         _ => {
@@ -319,13 +334,18 @@ fn read_prefix_code(
                     };
 
                     // Make sure to not exceed the alphabet size
-                    if symbol_lengths.len() + repeat_for > alphabet_size {
+                    if i + repeat_for > alphabet_size {
                         return Err(BrotliError::RunlengthEncodingExceedsExpectedSize);
                     }
 
+                    i += repeat_for;
                     for _ in 0..repeat_for {
-                        symbol_lengths.push(to_repeat);
+                        symbol_lengths[i] = to_repeat;
+
                         checksum += 32768 >> to_repeat;
+                    }
+                    if checksum == 32768 {
+                        break 'read_length_codes;
                     }
 
                     previous_repeat_count = Some((16, repeat_for));
@@ -336,7 +356,7 @@ fn read_prefix_code(
                     let repeat_for = match previous_repeat_count {
                         Some((17, previous_repetitions)) => {
                             // There was a 16 previously, update repeat count
-                            let new_repeat = 8 * (previous_repetitions - 2) + extra_bits;
+                            let new_repeat = 8 * (previous_repetitions - 2) + 3 + extra_bits;
                             new_repeat - previous_repetitions
                         },
                         _ => {
@@ -345,21 +365,12 @@ fn read_prefix_code(
                         },
                     };
 
-                    // Check which element we should be repeating
-                    let to_repeat = match previous_nonzero_code {
-                        Some(code) => code,
-                        None => 8,
-                    };
-
                     // Make sure to not exceed the alphabet size
-                    if symbol_lengths.len() + repeat_for > alphabet_size {
+                    if i + repeat_for > alphabet_size {
                         return Err(BrotliError::RunlengthEncodingExceedsExpectedSize);
                     }
 
-                    for _ in 0..repeat_for {
-                        symbol_lengths.push(to_repeat);
-                        checksum += 32768 >> to_repeat;
-                    }
+                    i += repeat_for;
 
                     previous_repeat_count = Some((17, repeat_for));
                 },
@@ -367,7 +378,19 @@ fn read_prefix_code(
             }
         }
 
-        todo!("complex prefix codes")
+        if checksum != 32768 {
+            return Err(BrotliError::MismatchedChecksum);
+        }
+
+        // Every complex prefix code must contain at least two nonzero code lengths
+        if symbol_lengths.iter().filter(|x| **x != 0).count() < 2 {
+            return Err(BrotliError::NotEnoughCodeLengths);
+        }
+
+        let symbols: Vec<Bits<u32>> = (0..alphabet_size as u32)
+            .map(|val| Bits::new(val, alphabet_size))
+            .collect();
+        HuffmanTree::new_infer_codes(&symbols, &symbol_lengths)
     };
     Ok(huffmantree)
 }
@@ -420,6 +443,7 @@ fn decode_context_map(
         let symbol = prefix_code
             .lookup_incrementally(reader)
             .map_err(|_| BrotliError::UnexpectedEOF)?
+            .ok_or(BrotliError::SymbolNotFound)?
             .val();
 
         if symbol <= rle_max as u32 {

@@ -72,22 +72,21 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
         self.nodes[insert_index] = Some(symbol);
     }
 
-    pub fn lookup_incrementally(&self, reader: &mut BitReader) -> Result<&T, ()> {
+    pub fn lookup_incrementally(&self, reader: &mut BitReader) -> Result<Option<&T>, ()> {
         let mut val = reader.read_bits::<u8>(1).map_err(|_| ())?;
 
         for length in 1..8 {
             let code = Code::new(val, length);
 
             if let Some(symbol) = self.lookup_symbol(code) {
-                return Ok(symbol);
+                return Ok(Some(symbol));
             }
 
             val <<= 1;
             val |= reader.read_bits::<u8>(1).map_err(|_| ())?;
         }
 
-        // Something went wrong if we didn't find a symbol yet
-        Err(())
+        Ok(None)
     }
 
     /// Lookup the code for a specific symbol
