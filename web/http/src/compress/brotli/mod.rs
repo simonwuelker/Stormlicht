@@ -2,9 +2,91 @@
 
 pub mod huffman;
 
-use crate::compress::bit_reader::{BitReader, BitReaderError};
+use crate::compress::{
+    bit_reader::{BitReader, BitReaderError},
+    brotli::huffman::{Bits, HuffmanTree},
+    ringbuffer::RingBuffer,
+};
+use std::cmp::min;
 
-use self::huffman::{Bits, Code, HuffmanTree};
+macro_rules! update_block_type_and_count {
+    ($btype: ident, $btype_tree: ident, $blen: ident, $blen_tree: ident, $reader: expr) => {
+        $btype = $btype_tree
+            .as_ref()
+            .unwrap()
+            .lookup_incrementally($reader)
+            .map_err(|_| BrotliError::UnexpectedEOF)?
+            .ok_or(BrotliError::SymbolNotFound)?
+            .val();
+        $blen = $blen_tree
+            .as_ref()
+            .unwrap()
+            .lookup_incrementally($reader)
+            .map_err(|_| BrotliError::UnexpectedEOF)?
+            .ok_or(BrotliError::SymbolNotFound)?
+            .val();
+    };
+}
+
+#[rustfmt::skip]
+const LUT0: [u8; 256] = [
+     0,  0,  0,  0,  0,  0,  0,  0,  0,  4,  4,  0,  0,  4,  0,  0,
+     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+     8, 12, 16, 12, 12, 20, 12, 16, 24, 28, 12, 12, 32, 12, 36, 12,
+    44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 32, 32, 24, 40, 28, 12,
+    12, 48, 52, 52, 52, 48, 52, 52, 52, 48, 52, 52, 52, 52, 52, 48,
+    52, 52, 52, 52, 52, 48, 52, 52, 52, 52, 52, 24, 12, 28, 12, 12,
+    12, 56, 60, 60, 60, 56, 60, 60, 60, 56, 60, 60, 60, 60, 60, 56,
+    60, 60, 60, 60, 60, 56, 60, 60, 60, 60, 60, 24, 12, 28, 12,  0,
+     0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,
+     0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,
+     0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,
+     0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,  0,  1,
+     2,  3,  2,  3,  2,  3,  2,  3,  2,  3,  2,  3,  2,  3,  2,  3,
+     2,  3,  2,  3,  2,  3,  2,  3,  2,  3,  2,  3,  2,  3,  2,  3,
+     2,  3,  2,  3,  2,  3,  2,  3,  2,  3,  2,  3,  2,  3,  2,  3,
+     2,  3,  2,  3,  2,  3,  2,  3,  2,  3,  2,  3,  2,  3,  2,  3,
+];
+
+#[rustfmt::skip]
+const LUT1: [u8; 256] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1,
+    1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1,
+    1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 1, 1, 1, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
+];
+
+#[rustfmt::skip]
+const LUT2: [u8; 256] = [
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7
+];
 
 #[derive(Debug)]
 pub enum BrotliError {
@@ -28,10 +110,6 @@ impl From<BitReaderError> for BrotliError {
         }
     }
 }
-
-const NBLTYPESI: usize = 0;
-const NBLTYPESL: usize = 1;
-const NBLTYPESD: usize = 2;
 
 // https://www.rfc-editor.org/rfc/rfc7932#section-10
 pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
@@ -57,9 +135,9 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
     };
 
     let window_size = (1 << wbits) - 16;
+    let mut past_distances = RingBuffer::new(vec![16, 15, 11, 4]);
 
     let mut is_last = false;
-
     while !is_last {
         // read meta block header
         // read ISLAST bit
@@ -111,58 +189,160 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
             }
         }
 
-        let mut num_blocks = [0; 3];
-        let mut block_type = [0; 3];
-        let mut block_length = [0; 3];
+        let (nbl_types_l, htree_btype_l, htree_blen_l, mut blen_l) = decode_blockdata(&mut reader)?;
+        let mut btype_l = 0;
 
-        for i in 0..3 {
-            num_blocks[i] = decode_blocknum(&mut reader)?;
+        let (nbl_types_i, htree_btype_i, htree_blen_i, mut blen_i) = decode_blockdata(&mut reader)?;
+        let mut btype_i = 0;
 
-            println!("nbltypes {}", num_blocks[i]);
-            if num_blocks[i] > 2 {
-                todo!();
-            } else {
-                block_type[i] = 0;
-                block_length[i] = 16777216;
-            }
-        }
+        let (nbl_types_d, htree_btype_d, htree_blen_d, mut blen_d) = decode_blockdata(&mut reader)?;
+        let mut btype_d = 0;
 
         // read NPOSTFIX and NDIRECT
-        let npostfix = reader.read_bits::<u8>(2).map_err(BrotliError::from)?;
+        let npostfix = reader.read_bits::<usize>(2).map_err(BrotliError::from)?;
 
         // number of direct-instance codes
-        let ndirect = reader.read_bits::<u8>(4).map_err(BrotliError::from)? << npostfix;
+        let ndirect = reader.read_bits::<usize>(4).map_err(BrotliError::from)? << npostfix;
 
-        let mut context_modes_for_literal_block_types =
-            Vec::with_capacity(num_blocks[NBLTYPESL] as usize);
-        for _ in 0..num_blocks[NBLTYPESL] {
+        let mut context_modes_for_literal_block_types = Vec::with_capacity(nbl_types_l);
+        for _ in 0..nbl_types_l {
             let context_mode = reader.read_bits::<u8>(2).map_err(BrotliError::from)?;
             context_modes_for_literal_block_types.push(context_mode);
         }
 
         // read NTREES
         let ntreesl = decode_blocknum(&mut reader)?;
-        let literal_cmap = if ntreesl >= 2 {
+        let cmap_l = if ntreesl >= 2 {
             // parse context map literals
-            decode_context_map(&mut reader, ntreesl, 64 * num_blocks[NBLTYPESL] as usize)?
+            decode_context_map(&mut reader, ntreesl, 64 * nbl_types_l)?
         } else {
             // fill cmapl with zeros
-            vec![0; 64 * num_blocks[NBLTYPESL] as usize]
+            vec![0; 64 * nbl_types_l]
         };
 
         let ntreesd = decode_blocknum(&mut reader)?;
-        let distance_cmap = if ntreesd >= 2 {
-            // decode_context_map(&mut reader, ntreesd, 4 * num_blocks[NBLTYPESD] as usize)?;
-            decode_context_map(&mut reader, ntreesl, 4 * num_blocks[NBLTYPESD] as usize)?
+        let cmap_d = if ntreesd >= 2 {
+            // decode_context_map(&mut reader, ntreesd, 4 * nbl_types_d as usize)?;
+            decode_context_map(&mut reader, ntreesl, 4 * nbl_types_d)?
         } else {
             // fill cmapd with zeros
-            vec![0; 4 * num_blocks[NBLTYPESD] as usize]
+            vec![0; 4 * nbl_types_d]
         };
 
         // Read literal prefix codes
-        let mut literal_prefix_codes = Vec::with_capacity(ntreesl as usize);
+        let mut htree_l = Vec::with_capacity(ntreesl as usize);
         for _ in 0..ntreesl {
-            literal_prefix_codes.push(read_prefix_code(&mut reader, 256)?);
+            htree_l.push(read_prefix_code(&mut reader, 256)?);
+        }
+
+        // Read insert-and-copy lengths
+        let mut htree_i = Vec::with_capacity(nbl_types_i);
+        for _ in 0..nbl_types_i {
+            htree_i.push(read_prefix_code(&mut reader, 704)?);
+        }
+
+        // Read literal prefix codes
+        let mut htree_d = Vec::with_capacity(ntreesd as usize);
+        for _ in 0..ntreesd {
+            htree_d.push(read_prefix_code(
+                &mut reader,
+                16 + ndirect + (48 << npostfix),
+            )?);
+        }
+
+        // Parse the meta block data
+        let mut last_two_uncompressed_bytes = [0, 0];
+        let mut output_stream = vec![];
+
+        'decode_loop: loop {
+            if blen_i == 0 {
+                update_block_type_and_count!(
+                    btype_i,
+                    htree_btype_i,
+                    blen_i,
+                    htree_blen_i,
+                    &mut reader
+                );
+            }
+
+            blen_i -= 1;
+
+            let symbol_i = &htree_i[btype_i];
+            let insert_and_copy_length_code = symbol_i
+                .lookup_incrementally(&mut reader)
+                .map_err(|_| BrotliError::UnexpectedEOF)?
+                .ok_or(BrotliError::SymbolNotFound)?
+                .val();
+            let ilen = read_insert_length_code(&mut reader, insert_and_copy_length_code)?;
+            let clen = read_copy_length_code(&mut reader, insert_and_copy_length_code)?;
+
+            for _ in 0..ilen {
+                if blen_l == 0 {
+                    update_block_type_and_count!(
+                        btype_l,
+                        htree_btype_l,
+                        blen_l,
+                        htree_blen_l,
+                        &mut reader
+                    );
+                }
+
+                blen_l -= 1;
+
+                let context_mode = context_modes_for_literal_block_types[btype_l];
+                let cidl = decode_literal_context_id(context_mode, &last_two_uncompressed_bytes);
+
+                let literal_symbol = htree_l[cmap_l[64 * btype_l + cidl as usize] as usize]
+                    .lookup_incrementally(&mut reader)
+                    .map_err(|_| BrotliError::UnexpectedEOF)?
+                    .ok_or(BrotliError::SymbolNotFound)?;
+                output_stream.push(literal_symbol);
+
+                // TODO this should be the number of bytes but we dont have bitwriter yet
+                if output_stream.len() == mlen {
+                    break 'decode_loop;
+                }
+
+                let distance = if false {
+                    todo!()
+                } else {
+                    if blen_d == 0 {
+                        update_block_type_and_count!(
+                            btype_d,
+                            htree_btype_d,
+                            blen_d,
+                            htree_blen_d,
+                            &mut reader
+                        );
+                    }
+                    blen_d -= 1;
+
+                    let cidd = decode_distance_context_id(clen);
+                    let distance_code = htree_d[cmap_d[4 * btype_d + cidd] as usize]
+                        .lookup_incrementally(&mut reader)
+                        .map_err(|_| BrotliError::UnexpectedEOF)?
+                        .ok_or(BrotliError::SymbolNotFound)?
+                        .val();
+                    let (distance, should_push) = distance_short_code_substitution(
+                        distance_code,
+                        &past_distances,
+                        npostfix,
+                        ndirect,
+                        &mut reader,
+                    )?;
+
+                    if distance_code != 0 && should_push {
+                        past_distances.push(distance);
+                    }
+                    distance
+                };
+
+                if distance < min(window_size, output_stream.len()) + 1 {
+                    // resolve distance
+                } else {
+                    // resolve static dictionary reference
+                }
+            }
         }
     }
     Ok(result)
@@ -171,7 +351,7 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 fn read_prefix_code(
     reader: &mut BitReader,
     alphabet_size: usize,
-) -> Result<HuffmanTree<Bits<u32>>, BrotliError> {
+) -> Result<HuffmanTree<Bits<usize>>, BrotliError> {
     let alphabet_width = 16 - (alphabet_size as u16 - 1).leading_zeros() as u8;
 
     let ident = reader.read_bits::<u8>(2).map_err(BrotliError::from)?;
@@ -184,9 +364,9 @@ fn read_prefix_code(
         // read nsym symbols
         for _ in 0..nsym {
             let symbol_raw = reader
-                .read_bits::<u32>(alphabet_width)
+                .read_bits::<usize>(alphabet_width)
                 .map_err(BrotliError::from)?;
-            if symbol_raw >= alphabet_size as u32 {
+            if symbol_raw >= alphabet_size {
                 return Err(BrotliError::InvalidSymbol);
             }
             symbols_raw.push(symbol_raw);
@@ -218,7 +398,7 @@ fn read_prefix_code(
 
         // Associate the symbols with their bit length. We didn't to this earlier so
         // we could sort the symbols without worrying about bit length.
-        let symbols: Vec<Bits<u32>> = symbols_raw
+        let symbols: Vec<Bits<usize>> = symbols_raw
             .into_iter()
             .map(|raw_symbol| Bits::new(raw_symbol, alphabet_width as usize))
             .collect();
@@ -387,7 +567,7 @@ fn read_prefix_code(
             return Err(BrotliError::NotEnoughCodeLengths);
         }
 
-        let symbols: Vec<Bits<u32>> = (0..alphabet_size as u32)
+        let symbols: Vec<Bits<usize>> = (0..alphabet_size)
             .map(|val| Bits::new(val, alphabet_size))
             .collect();
         HuffmanTree::new_infer_codes(&symbols, &symbol_lengths)
@@ -446,7 +626,7 @@ fn decode_context_map(
             .ok_or(BrotliError::SymbolNotFound)?
             .val();
 
-        if symbol <= rle_max as u32 {
+        if symbol <= rle_max as usize {
             // This is a run-length encoded value
 
             // Casting to u8 here is safe because rle_max can never exceed 255
@@ -464,7 +644,7 @@ fn decode_context_map(
                 context_map.push(0);
             }
         } else {
-            context_map.push((symbol - rle_max as u32) as u8);
+            context_map.push((symbol - rle_max as usize) as u8);
         }
     }
 
@@ -495,4 +675,228 @@ fn inverse_move_to_front_transform(data: &mut [u8]) {
         }
         mtf[0] = value;
     }
+}
+
+fn read_block_count_code(reader: &mut BitReader, code: usize) -> Result<usize, BrotliError> {
+    let (base, num_extra_bits) = match code {
+        0 => (1, 2),
+        1 => (5, 2),
+        2 => (9, 2),
+        3 => (13, 2),
+        4 => (17, 3),
+        5 => (25, 3),
+        6 => (33, 3),
+        7 => (41, 3),
+        8 => (49, 4),
+        9 => (65, 4),
+        10 => (81, 4),
+        11 => (97, 4),
+        12 => (113, 5),
+        13 => (145, 5),
+        14 => (177, 5),
+        15 => (209, 5),
+        16 => (241, 6),
+        17 => (305, 6),
+        18 => (369, 7),
+        19 => (497, 8),
+        20 => (753, 9),
+        21 => (1265, 10),
+        22 => (2289, 11),
+        23 => (4337, 12),
+        24 => (8433, 13),
+        25 => (16625, 24),
+        _ => unreachable!("Invalid block count code: {code}"),
+    };
+    let extra_bits = reader
+        .read_bits::<usize>(num_extra_bits)
+        .map_err(BrotliError::from)?;
+
+    Ok(base + extra_bits)
+}
+fn read_insert_length_code(reader: &mut BitReader, code: usize) -> Result<usize, BrotliError> {
+    let (base, num_extra_bits) = match code {
+        0 => (0, 0),
+        1 => (1, 0),
+        2 => (2, 0),
+        3 => (3, 0),
+        4 => (4, 0),
+        5 => (5, 0),
+        6 => (6, 1),
+        7 => (8, 1),
+        8 => (10, 2),
+        9 => (14, 2),
+        10 => (18, 3),
+        11 => (26, 3),
+        12 => (34, 4),
+        13 => (50, 4),
+        14 => (66, 5),
+        15 => (98, 5),
+        16 => (130, 6),
+        17 => (194, 7),
+        18 => (322, 8),
+        19 => (578, 9),
+        20 => (1090, 10),
+        21 => (2114, 12),
+        22 => (6210, 14),
+        23 => (22594, 24),
+        _ => unreachable!("Invalid insert length code: {code}"),
+    };
+
+    let extra_bits = reader
+        .read_bits::<usize>(num_extra_bits)
+        .map_err(BrotliError::from)?;
+
+    Ok(base + extra_bits)
+}
+
+fn read_copy_length_code(reader: &mut BitReader, code: usize) -> Result<usize, BrotliError> {
+    let (base, num_extra_bits) = match code {
+        0 => (2, 0),
+        1 => (3, 0),
+        2 => (4, 0),
+        3 => (5, 0),
+        4 => (6, 0),
+        5 => (7, 0),
+        6 => (8, 0),
+        7 => (9, 0),
+        8 => (10, 1),
+        9 => (12, 1),
+        10 => (14, 2),
+        11 => (18, 2),
+        12 => (22, 3),
+        13 => (30, 3),
+        14 => (28, 4),
+        15 => (54, 4),
+        16 => (70, 5),
+        17 => (102, 5),
+        18 => (134, 6),
+        19 => (198, 7),
+        20 => (326, 8),
+        21 => (582, 9),
+        22 => (1094, 10),
+        23 => (2118, 24),
+        _ => unreachable!("Invalid copy length code: {code}"),
+    };
+
+    let extra_bits = reader
+        .read_bits::<usize>(num_extra_bits)
+        .map_err(BrotliError::from)?;
+
+    Ok(base + extra_bits)
+}
+
+/// Read the block type metadata from the meta header
+fn decode_blockdata(
+    reader: &mut BitReader,
+) -> Result<
+    (
+        usize,
+        Option<HuffmanTree<Bits<usize>>>,
+        Option<HuffmanTree<Bits<usize>>>,
+        usize,
+    ),
+    BrotliError,
+> {
+    let num_blocks = decode_blocknum(reader)? as usize;
+
+    if num_blocks >= 2 {
+        let block_type_prefix_code = read_prefix_code(reader, num_blocks + 2)?;
+        let block_count_prefix_code = read_prefix_code(reader, 26)?;
+        let first_block_count_code = block_count_prefix_code
+            .lookup_incrementally(reader)
+            .map_err(|_| BrotliError::InvalidSymbol)?
+            .ok_or(BrotliError::SymbolNotFound)?
+            .val() as usize;
+        let first_literal_block_count = read_block_count_code(reader, first_block_count_code)?;
+
+        Ok((
+            num_blocks,
+            Some(block_type_prefix_code),
+            Some(block_count_prefix_code),
+            first_literal_block_count,
+        ))
+    } else {
+        Ok((num_blocks, None, None, 16777216))
+    }
+}
+
+fn decode_literal_context_id(context_mode: u8, last_two_bytes: &[u8; 2]) -> u8 {
+    let p1 = last_two_bytes[1];
+    let p2 = last_two_bytes[0];
+
+    match context_mode {
+        0 => {
+            // LSB6 Mode
+            p1 & 0x3f
+        },
+        1 => {
+            // MSB6 Mode
+            p1 >> 2
+        },
+        2 => {
+            // UTF8 Mode
+            LUT0[p1 as usize] | LUT1[p2 as usize]
+        },
+        3 => {
+            // Signed Mode
+            (LUT2[p1 as usize] << 3) | LUT2[p2 as usize]
+        },
+        _ => unreachable!("invalid context mode: {context_mode}"),
+    }
+}
+
+fn decode_distance_context_id(copy_length: usize) -> usize {
+    match copy_length {
+        2 => 0,
+        3 => 1,
+        4 => 2,
+        5.. => 3,
+        _ => unreachable!("invalid copy length: {copy_length}"),
+    }
+}
+
+fn distance_short_code_substitution(
+    distance_code: usize,
+    past_distances: &RingBuffer<usize>,
+    npostfix: usize,
+    ndirect: usize,
+    reader: &mut BitReader,
+) -> Result<(usize, bool), BrotliError> {
+    let postfix_mask = (1 << npostfix) - 1;
+
+    let distance = match distance_code {
+        0 => *past_distances.nth_last(0),
+        1 => *past_distances.nth_last(1),
+        2 => *past_distances.nth_last(2),
+        3 => *past_distances.nth_last(3),
+        4 => *past_distances.nth_last(0) - 1,
+        5 => *past_distances.nth_last(0) + 1,
+        6 => *past_distances.nth_last(0) - 2,
+        7 => *past_distances.nth_last(0) + 2,
+        8 => *past_distances.nth_last(0) - 3,
+        9 => *past_distances.nth_last(0) + 3,
+        10 => *past_distances.nth_last(1) - 1,
+        11 => *past_distances.nth_last(1) + 1,
+        12 => *past_distances.nth_last(1) - 2,
+        13 => *past_distances.nth_last(1) + 2,
+        14 => *past_distances.nth_last(1) - 3,
+        15 => *past_distances.nth_last(1) + 3,
+        d @ 16.. => {
+            if d < 16 + ndirect {
+                d - 15
+            } else {
+                let num_extra_bits = 1 + ((d - ndirect - 16) >> (npostfix + 1));
+                let extra_bits = reader
+                    .read_bits::<usize>(num_extra_bits as u8)
+                    .map_err(BrotliError::from)?;
+                let hcode = (d - ndirect - 16) >> npostfix;
+                let lcode = (d - ndirect - 16) & postfix_mask;
+                let offset = ((2 + (hcode & 1)) << num_extra_bits) - 4;
+                ((offset - extra_bits) << npostfix) + lcode + ndirect + 1
+            }
+        },
+        _ => unreachable!(), // Literally unreachable, we checked for all the values above. Rust isn't able to infer the usize value range yet.
+    };
+
+    Ok((distance, distance_code < 4))
 }

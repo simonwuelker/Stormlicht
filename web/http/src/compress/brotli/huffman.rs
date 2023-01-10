@@ -10,7 +10,7 @@ use crate::compress::bit_reader::BitReader;
 /// Tuple of (data, nbits) for representing an arbitrary number of bits
 #[derive(Clone, Copy)]
 pub struct Bits<T: Copy>(T, usize);
-pub type Code = Bits<u8>;
+pub type Code = Bits<usize>;
 
 pub struct HuffmanTree<T: PartialOrd + PartialEq> {
     /// A value of `Some(_)` means that the node is a leaf node and there is a symbol
@@ -28,7 +28,7 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
         );
 
         let max_bits = *lengths.iter().max().unwrap_or(&0);
-        let mut length_count = vec![0; max_bits + 1];
+        let mut length_count = vec![0_usize; max_bits + 1];
 
         for length in lengths.iter() {
             length_count[*length] += 1;
@@ -73,9 +73,9 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
     }
 
     pub fn lookup_incrementally(&self, reader: &mut BitReader) -> Result<Option<&T>, ()> {
-        let mut val = reader.read_bits::<u8>(1).map_err(|_| ())?;
+        let mut val = reader.read_bits::<usize>(1).map_err(|_| ())?;
 
-        for length in 1..8 {
+        for length in 1..usize::BITS as usize {
             let code = Code::new(val, length);
 
             if let Some(symbol) = self.lookup_symbol(code) {
@@ -83,7 +83,7 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
             }
 
             val <<= 1;
-            val |= reader.read_bits::<u8>(1).map_err(|_| ())?;
+            val |= reader.read_bits::<usize>(1).map_err(|_| ())?;
         }
 
         Ok(None)
