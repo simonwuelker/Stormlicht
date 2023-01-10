@@ -1,5 +1,6 @@
 //! Implements the [Brotli](https://datatracker.ietf.org/doc/html/rfc7932) compression algorithm
 
+pub mod dictionary;
 pub mod huffman;
 
 use crate::compress::{
@@ -99,6 +100,8 @@ pub enum BrotliError {
     /// A complex prefix code contained less than two nonzero code lengths
     NotEnoughCodeLengths,
     SymbolNotFound,
+    InvalidDictionaryReferenceLength,
+    InvalidTransformID,
 }
 
 impl From<BitReaderError> for BrotliError {
@@ -340,7 +343,11 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
                 if distance < min(window_size, output_stream.len()) + 1 {
                     // resolve distance
                 } else {
-                    // resolve static dictionary reference
+                    if 4 <= clen && clen <= 24 {
+                        // resolve static dictionary reference
+                    } else {
+                        return Err(BrotliError::InvalidDictionaryReferenceLength);
+                    }
                 }
             }
         }

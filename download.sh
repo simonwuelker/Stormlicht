@@ -13,17 +13,13 @@ fi
 # Download the pre-defined brotli dictionary
 mkdir -p $download_dir/brotli
 if [ ! -f "$download_dir/brotli/dictionary" ]; then
-    wget -nv -O $download_dir/brotli/dictionary https://gist.githubusercontent.com/duskwuff/8a75e1b5e5a06d768336c8c7c370f0f3/raw/0a469443ceca5c1e8a2ffed48c6ecc1570750b05/dictionary.bin
+    wget -nv -O $download_dir/brotli/dictionary https://github.com/google/brotli/raw/master/c/common/dictionary.bin
 fi
 
 # Download brotli test files
 mkdir -p $download_dir/brotli/testdata
 if [ ! -f "$download_dir/brotli/testdata/tests" ]; then
     # # do a sparse checkout, we don't need the entire repository
-    # git init -q "$download_dir/brotli/testdata/"
-    
-    # git -C "$download_dir/brotli/testdata/" remote add origin https://github.com/google/brotli
-    # git clone --no-checkout --filter=blob:none "file://*.compressed" 
     git clone \
         -q \
         --filter=blob:none  \
