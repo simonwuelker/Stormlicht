@@ -117,7 +117,10 @@ impl From<BitReaderError> for BrotliError {
 // https://www.rfc-editor.org/rfc/rfc7932#section-10
 pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
     let mut reader = BitReader::new(source);
-    let mut result = vec![];
+
+    // The stream initially contains two zero bytes since decoding relies on the "last two uncompressed bytes", which are initally 0
+    // These bytes are removed later
+    let mut output_stream = vec![0, 0];
 
     // Read the Stream Header (which only contains the sliding window size)
     // https://www.rfc-editor.org/rfc/rfc7932#section-9.1
@@ -178,33 +181,33 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
                 .map_err(BrotliError::from)? as usize
                 + 1
         };
+        println!("mlen {mlen}");
 
         if !is_last {
             let is_uncompressed = reader.read_single_bit().map_err(BrotliError::from)?;
 
             if is_uncompressed {
+                todo!();
                 reader.align_to_byte_boundary();
 
                 let mut buffer = vec![0; mlen];
                 reader.read_bytes(&mut buffer).map_err(BrotliError::from)?;
-                result.extend(buffer);
+                output_stream.extend(buffer);
                 continue;
             }
         }
 
         let (nbl_types_l, htree_btype_l, htree_blen_l, mut blen_l) = decode_blockdata(&mut reader)?;
         let mut btype_l = 0;
-
+        
         let (nbl_types_i, htree_btype_i, htree_blen_i, mut blen_i) = decode_blockdata(&mut reader)?;
         let mut btype_i = 0;
-
+        
         let (nbl_types_d, htree_btype_d, htree_blen_d, mut blen_d) = decode_blockdata(&mut reader)?;
         let mut btype_d = 0;
-
+        
         // read NPOSTFIX and NDIRECT
         let npostfix = reader.read_bits::<usize>(2).map_err(BrotliError::from)?;
-
-        // number of direct-instance codes
         let ndirect = reader.read_bits::<usize>(4).map_err(BrotliError::from)? << npostfix;
 
         let mut context_modes_for_literal_block_types = Vec::with_capacity(nbl_types_l);
@@ -215,6 +218,7 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 
         // read NTREES
         let ntreesl = decode_blocknum(&mut reader)?;
+
         let cmap_l = if ntreesl >= 2 {
             // parse context map literals
             decode_context_map(&mut reader, ntreesl, 64 * nbl_types_l)?
@@ -222,7 +226,7 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
             // fill cmapl with zeros
             vec![0; 64 * nbl_types_l]
         };
-
+        
         let ntreesd = decode_blocknum(&mut reader)?;
         let cmap_d = if ntreesd >= 2 {
             // decode_context_map(&mut reader, ntreesd, 4 * nbl_types_d as usize)?;
@@ -231,19 +235,20 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
             // fill cmapd with zeros
             vec![0; 4 * nbl_types_d]
         };
-
+        
         // Read literal prefix codes
         let mut htree_l = Vec::with_capacity(ntreesl as usize);
+        
         for _ in 0..ntreesl {
             htree_l.push(read_prefix_code(&mut reader, 256)?);
         }
-
+        
         // Read insert-and-copy lengths
         let mut htree_i = Vec::with_capacity(nbl_types_i);
         for _ in 0..nbl_types_i {
             htree_i.push(read_prefix_code(&mut reader, 704)?);
         }
-
+        
         // Read literal prefix codes
         let mut htree_d = Vec::with_capacity(ntreesd as usize);
         for _ in 0..ntreesd {
@@ -252,11 +257,10 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
                 16 + ndirect + (48 << npostfix),
             )?);
         }
-
+        
         // Parse the meta block data
-        let mut last_two_uncompressed_bytes = [0, 0];
-        let mut output_stream = vec![];
-
+        let mut uncompressed_bytes_this_meta_block = 0;
+        
         'decode_loop: loop {
             if blen_i == 0 {
                 update_block_type_and_count!(
@@ -269,17 +273,32 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
             }
 
             blen_i -= 1;
+            
+            
+            let insert_and_copy_length_code = htree_i[btype_i]
+            .lookup_incrementally(&mut reader)
+            .map_err(|_| BrotliError::UnexpectedEOF)?
+            .ok_or(BrotliError::SymbolNotFound)?
+            .val();
+            println!("====================== {}", output_stream.len() - 2);
+            // println!("bit reader pos after ic length code {} {}", reader.byte_ptr, reader.bit_ptr);
+            // println!("insert code {insert_and_copy_length_code}");
 
-            let symbol_i = &htree_i[btype_i];
-            let insert_and_copy_length_code = symbol_i
-                .lookup_incrementally(&mut reader)
-                .map_err(|_| BrotliError::UnexpectedEOF)?
-                .ok_or(BrotliError::SymbolNotFound)?
-                .val();
-            let ilen = read_insert_length_code(&mut reader, insert_and_copy_length_code)?;
-            let clen = read_copy_length_code(&mut reader, insert_and_copy_length_code)?;
+            // if insert_and_copy_length_code == 19 {
+            //     todo!();
+            // }
+
+            // TODO apparently distance is implicit zero if the symbol is < 128
+            let distance_is_implicit_zero = insert_and_copy_length_code < 128;
+
+            let (insert_length, copy_length) = decode_insert_and_copy_length_code(insert_and_copy_length_code);
+            
+            // println!("the length codes: {insert_length} {copy_length}");
+            let ilen = read_insert_length_code(&mut reader, insert_length)?;
+            let clen = read_copy_length_code(&mut reader, copy_length)?;
 
             for _ in 0..ilen {
+                // println!("bit reader pos during literals {} {}", reader.byte_ptr, reader.bit_ptr);
                 if blen_l == 0 {
                     update_block_type_and_count!(
                         btype_l,
@@ -289,70 +308,106 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
                         &mut reader
                     );
                 }
-
                 blen_l -= 1;
 
                 let context_mode = context_modes_for_literal_block_types[btype_l];
-                let cidl = decode_literal_context_id(context_mode, &last_two_uncompressed_bytes);
-
+                // println!("Last two bytes: {:?}", &output_stream[output_stream.len() - 2..]);
+                let cidl = decode_literal_context_id(context_mode, &output_stream[output_stream.len() - 2..].try_into().unwrap());
+                // println!("CID {cidl} context mode {context_mode}");
                 let literal_symbol = htree_l[cmap_l[64 * btype_l + cidl as usize] as usize]
                     .lookup_incrementally(&mut reader)
                     .map_err(|_| BrotliError::UnexpectedEOF)?
                     .ok_or(BrotliError::SymbolNotFound)?;
-                output_stream.push(literal_symbol);
 
-                // TODO this should be the number of bytes but we dont have bitwriter yet
-                if output_stream.len() == mlen {
-                    break 'decode_loop;
+                println!("emitting {}", literal_symbol.val() as u8);
+                output_stream.push(literal_symbol.val() as u8);
+                uncompressed_bytes_this_meta_block += 1;
+            }
+
+            if uncompressed_bytes_this_meta_block == mlen {
+                break 'decode_loop;
+            }
+            println!("done parsing literals");
+            // Distances larger that max_distance can occur, those are static dictionary references
+            // We subtract two because the output contains two leading 0 bytes which are not part of the stream
+            let max_distance = min(window_size, output_stream.len() - 2);
+            let distance = if distance_is_implicit_zero {
+                // println!("implicit 0 distance");
+                *past_distances.nth_last(0)
+            } else {
+                if blen_d == 0 {
+                    // println!("update d type ");
+                    update_block_type_and_count!(
+                        btype_d,
+                        htree_btype_d,
+                        blen_d,
+                        htree_blen_d,
+                        &mut reader
+                    );
                 }
+                blen_d -= 1;
 
-                let distance = if false {
-                    todo!()
-                } else {
-                    if blen_d == 0 {
-                        update_block_type_and_count!(
-                            btype_d,
-                            htree_btype_d,
-                            blen_d,
-                            htree_blen_d,
-                            &mut reader
-                        );
-                    }
-                    blen_d -= 1;
+                let cidd = decode_distance_context_id(clen);
+                let distance_code = htree_d[cmap_d[4 * btype_d + cidd] as usize]
+                    .lookup_incrementally(&mut reader)
+                    .map_err(|_| BrotliError::UnexpectedEOF)?
+                    .ok_or(BrotliError::SymbolNotFound)?
+                    .val();
+                // println!("distance code: {distance_code}");
+                let distance = distance_short_code_substitution(
+                    distance_code,
+                    &past_distances,
+                    npostfix,
+                    ndirect,
+                    &mut reader,
+                )?;
 
-                    let cidd = decode_distance_context_id(clen);
-                    let distance_code = htree_d[cmap_d[4 * btype_d + cidd] as usize]
-                        .lookup_incrementally(&mut reader)
-                        .map_err(|_| BrotliError::UnexpectedEOF)?
-                        .ok_or(BrotliError::SymbolNotFound)?
-                        .val();
-                    let (distance, should_push) = distance_short_code_substitution(
-                        distance_code,
-                        &past_distances,
-                        npostfix,
-                        ndirect,
-                        &mut reader,
-                    )?;
-
-                    if distance_code != 0 && should_push {
-                        past_distances.push(distance);
-                    }
-                    distance
-                };
-
-                if distance < min(window_size, output_stream.len()) + 1 {
-                    // resolve distance
-                } else {
-                    if 4 <= clen && clen <= 24 {
-                        // resolve static dictionary reference
-                    } else {
-                        return Err(BrotliError::InvalidDictionaryReferenceLength);
-                    }
+                // Dictionary references, 0 distances and a few transformations are not pushed
+                if distance_code != 0 && distance < max_distance {
+                    past_distances.push(distance);
                 }
+                distance
+            };
+            println!("done parsing distance");
+            println!("distance {distance} {clen}");
+            // println!("max ddist {max_distance}");
+            if distance <= max_distance {
+                // println!("distance ref {distance} {clen}");
+            
+                // resolve distance
+                let copy_base = output_stream.len() - distance;
+                
+                // References can be longer than the data that is actually available.
+                // In this case, the reference wraps around and copies the beginning twice
+                let mut literals_remaining = clen;
+                let bytes_to_copy_at_once = min(clen, output_stream.len() - copy_base);
+                
+                while literals_remaining > bytes_to_copy_at_once {
+                    println!("extend");
+                    output_stream.extend_from_within(copy_base..copy_base + bytes_to_copy_at_once);
+                    literals_remaining -= bytes_to_copy_at_once;
+                }
+                // println!("emitting {:?} from {copy_base}, {clen}", &output_stream[copy_base..copy_base+clen]);
+                output_stream.extend_from_within(copy_base..copy_base + literals_remaining);
+                uncompressed_bytes_this_meta_block += clen;
+            } else {
+                let dict_word = dictionary::lookup(distance - max_distance - 1, clen)?;
+                uncompressed_bytes_this_meta_block += dict_word.len();
+                println!("emitting {dict_word:?} from dict");
+                output_stream.extend(dict_word);
+            }
+    
+            if uncompressed_bytes_this_meta_block >= mlen {
+                break;
             }
         }
+        // println!("DONE READING BLOCK");
+
+        if is_last {
+            break;
+        }
     }
-    Ok(result)
+    Ok(output_stream[2..].to_vec())
 }
 
 fn read_prefix_code(
@@ -373,6 +428,8 @@ fn read_prefix_code(
             let symbol_raw = reader
                 .read_bits::<usize>(alphabet_width)
                 .map_err(BrotliError::from)?;
+            
+            // Reject symbol if its not within the alphabet
             if symbol_raw >= alphabet_size {
                 return Err(BrotliError::InvalidSymbol);
             }
@@ -382,8 +439,8 @@ fn read_prefix_code(
         // TODO we should check for duplicate symbols here
 
         let lengths = match nsym {
-            0 => vec![0],
-            1 => {
+            1 => vec![0],
+            2 => {
                 symbols_raw.sort();
                 vec![1, 1]
             },
@@ -400,7 +457,7 @@ fn read_prefix_code(
                     vec![2, 2, 2, 2]
                 }
             },
-            _ => unreachable!(),
+            _ => unreachable!("Invalid NSYM value: {nsym}"),
         };
 
         // Associate the symbols with their bit length. We didn't to this earlier so
@@ -525,12 +582,12 @@ fn read_prefix_code(
                         return Err(BrotliError::RunlengthEncodingExceedsExpectedSize);
                     }
 
-                    i += repeat_for;
-                    for _ in 0..repeat_for {
-                        symbol_lengths[i] = to_repeat;
-
+                    for j in 0..repeat_for {
+                        symbol_lengths[i + j] = to_repeat;
+                        
                         checksum += 32768 >> to_repeat;
                     }
+                    i += repeat_for;
                     if checksum == 32768 {
                         break 'read_length_codes;
                     }
@@ -540,15 +597,15 @@ fn read_prefix_code(
                 17 => {
                     let extra_bits = reader.read_bits::<usize>(3).map_err(BrotliError::from)?;
 
-                    let repeat_for = match previous_repeat_count {
+                    let (repeat_for, total_repetitions) = match previous_repeat_count {
                         Some((17, previous_repetitions)) => {
                             // There was a 16 previously, update repeat count
                             let new_repeat = 8 * (previous_repetitions - 2) + 3 + extra_bits;
-                            new_repeat - previous_repetitions
+                            (new_repeat - previous_repetitions, new_repeat)
                         },
                         _ => {
-                            // The previous length code was not a 16
-                            3 + extra_bits as usize
+                            // The previous length code was not a 17
+                            (3 + extra_bits as usize, 3 + extra_bits as usize)
                         },
                     };
 
@@ -559,7 +616,7 @@ fn read_prefix_code(
 
                     i += repeat_for;
 
-                    previous_repeat_count = Some((17, repeat_for));
+                    previous_repeat_count = Some((17, total_repetitions));
                 },
                 _ => unreachable!(), // we defined the possible symbols above
             }
@@ -868,9 +925,9 @@ fn distance_short_code_substitution(
     npostfix: usize,
     ndirect: usize,
     reader: &mut BitReader,
-) -> Result<(usize, bool), BrotliError> {
+) -> Result<usize, BrotliError> {
     let postfix_mask = (1 << npostfix) - 1;
-
+    println!("distance code {distance_code} last dist {:?}", past_distances);
     let distance = match distance_code {
         0 => *past_distances.nth_last(0),
         1 => *past_distances.nth_last(1),
@@ -893,17 +950,41 @@ fn distance_short_code_substitution(
                 d - 15
             } else {
                 let num_extra_bits = 1 + ((d - ndirect - 16) >> (npostfix + 1));
+                // println!("bit reader pos {} {}", reader.byte_ptr, reader.bit_ptr);
                 let extra_bits = reader
                     .read_bits::<usize>(num_extra_bits as u8)
                     .map_err(BrotliError::from)?;
+                // println!("extra bits for distance: {extra_bits} {num_extra_bits}");
                 let hcode = (d - ndirect - 16) >> npostfix;
                 let lcode = (d - ndirect - 16) & postfix_mask;
                 let offset = ((2 + (hcode & 1)) << num_extra_bits) - 4;
-                ((offset - extra_bits) << npostfix) + lcode + ndirect + 1
+                // println!("hcode {hcode} lcode {lcode} offset {offset}");
+                ((offset + extra_bits) << npostfix) + lcode + ndirect + 1
             }
         },
         _ => unreachable!(), // Literally unreachable, we checked for all the values above. Rust isn't able to infer the usize value range yet.
     };
 
-    Ok((distance, distance_code < 4))
+    Ok(distance)
+}
+
+fn decode_insert_and_copy_length_code(code: usize) -> (usize, usize) {
+    let (insert_base, copy_base) = match code {
+        0..=63 => (0, 0),
+        64..=127 => (0, 8),
+        128..=191 => (0, 0),
+        192..=255 => (0, 8),
+        256..=319 => (8, 0),
+        320..=383 => (8, 8),
+        384..=447 => (0, 16),
+        448..=511 => (16, 0),
+        576..=639 => (16, 8),
+        640..=703 => (16, 16),
+        _ => unreachable!("invalid insert and copy length code: {code}"),
+    };
+
+    let insert_length_extra = (code >> 3) & 0b111;
+    let copy_length_extra = code & 0b111;
+
+    (insert_base + insert_length_extra, copy_base + copy_length_extra)
 }

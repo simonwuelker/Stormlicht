@@ -12,6 +12,7 @@ use crate::compress::bit_reader::BitReader;
 pub struct Bits<T: Copy>(T, usize);
 pub type Code = Bits<usize>;
 
+#[derive(Debug)]
 pub struct HuffmanTree<T: PartialOrd + PartialEq> {
     /// A value of `Some(_)` means that the node is a leaf node and there is a symbol
     /// associated with the Code.

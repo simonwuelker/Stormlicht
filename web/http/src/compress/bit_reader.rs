@@ -15,7 +15,7 @@ pub enum BitReaderError {
 }
 
 /// Create a bitmask for masking a range of bits in a byte
-fn mask(from: u8, to: u8) -> u8 {
+pub(crate) fn mask(from: u8, to: u8) -> u8 {
     assert!(from <= to);
     if to == 8 {
         if from == 8 {

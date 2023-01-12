@@ -2,18 +2,66 @@
 //!
 //! You can find the raw dictionary file at <https://github.com/google/brotli/blob/master/c/common/dictionary.bin>
 
-use std::{fs, io::Read};
-
 use super::BrotliError;
 
-const DICTIONARY_PATH: &'static str = "downloads/brotli/dictionary";
-const DICT_SIZE: usize = 122784;
+const DICTIONARY: &'static [u8; 122784] = include_bytes!(concat!(env!("OUT_DIR"), "/dictionary.bin"));
 
-pub fn get_dictionary() -> std::io::Result<[u8; DICT_SIZE]> {
-    let mut buffer = Vec::with_capacity(DICT_SIZE);
-    let mut dictionary_file = fs::File::open(DICTIONARY_PATH)?;
-    dictionary_file.read_to_end(&mut buffer)?;
-    Ok(buffer.try_into().unwrap())
+const NDBITS: [usize; 25] = [
+    0, 0, 0, 0, 10, 10, 11, 11, 10, 10, 10, 10, 10, 9, 9, 8, 7, 7, 8, 7, 7, 6, 6, 5, 5,
+];
+
+/// Number of words in the dictionary with a given length
+const NWORDS: [usize; 25] = get_nwords();
+
+/// Offset into the dictionary for the group of words with a given length
+const DOFFSET: [usize; 25] = get_doffset();
+
+/// Total size of the dictionary
+const DICTSIZE: usize = DOFFSET[24] + 24 * NWORDS[24];
+
+const fn get_nwords() -> [usize; 25] {
+    let mut nwords = [0; 25];
+
+    let mut i = 4;
+    while i < 25 {
+        nwords[i] = 1 << NDBITS[i];
+        i += 1;
+    }
+
+    nwords
+}
+
+const fn get_doffset() -> [usize; 25] {
+    let mut doffset = [0; 25];
+
+    let mut i = 0;
+    while i < 24 {
+        doffset[i + 1] = doffset[i] + i * NWORDS[i];
+        i += 1;
+    }
+
+    doffset
+}
+
+fn offset(length: usize, index: usize) -> usize {
+    DOFFSET[length] + index * length
+}
+
+/// Lookup a word in the static dictionary.
+///
+/// The lookup will fail if either the length is not in the range `[4, 24]`
+/// or the transform id on the word is invalid.
+pub fn lookup(word_id: usize, length: usize) -> Result<Vec<u8>, BrotliError> {
+    if length < 4 || 24 < length {
+        return Err(BrotliError::InvalidDictionaryReferenceLength);
+    }
+    let index = word_id % NWORDS[length];
+    let base_word = &DICTIONARY[offset(length, index)..offset(length, index + 1)];
+    let transform_id = word_id >> NDBITS[length];
+    println!("{:?}", DOFFSET);
+    println!("index: {index} transform: {transform_id} word_Id {word_id} copy length: {length}");
+
+    transform(base_word, transform_id)
 }
 
 /// "Ferment" a byte string, as defined in <https://www.rfc-editor.org/rfc/rfc7932#section-8>
