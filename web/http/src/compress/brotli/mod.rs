@@ -871,7 +871,7 @@ fn read_copy_length_code(reader: &mut BitReader, code: usize) -> Result<usize, B
         11 => (18, 2),
         12 => (22, 3),
         13 => (30, 3),
-        14 => (28, 4),
+        14 => (38, 4),
         15 => (54, 4),
         16 => (70, 5),
         17 => (102, 5),
