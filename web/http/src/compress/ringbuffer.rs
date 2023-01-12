@@ -28,7 +28,7 @@ impl<T> RingBuffer<T> {
     ///
     /// Note that the index is 0-based, so `nth_last(0)` returns the element that was
     /// last pushed. However, you may not retrieve more than `size` previous elements.
-    /// 
+    ///
     /// # Panics
     /// This function panics if `index >=  buffer size`
     pub fn nth_last(&self, index: usize) -> &T {

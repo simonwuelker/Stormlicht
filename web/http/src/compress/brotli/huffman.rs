@@ -28,6 +28,13 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
             "Every symbol must be assigned exactly one length"
         );
 
+        // Special case: Tree that does not consume any bits
+        if lengths.len() == 1 && lengths[0] == 0 {
+            return Self {
+                nodes: vec![Some(symbols[0].clone())],
+            };
+        }
+
         let max_bits = *lengths.iter().max().unwrap_or(&0);
         let mut length_count = vec![0_usize; max_bits + 1];
 
@@ -74,27 +81,37 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
     }
 
     pub fn lookup_incrementally(&self, reader: &mut BitReader) -> Result<Option<&T>, ()> {
-        let mut val = reader.read_bits::<usize>(1).map_err(|_| ())?;
+        // Special case: if the tree only consists of a single symbol, we don't
+        // consume any input bits
+        if self.nodes.len() == 1 {
+            assert!(self.nodes[0].is_some());
+            return Ok(self.nodes[0].as_ref());
+        }
 
-        for length in 1..usize::BITS as usize {
-            let code = Code::new(val, length);
+        let mut val = 0;
+        let mut nbits = 1;
 
-            if let Some(symbol) = self.lookup_symbol(code) {
+        loop {
+            val <<= 1;
+            val |= reader.read_bits::<usize>(1).map_err(|_| ())?;
+
+            if let Some(symbol) = self.lookup_symbol(Code::new(val, nbits)) {
                 return Ok(Some(symbol));
             }
 
-            val <<= 1;
-            val |= reader.read_bits::<usize>(1).map_err(|_| ())?;
-        }
+            if self.nodes.len() <= val {
+                return Ok(None); // Symbol not found
+            }
 
-        Ok(None)
+            nbits += 1;
+        }
     }
 
     /// Lookup the code for a specific symbol
     pub fn lookup_symbol(&self, at: Code) -> &Option<T> {
         let insert_index = (1 << at.len()) - 1 + at.val() as usize;
 
-        if insert_index > self.nodes.len() {
+        if insert_index >= self.nodes.len() {
             &None
         } else {
             &self.nodes[insert_index]
