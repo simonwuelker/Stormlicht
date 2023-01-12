@@ -17,11 +17,21 @@ fn test_brotli_decode() -> Result<(), std::io::Error> {
                 let mut compressed_buffer = vec![];
                 fs::File::open(testfile.path())?.read_to_end(&mut compressed_buffer)?;
 
+                let uncompressed_file = testfile.path().with_file_name(testfile.path().file_stem().unwrap());
                 let mut uncompressed_buffer = vec![];
-                fs::File::open(testfile.path())?.read_to_end(&mut uncompressed_buffer)?;
-
+                fs::File::open(&uncompressed_file)?.read_to_end(&mut uncompressed_buffer)?;
+                
                 let decompressed =
-                    brotli::decode(&compressed_buffer).expect("Brotli decompression failed");
+                brotli::decode(&compressed_buffer).expect("Brotli decompression failed");
+
+                let mut i = 0;
+                for (a, b) in decompressed.iter().zip(&uncompressed_buffer) {
+                    if a != b {
+                        println!("NOT EQUAL {a} {b} at {i}");
+                        
+                    }
+                    i += 1;
+                }
 
                 assert!(
                     decompressed
