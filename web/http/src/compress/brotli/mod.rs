@@ -1069,7 +1069,7 @@ fn decode_blocklen(blen_code: usize) -> (usize, usize) {
         21 => (1265, 10),
         22 => (2289, 11),
         23 => (4337, 12),
-        24 => (8443, 13),
+        24 => (8433, 13),
         25 => (16625, 24),
         _ => unreachable!("invalid block length code {blen_code}"),
     }
