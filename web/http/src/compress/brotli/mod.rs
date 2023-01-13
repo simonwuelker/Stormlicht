@@ -605,11 +605,14 @@ fn read_prefix_code(
                         Some((16, previous_repetitions)) => {
                             // There was a 16 previously, update repeat count
                             let new_repeat = 4 * (previous_repetitions - 2) + 3 + extra_bits;
+                            previous_repeat_count = Some((16, new_repeat));
                             new_repeat - previous_repetitions
                         },
                         _ => {
                             // The previous length code was not a 16
-                            3 + extra_bits as usize
+                            let repeat_for = 3 + extra_bits as usize;
+                            previous_repeat_count = Some((16, repeat_for));
+                            repeat_for
                         },
                     };
 
@@ -634,7 +637,6 @@ fn read_prefix_code(
                         break 'read_length_codes;
                     }
 
-                    previous_repeat_count = Some((16, repeat_for));
                 },
                 17 => {
                     let extra_bits = reader.read_bits::<usize>(3).map_err(BrotliError::from)?;
