@@ -406,7 +406,7 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
                 )?;
 
                 // Dictionary references, 0 distances and a few transformations are not pushed
-                if distance_code != 0 && distance < max_distance {
+                if distance_code != 0 && distance < max_distance + 1 {
                     past_distances.push(distance);
                 }
                 distance
