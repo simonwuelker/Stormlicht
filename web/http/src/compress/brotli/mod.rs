@@ -1025,6 +1025,7 @@ fn decode_insert_and_copy_length_code(code: usize) -> (usize, usize) {
         320..=383 => (8, 8),
         384..=447 => (0, 16),
         448..=511 => (16, 0),
+        512..=575 => (8, 16),
         576..=639 => (16, 8),
         640..=703 => (16, 16),
         _ => unreachable!("invalid insert and copy length code: {code}"),
