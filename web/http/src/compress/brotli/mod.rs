@@ -242,7 +242,7 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
         let ntreesd = decode_blocknum(&mut reader)?;
         let cmap_d = if ntreesd >= 2 {
             // decode_context_map(&mut reader, ntreesd, 4 * nbl_types_d as usize)?;
-            decode_context_map(&mut reader, ntreesl, 4 * nbl_types_d)?
+            decode_context_map(&mut reader, ntreesd, 4 * nbl_types_d)?
         } else {
             // fill cmapd with zeros
             vec![0; 4 * nbl_types_d]
