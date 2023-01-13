@@ -26,14 +26,6 @@ fn test_brotli_decode() -> Result<(), std::io::Error> {
                 let decompressed =
                     brotli::decode(&compressed_buffer).expect("Brotli decompression failed");
 
-                let mut i = 0;
-                for (a, b) in decompressed.iter().zip(&uncompressed_buffer) {
-                    if a != b {
-                        println!("NOT EQUAL {a} {b} at {i}");
-                    }
-                    i += 1;
-                }
-
                 assert!(
                     decompressed
                         .iter()

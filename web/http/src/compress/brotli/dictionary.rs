@@ -17,9 +17,6 @@ const NWORDS: [usize; 25] = get_nwords();
 /// Offset into the dictionary for the group of words with a given length
 const DOFFSET: [usize; 25] = get_doffset();
 
-/// Total size of the dictionary
-const DICTSIZE: usize = DOFFSET[24] + 24 * NWORDS[24];
-
 const fn get_nwords() -> [usize; 25] {
     let mut nwords = [0; 25];
 
@@ -59,8 +56,6 @@ pub fn lookup(word_id: usize, length: usize) -> Result<Vec<u8>, BrotliError> {
     let index = word_id % NWORDS[length];
     let base_word = &DICTIONARY[offset(length, index)..offset(length, index + 1)];
     let transform_id = word_id >> NDBITS[length];
-    println!("{:?}", DOFFSET);
-    println!("index: {index} transform: {transform_id} word_Id {word_id} copy length: {length}");
 
     transform(base_word, transform_id)
 }
