@@ -18,6 +18,8 @@ pub struct HuffmanTree<T: PartialOrd + PartialEq> {
     /// associated with the Code.
     /// A value of `None` means that the node is not a leaf node.
     nodes: Vec<Option<T>>,
+    num_nodes: usize,
+    last_symbol_at: usize,
 }
 
 impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
@@ -32,6 +34,8 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
         if lengths.len() == 1 && lengths[0] == 0 {
             return Self {
                 nodes: vec![Some(symbols[0].clone())],
+                num_nodes: 1,
+                last_symbol_at: 0,
             };
         }
 
@@ -69,6 +73,8 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
     pub fn new_with_depth(depth: usize) -> Self {
         Self {
             nodes: vec![None; (1 << (depth + 1)) - 1],
+            num_nodes: 0,
+            last_symbol_at: 0,
         }
     }
 
@@ -77,15 +83,17 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
 
         debug_assert!(self.nodes[insert_index].is_none());
 
-        self.nodes[insert_index] = Some(symbol);
+        self.nodes[insert_index] = Some(symbol.clone());
+        self.last_symbol_at = insert_index;
+        self.num_nodes += 1;
     }
 
     pub fn lookup_incrementally(&self, reader: &mut BitReader) -> Result<Option<&T>, ()> {
         // Special case: if the tree only consists of a single symbol, we don't
         // consume any input bits
-        if self.nodes.len() == 1 {
-            assert!(self.nodes[0].is_some());
-            return Ok(self.nodes[0].as_ref());
+        if self.num_nodes == 1 {
+            assert!(self.nodes[self.last_symbol_at].is_some());
+            return Ok(self.nodes[self.last_symbol_at].as_ref());
         }
 
         let mut val = 0;
