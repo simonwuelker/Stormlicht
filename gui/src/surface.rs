@@ -2,10 +2,7 @@
 
 use sdl2::render::{Canvas, RenderTarget};
 
-use crate::{
-    color::Color,
-    primitives::{Rect},
-};
+use crate::{color::Color, primitives::Rect};
 
 pub trait Surface {
     fn viewport(&self) -> Rect;

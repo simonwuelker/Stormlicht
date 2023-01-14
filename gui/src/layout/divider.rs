@@ -1,7 +1,7 @@
-use super::{Widget, Orientation};
+use super::{Orientation, Widget};
 use crate::{
-    primitives::{Rect, Point},
     events::{Event, MouseButton},
+    primitives::{Point, Rect},
 };
 
 pub struct Divider {
@@ -37,14 +37,18 @@ impl Divider {
 
     pub fn widget_containing(&self, point: Point) -> Option<usize> {
         if let Some(child) = &self.items.0 {
-            let bb = child.bounding_box().expect("Widgets that do not have a layout cannot swallow input");
+            let bb = child
+                .bounding_box()
+                .expect("Widgets that do not have a layout cannot swallow input");
             if bb.contains(point) {
                 return Some(0);
             }
         }
 
         if let Some(child) = &self.items.1 {
-            let bb = child.bounding_box().expect("Widgets that do not have a layout cannot swallow input");
+            let bb = child
+                .bounding_box()
+                .expect("Widgets that do not have a layout cannot swallow input");
             if bb.contains(point) {
                 return Some(1);
             }
@@ -78,14 +82,22 @@ impl Widget for Divider {
 
     fn compute_layout(&mut self, into: Rect) {
         let child_sizes = match self.orientation {
-            Orientation::Horizontal =>  {
+            Orientation::Horizontal => {
                 let size = (into.width() as f32 * self.ratio) as u32;
-                (into.with_width(size), into.with_x(into.x() + size as i32).with_width(into.width() - size))
+                (
+                    into.with_width(size),
+                    into.with_x(into.x() + size as i32)
+                        .with_width(into.width() - size),
+                )
             },
             Orientation::Vertical => {
                 let size = (into.height() as f32 * self.ratio) as u32;
-                (into.with_height(size), into.with_y(into.y() + size as i32).with_height(into.height() - size))
-            }
+                (
+                    into.with_height(size),
+                    into.with_y(into.y() + size as i32)
+                        .with_height(into.height() - size),
+                )
+            },
         };
 
         if let Some(child) = &mut self.items.0 {
@@ -113,12 +125,12 @@ impl Widget for Divider {
     }
 
     fn swallow_event(&mut self, event: Event) {
-        // TODO Forward locationless events to the focused widget
-        // Events with location are always only sent to the widget that contains that location
-
-        if let Event::MouseDown { button: MouseButton::Left, at } = event {
-            // Focus the widget that was clicked
-            _ = at;
+        if let Event::MouseDown {
+            button: MouseButton::Left,
+            at,
+        } = event
+        {
+            self.focused_child = self.widget_containing(at)
         }
 
         match (event.location(), self.focused_child) {
@@ -132,7 +144,12 @@ impl Widget for Divider {
             },
             (_, Some(_focused_child)) => {
                 // Forward to the focused child
-            }
+                match self.focused_child {
+                    Some(0) => self.items.0.as_mut().unwrap().swallow_event(event),
+                    Some(1) => self.items.1.as_mut().unwrap().swallow_event(event),
+                    _ => {},
+                }
+            },
             _ => {
                 // Do nothing
             },

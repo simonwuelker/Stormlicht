@@ -27,5 +27,3 @@ impl From<Color> for sdl2::pixels::Color {
         sdl2::pixels::Color::RGBA(value.red, value.green, value.blue, value.alpha)
     }
 }
-
-

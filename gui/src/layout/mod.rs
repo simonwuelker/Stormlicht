@@ -3,8 +3,8 @@ mod widget;
 
 pub mod widgets;
 
-pub use widget::Widget;
 pub use divider::Divider;
+pub use widget::Widget;
 
 #[derive(Debug)]
 pub enum Orientation {

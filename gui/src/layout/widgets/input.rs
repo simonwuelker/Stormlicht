@@ -1,16 +1,11 @@
-use crate::{
-    color::Color,
-    events::{Event, MouseButton},
-    layout::Widget,
-    primitives::Rect,
-};
+use crate::{color::Color, events::Event, layout::Widget, primitives::Rect};
 
-pub struct ColoredBox {
+pub struct Input {
     color: Color,
     bounding_box: Option<Rect>,
 }
 
-impl ColoredBox {
+impl Input {
     pub fn new(color: Color) -> Self {
         Self {
             color: color,
@@ -19,7 +14,7 @@ impl ColoredBox {
     }
 }
 
-impl Widget for ColoredBox {
+impl Widget for Input {
     fn bounding_box(&self) -> Option<Rect> {
         self.bounding_box
     }
@@ -41,12 +36,8 @@ impl Widget for ColoredBox {
     }
 
     fn swallow_event(&mut self, event: Event) {
-        if let Event::MouseDown {
-            button: MouseButton::Left,
-            ..
-        } = event
-        {
-            println!("Clicked {:?}", self.color);
+        if let Event::KeyDown { keycode, .. } = event {
+            println!("{:?}", keycode);
         }
     }
 }
