@@ -7,15 +7,7 @@ edition = "2021"
 
 [dependencies]
 log = { path = "../log"}
-font_rasterizer = { path = "../font_rasterizer" }
-gtk = { version = "0.5", package = "gtk4", optional = true}
-generic = { path = "../backends/generic" }
-
-[target]
-[target.'cfg(windows)'.dependencies]
-win32 = { path = "../backends/win32" }
-
-[features]
-default = []
-backend-wayland = []
-backend-gtk = ["dep:gtk"]
+font = { path = "../font" }
+http = { path = "../web/http" }
+url = { path = "../web/url" }
+sdl2 = { version = "0.35" } # , default-features = false, features = ["gfx"]}
