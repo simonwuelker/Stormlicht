@@ -1,7 +1,7 @@
-use http::compress::brotli;
+use compression::brotli;
 use std::{fs, io::Read};
 
-const TESTS_DIR: &'static str = "../../downloads/brotli/testdata/tests/testdata";
+const TESTS_DIR: &'static str = "../downloads/brotli/testdata/tests/testdata";
 
 #[test]
 fn test_brotli_decode() -> Result<(), std::io::Error> {

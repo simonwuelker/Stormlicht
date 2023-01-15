@@ -3,7 +3,7 @@
 pub mod dictionary;
 pub mod huffman;
 
-use crate::compress::{
+use crate::{
     bit_reader::{BitReader, BitReaderError},
     brotli::huffman::{Bits, HuffmanTree},
     ringbuffer::RingBuffer,

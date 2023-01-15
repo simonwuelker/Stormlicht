@@ -9,3 +9,4 @@ edition = "2021"
 parser_combinators = { path = "../../parser_combinators" }
 url = { path = "../url" }
 dns = { path = "../dns" }
+compression = { path = "../../compression" }

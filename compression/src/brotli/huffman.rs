@@ -5,7 +5,7 @@
 
 use std::fmt;
 
-use crate::compress::bit_reader::BitReader;
+use crate::bit_reader::BitReader;
 
 /// Tuple of (data, nbits) for representing an arbitrary number of bits
 #[derive(Clone, Copy)]

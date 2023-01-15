@@ -1,12 +1,10 @@
 [workspace]
 members = [
-#    "web/html", 
+    # "web/html", 
     "web/http", 
     "web/url",
     "web/dns",
-#    "backends/wayland",
-#   "backends/win32",
-#   "backends/generic",
+    "compression",
     "util/random",
     "gui", 
     "font", 
