@@ -35,6 +35,10 @@ impl<'a> OffsetTable<'a> {
         Self::get_table_inner(&self.0[12..], target_tag, self.search_range())
     }
 
+    pub fn tables(&self) -> TableIterator<'a> {
+        TableIterator { tables: &self.0[12..] , n_tables: self.num_tables(), count: 0 }
+    }
+
     fn get_table_inner(data: &[u8], target_tag: u32, search_range: usize) -> Option<TableEntry> {
         assert_eq!(data.len() % 16, 0);
         assert_eq!(search_range % 16, 0);
@@ -44,10 +48,11 @@ impl<'a> OffsetTable<'a> {
         } else {
             let index = (search_range / 2) & !0b1111;
             let tag = read_u32_at(&data, index);
+            
             if tag == target_tag {
                 Some(TableEntry::new(&data, index))
             } else if tag < target_tag {
-                Self::get_table_inner(&data[index + 16..], target_tag, index)
+                Self::get_table_inner(&data[index..], target_tag, index)
             } else {
                 Self::get_table_inner(&data[..index], target_tag, index)
             }
@@ -102,5 +107,25 @@ impl<'a> fmt::Debug for TableEntry<'a> {
             .field("offset", &self.offset())
             .field("length", &self.length())
             .finish()
+    }
+}
+
+pub struct TableIterator<'a> {
+    tables: &'a [u8],
+    n_tables: usize,
+    count: usize,
+}
+
+impl<'a> Iterator for TableIterator<'a> {
+    type Item = TableEntry<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.count < self.n_tables {
+            let table = TableEntry::new(&self.tables, 16 * self.count);
+            self.count += 1;
+            Some(table)
+        } else {
+            None
+        }
     }
 }

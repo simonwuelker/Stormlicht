@@ -3,12 +3,14 @@
 //! https://formats.kaitai.io/ttf/index.html
 //! https://handmade.network/forums/articles/t/7330-implementing_a_font_reader_and_rasterizer_from_scratch%252C_part_1__ttf_font_reader.
 
-use crate::tables::{cmap, glyf, head, loca, offset};
+use crate::tables::{cmap, glyf, head, loca, offset::{OffsetTable}, hhea, hmtx};
 
 const CMAP_TAG: u32 = u32::from_be_bytes(*b"cmap");
 const HEAD_TAG: u32 = u32::from_be_bytes(*b"head");
 const LOCA_TAG: u32 = u32::from_be_bytes(*b"loca");
 const GLYF_TAG: u32 = u32::from_be_bytes(*b"glyf");
+const HHEA_TAG: u32 = u32::from_be_bytes(*b"hhea");
+const HMTX_TAG: u32 = u32::from_be_bytes(*b"hmtx");
 
 #[derive(Debug)]
 pub enum TTFParseError {
@@ -18,17 +20,19 @@ pub enum TTFParseError {
 }
 
 pub struct Font<'a> {
-    data: &'a [u8],
-    offset_table: offset::OffsetTable<'a>,
+    offset_table: OffsetTable<'a>,
     head_table: head::HeadTable<'a>,
     format4: cmap::Format4<'a>,
     loca_table: loca::LocaTable<'a>,
     glyph_table: glyf::GlyphOutlineTable<'a>,
+    hmtx_table: hmtx::HMTXTable<'a>,
 }
+
+const DEFAULT_FONT: &'static [u8; 168644] = include_bytes!("../../downloads/fonts/roboto/Roboto-Medium.ttf");
 
 impl<'a> Font<'a> {
     pub fn new(data: &'a [u8]) -> Result<Self, TTFParseError> {
-        let offset_table = offset::OffsetTable::new(&data);
+        let offset_table = OffsetTable::new(&data);
         if offset_table.scaler_type() != 0x00010000 {
             return Err(TTFParseError::UnsupportedFormat);
         }
@@ -59,13 +63,25 @@ impl<'a> Font<'a> {
         let glyph_table =
             glyf::GlyphOutlineTable::new(&data, glyf_entry.offset(), glyf_entry.length());
 
+        let hhea_entry = offset_table
+            .get_table(HHEA_TAG)
+            .ok_or(TTFParseError::MissingTable)?;
+        let hhea_table =
+            hhea::HHEATable::new(&data, hhea_entry.offset());
+
+        let hmtx_entry = offset_table
+            .get_table(HMTX_TAG)
+            .ok_or(TTFParseError::MissingTable)?;
+        let hmtx_table =
+            hmtx::HMTXTable::new(&data, hmtx_entry.offset(), hhea_table.num_of_long_hor_metrics());
+
         Ok(Self {
-            data: data,
             offset_table: offset_table,
             head_table: head_table,
             format4: format4,
             loca_table: loca_table,
             glyph_table: glyph_table,
+            hmtx_table: hmtx_table,
         })
     }
 
@@ -78,6 +94,27 @@ impl<'a> Font<'a> {
             .loca_table
             .get_glyph_offset(glyph_index, self.head_table.index_to_loc_format())?;
         Ok(self.glyph_table.get_glyph(glyph_offset))
+    }
+
+    /// Compute the rendered width of a given character sequence
+    pub fn compute_width(&self, text: &str) -> usize {
+        let mut total_length = 0;
+
+        for c in text.chars() {
+            let glyph_index = self.format4.get_glyph_index(c as u16).unwrap_or(0);
+            total_length += self.hmtx_table.get_metric_for(glyph_index).advance_width() as usize;
+        }
+        total_length
+    }
+
+    pub fn offset_table(&self) -> &OffsetTable<'a> {
+        &self.offset_table
+    }
+}
+
+impl Default for Font<'static> {
+    fn default() -> Self {
+        Self::new(DEFAULT_FONT).unwrap()
     }
 }
 
