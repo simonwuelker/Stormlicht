@@ -15,6 +15,7 @@ use events::{
 
 use font::ttf::Font;
 use layout::{
+    Sizing,
     widgets::{ColoredBox, Input},
     Divider, Orientation, Widget,
 };
@@ -40,9 +41,12 @@ pub fn main() {
 
     canvas.fill(color::WHITE);
 
-    let mut root = Divider::new(Orientation::Vertical, 0.5)
-        .set_first(Some(Input::new(color::RED).as_widget()))
-        .set_second(Some(ColoredBox::new(color::BLUE).as_widget()));
+    let mut textbox = Input::new(color::RED).as_widget();
+    textbox.set_size(Sizing::Exactly(50));
+
+    let mut root = Divider::new(Orientation::Vertical)
+        .add_child(textbox)
+        .add_child(ColoredBox::new(color::BLUE).as_widget());
 
         root.render(&mut canvas);
     canvas.update();

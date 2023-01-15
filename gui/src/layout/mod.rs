@@ -11,3 +11,9 @@ pub enum Orientation {
     Horizontal,
     Vertical,
 }
+
+#[derive(Clone, Copy, Debug)]
+pub enum Sizing {
+    Exactly(u32),
+    Grow(f32),
+}

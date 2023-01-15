@@ -1,56 +1,42 @@
 use super::{Orientation, Widget};
 use crate::{
+    layout::Sizing,
     events::{Event, MouseButton},
     primitives::{Point, Rect},
 };
 
 pub struct Divider {
     orientation: Orientation,
-    ratio: f32,
-    items: (Option<Box<dyn Widget>>, Option<Box<dyn Widget>>),
+    children: Vec<Box<dyn Widget>>,
     focused_child: Option<usize>,
     cached_layout: Option<Rect>,
+    sizing: Sizing,
 }
 
 impl Divider {
-    pub fn new(orientation: Orientation, ratio: f32) -> Self {
-        assert!(0. < ratio && ratio < 1.);
-
+    pub fn new(orientation: Orientation) -> Self {
         Self {
             orientation,
-            ratio,
-            items: (None, None),
+            children: vec![],
             focused_child: None,
             cached_layout: None,
+            sizing: Sizing::Grow(1.)
         }
     }
 
-    pub fn set_first(mut self, item: Option<Box<dyn Widget>>) -> Self {
-        self.items.0 = item;
-        self
-    }
-
-    pub fn set_second(mut self, item: Option<Box<dyn Widget>>) -> Self {
-        self.items.1 = item;
+    pub fn add_child(mut self, child: Box<dyn Widget>) -> Self {
+        self.children.push(child);
         self
     }
 
     pub fn widget_containing(&self, point: Point) -> Option<usize> {
-        if let Some(child) = &self.items.0 {
+        for (index, child) in self.children.iter().enumerate() {
             let bb = child
                 .bounding_box()
                 .expect("Widgets that do not have a layout cannot swallow input");
-            if bb.contains(point) {
-                return Some(0);
-            }
-        }
 
-        if let Some(child) = &self.items.1 {
-            let bb = child
-                .bounding_box()
-                .expect("Widgets that do not have a layout cannot swallow input");
             if bb.contains(point) {
-                return Some(1);
+                return Some(index);
             }
         }
 
@@ -63,49 +49,71 @@ impl Widget for Divider {
         self.cached_layout
     }
 
+    fn set_size(&mut self, sizing: Sizing) {
+        self.sizing = sizing;
+    }
+
+    fn preferred_sizing(&self) -> Sizing {
+        self.sizing
+    }
+
     fn render_to(&mut self, surface: &mut Box<dyn crate::surface::Surface>, into: Rect) {
         if self.cached_layout.is_none() {
             self.compute_layout(into);
         }
 
-        assert!(self.items.0.is_none() || self.items.0.as_ref().unwrap().bounding_box().is_some());
-        assert!(self.items.1.is_none() || self.items.1.as_ref().unwrap().bounding_box().is_some());
+        assert!(self.children.iter().all(|child| child.bounding_box().is_some()));
 
-        if let Some(child) = &mut self.items.0 {
-            child.render_to(surface, child.bounding_box().unwrap());
-        }
-
-        if let Some(child) = &mut self.items.1 {
+        for child in &mut self.children {
             child.render_to(surface, child.bounding_box().unwrap());
         }
     }
 
     fn compute_layout(&mut self, into: Rect) {
-        let child_sizes = match self.orientation {
-            Orientation::Horizontal => {
-                let size = (into.width() as f32 * self.ratio) as u32;
-                (
-                    into.with_width(size),
-                    into.with_x(into.x() + size as i32)
-                        .with_width(into.width() - size),
-                )
-            },
-            Orientation::Vertical => {
-                let size = (into.height() as f32 * self.ratio) as u32;
-                (
-                    into.with_height(size),
-                    into.with_y(into.y() + size as i32)
-                        .with_height(into.height() - size),
-                )
-            },
-        };
+        let sum_exactly_sized_elements: u32 = self.children.iter().filter_map(|child| match child.preferred_sizing() {
+            Sizing::Exactly(n) => Some(n),
+            _ => None,
+        }).sum();
 
-        if let Some(child) = &mut self.items.0 {
-            child.compute_layout(child_sizes.0);
+        let sum_grow_elements: f32 = self.children.iter().filter_map(|child| match child.preferred_sizing() {
+            Sizing::Grow(factor) => Some(factor),
+            _ => None,
+        }).sum();
+
+
+        let mut element_sizes = Vec::with_capacity(self.children.len());
+
+        let available_space_to_grow = match self.orientation {
+            Orientation::Horizontal => into.width() - sum_exactly_sized_elements,
+            Orientation::Vertical => into.height() - sum_exactly_sized_elements,
+        } as f32;
+
+        for child in &self.children {
+            let assigned_size = match child.preferred_sizing() {
+                Sizing::Exactly(n) => n,
+                Sizing::Grow(factor) => ((factor / sum_grow_elements) * available_space_to_grow) as u32
+            };
+
+            element_sizes.push(assigned_size);
         }
 
-        if let Some(child) = &mut self.items.1 {
-            child.compute_layout(child_sizes.1);
+        match self.orientation {
+            Orientation::Horizontal => {
+                let mut total_width = into.x() as u32;
+                for (child, size) in self.children.iter_mut().zip(element_sizes) {
+                    let rect = into.with_width(size).with_x(total_width as i32);
+                    total_width += size;
+                    child.compute_layout(rect);
+                }
+            },
+            Orientation::Vertical => {
+                let mut total_height= into.y() as u32;
+                for (child, size) in self.children.iter_mut().zip(element_sizes) {
+                    let rect = into.with_height(size).with_y(total_height as i32);
+                    total_height += size;
+                    child.compute_layout(rect);
+                }
+            }
         }
 
         self.cached_layout = Some(into);
@@ -114,12 +122,7 @@ impl Widget for Divider {
     fn invalidate_layout(&mut self) {
         self.cached_layout = None;
 
-        // if stabilized, https://doc.rust-lang.org/std/option/enum.Option.html#method.inspect would be nice here
-        if let Some(child) = &mut self.items.0 {
-            child.invalidate_layout();
-        }
-
-        if let Some(child) = &mut self.items.1 {
+        for child in &mut self.children {
             child.invalidate_layout();
         }
     }
@@ -136,19 +139,16 @@ impl Widget for Divider {
         match (event.location(), self.focused_child) {
             (Some(location), _) => {
                 // Forward the event to the child that contains the given location
-                match self.widget_containing(location) {
-                    Some(0) => self.items.0.as_mut().unwrap().swallow_event(event),
-                    Some(1) => self.items.1.as_mut().unwrap().swallow_event(event),
-                    _ => {},
+                let containing_child = self.widget_containing(location);
+
+                if let Some(child_index) = containing_child {
+                    self.children[child_index].swallow_event(event);
                 }
+
             },
-            (_, Some(_focused_child)) => {
+            (_, Some(focused_child)) => {
                 // Forward to the focused child
-                match self.focused_child {
-                    Some(0) => self.items.0.as_mut().unwrap().swallow_event(event),
-                    Some(1) => self.items.1.as_mut().unwrap().swallow_event(event),
-                    _ => {},
-                }
+                self.children[focused_child].swallow_event(event);
             },
             _ => {
                 // Do nothing

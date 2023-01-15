@@ -1,4 +1,4 @@
-use crate::{events::Event, primitives::Rect, surface::Surface};
+use crate::{events::Event, primitives::Rect, surface::Surface, layout::Sizing};
 
 pub trait Widget {
     fn bounding_box(&self) -> Option<Rect>;
@@ -7,6 +7,11 @@ pub trait Widget {
         let viewport = surface.viewport();
         self.render_to(surface, viewport);
     }
+
+    /// Set the preferred size of the element to the given size.
+    fn set_size(&mut self, _sizing: Sizing) {}
+
+    fn preferred_sizing(&self) -> Sizing;
 
     fn render_to(&mut self, surface: &mut Box<dyn Surface>, into: Rect);
 

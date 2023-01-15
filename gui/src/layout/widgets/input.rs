@@ -1,8 +1,9 @@
-use crate::{color::Color, events::Event, layout::Widget, primitives::Rect};
+use crate::{color::Color, events::Event, layout::{Widget, Sizing}, primitives::Rect};
 
 pub struct Input {
     color: Color,
     bounding_box: Option<Rect>,
+    sizing: Sizing,
 }
 
 impl Input {
@@ -10,6 +11,7 @@ impl Input {
         Self {
             color: color,
             bounding_box: None,
+            sizing: Sizing::Grow(1.),
         }
     }
 }
@@ -17,6 +19,14 @@ impl Input {
 impl Widget for Input {
     fn bounding_box(&self) -> Option<Rect> {
         self.bounding_box
+    }
+
+    fn set_size(&mut self, sizing: Sizing) {
+        self.sizing = sizing;
+    }
+
+    fn preferred_sizing(&self) -> Sizing {
+        self.sizing
     }
 
     fn render_to(

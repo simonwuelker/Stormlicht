@@ -1,13 +1,14 @@
 use crate::{
     color::Color,
     events::{Event, MouseButton},
-    layout::Widget,
+    layout::{Widget, Sizing},
     primitives::Rect,
 };
 
 pub struct ColoredBox {
     color: Color,
     bounding_box: Option<Rect>,
+    sizing: Sizing,
 }
 
 impl ColoredBox {
@@ -15,6 +16,7 @@ impl ColoredBox {
         Self {
             color: color,
             bounding_box: None,
+            sizing: Sizing::Grow(1.),
         }
     }
 }
@@ -22,6 +24,14 @@ impl ColoredBox {
 impl Widget for ColoredBox {
     fn bounding_box(&self) -> Option<Rect> {
         self.bounding_box
+    }
+
+    fn set_size(&mut self, sizing: Sizing) {
+        self.sizing = sizing;
+    }
+
+    fn preferred_sizing(&self) -> Sizing {
+        self.sizing
     }
 
     fn render_to(
