@@ -29,6 +29,7 @@ pub enum Event {
         keycode: KeyCode,
         modifiers: Modifier,
     },
+    Resize,
     Quit,
 }
 
@@ -73,6 +74,7 @@ impl TryFrom<SDL2Event> for Event {
                 keycode: keycode.unwrap().try_into()?,
                 modifiers: keymod.into(),
             }),
+            SDL2Event::Window{ win_event: sdl2::event::WindowEvent::Resized(_, _), .. } => Ok(Self::Resize),
             _ => Err(()),
         }
     }

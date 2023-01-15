@@ -77,6 +77,7 @@ impl From<SDL2Mod> for Modifier {
 pub enum KeyCode {
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
     Delete,
+    Escape,
 }
 
 use sdl2::keyboard::Keycode as SDL2KeyCode;
@@ -113,6 +114,7 @@ impl TryFrom<SDL2KeyCode> for KeyCode {
             SDL2KeyCode::Y => Ok(Self::Y),
             SDL2KeyCode::Z => Ok(Self::Z),
             SDL2KeyCode::Delete => Ok(Self::Delete),
+            SDL2KeyCode::Escape => Ok(Self::Escape),
             _ => Err(()),
         }
     }

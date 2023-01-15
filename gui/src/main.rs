@@ -8,20 +8,31 @@ extern crate sdl2;
 
 use std::time::Duration;
 
-use events::Event;
+use events::{
+    Event,
+    keyboard::KeyCode,
+};
+
+use font::ttf::Font;
 use layout::{
     widgets::{ColoredBox, Input},
     Divider, Orientation, Widget,
 };
 use surface::Surface;
 
+
 pub fn main() {
+    let font = Font::default();
+    println!("width: {}", font.compute_width("abc"));
+    
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem
         .window("Browser", 800, 600)
         .position_centered()
+        // .borderless()
+        .resizable()
         .build()
         .unwrap();
 
@@ -29,11 +40,11 @@ pub fn main() {
 
     canvas.fill(color::WHITE);
 
-    let mut layout = Divider::new(Orientation::Vertical, 0.5)
+    let mut root = Divider::new(Orientation::Vertical, 0.5)
         .set_first(Some(Input::new(color::RED).as_widget()))
         .set_second(Some(ColoredBox::new(color::BLUE).as_widget()));
 
-    layout.render(&mut canvas);
+        root.render(&mut canvas);
     canvas.update();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
@@ -46,9 +57,14 @@ pub fn main() {
         {
             println!("{event:?}");
             match event {
-                Event::Quit { .. } => break 'running,
+                Event::Quit { .. } | Event::KeyDown { keycode: KeyCode::Escape, .. }=> break 'running,
+                Event::Resize => {
+                    root.invalidate_layout();
+                    root.render(&mut canvas);
+                    canvas.update();
+                }
                 _ => {
-                    layout.swallow_event(event);
+                    root.swallow_event(event);
                 },
             }
         }
