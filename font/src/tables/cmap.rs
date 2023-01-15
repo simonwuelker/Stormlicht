@@ -163,7 +163,7 @@ impl<'a> Format4<'a> {
                 // We don't do the unsafe spec pointer magic here!
                 Some(self.get_id_range_offset(range_index) + self.get_id_delta(index))
             } else {
-                Some(codepoint + self.get_id_delta(index))
+                Some(codepoint.wrapping_add(self.get_id_delta(index)))
             }
         } else {
             None
