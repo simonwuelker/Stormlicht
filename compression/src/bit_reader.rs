@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 /// Wraps a [Read] instance to allow reading individual bits
 #[derive(Debug)]
 pub struct BitReader<'a> {
@@ -7,10 +9,13 @@ pub struct BitReader<'a> {
 }
 
 // this enum might grow once we add streaming (ie the reader wraps a Read instance)
-#[derive(PartialEq, Debug)]
+#[derive(Error, PartialEq, Debug)]
 pub enum BitReaderError {
+    #[error("Unexpected end of file")]
     UnexpectedEOF,
+    #[error("Trying to read more bits at once than fit in the target type")]
     TooLargeRead,
+    #[error("Trying to read whole bytes while not aligned to a byte boundary")]
     UnalignedRead,
 }
 

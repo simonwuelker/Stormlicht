@@ -127,6 +127,13 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
     }
 }
 
+impl HuffmanTree<usize> {
+    pub fn new_infer_codes_without_symbols(lengths: &[usize]) -> Self {
+        let symbols: Vec<usize> = (0..lengths.len()).collect();
+        Self::new_infer_codes(&symbols, lengths)
+    }
+}
+
 impl<T: Copy> Bits<T> {
     pub fn new(bits: T, num_bits: usize) -> Self {
         Self(bits, num_bits)

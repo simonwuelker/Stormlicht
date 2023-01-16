@@ -1,14 +1,15 @@
 //! Implements the [Brotli](https://datatracker.ietf.org/doc/html/rfc7932) compression algorithm
 
 pub mod dictionary;
-pub mod huffman;
 
 use crate::{
     bit_reader::{BitReader, BitReaderError},
-    brotli::huffman::{Bits, HuffmanTree},
+    huffman::{Bits, HuffmanTree},
     ringbuffer::RingBuffer,
 };
+
 use std::cmp::min;
+use thiserror::Error;
 
 macro_rules! update_block_type_and_count {
     ($btype: ident, $btype_tree: ident, $blen: ident, $blen_tree: ident, $btype_prev: ident, $nbl: ident, $reader: expr) => {
@@ -105,19 +106,26 @@ const LUT2: [u8; 256] = [
     6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7
 ];
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum BrotliError {
+    #[error("Unexpected end of file")]
     UnexpectedEOF,
+    #[error("Invalid brotli file")]
     InvalidFormat,
+    #[error("Invalid Symbol")]
     InvalidSymbol,
-    MismatchedChecksum,
-    /// A run-length encoded value decoded to more symbols than expected
+    #[error("Mismatched checksum, expected {}, found {}", .0, .1)]
+    MismatchedChecksum(usize, usize),
+    #[error("A run-length encoded value decoded to more symbols than expected")]
     RunlengthEncodingExceedsExpectedSize,
-    /// A complex prefix code contained less than two nonzero code lengths
+    #[error("A complex prefix code contained less than two nonzero code lengths")]
     NotEnoughCodeLengths,
+    #[error("Symbol not found")]
     SymbolNotFound,
+    #[error("Invalid dictionary reference length")]
     InvalidDictionaryReferenceLength,
-    InvalidTransformID,
+    #[error("Invalid transform id: {}", .0)]
+    InvalidTransformID(usize),
 }
 
 impl From<BitReaderError> for BrotliError {
@@ -521,7 +529,7 @@ fn read_prefix_code(
 
         if code_lengths.iter().filter(|x| **x != 0).count() >= 2 {
             if checksum != 32 {
-                return Err(BrotliError::MismatchedChecksum);
+                return Err(BrotliError::MismatchedChecksum(32, checksum));
             }
         }
 
@@ -628,7 +636,7 @@ fn read_prefix_code(
         }
 
         if checksum != 32768 {
-            return Err(BrotliError::MismatchedChecksum);
+            return Err(BrotliError::MismatchedChecksum(32768, checksum));
         }
 
         // Every complex prefix code must contain at least two nonzero code lengths
@@ -873,7 +881,7 @@ fn decode_blockdata(
         let block_count_prefix_code = read_prefix_code(reader, 26)?;
         let first_block_count_code = block_count_prefix_code
             .lookup_incrementally(reader)
-            .map_err(|_| BrotliError::InvalidSymbol)?
+            .map_err(|_| BrotliError::UnexpectedEOF)?
             .ok_or(BrotliError::SymbolNotFound)?
             .val() as usize;
         let first_literal_block_count = read_block_count_code(reader, first_block_count_code)?;
