@@ -45,7 +45,7 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>> {
 
     // Parse FLG
     let flags = bytes[2];
-    let flag_dict = (flags & 1 << 5) != 0;
+    let flag_dict = ((flags & 1) << 5) != 0;
     let _flag_level = flags >> 6; // compression level, not needed for decompression
 
     let header_checksum = u16::from_be_bytes(bytes[..2].try_into().unwrap());
