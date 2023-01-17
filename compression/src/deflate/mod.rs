@@ -29,8 +29,8 @@ enum CompressionScheme {
     Reserved,
 }
 
-pub fn decode(source: &[u8]) -> Result<Vec<u8>> {
-    println!("source {:0>8b}", source[0]);
+/// Returns a tuple of `(decompressed_bytes, num_consumed_compressed_bytes)` on succeess
+pub fn decode(source: &[u8]) -> Result<(Vec<u8>, usize)> {
     let mut reader = BitReader::new(source);
     let mut output_stream = vec![];
 
@@ -44,14 +44,13 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>> {
     loop {
         let is_final = reader.read_single_bit()?;
         let btype = reader.read_bits::<u8>(2)?.try_into()?;
-        println!("is final {is_final:?}, block type {btype:?}");
 
         match btype {
             CompressionScheme::Uncompressed => {
                 reader.align_to_byte_boundary();
                 let len = reader.read_bits::<u16>(16)?;
                 let nlen = reader.read_bits::<u16>(16)?;
-                println!("{len} {nlen}");
+
                 if len ^ 0xFFFF != nlen {
                     return Err(DeflateError::InvalidUncompressedBlockLength.into());
                 }
@@ -94,7 +93,7 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>> {
             break;
         }
     }
-    Ok(output_stream)
+    Ok((output_stream, reader.num_consumed_bytes()))
 }
 
 fn decompress_block(
@@ -132,7 +131,7 @@ fn decompress_block(
 fn read_literal_and_distance_tree(
     hlit: usize,
     hdist: usize,
-    hclen: usize,
+    _hclen: usize,
     reader: &mut BitReader,
 ) -> Result<(HuffmanTree<usize>, HuffmanTree<usize>)> {
     let code_length_alphabet: [usize; 19] = [
@@ -209,43 +208,43 @@ fn read_literal_and_distance_tree(
     Ok((literal_tree, dist_tree))
 }
 
-fn read_distance(code: usize, reader: &mut BitReader) -> Result<usize> {
-    let (base, num_extra_bits) = match code {
-        0 => (1, 0),
-        1 => (2, 0),
-        2 => (3, 0),
-        3 => (4, 0),
-        4 => (5, 1),
-        5 => (7, 1),
-        6 => (9, 2),
-        7 => (13, 2),
-        8 => (17, 3),
-        9 => (25, 3),
-        10 => (33, 4),
-        11 => (49, 4),
-        12 => (65, 5),
-        13 => (97, 5),
-        14 => (129, 6),
-        15 => (193, 6),
-        16 => (257, 7),
-        17 => (385, 7),
-        18 => (513, 8),
-        19 => (769, 8),
-        20 => (1025, 9),
-        21 => (1537, 9),
-        22 => (2049, 10),
-        23 => (3037, 10),
-        24 => (4097, 11),
-        25 => (6145, 11),
-        26 => (8193, 12),
-        27 => (12289, 12),
-        28 => (16385, 13),
-        29 => (24577, 13),
-        _ => unreachable!("Invalid distance code: {code}"),
-    };
-    let extra_bits = reader.read_bits::<usize>(num_extra_bits)?;
-    Ok(base + extra_bits)
-}
+// fn read_distance(code: usize, reader: &mut BitReader) -> Result<usize> {
+//     let (base, num_extra_bits) = match code {
+//         0 => (1, 0),
+//         1 => (2, 0),
+//         2 => (3, 0),
+//         3 => (4, 0),
+//         4 => (5, 1),
+//         5 => (7, 1),
+//         6 => (9, 2),
+//         7 => (13, 2),
+//         8 => (17, 3),
+//         9 => (25, 3),
+//         10 => (33, 4),
+//         11 => (49, 4),
+//         12 => (65, 5),
+//         13 => (97, 5),
+//         14 => (129, 6),
+//         15 => (193, 6),
+//         16 => (257, 7),
+//         17 => (385, 7),
+//         18 => (513, 8),
+//         19 => (769, 8),
+//         20 => (1025, 9),
+//         21 => (1537, 9),
+//         22 => (2049, 10),
+//         23 => (3037, 10),
+//         24 => (4097, 11),
+//         25 => (6145, 11),
+//         26 => (8193, 12),
+//         27 => (12289, 12),
+//         28 => (16385, 13),
+//         29 => (24577, 13),
+//         _ => unreachable!("Invalid distance code: {code}"),
+//     };
+//     let extra_bits = reader.read_bits::<usize>(num_extra_bits)?;
+//     Ok(base + extra_bits)
+// }
 
 fn decode_distance(code: usize, reader: &mut BitReader) -> Result<usize> {
     let (base, num_extra_bits) = match code {
@@ -307,10 +306,11 @@ mod tests {
 
     #[test]
     fn test_basic() -> Result<()> {
-        let bytes = [0x4b, 0x4c, 0x4a, 0x06, 0x00, 0x02, 0x4d, 0x01, 0x27];
-        let decompressed = decode(&bytes)?;
+        let bytes = [0x4b, 0x4c, 0x4a, 0x06, 0x00];
+        let (decompressed, num_consumed_bytes) = decode(&bytes)?;
 
         assert_eq!(&decompressed, b"abc");
+        assert_eq!(num_consumed_bytes, bytes.len());
         Ok(())
     }
 }

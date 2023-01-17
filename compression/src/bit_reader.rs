@@ -63,6 +63,10 @@ impl<'a> BitReader<'a> {
         Ok(())
     }
 
+    pub fn num_consumed_bytes(&self) -> usize {
+        self.byte_ptr + 1
+    }
+
     pub fn read_single_bit(&mut self) -> Result<bool, BitReaderError> {
         self.read_bits::<u8>(1).map(|val| val == 1)
     }
