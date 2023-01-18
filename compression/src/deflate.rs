@@ -1,5 +1,7 @@
 use crate::{bit_reader::BitReader, huffman::HuffmanTree};
 
+use std::cmp::min;
+
 use anyhow::Result;
 use thiserror::Error;
 
@@ -44,7 +46,6 @@ pub fn decode(source: &[u8]) -> Result<(Vec<u8>, usize)> {
     loop {
         let is_final = reader.read_single_bit()?;
         let btype = reader.read_bits::<u8>(2)?.try_into()?;
-
         match btype {
             CompressionScheme::Uncompressed => {
                 reader.align_to_byte_boundary();
@@ -113,8 +114,7 @@ fn decompress_block(
         } else if symbol == 256 {
             break 'decompress_block;
         } else {
-            let run_length = decode_distance(symbol, reader)?;
-
+            let run_length = decode_run_length(symbol, reader)?;
             let distance_code = *distance_tree
                 .lookup_incrementally(reader)
                 .map_err(|_| DeflateError::UnexpectedEOF)?
@@ -122,28 +122,38 @@ fn decompress_block(
             let distance = decode_distance(distance_code, reader)?;
 
             let copy_base = output_stream.len() - distance;
-            output_stream.extend_from_within(copy_base..copy_base + run_length);
+
+            // TODO this, and probably most of the implemenentation, should be unifiied with compression::brotli
+            let mut bytes_remaining = run_length;
+            let bytes_to_copy_at_once = min(run_length, output_stream.len() - copy_base);
+
+            while bytes_remaining > bytes_to_copy_at_once {
+                output_stream.extend_from_within(copy_base..copy_base + bytes_to_copy_at_once);
+                bytes_remaining -= bytes_to_copy_at_once;
+            }
+
+            output_stream.extend_from_within(copy_base..copy_base + bytes_remaining);
         }
     }
     Ok(())
 }
 
+const CODE_LENGTH_ALPHABET: [usize; 19] = [
+    16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
+];
 fn read_literal_and_distance_tree(
     hlit: usize,
     hdist: usize,
-    _hclen: usize,
+    hclen: usize,
     reader: &mut BitReader,
 ) -> Result<(HuffmanTree<usize>, HuffmanTree<usize>)> {
-    let code_length_alphabet: [usize; 19] = [
-        16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
-    ];
-    let mut code_lengths = [0; 19];
+    let mut code_lengths = vec![0; 19];
 
-    for index in code_length_alphabet {
-        code_lengths[index] = reader.read_bits::<usize>(3)?;
+    for index in &CODE_LENGTH_ALPHABET[..hclen] {
+        code_lengths[*index] = reader.read_bits::<usize>(3)?;
     }
 
-    let code_tree = HuffmanTree::new_infer_codes_without_symbols(&code_length_alphabet);
+    let code_tree = HuffmanTree::new_infer_codes_without_symbols(&code_lengths);
 
     let total_number_of_codes = hlit + hdist;
     let mut codes: Vec<usize> = Vec::with_capacity(total_number_of_codes);
@@ -163,7 +173,7 @@ fn read_literal_and_distance_tree(
                     .ok_or::<anyhow::Error>(DeflateError::RLELeadingRepeatValue.into())?;
                 let repeat_for = reader.read_bits::<usize>(2)? + 3;
 
-                if total_number_of_codes <= codes.len() + repeat_for {
+                if total_number_of_codes < codes.len() + repeat_for {
                     return Err(DeflateError::RLEExceedsExpectedLength.into());
                 }
 
@@ -175,7 +185,7 @@ fn read_literal_and_distance_tree(
             17 => {
                 let repeat_for = reader.read_bits::<usize>(3)? + 3;
 
-                if total_number_of_codes <= codes.len() + repeat_for {
+                if total_number_of_codes < codes.len() + repeat_for {
                     return Err(DeflateError::RLEExceedsExpectedLength.into());
                 }
 
@@ -187,7 +197,7 @@ fn read_literal_and_distance_tree(
             18 => {
                 let repeat_for = reader.read_bits::<usize>(7)? + 11;
 
-                if total_number_of_codes <= codes.len() + repeat_for {
+                if total_number_of_codes < codes.len() + repeat_for {
                     return Err(DeflateError::RLEExceedsExpectedLength.into());
                 }
 
@@ -208,45 +218,45 @@ fn read_literal_and_distance_tree(
     Ok((literal_tree, dist_tree))
 }
 
-// fn read_distance(code: usize, reader: &mut BitReader) -> Result<usize> {
-//     let (base, num_extra_bits) = match code {
-//         0 => (1, 0),
-//         1 => (2, 0),
-//         2 => (3, 0),
-//         3 => (4, 0),
-//         4 => (5, 1),
-//         5 => (7, 1),
-//         6 => (9, 2),
-//         7 => (13, 2),
-//         8 => (17, 3),
-//         9 => (25, 3),
-//         10 => (33, 4),
-//         11 => (49, 4),
-//         12 => (65, 5),
-//         13 => (97, 5),
-//         14 => (129, 6),
-//         15 => (193, 6),
-//         16 => (257, 7),
-//         17 => (385, 7),
-//         18 => (513, 8),
-//         19 => (769, 8),
-//         20 => (1025, 9),
-//         21 => (1537, 9),
-//         22 => (2049, 10),
-//         23 => (3037, 10),
-//         24 => (4097, 11),
-//         25 => (6145, 11),
-//         26 => (8193, 12),
-//         27 => (12289, 12),
-//         28 => (16385, 13),
-//         29 => (24577, 13),
-//         _ => unreachable!("Invalid distance code: {code}"),
-//     };
-//     let extra_bits = reader.read_bits::<usize>(num_extra_bits)?;
-//     Ok(base + extra_bits)
-// }
-
 fn decode_distance(code: usize, reader: &mut BitReader) -> Result<usize> {
+    let (base, num_extra_bits) = match code {
+        0 => (1, 0),
+        1 => (2, 0),
+        2 => (3, 0),
+        3 => (4, 0),
+        4 => (5, 1),
+        5 => (7, 1),
+        6 => (9, 2),
+        7 => (13, 2),
+        8 => (17, 3),
+        9 => (25, 3),
+        10 => (33, 4),
+        11 => (49, 4),
+        12 => (65, 5),
+        13 => (97, 5),
+        14 => (129, 6),
+        15 => (193, 6),
+        16 => (257, 7),
+        17 => (385, 7),
+        18 => (513, 8),
+        19 => (769, 8),
+        20 => (1025, 9),
+        21 => (1537, 9),
+        22 => (2049, 10),
+        23 => (3073, 10),
+        24 => (4097, 11),
+        25 => (6145, 11),
+        26 => (8193, 12),
+        27 => (12289, 12),
+        28 => (16385, 13),
+        29 => (24577, 13),
+        _ => unreachable!("Invalid distance code: {code}"),
+    };
+    let extra_bits = reader.read_bits::<usize>(num_extra_bits)?;
+    Ok(base + extra_bits)
+}
+
+fn decode_run_length(code: usize, reader: &mut BitReader) -> Result<usize> {
     let (base, num_extra_bits) = match code {
         257 => (3, 0),
         258 => (4, 0),

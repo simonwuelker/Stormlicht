@@ -2,6 +2,8 @@
 //!
 //! ZLIB is basically just a thin wrapper around deflate.
 
+use std::io::Write;
+
 use anyhow::{Context, Result};
 use thiserror::Error;
 
@@ -19,7 +21,7 @@ pub enum ZLibError {
     InvalidHeaderChecksum(u16),
     #[error("Unknown compression method: {}", .0)]
     UnknownCompressionMethod(u8),
-    #[error("Incorrect data checksum, expected {expected}, found {found}, this indicates a bug in the deflate implementation")]
+    #[error("Incorrect zlib data checksum, expected {expected}, found {found}, this indicates a bug in the deflate implementation")]
     IncorrectDataChecksum { expected: u32, found: u32 },
 }
 
@@ -72,6 +74,7 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>> {
             let expected_checksum =
                 u32::from_be_bytes(bytes[2 + num_consumed_bytes..][..4].try_into().unwrap());
             let computed_checksum = adler32(&decompressed);
+
             if expected_checksum != computed_checksum {
                 return Err(ZLibError::IncorrectDataChecksum {
                     expected: expected_checksum,
@@ -88,14 +91,14 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>> {
 }
 
 pub fn adler32(bytes: &[u8]) -> u32 {
-    let mut s1: u16 = 1;
-    let mut s2: u16 = 0;
+    let mut s1: u32 = 1;
+    let mut s2: u32 = 0;
     for byte in bytes {
-        s1 = s1.wrapping_add(*byte as u16);
-        s2 = s2.wrapping_add(s1);
+        s1 = (s1 + *byte as u32) % 65521;
+        s2 = (s2 + s1) % 65521;
     }
 
-    (s2 as u32) << 16 | s1 as u32
+    s2 << 16 | s1
 }
 
 #[cfg(test)]
