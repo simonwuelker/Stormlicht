@@ -11,6 +11,8 @@ use std::io::{Cursor, Read};
 use std::path::Path;
 use thiserror::Error;
 
+use compression::zlib;
+
 use crate::crc32::IncrementalCRC32;
 
 const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
@@ -50,6 +52,8 @@ pub enum PNGError {
     IncorrectChunkLengthExpectedExactly { expected: usize, found: usize },
     #[error("IEND chunk must not contain data")]
     NonEmptyIEND,
+    #[error("Unexpected IDAT chunk, IDAT chunk's must be consecutive")]
+    NonConsecutiveIDATChunk,
 }
 
 pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<()> {
@@ -68,10 +72,10 @@ pub enum Chunk {
     /// Color Palette
     PLTE(chunks::Palette),
     /// Image Data
-    IDAT,
+    IDAT(chunks::ImageData),
     /// Image End
     IEND,
-    cHRM,
+    cHRM(chunks::Chromacities),
     /// Digital Signatures
     dSIG,
     /// Exif Metadata
@@ -93,6 +97,13 @@ pub enum Chunk {
     zTXt,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ParserStage {
+    BeforeIDAT,
+    DuringIDAT,
+    AfterIDAT,
+}
+
 pub fn decode(bytes: &[u8]) -> Result<()> {
     let mut reader = Cursor::new(bytes);
 
@@ -104,22 +115,43 @@ pub fn decode(bytes: &[u8]) -> Result<()> {
     }
 
     let ihdr_chunk = read_chunk(&mut reader)?;
-
-    if let Chunk::IHDR(image_header) = ihdr_chunk {
-        println!("{image_header:?}");
+    let image_header = if let Chunk::IHDR(image_header) = ihdr_chunk {
+        image_header
     } else {
         return Err(PNGError::ExpectedIHDR(ihdr_chunk).into());
-    }
+    };
+
+    let mut parser_stage = ParserStage::BeforeIDAT;
+    let mut idat = vec![];
 
     loop {
         let chunk = read_chunk(&mut reader)?;
-        println!("chunk {:?}", chunk);
+
+        if parser_stage == ParserStage::DuringIDAT && !matches!(chunk, Chunk::IDAT(_)) {
+            parser_stage = ParserStage::AfterIDAT;
+        }
 
         match chunk {
             Chunk::IEND => break,
+            Chunk::IDAT(data) => {
+                match parser_stage {
+                    ParserStage::BeforeIDAT => parser_stage = ParserStage::DuringIDAT,
+                    ParserStage::AfterIDAT => return Err(PNGError::NonConsecutiveIDATChunk.into()),
+                    _ => {},
+                }
+                idat.extend(data.bytes());
+            },
             _ => {},
         }
     }
+
+    let decompressed_body = zlib::decode(&idat).context("Failed to decompress PNG image data")?;
+
+    println!(
+        "{} {}",
+        decompressed_body.len(),
+        decompressed_body.len() % image_header.width as usize,
+    );
 
     Ok(())
 }
@@ -173,7 +205,7 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk> {
             )?)
         },
         PLTE => Chunk::PLTE(chunks::Palette::new(&data)?),
-        IDAT => Chunk::IDAT,
+        IDAT => Chunk::IDAT(chunks::ImageData::new(data)),
         IEND => {
             if length != 0 {
                 return Err(PNGError::NonEmptyIEND.into());
@@ -181,7 +213,38 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk> {
 
             Chunk::IEND
         },
-        cHRM => Chunk::cHRM,
+        cHRM => {
+            if length != 32 {
+                return Err(PNGError::IncorrectChunkLengthExpectedExactly {
+                    expected: 32,
+                    found: length,
+                }
+                .into());
+            }
+
+            let white_point = (
+                u32::from_be_bytes(data[0..4].try_into().unwrap()),
+                u32::from_be_bytes(data[4..8].try_into().unwrap()),
+            );
+            let red_point = (
+                u32::from_be_bytes(data[8..12].try_into().unwrap()),
+                u32::from_be_bytes(data[12..16].try_into().unwrap()),
+            );
+            let green_point = (
+                u32::from_be_bytes(data[16..20].try_into().unwrap()),
+                u32::from_be_bytes(data[20..24].try_into().unwrap()),
+            );
+            let blue_point = (
+                u32::from_be_bytes(data[24..28].try_into().unwrap()),
+                u32::from_be_bytes(data[28..32].try_into().unwrap()),
+            );
+            Chunk::cHRM(chunks::Chromacities::new(
+                white_point,
+                red_point,
+                green_point,
+                blue_point,
+            ))
+        },
         dSIG => Chunk::dSIG,
         eXIF => Chunk::eXIf,
         gAMA => Chunk::gAMA,
