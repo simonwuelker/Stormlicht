@@ -1,2 +1,6 @@
 /target
 /downloads
+
+# Benchmarking results
+perf.data
+flamegraph.svg

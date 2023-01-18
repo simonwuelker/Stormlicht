@@ -12,3 +12,6 @@ members = [
     "async/executor",
     "log",
 ]
+
+[profile.bench]
+debug = true

@@ -2,8 +2,6 @@
 //!
 //! ZLIB is basically just a thin wrapper around deflate.
 
-use std::io::Write;
-
 use anyhow::{Context, Result};
 use thiserror::Error;
 
