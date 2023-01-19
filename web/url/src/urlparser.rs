@@ -49,10 +49,7 @@ pub(crate) struct URLParser<'a> {
 
 // https://infra.spec.whatwg.org/#c0-control
 pub(crate) fn is_c0_control(c: char) -> bool {
-    match c {
-        '\u{0000}'..='\u{001F}' => true,
-        _ => false,
-    }
+    matches!(c, '\u{0000}'..='\u{001F}')
 }
 
 impl<'a> URLParser<'a> {
@@ -323,6 +320,8 @@ impl<'a> URLParser<'a> {
                 self.url.scheme = base.scheme.clone();
 
                 // If c is U+002F (/)
+                // clippy doesn't account for the validation error
+                #[allow(clippy::if_same_then_else)]
                 if self.c() == Some('/') {
                     // then set state to relative slash state.
                     self.set_state(URLParserState::RelativeSlash);
@@ -647,7 +646,7 @@ impl<'a> URLParser<'a> {
 
                         // If port is greater than 2^16 − 1
                         // validation error, return failure.
-                        let port = u16::from_str_radix(&self.buffer, 10).map_err(|_| ())?;
+                        let port = str::parse(&self.buffer).map_err(|_| ())?;
 
                         // Set url’s port to null, if port is url’s scheme’s default port; otherwise to port.
                         if scheme_default_port(&self.url.scheme) == Some(port) {

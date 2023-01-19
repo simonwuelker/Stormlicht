@@ -24,16 +24,16 @@ impl Response {
     }
 }
 
-pub(crate) fn parse_response<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], Response> {
+pub(crate) fn parse_response(input: &[u8]) -> ParseResult<&[u8], Response> {
     let http_version = literal(b"HTTP/1.1");
     let whitespace = literal(b" ");
     let linebreak = literal(b"\r\n");
     let digit = predicate(|input: &[u8]| {
-        if input.len() == 0 {
+        if input.is_empty() {
             Err(0)
         } else {
             let maybe_char = input[0];
-            if 0x30 <= maybe_char && maybe_char < 0x3A {
+            if (0x30..0x3A).contains(&maybe_char) {
                 Ok((&input[1..], maybe_char - 0x30))
             } else {
                 Err(0)
@@ -41,7 +41,7 @@ pub(crate) fn parse_response<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], Respo
         }
     });
     let character = predicate(|input: &[u8]| {
-        if input.len() == 0 {
+        if input.is_empty() {
             Err(0)
         } else {
             match input[0] {
@@ -66,7 +66,7 @@ pub(crate) fn parse_response<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], Respo
         .map(|res| res.0);
 
     let legal_name_chars = predicate(|input: &[u8]| {
-        if input.len() == 0 {
+        if input.is_empty() {
             Err(0)
         } else {
             match input[0] {
@@ -77,7 +77,7 @@ pub(crate) fn parse_response<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], Respo
         }
     });
     let legal_value_chars = predicate(|input: &[u8]| {
-        if input.len() == 0 {
+        if input.is_empty() {
             Err(0)
         } else {
             match input[0] {
@@ -119,9 +119,4 @@ pub(crate) fn parse_response<'a>(input: &'a [u8]) -> ParseResult<&'a [u8], Respo
             body: vec![],
         })
         .parse(input)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
 }

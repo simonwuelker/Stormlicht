@@ -2,8 +2,7 @@ use compression::brotli;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::{fs, io::Read};
 
-const COMPRESSED_FILE: &'static str =
-    "../downloads/brotli/testdata/tests/testdata/alice29.txt.compressed";
+const COMPRESSED_FILE: &str = "../downloads/brotli/testdata/tests/testdata/alice29.txt.compressed";
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut data = vec![];

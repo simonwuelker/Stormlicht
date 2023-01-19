@@ -17,15 +17,16 @@ pub struct Executor {
     waker_cache: BTreeMap<TaskID, Waker>,
 }
 
-impl Executor {
-    pub fn new() -> Self {
+impl Default for Executor {
+    fn default() -> Self {
         Self {
             tasks: BTreeMap::new(),
             task_queue: Arc::new(Mutex::new(VecDeque::new())),
             waker_cache: BTreeMap::new(),
         }
     }
-
+}
+impl Executor {
     pub fn spawn(&mut self, task: Task) {
         let task_id = task.id;
 
@@ -51,7 +52,7 @@ impl Executor {
             let waker = self
                 .waker_cache
                 .entry(task_id)
-                .or_insert_with(|| TaskWaker::new(task_id, Arc::clone(&self.task_queue)));
+                .or_insert_with(|| TaskWaker::create(task_id, Arc::clone(&self.task_queue)));
 
             let mut context = Context::from_waker(waker);
             match task.poll(&mut context) {

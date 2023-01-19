@@ -35,11 +35,12 @@ const CRC32_TABLE: [u32; 256] = [
 
 pub struct IncrementalCRC32(u32);
 
-impl IncrementalCRC32 {
-    pub fn new() -> Self {
+impl Default for IncrementalCRC32 {
+    fn default() -> Self {
         Self(0xFFFFFFFF)
     }
-
+}
+impl IncrementalCRC32 {
     pub fn update(mut self, bytes: &[u8]) -> Self {
         for byte in bytes {
             let lookup_index = (self.0 & 0xFF) as u8 ^ byte;
@@ -54,5 +55,5 @@ impl IncrementalCRC32 {
 }
 
 pub fn compute(bytes: &[u8]) -> u32 {
-    IncrementalCRC32::new().update(bytes).finish()
+    IncrementalCRC32::default().update(bytes).finish()
 }

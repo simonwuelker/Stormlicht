@@ -3,14 +3,15 @@
 //! For the purposes of this module, "Symbol" shall refer to an unencoded
 //! codepoint and "Code" shall refer to an encoded codepoint.
 
-use std::fmt;
-
 use crate::bit_reader::BitReader;
+use anyhow::Result;
+use std::fmt;
 
 /// Tuple of (data, nbits) for representing an arbitrary number of bits
 #[derive(Clone, Copy)]
 pub struct Bits<T: Copy>(T, usize);
 pub type Code = Bits<usize>;
+pub type HuffmanBitTree = HuffmanTree<Bits<usize>>;
 
 #[derive(Debug)]
 pub struct HuffmanTree<T: PartialOrd + PartialEq> {
@@ -79,16 +80,16 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
     }
 
     fn insert(&mut self, at: Code, symbol: T) {
-        let insert_index = (1 << at.len()) - 1 + at.val() as usize;
+        let insert_index = (1 << at.size()) - 1 + at.val();
 
         debug_assert!(self.nodes[insert_index].is_none());
 
-        self.nodes[insert_index] = Some(symbol.clone());
+        self.nodes[insert_index] = Some(symbol);
         self.last_symbol_at = insert_index;
         self.num_nodes += 1;
     }
 
-    pub fn lookup_incrementally(&self, reader: &mut BitReader) -> Result<Option<&T>, ()> {
+    pub fn lookup_incrementally(&self, reader: &mut BitReader) -> Result<Option<&T>> {
         // Special case: if the tree only consists of a single symbol, we don't
         // consume any input bits
         if self.num_nodes == 1 {
@@ -101,7 +102,7 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
 
         loop {
             val <<= 1;
-            val |= reader.read_bits::<usize>(1).map_err(|_| ())?;
+            val |= reader.read_bits::<usize>(1)?;
 
             if let Some(symbol) = self.lookup_symbol(Code::new(val, nbits)) {
                 return Ok(Some(symbol));
@@ -117,7 +118,7 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
 
     /// Lookup the code for a specific symbol
     pub fn lookup_symbol(&self, at: Code) -> &Option<T> {
-        let insert_index = (1 << at.len()) - 1 + at.val() as usize;
+        let insert_index = (1 << at.size()) - 1 + at.val();
 
         if insert_index >= self.nodes.len() {
             &None
@@ -143,7 +144,7 @@ impl<T: Copy> Bits<T> {
         self.0
     }
 
-    pub fn len(&self) -> usize {
+    pub fn size(&self) -> usize {
         self.1
     }
 }
@@ -151,24 +152,19 @@ impl<T: Copy> Bits<T> {
 impl<T: Copy + fmt::Display + fmt::Binary + PartialEq> fmt::Debug for Bits<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let unpadded = format!("{:b}", self.val());
-        write!(
-            f,
-            "{}{}",
-            "0".repeat(self.1 as usize - unpadded.len()),
-            self.0
-        )
+        write!(f, "{}{}", "0".repeat(self.1 - unpadded.len()), self.0)
     }
 }
 
 impl<T: Copy + PartialEq> PartialEq for Bits<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.val() == other.val() && self.len() == other.len()
+        self.val() == other.val() && self.size() == other.size()
     }
 }
 
 impl<T: Copy + PartialOrd> PartialOrd for Bits<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if self.len() != other.len() {
+        if self.size() != other.size() {
             None
         } else {
             self.val().partial_cmp(&other.val())

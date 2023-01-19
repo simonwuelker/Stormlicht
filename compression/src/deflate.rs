@@ -1,6 +1,6 @@
 use crate::{bit_reader::BitReader, huffman::HuffmanTree};
 
-use std::cmp::min;
+use std::cmp::{min, Ordering};
 
 use anyhow::Result;
 use thiserror::Error;
@@ -109,30 +109,30 @@ fn decompress_block(
             .map_err(|_| DeflateError::UnexpectedEOF)?
             .ok_or(DeflateError::SymbolNotFound)?;
 
-        if symbol < 256 {
-            output_stream.push(symbol as u8);
-        } else if symbol == 256 {
-            break 'decompress_block;
-        } else {
-            let run_length = decode_run_length(symbol, reader)?;
-            let distance_code = *distance_tree
-                .lookup_incrementally(reader)
-                .map_err(|_| DeflateError::UnexpectedEOF)?
-                .ok_or(DeflateError::SymbolNotFound)?;
-            let distance = decode_distance(distance_code, reader)?;
+        match symbol.cmp(&256) {
+            Ordering::Less => output_stream.push(symbol as u8),
+            Ordering::Equal => break 'decompress_block,
+            Ordering::Greater => {
+                let run_length = decode_run_length(symbol, reader)?;
+                let distance_code = *distance_tree
+                    .lookup_incrementally(reader)
+                    .map_err(|_| DeflateError::UnexpectedEOF)?
+                    .ok_or(DeflateError::SymbolNotFound)?;
+                let distance = decode_distance(distance_code, reader)?;
 
-            let copy_base = output_stream.len() - distance;
+                let copy_base = output_stream.len() - distance;
 
-            // TODO this, and probably most of the implemenentation, should be unifiied with compression::brotli
-            let mut bytes_remaining = run_length;
-            let bytes_to_copy_at_once = min(run_length, output_stream.len() - copy_base);
+                // TODO this, and probably most of the implemenentation, should be unifiied with compression::brotli
+                let mut bytes_remaining = run_length;
+                let bytes_to_copy_at_once = min(run_length, output_stream.len() - copy_base);
 
-            while bytes_remaining > bytes_to_copy_at_once {
-                output_stream.extend_from_within(copy_base..copy_base + bytes_to_copy_at_once);
-                bytes_remaining -= bytes_to_copy_at_once;
-            }
+                while bytes_remaining > bytes_to_copy_at_once {
+                    output_stream.extend_from_within(copy_base..copy_base + bytes_to_copy_at_once);
+                    bytes_remaining -= bytes_to_copy_at_once;
+                }
 
-            output_stream.extend_from_within(copy_base..copy_base + bytes_remaining);
+                output_stream.extend_from_within(copy_base..copy_base + bytes_remaining);
+            },
         }
     }
     Ok(())
@@ -168,19 +168,16 @@ fn read_literal_and_distance_tree(
                 codes.push(symbol);
             },
             16 => {
-                let to_repeat = *codes
-                    .last()
-                    .ok_or::<anyhow::Error>(DeflateError::RLELeadingRepeatValue.into())?;
+                let to_repeat = *codes.last().ok_or_else::<anyhow::Error, _>(|| {
+                    DeflateError::RLELeadingRepeatValue.into()
+                })?;
                 let repeat_for = reader.read_bits::<usize>(2)? + 3;
 
                 if total_number_of_codes < codes.len() + repeat_for {
                     return Err(DeflateError::RLEExceedsExpectedLength.into());
                 }
 
-                codes.reserve(repeat_for);
-                for _ in 0..repeat_for {
-                    codes.push(to_repeat);
-                }
+                codes.resize(codes.len() + repeat_for, to_repeat);
             },
             17 => {
                 let repeat_for = reader.read_bits::<usize>(3)? + 3;
@@ -189,10 +186,7 @@ fn read_literal_and_distance_tree(
                     return Err(DeflateError::RLEExceedsExpectedLength.into());
                 }
 
-                codes.reserve(repeat_for);
-                for _ in 0..repeat_for {
-                    codes.push(0);
-                }
+                codes.resize(codes.len() + repeat_for, 0);
             },
             18 => {
                 let repeat_for = reader.read_bits::<usize>(7)? + 11;
@@ -201,10 +195,7 @@ fn read_literal_and_distance_tree(
                     return Err(DeflateError::RLEExceedsExpectedLength.into());
                 }
 
-                codes.reserve(repeat_for);
-                for _ in 0..repeat_for {
-                    codes.push(0);
-                }
+                codes.resize(codes.len() + repeat_for, 0);
             },
             _ => unreachable!("Invalid run length encoding value: {symbol}"),
         }

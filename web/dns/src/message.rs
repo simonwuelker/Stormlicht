@@ -204,9 +204,8 @@ impl Message {
 
     pub fn get_authority(&self, _domain: &Domain) -> Option<Domain> {
         for authority in &self.authority {
-            match &authority.resource_type {
-                ResourceRecordType::NS { ns } => return Some(ns.clone()),
-                _ => {},
+            if let ResourceRecordType::NS { ns } = &authority.resource_type {
+                return Some(ns.clone());
             }
         }
 
@@ -229,7 +228,7 @@ pub(crate) trait Consume {
 
 impl Consume for Message {
     fn read(buffer: &[u8], mut ptr: usize) -> Result<(Self, usize), ()> {
-        let (header, bytes_read) = Header::read(&buffer, ptr)?;
+        let (header, bytes_read) = Header::read(buffer, ptr)?;
         ptr += bytes_read;
 
         let mut questions = Vec::with_capacity(header.num_questions as usize);
@@ -238,25 +237,25 @@ impl Consume for Message {
         let mut additional = Vec::with_capacity(header.num_additional as usize);
 
         for _ in 0..header.num_questions {
-            let (new_question, bytes_read) = Question::read(&buffer, ptr)?;
+            let (new_question, bytes_read) = Question::read(buffer, ptr)?;
             questions.push(new_question);
             ptr += bytes_read;
         }
 
         for _ in 0..header.num_answers {
-            let (new_answer, bytes_read) = Resource::read(&buffer, ptr)?;
+            let (new_answer, bytes_read) = Resource::read(buffer, ptr)?;
             answers.push(new_answer);
             ptr += bytes_read;
         }
 
         for _ in 0..header.num_authorities {
-            let (new_authority, bytes_read) = Resource::read(&buffer, ptr)?;
+            let (new_authority, bytes_read) = Resource::read(buffer, ptr)?;
             authority.push(new_authority);
             ptr += bytes_read;
         }
 
         for _ in 0..header.num_additional {
-            let (new_additional, bytes_read) = Resource::read(&buffer, ptr)?;
+            let (new_additional, bytes_read) = Resource::read(buffer, ptr)?;
             additional.push(new_additional);
             ptr += bytes_read;
         }

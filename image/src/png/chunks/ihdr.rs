@@ -87,14 +87,14 @@ pub enum ImageType {
 
 impl ImageType {
     pub fn is_allowed_bit_depth(&self, bit_depth: u8) -> bool {
-        match (self, bit_depth) {
-            (Self::GrayScale, 1 | 2 | 4 | 8 | 16) => true,
-            (Self::TrueColor, 8 | 16) => true,
-            (Self::IndexedColor, 1 | 2 | 4 | 8) => true,
-            (Self::GrayScaleWithAlpha, 8 | 16) => true,
-            (Self::TrueColorWithAlpha, 8 | 16) => true,
-            _ => false,
-        }
+        matches!(
+            (self, bit_depth),
+            (Self::GrayScale, 1 | 2 | 4 | 8 | 16)
+                | (Self::TrueColor, 8 | 16)
+                | (Self::IndexedColor, 1 | 2 | 4 | 8)
+                | (Self::GrayScaleWithAlpha, 8 | 16)
+                | (Self::TrueColorWithAlpha, 8 | 16)
+        )
     }
 }
 
@@ -108,7 +108,7 @@ impl TryFrom<u8> for ImageType {
             3 => Ok(Self::IndexedColor),
             4 => Ok(Self::GrayScaleWithAlpha),
             6 => Ok(Self::TrueColorWithAlpha),
-            _ => Err(ImageHeaderError::InvalidImageType(value).into()),
+            _ => Err(ImageHeaderError::InvalidImageType(value)),
         }
     }
 }
@@ -126,7 +126,7 @@ impl TryFrom<u8> for InterlaceMethod {
         match value {
             0 => Ok(Self::None),
             1 => Ok(Self::Adam7),
-            _ => Err(ImageHeaderError::UnknownInterlaceMethod(value).into()),
+            _ => Err(ImageHeaderError::UnknownInterlaceMethod(value)),
         }
     }
 }

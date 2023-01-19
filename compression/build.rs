@@ -1,7 +1,6 @@
 use std::{env, path::Path, process::Command};
 
-const DICT_URL: &'static str =
-    "https://github.com/google/brotli/raw/master/c/common/dictionary.bin";
+const DICT_URL: &str = "https://github.com/google/brotli/raw/master/c/common/dictionary.bin";
 
 fn main() {
     // Only rerun if this build script changes

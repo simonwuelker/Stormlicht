@@ -44,7 +44,7 @@ impl<'a> CMAPTable<'a> {
 
         // using a linear search here - there are usually only 3 tables (TODO: verify)
         // so binary search really doesn't make a lot of sense
-        for i in 0..self.num_subtables() as usize {
+        for i in 0..self.num_subtables() {
             let subtable = self.get_nth_subtable(i);
             let _platform_id = read_u16_at(self.0, 4 + i * 8);
 

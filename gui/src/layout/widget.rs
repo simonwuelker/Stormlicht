@@ -1,4 +1,4 @@
-use crate::{events::Event, primitives::Rect, surface::Surface, layout::Sizing};
+use crate::{events::Event, layout::Sizing, primitives::Rect, surface::Surface};
 
 pub trait Widget {
     fn bounding_box(&self) -> Option<Rect>;
@@ -21,7 +21,7 @@ pub trait Widget {
 
     fn swallow_event(&mut self, _event: Event) {}
 
-    fn as_widget(self) -> Box<dyn Widget>
+    fn into_widget(self) -> Box<dyn Widget>
     where
         Self: Sized + 'static,
     {

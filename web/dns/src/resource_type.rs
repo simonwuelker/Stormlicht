@@ -40,7 +40,7 @@ pub(crate) enum ResourceRecordType {
     RP,
     SIG,
     SMIMEA,
-    SOA { ns: Domain, _mail: Domain },
+    SOA { _ns: Domain, _mail: Domain },
     SRV,
     SSHFP,
     SVCB,
@@ -118,7 +118,7 @@ impl TryFrom<(&[u8], usize)> for ResourceRecordType {
                 let (mail, _bytes_read) = Domain::read(from.0, ptr)?;
 
                 Self::SOA {
-                    ns: ns,
+                    _ns: ns,
                     _mail: mail,
                     // TODO missing fields
                 }

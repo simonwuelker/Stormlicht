@@ -12,7 +12,7 @@ pub(crate) struct TaskWaker {
 }
 
 impl TaskWaker {
-    pub(crate) fn new(task_id: TaskID, task_queue: Arc<Mutex<VecDeque<TaskID>>>) -> Waker {
+    pub(crate) fn create(task_id: TaskID, task_queue: Arc<Mutex<VecDeque<TaskID>>>) -> Waker {
         Waker::from(Arc::new(TaskWaker {
             task_id,
             task_queue,

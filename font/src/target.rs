@@ -156,7 +156,7 @@ impl fmt::Display for Surface {
                 };
                 write!(f, "{}", c)?;
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         Ok(())
     }

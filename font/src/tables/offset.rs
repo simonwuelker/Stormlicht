@@ -1,5 +1,5 @@
 use crate::ttf::{read_u16_at, read_u32_at};
-use std::fmt;
+use std::{cmp::Ordering, fmt};
 
 pub struct OffsetTable<'a>(&'a [u8]);
 
@@ -36,25 +36,27 @@ impl<'a> OffsetTable<'a> {
     }
 
     pub fn tables(&self) -> TableIterator<'a> {
-        TableIterator { tables: &self.0[12..] , n_tables: self.num_tables(), count: 0 }
+        TableIterator {
+            tables: &self.0[12..],
+            n_tables: self.num_tables(),
+            count: 0,
+        }
     }
 
     fn get_table_inner(data: &[u8], target_tag: u32, search_range: usize) -> Option<TableEntry> {
         assert_eq!(data.len() % 16, 0);
         assert_eq!(search_range % 16, 0);
 
-        if data.len() == 0 {
+        if data.is_empty() {
             None
         } else {
             let index = (search_range / 2) & !0b1111;
-            let tag = read_u32_at(&data, index);
-            
-            if tag == target_tag {
-                Some(TableEntry::new(&data, index))
-            } else if tag < target_tag {
-                Self::get_table_inner(&data[index..], target_tag, index)
-            } else {
-                Self::get_table_inner(&data[..index], target_tag, index)
+            let tag = read_u32_at(data, index);
+
+            match tag.cmp(&target_tag) {
+                Ordering::Less => Self::get_table_inner(&data[index..], target_tag, index),
+                Ordering::Equal => Some(TableEntry::new(data, index)),
+                Ordering::Greater => Self::get_table_inner(&data[..index], target_tag, index),
             }
         }
     }
@@ -121,7 +123,7 @@ impl<'a> Iterator for TableIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.count < self.n_tables {
-            let table = TableEntry::new(&self.tables, 16 * self.count);
+            let table = TableEntry::new(self.tables, 16 * self.count);
             self.count += 1;
             Some(table)
         } else {

@@ -14,26 +14,30 @@ use std::net::{IpAddr, Ipv4Addr, UdpSocket};
 
 use crate::message::Message;
 
+use anyhow::{Context, Result};
+use thiserror::Error;
+
 const MAX_DATAGRAM_SIZE: usize = 1024;
-const UDP_SOCKET: &'static str = "0.0.0.0:20000";
+const UDP_SOCKET: &str = "0.0.0.0:20000";
 const MAX_RESOLUTION_STEPS: usize = 5;
 
 /// The root server used to resolve domains.
 /// See [this list of root servers](https://www.iana.org/domains/root/servers).
 const ROOT_SERVER: IpAddr = IpAddr::V4(Ipv4Addr::new(199, 7, 83, 42));
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum DNSError {
-    FailedToBindSocket,
-    ConnectionRefused,
+    #[error("Invalid DNS response")]
     InvalidResponse,
-    CouldNotResolve,
-    NetworkError,
-    InvalidDomain,
+    #[error("Could not resolve {:?}", .0)]
+    CouldNotResolve(Domain),
+    #[error("Invalid domain: {:?}", .0)]
+    InvalidDomain(Domain),
+    #[error("Maximum dns resolution steps exceeded")]
     MaxResolutionStepsExceeded,
 }
 
-pub fn resolve(domain: &Domain) -> Result<IpAddr, DNSError> {
+pub fn resolve(domain: &Domain) -> Result<IpAddr> {
     let mut nameserver = ROOT_SERVER;
 
     // incrementally resolve segments
@@ -45,12 +49,12 @@ pub fn resolve(domain: &Domain) -> Result<IpAddr, DNSError> {
         let message = try_resolve_from(nameserver, domain)?;
 
         // Check if the response contains our answer
-        if let Some(ip) = message.get_answer(&domain) {
+        if let Some(ip) = message.get_answer(domain) {
             return Ok(ip);
         }
 
         // Check if the response contains the domain name of an authoritative nameserver
-        if let Some(ns_domain) = message.get_authority(&domain) {
+        if let Some(ns_domain) = message.get_authority(domain) {
             // resolve that nameserver's domain and then
             // continue trying to resolve from that ns
             nameserver = resolve(&ns_domain)?;
@@ -58,37 +62,35 @@ pub fn resolve(domain: &Domain) -> Result<IpAddr, DNSError> {
         }
 
         // We did not make any progress
-        return Err(DNSError::CouldNotResolve);
+        return Err(DNSError::CouldNotResolve(domain.clone()).into());
     }
-    Err(DNSError::MaxResolutionStepsExceeded)
+    Err(DNSError::MaxResolutionStepsExceeded.into())
 }
 
-fn try_resolve_from(nameserver: IpAddr, domain: &Domain) -> Result<Message, DNSError> {
+fn try_resolve_from(nameserver: IpAddr, domain: &Domain) -> Result<Message> {
     // Bind a UDP socket
-    let socket = UdpSocket::bind(UDP_SOCKET).map_err(|_| DNSError::FailedToBindSocket)?;
+    let socket = UdpSocket::bind(UDP_SOCKET)?;
     socket
         .connect((nameserver, 53))
-        .map_err(|_| DNSError::ConnectionRefused)?;
+        .with_context(|| format!("Connecting to nameserver {nameserver:?}"))?;
 
     // Send a DNS query
-    let message = Message::new(&domain);
+    let message = Message::new(domain);
     let expected_id = message.header.id;
 
     let mut bytes = vec![0; message.size()];
     message.write_to_buffer(&mut bytes);
-    socket.send(&bytes).map_err(|_| DNSError::NetworkError)?;
+    socket.send(&bytes)?;
 
     // Read the DNS response
     let mut response = [0; MAX_DATAGRAM_SIZE];
-    let response_length = socket
-        .recv(&mut response)
-        .map_err(|_| DNSError::NetworkError)?;
+    let response_length = socket.recv(&mut response)?;
 
     let (parsed_message, _) =
         Message::read(&response[..response_length], 0).map_err(|_| DNSError::InvalidResponse)?;
 
     if parsed_message.header.id != expected_id {
-        return Err(DNSError::InvalidResponse);
+        return Err(DNSError::InvalidResponse.into());
     }
 
     Ok(parsed_message)

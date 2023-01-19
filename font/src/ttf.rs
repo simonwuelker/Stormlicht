@@ -3,7 +3,7 @@
 //! https://formats.kaitai.io/ttf/index.html
 //! https://handmade.network/forums/articles/t/7330-implementing_a_font_reader_and_rasterizer_from_scratch%252C_part_1__ttf_font_reader.
 
-use crate::tables::{cmap, glyf, head, loca, offset::{OffsetTable}, hhea, hmtx};
+use crate::tables::{cmap, glyf, head, hhea, hmtx, loca, offset::OffsetTable};
 
 const CMAP_TAG: u32 = u32::from_be_bytes(*b"cmap");
 const HEAD_TAG: u32 = u32::from_be_bytes(*b"head");
@@ -28,11 +28,12 @@ pub struct Font<'a> {
     hmtx_table: hmtx::HMTXTable<'a>,
 }
 
-const DEFAULT_FONT: &'static [u8; 168644] = include_bytes!("../../downloads/fonts/roboto/Roboto-Medium.ttf");
+const DEFAULT_FONT: &[u8; 168644] =
+    include_bytes!("../../downloads/fonts/roboto/Roboto-Medium.ttf");
 
 impl<'a> Font<'a> {
     pub fn new(data: &'a [u8]) -> Result<Self, TTFParseError> {
-        let offset_table = OffsetTable::new(&data);
+        let offset_table = OffsetTable::new(data);
         if offset_table.scaler_type() != 0x00010000 {
             return Err(TTFParseError::UnsupportedFormat);
         }
@@ -40,40 +41,42 @@ impl<'a> Font<'a> {
         let head_entry = offset_table
             .get_table(HEAD_TAG)
             .ok_or(TTFParseError::MissingTable)?;
-        let head_table = head::HeadTable::new(&data, head_entry.offset());
+        let head_table = head::HeadTable::new(data, head_entry.offset());
 
         let cmap_entry = offset_table
             .get_table(CMAP_TAG)
             .ok_or(TTFParseError::MissingTable)?;
-        let cmap_table = cmap::CMAPTable::new(&data, cmap_entry.offset());
+        let cmap_table = cmap::CMAPTable::new(data, cmap_entry.offset());
 
         let unicode_table_or_none = cmap_table.get_subtable_for_platform(cmap::PlatformID::Unicode);
 
         let unicode_table_offset = unicode_table_or_none.ok_or(TTFParseError::MissingTable)?;
-        let format4 = cmap::Format4::new(&data, cmap_entry.offset() + unicode_table_offset);
+        let format4 = cmap::Format4::new(data, cmap_entry.offset() + unicode_table_offset);
 
         let loca_entry = offset_table
             .get_table(LOCA_TAG)
             .ok_or(TTFParseError::MissingTable)?;
-        let loca_table = loca::LocaTable::new(&data, loca_entry.offset());
+        let loca_table = loca::LocaTable::new(data, loca_entry.offset());
 
         let glyf_entry = offset_table
             .get_table(GLYF_TAG)
             .ok_or(TTFParseError::MissingTable)?;
         let glyph_table =
-            glyf::GlyphOutlineTable::new(&data, glyf_entry.offset(), glyf_entry.length());
+            glyf::GlyphOutlineTable::new(data, glyf_entry.offset(), glyf_entry.length());
 
         let hhea_entry = offset_table
             .get_table(HHEA_TAG)
             .ok_or(TTFParseError::MissingTable)?;
-        let hhea_table =
-            hhea::HHEATable::new(&data, hhea_entry.offset());
+        let hhea_table = hhea::HHEATable::new(data, hhea_entry.offset());
 
         let hmtx_entry = offset_table
             .get_table(HMTX_TAG)
             .ok_or(TTFParseError::MissingTable)?;
-        let hmtx_table =
-            hmtx::HMTXTable::new(&data, hmtx_entry.offset(), hhea_table.num_of_long_hor_metrics());
+        let hmtx_table = hmtx::HMTXTable::new(
+            data,
+            hmtx_entry.offset(),
+            hhea_table.num_of_long_hor_metrics(),
+        );
 
         Ok(Self {
             offset_table: offset_table,
@@ -102,7 +105,7 @@ impl<'a> Font<'a> {
 
         for c in text.chars() {
             let glyph_index = self.format4.get_glyph_index(c as u16).unwrap_or(0);
-            total_length += self.hmtx_table.get_metric_for(glyph_index).advance_width() as usize;
+            total_length += self.hmtx_table.get_metric_for(glyph_index).advance_width();
         }
         total_length
     }

@@ -6,7 +6,7 @@
 pub(crate) fn starts_with_windows_drive_letter(input: &str) -> bool {
     // the length check is done inside is_windows_drive_letter
 
-    if !is_windows_drive_letter(&input) {
+    if !is_windows_drive_letter(input) {
         return false;
     }
 
@@ -49,17 +49,11 @@ pub(crate) fn is_normalized_windows_drive_letter(letter: &str) -> bool {
 
 // https://infra.spec.whatwg.org/#c0-control
 pub(crate) fn is_c0_or_space(c: char) -> bool {
-    match c {
-        '\u{0000}'..='\u{001F}' | '\u{0020}' => true,
-        _ => false,
-    }
+    matches!(c, '\u{0000}'..='\u{001F}' | '\u{0020}')
 }
 
 pub(crate) fn is_ascii_tab_or_newline(c: char) -> bool {
-    match c {
-        '\u{0009}' | '\u{000A}' | '\u{000D}' => true,
-        _ => false,
-    }
+    matches!(c, '\u{0009}' | '\u{000A}' | '\u{000D}')
 }
 // https://url.spec.whatwg.org/#single-dot-path-segment
 pub(crate) fn is_single_dot_path_segment(input: &str) -> bool {
@@ -84,44 +78,45 @@ pub(crate) fn is_url_codepoint(c: char) -> bool {
             '\u{00A0}'..='\u{D7FF}' | '\u{E000}'..='\u{10FFFD}' => {
                 // check for noncharacters
                 // return true if c is not a noncharacter
-                match c {
-                    '\u{FDD0}'..='\u{FDEF}'
-                    | '\u{FFFE}'
-                    | '\u{FFFF}'
-                    | '\u{1FFFE}'
-                    | '\u{1FFFF}'
-                    | '\u{2FFFE}'
-                    | '\u{2FFFF}'
-                    | '\u{3FFFE}'
-                    | '\u{3FFFF}'
-                    | '\u{4FFFE}'
-                    | '\u{4FFFF}'
-                    | '\u{5FFFE}'
-                    | '\u{5FFFF}'
-                    | '\u{6FFFE}'
-                    | '\u{6FFFF}'
-                    | '\u{7FFFE}'
-                    | '\u{7FFFF}'
-                    | '\u{8FFFE}'
-                    | '\u{8FFFF}'
-                    | '\u{9FFFE}'
-                    | '\u{9FFFF}'
-                    | '\u{AFFFE}'
-                    | '\u{AFFFF}'
-                    | '\u{BFFFE}'
-                    | '\u{BFFFF}'
-                    | '\u{CFFFE}'
-                    | '\u{CFFFF}'
-                    | '\u{DFFFE}'
-                    | '\u{DFFFF}'
-                    | '\u{EFFFE}'
-                    | '\u{EFFFF}'
-                    | '\u{FFFFE}'
-                    | '\u{FFFFF}'
-                    | '\u{10FFFE}'
-                    | '\u{10FFFF}' => false,
-                    _ => true,
-                }
+                !matches!(
+                    c,
+                    '\u{FDD0}'
+                        ..='\u{FDEF}'
+                            | '\u{FFFE}'
+                            | '\u{FFFF}'
+                            | '\u{1FFFE}'
+                            | '\u{1FFFF}'
+                            | '\u{2FFFE}'
+                            | '\u{2FFFF}'
+                            | '\u{3FFFE}'
+                            | '\u{3FFFF}'
+                            | '\u{4FFFE}'
+                            | '\u{4FFFF}'
+                            | '\u{5FFFE}'
+                            | '\u{5FFFF}'
+                            | '\u{6FFFE}'
+                            | '\u{6FFFF}'
+                            | '\u{7FFFE}'
+                            | '\u{7FFFF}'
+                            | '\u{8FFFE}'
+                            | '\u{8FFFF}'
+                            | '\u{9FFFE}'
+                            | '\u{9FFFF}'
+                            | '\u{AFFFE}'
+                            | '\u{AFFFF}'
+                            | '\u{BFFFE}'
+                            | '\u{BFFFF}'
+                            | '\u{CFFFE}'
+                            | '\u{CFFFF}'
+                            | '\u{DFFFE}'
+                            | '\u{DFFFF}'
+                            | '\u{EFFFE}'
+                            | '\u{EFFFF}'
+                            | '\u{FFFFE}'
+                            | '\u{FFFFF}'
+                            | '\u{10FFFE}'
+                            | '\u{10FFFF}'
+                )
             },
             _ => false,
         }

@@ -1,9 +1,18 @@
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Read};
 use std::net::{SocketAddr, TcpStream};
 use url::{Host, URL};
 
 use crate::response::{parse_response, Response};
+
+use anyhow::{anyhow, Context, Result};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum RequestError {
+    #[error("Unknown transfer encoding: {:?}", .0)]
+    UnknownTransferEncoding(String),
+}
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum Header {
@@ -39,7 +48,7 @@ pub enum CreateRequestError {
 }
 
 /// Like [BufReader::read_until], except the needle may have arbitrary length
-fn read_until<R: Read>(reader: &mut BufReader<R>, needle: &[u8]) -> Result<Vec<u8>, ()> {
+fn read_until<R: Read>(reader: &mut BufReader<R>, needle: &[u8]) -> Result<Vec<u8>> {
     let mut result = vec![];
 
     loop {
@@ -58,7 +67,7 @@ fn read_until<R: Read>(reader: &mut BufReader<R>, needle: &[u8]) -> Result<Vec<u
             None => {
                 result.extend(reader.buffer());
                 reader.consume(reader.capacity());
-                reader.fill_buf();
+                reader.fill_buf()?;
             },
         }
     }
@@ -107,21 +116,21 @@ impl Request {
         self.headers.insert(header, value.to_string());
     }
 
-    pub fn send(self) -> Result<Response, ()> {
+    pub fn send(self) -> Result<Response> {
         // resolve the hostname
         let ip = match &self.host {
             Host::Domain(host_str) | Host::OpaqueHost(host_str) => {
-                dns::resolve(&dns::Domain::new(host_str)).unwrap()
+                dns::resolve(&dns::Domain::new(host_str))?
             },
-            Host::IP(ip) => todo!(),
+            Host::IP(_ip) => todo!(),
             Host::EmptyHost => todo!(),
         };
 
         // Establish a tcp connection
-        let mut stream = TcpStream::connect(SocketAddr::new(ip, 80)).unwrap();
+        let mut stream = TcpStream::connect(SocketAddr::new(ip, 80))?;
 
         // Send our request
-        self.write_to(&mut stream);
+        self.write_to(&mut stream)?;
 
         // Parse the response
         // TODO all of this is very insecure - we blindly trust the size in Transfer-Encoding: chunked,
@@ -130,29 +139,45 @@ impl Request {
         let needle = b"\r\n\r\n";
         let header_bytes = read_until(&mut reader, needle)?;
 
-        let mut response = parse_response(&header_bytes).unwrap().1;
+        let mut response = parse_response(&header_bytes)
+            .map_err(|_| anyhow!("Invalid response"))?
+            .1;
 
         if let Some(transfer_encoding) = response.get_header("Transfer-encoding") {
-            let needle = b"\r\n";
-            loop {
-                let size_bytes_with_newline = read_until(&mut reader, needle)?;
-                let size_bytes =
-                    &size_bytes_with_newline[..size_bytes_with_newline.len() - needle.len()];
-                let size = size_bytes
-                    .iter()
-                    .fold(0, |acc, x| acc * 16 + hex_digit(*x) as usize);
+            match transfer_encoding {
+                "chunked" => {
+                    let needle = b"\r\n";
+                    loop {
+                        let size_bytes_with_newline = read_until(&mut reader, needle)?;
+                        let size_bytes = &size_bytes_with_newline
+                            [..size_bytes_with_newline.len() - needle.len()];
+                        let size = size_bytes
+                            .iter()
+                            .fold(0, |acc, x| acc * 16 + hex_digit(*x) as usize);
 
-                if size == 0 {
-                    break;
-                }
+                        if size == 0 {
+                            break;
+                        }
 
-                let mut buffer = vec![0; size];
-                reader.read_exact(&mut buffer).map_err(|_| ())?;
-                response.body.extend(&buffer)
+                        let mut buffer = vec![0; size];
+                        reader.read_exact(&mut buffer)?;
+                        response.body.extend(&buffer)
+                    }
+                },
+                _ => {
+                    return Err(RequestError::UnknownTransferEncoding(
+                        transfer_encoding.to_string(),
+                    )
+                    .into())
+                },
             }
         } else if let Some(content_length) = response.get_header("Content-Length") {
-            let mut buffer = vec![0; usize::from_str_radix(content_length, 10).unwrap()];
-            reader.read_exact(&mut buffer).map_err(|_| ())?;
+            let mut buffer = vec![
+                0;
+                str::parse(content_length)
+                    .context("Failed to parse Content-Length value")?
+            ];
+            reader.read_exact(&mut buffer)?;
             response.body.extend(&buffer)
         }
 
@@ -170,16 +195,15 @@ fn hex_digit(byte: u8) -> u8 {
 }
 
 mod tests {
-    use super::*;
 
     #[test]
     fn basic_get_request() {
         let mut tcpstream: Vec<u8> = vec![];
 
-        let mut request = Request::get(URL::from("http://www.example.com")).unwrap();
+        let mut request = super::Request::get(url::URL::from("http://www.example.com")).unwrap();
         request.headers.clear();
 
-        request.set_header(Header::UserAgent, "test");
+        request.set_header(super::Header::UserAgent, "test");
         request.write_to(&mut tcpstream).unwrap();
         assert_eq!(
             String::from_utf8(tcpstream).unwrap(),

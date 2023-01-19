@@ -195,7 +195,9 @@ dependencies = [
 name = "dns"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "random",
+ "thiserror",
 ]
 
 [[package]]

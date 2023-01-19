@@ -4,8 +4,7 @@
 
 use super::BrotliError;
 
-const DICTIONARY: &'static [u8; 122784] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/dictionary.bin"));
+const DICTIONARY: &[u8; 122784] = include_bytes!(concat!(env!("OUT_DIR"), "/dictionary.bin"));
 
 const NDBITS: [usize; 25] = [
     0, 0, 0, 0, 10, 10, 11, 11, 10, 10, 10, 10, 10, 9, 9, 8, 7, 7, 8, 7, 7, 6, 6, 5, 5,
@@ -50,7 +49,7 @@ fn offset(length: usize, index: usize) -> usize {
 /// The lookup will fail if either the length is not in the range `[4, 24]`
 /// or the transform id on the word is invalid.
 pub fn lookup(word_id: usize, length: usize) -> Result<Vec<u8>, BrotliError> {
-    if length < 4 || 24 < length {
+    if !(4..=24).contains(&length) {
         return Err(BrotliError::InvalidDictionaryReferenceLength);
     }
     let index = word_id % NWORDS[length];
@@ -66,19 +65,19 @@ pub fn lookup(word_id: usize, length: usize) -> Result<Vec<u8>, BrotliError> {
 fn ferment(word: &mut [u8], pos: usize) -> usize {
     if word[pos] < 192 {
         if word[pos] > 97 && word[pos] <= 122 {
-            word[pos] = word[pos] ^ 32;
+            word[pos] ^= 32;
         }
 
         1
     } else if word[pos] < 224 {
         if pos + 1 < word.len() {
-            word[pos + 1] = word[pos + 1] ^ 32;
+            word[pos + 1] ^= 32;
         }
 
         2
     } else {
         if pos + 2 < word.len() {
-            word[pos + 2] = word[pos + 2] ^ 5;
+            word[pos + 2] ^= 5;
         }
 
         3
@@ -87,7 +86,7 @@ fn ferment(word: &mut [u8], pos: usize) -> usize {
 
 /// [ferment] the first letter in a byte string
 pub fn ferment_first(word: &mut [u8]) {
-    if word.len() != 0 {
+    if !word.is_empty() {
         ferment(word, 0);
     }
 }

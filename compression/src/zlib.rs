@@ -60,7 +60,7 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>> {
                 return Err(ZLibError::CINFOTooLarge(compression_info).into());
             }
 
-            let _lz77_window_size = 1 << compression_info as usize + 8;
+            let _lz77_window_size = 1 << (compression_info as usize + 8);
 
             if flag_dict {
                 todo!("Implement flag_dict flag");
@@ -83,8 +83,8 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>> {
 
             Ok(decompressed)
         },
-        15 => return Err(ZLibError::ReservedCompressionMethod.into()),
-        _ => return Err(ZLibError::UnknownCompressionMethod(compression_method).into()),
+        15 => Err(ZLibError::ReservedCompressionMethod.into()),
+        _ => Err(ZLibError::UnknownCompressionMethod(compression_method).into()),
     }
 }
 

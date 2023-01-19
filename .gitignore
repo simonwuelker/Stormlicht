@@ -2,5 +2,5 @@
 /downloads
 
 # Benchmarking results
-perf.data
+perf.data*
 flamegraph.svg

@@ -1,5 +1,6 @@
 use crate::{message::Consume, punycode::idna_encode};
 
+use anyhow::Result;
 use std::fmt;
 
 const DOMAIN_MAX_SEGMENTS: u8 = 10;
@@ -75,7 +76,7 @@ impl Domain {
     /// # Panics
     /// This function panics if the given byte buffer is not a valid encoded domain name,
     /// for example `\x03www\x07example\x04com`.
-    pub fn decode(source: &[u8]) -> Result<Self, ()> {
+    pub fn decode(source: &[u8]) -> Result<Self> {
         let mut domain = Self(vec![]);
 
         let mut block_size = source[0] as usize;
@@ -87,11 +88,7 @@ impl Domain {
                 "domain block reaches out of bounds"
             );
 
-            domain.add_segment(
-                std::str::from_utf8(&source[ptr..ptr + block_size])
-                    .map_err(|_| ())?
-                    .to_string(),
-            );
+            domain.add_segment(std::str::from_utf8(&source[ptr..ptr + block_size])?.to_string());
 
             ptr += block_size;
 

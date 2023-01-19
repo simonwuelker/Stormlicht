@@ -63,7 +63,7 @@ impl<T: ?Sized, A: Parser<In = T>, B: Parser<In = T>> Parser for ChainedParser<A
     type Out = (A::Out, B::Out);
 
     fn parse<'a>(&self, data: &'a Self::In) -> ParseResult<&'a Self::In, Self::Out> {
-        match self.first.parse(&data) {
+        match self.first.parse(data) {
             Ok((remaining_input, out_first)) => match self.second.parse(remaining_input) {
                 Ok((remaining_input, out_second)) => Ok((remaining_input, (out_first, out_second))),
                 Err(parsed_until) => Err(parsed_until),
@@ -87,9 +87,9 @@ impl<T: Eq> Parser for Literal<T> {
             return Err(0);
         }
         if self.want == &data[0..self.want.len()] {
-            return Ok((&data[self.want.len()..], ()));
+            Ok((&data[self.want.len()..], ()))
         } else {
-            return Err(0);
+            Err(0)
         }
     }
 }
@@ -142,7 +142,7 @@ impl<P: Parser> Parser for Some<P> {
         }
 
         // At least one element must be parsed
-        if parsed_elements.len() == 0 {
+        if parsed_elements.is_empty() {
             return Err(0);
         }
         Ok((remaining_data, parsed_elements))

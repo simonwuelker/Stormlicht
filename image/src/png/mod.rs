@@ -171,7 +171,7 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk> {
     reader.read_exact(&mut crc_bytes)?;
     let expected_crc = u32::from_be_bytes(crc_bytes);
 
-    let computed_crc = IncrementalCRC32::new()
+    let computed_crc = IncrementalCRC32::default()
         .update(&chunk_name_bytes)
         .update(&data)
         .finish();

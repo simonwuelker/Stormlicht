@@ -1,2 +1,12 @@
 [build]
-rustflags = ["-C", "target-cpu=native"]
+rustflags = [
+    "-Ctarget-cpu=native", 
+
+    # Clippy config
+    "-Dclippy::correctness", 
+    "-Dclippy::perf", 
+    "-Aclippy::redundant_field_names",  # the field names are usually required so for consistency they should always be included
+    "-Aclippy::neg_multiply",  # "-1 * x" is just more readable than "-x", especially in complex expressions
+    "-Aclippy::upper_case_acronyms", 
+    "-Aclippy::iter_nth_zero",  # using "nth(0) .. nth(1) .. nth(2)" is clearly more readable than "next() .. nth(1) .. nth(2)"
+]

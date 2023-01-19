@@ -2,21 +2,31 @@ use crate::{urlencode::percent_encode, urlparser::is_c0_control, util};
 
 // https://url.spec.whatwg.org/#forbidden-host-code-point
 fn is_forbidden_host_code_point(c: char) -> bool {
-    match c {
-        '\u{0000}' | '\u{0009}' | '\u{000A}' | '\u{000D}' | ' ' | '#' | '/' | ':' | '<' | '>'
-        | '?' | '@' | '[' | '\\' | ']' | '^' | '|' => true,
-        _ => false,
-    }
+    matches!(
+        c,
+        '\u{0000}'
+            | '\u{0009}'
+            | '\u{000A}'
+            | '\u{000D}'
+            | ' '
+            | '#'
+            | '/'
+            | ':'
+            | '<'
+            | '>'
+            | '?'
+            | '@'
+            | '['
+            | '\\'
+            | ']'
+            | '^'
+            | '|'
+    )
 }
 
 // https://url.spec.whatwg.org/#forbidden-domain-code-point
 fn is_forbidden_domain_code_point(c: char) -> bool {
-    is_forbidden_host_code_point(c)
-        | is_c0_control(c)
-        | match c {
-            '%' | '\u{007F}' => true,
-            _ => false,
-        }
+    is_forbidden_host_code_point(c) | is_c0_control(c) | matches!(c, '%' | '\u{007F}')
 }
 
 // https://url.spec.whatwg.org/#ip-address
@@ -196,6 +206,7 @@ fn ipv4_parse(input: &str) -> Result<u32, ()> {
     let mut counter = 0;
 
     // For each n of numbers:
+    #[allow(clippy::explicit_counter_loop)] // Let's follow the spec comments
     for n in numbers {
         // Increment ipv4 by n × 256^(3 − counter).
         ipv4 += n * 256_u32.pow(3 - counter);
@@ -448,7 +459,7 @@ fn ipv6_parse(input: &str) -> Result<[u16; 8], ()> {
             }
         }
         // Otherwise, if c is not the EOF code point
-        else if !input.chars().nth(ptr).is_none() {
+        else if input.chars().nth(ptr).is_some() {
             // validation error, return failure.
             return Err(());
         }
@@ -471,9 +482,7 @@ fn ipv6_parse(input: &str) -> Result<[u16; 8], ()> {
         // While pieceIndex is not 0 and swaps is greater than 0
         while piece_index != 0 && swaps > 0 {
             // swap address[pieceIndex] with address[compress + swaps − 1]
-            let tmp = address[piece_index];
-            address[piece_index] = address[compress_value + swaps - 1];
-            address[compress_value + swaps - 1] = tmp;
+            address.swap(piece_index, compress_value + swaps - 1);
 
             // and then decrease both pieceIndex and swaps by 1.
             piece_index -= 1;

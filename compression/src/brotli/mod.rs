@@ -4,7 +4,7 @@ pub mod dictionary;
 
 use crate::{
     bit_reader::{BitReader, BitReaderError},
-    huffman::{Bits, HuffmanTree},
+    huffman::{Bits, HuffmanBitTree, HuffmanTree},
     ringbuffer::RingBuffer,
 };
 
@@ -489,7 +489,7 @@ fn read_prefix_code(
         let mut checksum = 0;
 
         // the first hskip code lengths are assumed to be 0
-        for i in hskip..18 {
+        for code_length in code_lengths.iter_mut().skip(hskip) {
             // Code lengths are encoded in a variable length code
             // Symbol   Code
             // ------   ----
@@ -499,7 +499,7 @@ fn read_prefix_code(
             // 3          10
             // 4          01
             // 5        1111
-            let code_length = match reader.read_bits::<u8>(2).map_err(BrotliError::from)? {
+            *code_length = match reader.read_bits::<u8>(2).map_err(BrotliError::from)? {
                 0b00 => 0,
                 0b10 => 3,
                 0b01 => 4,
@@ -516,10 +516,9 @@ fn read_prefix_code(
                 },
                 _ => unreachable!(),
             };
-            code_lengths[i] = code_length;
 
-            if code_length != 0 {
-                checksum += 32 >> code_length;
+            if *code_length != 0 {
+                checksum += 32 >> *code_length;
 
                 if checksum == 32 {
                     break;
@@ -527,10 +526,8 @@ fn read_prefix_code(
             }
         }
 
-        if code_lengths.iter().filter(|x| **x != 0).count() >= 2 {
-            if checksum != 32 {
-                return Err(BrotliError::MismatchedChecksum(32, checksum));
-            }
+        if code_lengths.iter().filter(|x| **x != 0).count() >= 2 && checksum != 32 {
+            return Err(BrotliError::MismatchedChecksum(32, checksum));
         }
 
         // Code lengths are not given in the correct order but our huffmantree implementation requires that
@@ -554,7 +551,7 @@ fn read_prefix_code(
 
             match symbol_length_code {
                 0..=15 => {
-                    symbol_lengths[i] = symbol_length_code as usize;
+                    symbol_lengths[i] = symbol_length_code;
                     i += 1;
 
                     if symbol_length_code != 0 {
@@ -580,17 +577,14 @@ fn read_prefix_code(
                         },
                         _ => {
                             // The previous length code was not a 16
-                            let repeat_for = 3 + extra_bits as usize;
+                            let repeat_for = 3 + extra_bits;
                             previous_repeat_count = Some((16, repeat_for));
                             repeat_for
                         },
                     };
 
                     // Check which element we should be repeating
-                    let to_repeat = match previous_nonzero_code {
-                        Some(code) => code,
-                        None => 8,
-                    };
+                    let to_repeat = previous_nonzero_code.unwrap_or(8);
 
                     // Make sure to not exceed the alphabet size
                     if i + repeat_for > alphabet_size {
@@ -618,7 +612,7 @@ fn read_prefix_code(
                         },
                         _ => {
                             // The previous length code was not a 17
-                            (3 + extra_bits as usize, 3 + extra_bits as usize)
+                            (3 + extra_bits, 3 + extra_bits)
                         },
                     };
 
@@ -716,10 +710,7 @@ fn decode_context_map(
                 return Err(BrotliError::RunlengthEncodingExceedsExpectedSize);
             }
 
-            context_map.reserve(repeat_for);
-            for _ in 0..repeat_for {
-                context_map.push(0);
-            }
+            context_map.resize(context_map.len() + repeat_for, 0);
         } else {
             context_map.push((symbol - rle_max as usize) as u8);
         }
@@ -736,15 +727,15 @@ fn decode_context_map(
 fn inverse_move_to_front_transform(data: &mut [u8]) {
     let mut mtf = [0; 256];
 
-    for i in 0..256 {
-        mtf[i] = i as u8;
+    for (i, mtf_value) in mtf.iter_mut().enumerate() {
+        *mtf_value = i as u8;
     }
 
-    for i in 0..data.len() {
-        let index = data[i] as usize;
+    for data_value in data.iter_mut() {
+        let index = *data_value as usize;
         let value = mtf[index];
 
-        data[i] = value;
+        *data_value = value;
 
         // TODO i feel like we can make this faster, perhaps with some sort of queue?
         for j in (1..index + 1).rev() {
@@ -865,15 +856,7 @@ fn read_copy_length_code(reader: &mut BitReader, code: usize) -> Result<usize, B
 /// Read the block type metadata from the meta header
 fn decode_blockdata(
     reader: &mut BitReader,
-) -> Result<
-    (
-        usize,
-        Option<HuffmanTree<Bits<usize>>>,
-        Option<HuffmanTree<Bits<usize>>>,
-        usize,
-    ),
-    BrotliError,
-> {
+) -> Result<(usize, Option<HuffmanBitTree>, Option<HuffmanBitTree>, usize), BrotliError> {
     let num_blocks = decode_blocknum(reader)? as usize;
 
     if num_blocks >= 2 {
@@ -883,7 +866,7 @@ fn decode_blockdata(
             .lookup_incrementally(reader)
             .map_err(|_| BrotliError::UnexpectedEOF)?
             .ok_or(BrotliError::SymbolNotFound)?
-            .val() as usize;
+            .val();
         let first_literal_block_count = read_block_count_code(reader, first_block_count_code)?;
 
         Ok((

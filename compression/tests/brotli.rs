@@ -1,7 +1,7 @@
 use compression::brotli;
 use std::{fs, io::Read};
 
-const TESTS_DIR: &'static str = "../downloads/brotli/testdata/tests/testdata";
+const TESTS_DIR: &str = "../downloads/brotli/testdata/tests/testdata";
 
 #[test]
 fn test_brotli_decode() -> Result<(), std::io::Error> {
@@ -21,7 +21,7 @@ fn test_brotli_decode() -> Result<(), std::io::Error> {
                     .path()
                     .with_file_name(testfile.path().file_stem().unwrap());
                 let mut uncompressed_buffer = vec![];
-                fs::File::open(&uncompressed_file)?.read_to_end(&mut uncompressed_buffer)?;
+                fs::File::open(uncompressed_file)?.read_to_end(&mut uncompressed_buffer)?;
 
                 let decompressed =
                     brotli::decode(&compressed_buffer).expect("Brotli decompression failed");

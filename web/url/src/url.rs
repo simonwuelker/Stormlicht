@@ -7,10 +7,7 @@ use crate::{
 };
 
 pub(crate) fn scheme_is_special(scheme: &str) -> bool {
-    match scheme {
-        "ftp" | "file" | "http" | "https" | "ws" | "wss" => true,
-        _ => false,
-    }
+    matches!(scheme, "ftp" | "file" | "http" | "https" | "ws" | "wss")
 }
 
 pub(crate) fn scheme_default_port(scheme: &str) -> Option<Port> {

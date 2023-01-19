@@ -171,7 +171,7 @@ impl<'a> GlyphOutline<'a> {
 
     pub fn num_points(&self) -> usize {
         // last value in end_points_of_contours
-        read_u16_at(&self.data, 10 + self.num_contours() * 2 - 2) as usize + 1
+        read_u16_at(self.data, 10 + self.num_contours() * 2 - 2) as usize + 1
     }
 
     pub fn points(&'a self) -> GlyphPointIterator<'a> {
@@ -336,7 +336,7 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
 
         // Update x coordinate
         let delta_x = match self.current_flag.coordinate_type_x() {
-            GlyphCoordinateType::UnsignedDelta16B => read_u16_at(&self.data, self.x_index) as i16,
+            GlyphCoordinateType::UnsignedDelta16B => read_u16_at(self.data, self.x_index) as i16,
             GlyphCoordinateType::ZeroDelta16B => 0,
             GlyphCoordinateType::Negative8B => -1 * self.data[self.x_index] as i16,
             GlyphCoordinateType::Positive8B => self.data[self.x_index] as i16,
@@ -345,7 +345,7 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
 
         // Update y coordinate
         let delta_y = match self.current_flag.coordinate_type_y() {
-            GlyphCoordinateType::UnsignedDelta16B => read_u16_at(&self.data, self.y_index) as i16,
+            GlyphCoordinateType::UnsignedDelta16B => read_u16_at(self.data, self.y_index) as i16,
             GlyphCoordinateType::ZeroDelta16B => 0,
             GlyphCoordinateType::Negative8B => -1 * self.data[self.y_index] as i16,
             GlyphCoordinateType::Positive8B => self.data[self.y_index] as i16,
