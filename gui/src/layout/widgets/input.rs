@@ -1,4 +1,9 @@
-use crate::{color::Color, events::Event, layout::{Widget, Sizing}, primitives::Rect};
+use crate::{
+    layout::{Sizing, Widget},
+    GuiError,
+};
+use anyhow::Result;
+use sdl2::{event::Event, pixels::Color, rect::Rect, render::Canvas, video::Window};
 
 pub struct Input {
     color: Color,
@@ -29,12 +34,10 @@ impl Widget for Input {
         self.sizing
     }
 
-    fn render_to(
-        &mut self,
-        surface: &mut Box<dyn crate::surface::Surface>,
-        into: crate::primitives::Rect,
-    ) {
-        surface.draw_rect(into, self.color)
+    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<()> {
+        surface.set_draw_color(self.color);
+        surface.fill_rect(into).map_err(GuiError::from_sdl)?;
+        Ok(())
     }
 
     fn invalidate_layout(&mut self) {

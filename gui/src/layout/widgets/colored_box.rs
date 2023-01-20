@@ -1,9 +1,13 @@
 use crate::{
-    color::Color,
-    events::{Event, MouseButton},
-    layout::{Widget, Sizing},
-    primitives::Rect,
+    layout::{Sizing, Widget},
+    GuiError,
 };
+
+use sdl2::{
+    event::Event, mouse::MouseButton, pixels::Color, rect::Rect, render::Canvas, video::Window,
+};
+
+use anyhow::Result;
 
 pub struct ColoredBox {
     color: Color,
@@ -34,12 +38,10 @@ impl Widget for ColoredBox {
         self.sizing
     }
 
-    fn render_to(
-        &mut self,
-        surface: &mut Box<dyn crate::surface::Surface>,
-        into: crate::primitives::Rect,
-    ) {
-        surface.draw_rect(into, self.color)
+    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<()> {
+        surface.set_draw_color(self.color);
+        surface.fill_rect(into).map_err(GuiError::from_sdl)?;
+        Ok(())
     }
 
     fn invalidate_layout(&mut self) {
@@ -51,8 +53,8 @@ impl Widget for ColoredBox {
     }
 
     fn swallow_event(&mut self, event: Event) {
-        if let Event::MouseDown {
-            button: MouseButton::Left,
+        if let Event::MouseButtonDown {
+            mouse_btn: MouseButton::Left,
             ..
         } = event
         {

@@ -13,3 +13,5 @@ url = { path = "../web/url" }
 image = { path = "../image" }
 sdl2 = { version = "0.35" } # , default-features = false, features = ["gfx"]}
 anyhow = "1"
+thiserror = "1"
+

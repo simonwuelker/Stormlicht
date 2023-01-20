@@ -224,6 +224,7 @@ dependencies = [
  "image",
  "log 0.1.0",
  "sdl2",
+ "thiserror",
  "url",
 ]
 

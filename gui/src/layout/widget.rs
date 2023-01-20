@@ -1,11 +1,15 @@
-use crate::{events::Event, layout::Sizing, primitives::Rect, surface::Surface};
+use anyhow::Result;
+use sdl2::{event::Event, rect::Rect, render::Canvas, video::Window};
+
+use crate::layout::Sizing;
 
 pub trait Widget {
     fn bounding_box(&self) -> Option<Rect>;
 
-    fn render(&mut self, surface: &mut Box<dyn Surface>) {
+    fn render(&mut self, surface: &mut Canvas<Window>) -> Result<()> {
         let viewport = surface.viewport();
-        self.render_to(surface, viewport);
+        self.render_to(surface, viewport)?;
+        Ok(())
     }
 
     /// Set the preferred size of the element to the given size.
@@ -13,7 +17,7 @@ pub trait Widget {
 
     fn preferred_sizing(&self) -> Sizing;
 
-    fn render_to(&mut self, surface: &mut Box<dyn Surface>, into: Rect);
+    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<()>;
 
     fn compute_layout(&mut self, _into: Rect);
 
