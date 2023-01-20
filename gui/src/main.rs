@@ -7,7 +7,7 @@ pub mod surface;
 
 extern crate sdl2;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 // use std::time::Duration;
 
@@ -24,7 +24,18 @@ use anyhow::Result;
 // };
 // use surface::Surface;
 
+#[cfg(target_os = "linux")]
+#[link(name = "c")]
+extern "C" {
+    fn geteuid() -> u32;
+}
+
 pub fn main() -> Result<()> {
+    #[cfg(target_os = "linux")]
+    if unsafe { geteuid() } == 0 {
+        return Err(anyhow!("Refusing to run as root"));
+    }
+
     // let response = Request::get("http://google.com/".into())?.send()?;
     // println!("{:?}", response.headers);
     // println!("{:?}", String::from_utf8_lossy(&response.body));
