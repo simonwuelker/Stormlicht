@@ -11,6 +11,7 @@ criterion = { version = "0.4", features = ["html_reports"] }
 [dependencies]
 anyhow = "1"
 thiserror = "1"
+hash = { path = "../hash" }
 
 [[bench]]
 name = "brotli"

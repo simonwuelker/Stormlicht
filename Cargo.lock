@@ -118,6 +118,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "criterion",
+ "hash",
  "thiserror",
 ]
 
@@ -243,6 +244,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eabb4a44450da02c90444cf74558da904edde8fb4e9035a9a6a4e15445af0bd7"
 
 [[package]]
+name = "hash"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -284,6 +292,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "compression",
+ "hash",
  "thiserror",
 ]
 

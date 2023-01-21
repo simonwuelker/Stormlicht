@@ -71,7 +71,7 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>> {
 
             let expected_checksum =
                 u32::from_be_bytes(bytes[2 + num_consumed_bytes..][..4].try_into().unwrap());
-            let computed_checksum = adler32(&decompressed);
+            let computed_checksum = hash::adler32(&decompressed);
 
             if expected_checksum != computed_checksum {
                 return Err(ZLibError::IncorrectDataChecksum {
@@ -88,26 +88,9 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>> {
     }
 }
 
-pub fn adler32(bytes: &[u8]) -> u32 {
-    let mut s1: u32 = 1;
-    let mut s2: u32 = 0;
-    for byte in bytes {
-        s1 = (s1 + *byte as u32) % 65521;
-        s2 = (s2 + s1) % 65521;
-    }
-
-    s2 << 16 | s1
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_adler32() {
-        let bytes = b"Hello World";
-        assert_eq!(adler32(bytes), 403375133)
-    }
 
     #[test]
     fn test_zlib_decompression() -> Result<()> {
