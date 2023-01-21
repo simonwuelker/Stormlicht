@@ -82,6 +82,6 @@ mod tests {
 
         assert_eq!(*buffer.nth_last(0), 6);
         assert_eq!(*buffer.nth_last(1), 5);
-        assert_eq!(*buffer.nth_last(2), 3);
+        assert_eq!(*buffer.nth_last(2), 4);
     }
 }
