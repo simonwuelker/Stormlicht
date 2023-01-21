@@ -85,6 +85,17 @@ pub enum ImageType {
     TrueColorWithAlpha,
 }
 
+impl From<ImageType> for crate::PixelFormat {
+    fn from(value: ImageType) -> Self {
+        match &value {
+            ImageType::GrayScale => Self::GrayScale,
+            ImageType::TrueColor => Self::RGB8,
+            ImageType::TrueColorWithAlpha => Self::RGBA8,
+            _ => todo!(),
+        }
+    }
+}
+
 impl ImageType {
     pub fn is_allowed_bit_depth(&self, bit_depth: u8) -> bool {
         matches!(
@@ -95,6 +106,17 @@ impl ImageType {
                 | (Self::GrayScaleWithAlpha, 8 | 16)
                 | (Self::TrueColorWithAlpha, 8 | 16)
         )
+    }
+
+    /// Return the number of bytes per pixel in the given format
+    pub fn pixel_width(&self) -> usize {
+        match self {
+            Self::GrayScale => 1,
+            Self::GrayScaleWithAlpha => 2,
+            Self::TrueColor => 3,
+            Self::TrueColorWithAlpha => 4,
+            Self::IndexedColor => 1,
+        }
     }
 }
 

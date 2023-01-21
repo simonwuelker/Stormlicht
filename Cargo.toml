@@ -11,6 +11,7 @@ members = [
     "parser_combinators", 
     "async/executor",
     "log",
+    "browser",
 ]
 
 [profile.bench]

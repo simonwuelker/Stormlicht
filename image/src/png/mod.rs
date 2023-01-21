@@ -54,9 +54,13 @@ pub enum PNGError {
     NonEmptyIEND,
     #[error("Unexpected IDAT chunk, IDAT chunk's must be consecutive")]
     NonConsecutiveIDATChunk,
+    #[error("Expected the length of the decompressed zlib stream ({}) to be a multiple of the scanline width ({}", .0, .1)]
+    MismatchedDecompressedZlibSize(usize, usize),
+    #[error("Unknown filter method: {}", .0)]
+    UnknownFilterType(u8),
 }
 
-pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<()> {
+pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<crate::Image> {
     let mut file_contents = vec![];
     fs::File::open(&path)
         .with_context(|| format!("reading png data from {}", path.as_ref().display()))?
@@ -104,7 +108,7 @@ enum ParserStage {
     AfterIDAT,
 }
 
-pub fn decode(bytes: &[u8]) -> Result<()> {
+pub fn decode(bytes: &[u8]) -> Result<crate::Image> {
     let mut reader = Cursor::new(bytes);
 
     let mut signature = [0; 8];
@@ -120,6 +124,7 @@ pub fn decode(bytes: &[u8]) -> Result<()> {
     } else {
         return Err(PNGError::ExpectedIHDR(ihdr_chunk).into());
     };
+    println!("image header {image_header:?}");
 
     let mut parser_stage = ParserStage::BeforeIDAT;
     let mut idat = vec![];
@@ -147,13 +152,33 @@ pub fn decode(bytes: &[u8]) -> Result<()> {
 
     let decompressed_body = zlib::decode(&idat).context("Failed to decompress PNG image data")?;
 
-    println!(
-        "{} {}",
-        decompressed_body.len(),
-        decompressed_body.len() % image_header.width as usize,
-    );
+    let scanline_width = image_header.width as usize * image_header.image_type.pixel_width();
 
-    Ok(())
+    // NOTE: need to add 1 here because each scanline also contains a byte specifying a filter type
+    if decompressed_body.len() % (scanline_width + 1) != 0 {
+        return Err(PNGError::MismatchedDecompressedZlibSize(
+            decompressed_body.len(),
+            scanline_width,
+        )
+        .into());
+    }
+
+    let mut image_data = vec![0; image_header.height as usize * scanline_width];
+
+    // For each scanline, apply a filter (which is the first byte) to the scanline data (which is the rest)
+    for (scanline_data_and_filter_method, scanline) in decompressed_body
+        .chunks_exact(scanline_width + 1)
+        .zip(image_data.chunks_exact_mut(scanline_width))
+    {
+        apply_filter(scanline_data_and_filter_method, scanline)?;
+    }
+
+    Ok(crate::Image::new(
+        image_data,
+        image_header.width,
+        image_header.height,
+        image_header.image_type.into(),
+    ))
 }
 
 fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk> {
@@ -264,4 +289,37 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk> {
     };
 
     Ok(chunk)
+}
+
+/// Apply one of the filter specified in <https://www.w3.org/TR/png/#9-table91> to a scanline
+fn apply_filter(from: &[u8], to: &mut [u8]) -> Result<()> {
+    let (filter_type, scanline_data) = (from[0], &from[1..]);
+
+    assert_eq!(scanline_data.len(), to.len());
+
+    match filter_type {
+        0 => {
+            // None
+        },
+        1 => {
+            // Sub
+            // First byte always stays the same
+            to[0] = scanline_data[0];
+            for i in 1..scanline_data.len() {
+                to[i] = scanline_data[i].wrapping_add(to[i - 1]);
+            }
+        },
+        2 => {
+            // Up
+        },
+        3 => {
+            // Average
+        },
+        4 => {
+            // Paeth
+            todo!("Paeth filter method")
+        },
+        _ => return Err(PNGError::UnknownFilterType(filter_type).into()),
+    }
+    Ok(())
 }
