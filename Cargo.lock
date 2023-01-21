@@ -231,7 +231,6 @@ dependencies = [
  "font",
  "http",
  "image",
- "log 0.1.0",
  "sdl2",
  "thiserror",
  "url",
@@ -333,10 +332,6 @@ name = "libc"
 version = "0.2.137"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc7fcc620a3bff7cdd7a365be3376c97191aeaccc2a603e600951e452615bf89"
-
-[[package]]
-name = "log"
-version = "0.1.0"
 
 [[package]]
 name = "log"
@@ -650,7 +645,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c8ffb332579b0557b52d268b91feab8df3615f265d5270fec2a8c95b17c1142"
 dependencies = [
  "bumpalo",
- "log 0.4.17",
+ "log",
  "once_cell",
  "proc-macro2",
  "quote",

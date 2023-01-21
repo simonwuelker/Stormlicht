@@ -186,7 +186,6 @@ impl<'source> Tokenizer<'source> {
     }
 
     fn emit(&mut self, token: Token) {
-        log::trace!(target = "html-tokenizer", "Emitting token: {:?}", token);
         if let Token::Tag(TagData {
             opening: true,
             name,

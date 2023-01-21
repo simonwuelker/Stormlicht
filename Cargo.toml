@@ -10,7 +10,6 @@ members = [
     "font", 
     "parser_combinators", 
     "async/executor",
-    "log",
     "browser",
 ]
 
