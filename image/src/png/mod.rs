@@ -13,7 +13,7 @@ use thiserror::Error;
 
 use compression::zlib;
 
-use hash::IncrementalCRC32;
+use hash::CRC32;
 
 const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
@@ -196,10 +196,10 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk> {
     reader.read_exact(&mut crc_bytes)?;
     let expected_crc = u32::from_be_bytes(crc_bytes);
 
-    let computed_crc = IncrementalCRC32::default()
-        .update(&chunk_name_bytes)
-        .update(&data)
-        .finish();
+    let mut hasher = CRC32::default();
+    hasher.write(&chunk_name_bytes);
+    hasher.write(&data);
+    let computed_crc = hasher.finish();
 
     if expected_crc != computed_crc {
         return Err(PNGError::MismatchedChecksum {

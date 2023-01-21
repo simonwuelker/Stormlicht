@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use hash::crc32;
+use hash::CRC32;
 use std::{fs, io::Read};
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -9,7 +9,13 @@ fn criterion_benchmark(c: &mut Criterion) {
         .read_exact(&mut data)
         .unwrap();
 
-    c.bench_function("crc32 128MB", |b| b.iter(|| crc32(black_box(&data))));
+    c.bench_function("crc32 128MB", |b| {
+        b.iter(|| {
+            let mut hasher = CRC32::default();
+            hasher.write(black_box(&data));
+            black_box(hasher.finish());
+        })
+    });
 }
 
 criterion_group!(benches, criterion_benchmark);

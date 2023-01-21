@@ -1,5 +1,5 @@
 const CRC32_TABLE: [u32; 256] = [
-    0, 0x77073096, 0xEE0E612C, 0x990951BA, 0x076DC419, 0x706AF48F, 0xE963A535, 0x9E6495A3,
+    0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA, 0x076DC419, 0x706AF48F, 0xE963A535, 0x9E6495A3,
     0x0EDB8832, 0x79DCB8A4, 0xE0D5E91E, 0x97D2D988, 0x09B64C2B, 0x7EB17CBD, 0xE7B82D07, 0x90BF1D91,
     0x1DB71064, 0x6AB020F2, 0xF3B97148, 0x84BE41DE, 0x1ADAD47D, 0x6DDDE4EB, 0xF4D4B551, 0x83D385C7,
     0x136C9856, 0x646BA8C0, 0xFD62F97A, 0x8A65C9EC, 0x14015C4F, 0x63066CD9, 0xFA0F3D63, 0x8D080DF5,
@@ -33,29 +33,160 @@ const CRC32_TABLE: [u32; 256] = [
     0xB3667A2E, 0xC4614AB8, 0x5D681B02, 0x2A6F2B94, 0xB40BBE37, 0xC30C8EA1, 0x5A05DF1B, 0x2D02EF8D,
 ];
 
-pub struct IncrementalCRC32(u32);
+#[derive(Debug)]
+pub struct CRC32(u32);
 
-impl Default for IncrementalCRC32 {
+impl Default for CRC32 {
     fn default() -> Self {
-        Self(0xFFFFFFFF)
+        Self(u32::MAX)
     }
 }
-impl IncrementalCRC32 {
-    pub fn update(mut self, bytes: &[u8]) -> Self {
-        for byte in bytes {
-            let lookup_index = (self.0 & 0xFF) as u8 ^ byte;
-            self.0 = (self.0 >> 8) ^ CRC32_TABLE[lookup_index as usize];
-        }
-        self
+
+impl CRC32 {
+    pub fn write(&mut self, bytes: &[u8]) {
+        self.0 = if is_x86_feature_detected!("sse2") {
+            // Safe, we just verified that SSE is supported
+            unsafe { simd::crc32_update(self.0, bytes) }
+        } else {
+            crc32_update_no_simd(self.0, bytes)
+        };
     }
 
     pub fn finish(self) -> u32 {
-        self.0 ^ 0xFFFFFFFF
+        !self.0
     }
 }
 
-pub fn crc32(bytes: &[u8]) -> u32 {
-    IncrementalCRC32::default().update(bytes).finish()
+fn crc32_update_no_simd(mut crc32: u32, bytes: &[u8]) -> u32 {
+    for byte in bytes {
+        let lookup_index = (crc32 & 0xFF) as u8 ^ byte;
+        crc32 = (crc32 >> 8) ^ CRC32_TABLE[lookup_index as usize];
+    }
+    crc32
+}
+
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    target_feature = "sse2"
+))]
+/// SIMD-accelerated CRC-32 function.
+///
+/// Check <https://www.intel.com/content/dam/www/public/us/en/documents/white-papers/fast-crc-computation-generic-polynomials-pclmulqdq-paper.pdf> for more details.
+mod simd {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::{
+        __m128i, _mm_and_si128, _mm_clmulepi64_si128, _mm_cvtsi32_si128, _mm_extract_epi32,
+        _mm_loadu_si128, _mm_set_epi32, _mm_set_epi64x, _mm_srli_si128, _mm_xor_si128,
+    };
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{
+        __m128i, _mm_and_si128, _mm_clmulepi64_si128, _mm_cvtsi32_si128, _mm_extract_epi32,
+        _mm_loadu_si128, _mm_set_epi32, _mm_set_epi64x, _mm_srli_si128, _mm_xor_si128,
+    };
+
+    const K1: i64 = 0x154442bd4;
+    const K2: i64 = 0x1c6e41596;
+    const K3: i64 = 0x1751997d0;
+    const K4: i64 = 0x0ccaa009e;
+    const K5: i64 = 0x163cd6124;
+    // const K6: i64 = 0x1db710640;  // unused
+    const UP: i64 = 0x1F7011641;
+    const PX: i64 = 0x1DB710641;
+
+    #[target_feature(enable = "sse2")]
+    pub unsafe fn crc32_update(crc32: u32, bytes: &[u8]) -> u32 {
+        // Need at least 64 bytes
+        if bytes.len() < 128 {
+            return super::crc32_update_no_simd(crc32, bytes);
+        }
+        let mut chunks = bytes.chunks_exact(64);
+
+        // Fold by 4 loop
+        // Load 128×4 = 512 bits from the first 64-byte chunk.
+        let first_chunk = chunks.next().unwrap(); // Safe, we just asserted that the length is at least 64 bytes
+        let mut x0 = _mm_loadu_si128((first_chunk[0x00..0x10]).as_ptr() as *const __m128i);
+        let mut x1 = _mm_loadu_si128((first_chunk[0x10..0x20]).as_ptr() as *const __m128i);
+        let mut x2 = _mm_loadu_si128((first_chunk[0x20..0x30]).as_ptr() as *const __m128i);
+        let mut x3 = _mm_loadu_si128((first_chunk[0x30..0x40]).as_ptr() as *const __m128i);
+
+        // Combine with the initial state.
+        x0 = _mm_xor_si128(x0, _mm_cvtsi32_si128(crc32 as i32));
+
+        // Process the remaining 64-byte chunks.
+        let k1k2 = _mm_set_epi64x(K2, K1);
+        for chunk in chunks.by_ref() {
+            x0 = reduce(
+                x0,
+                _mm_loadu_si128((chunk[0x00..0x10]).as_ptr() as *const __m128i),
+                k1k2,
+            );
+            x1 = reduce(
+                x1,
+                _mm_loadu_si128((chunk[0x10..0x20]).as_ptr() as *const __m128i),
+                k1k2,
+            );
+            x2 = reduce(
+                x2,
+                _mm_loadu_si128((chunk[0x20..0x30]).as_ptr() as *const __m128i),
+                k1k2,
+            );
+            x3 = reduce(
+                x3,
+                _mm_loadu_si128((chunk[0x30..0x40]).as_ptr() as *const __m128i),
+                k1k2,
+            );
+        }
+
+        // Reduce 128×4 = 512 bits to 128 bits.
+        let k3k4 = _mm_set_epi64x(K4, K3);
+        x0 = reduce(x0, x1, k3k4);
+        x0 = reduce(x0, x2, k3k4);
+        x0 = reduce(x0, x3, k3k4);
+
+        // Fold by 1 loop
+        let remaining_bytes = chunks.remainder();
+        let mut small_chunks = remaining_bytes.chunks_exact(16);
+        for chunk in small_chunks.by_ref() {
+            x0 = reduce(x0, _mm_loadu_si128(chunk.as_ptr() as *const __m128i), k3k4);
+        }
+
+        // Reduce 128 bits to 64 bits.
+        // Not gonna lie, I don't fully understand this part.
+        x0 = _mm_xor_si128(
+            _mm_clmulepi64_si128::<0x10>(x0, k3k4),
+            _mm_srli_si128(x0, 8),
+        );
+
+        x0 = _mm_xor_si128(
+            _mm_clmulepi64_si128(
+                _mm_and_si128(x0, _mm_set_epi32(0, 0, 0, !0)),
+                _mm_set_epi64x(0, K5),
+                0x00,
+            ),
+            _mm_srli_si128(x0, 4),
+        );
+
+        // Reduce 64 bits to 32 bits (bit-reflected variant)
+        let uppx = _mm_set_epi64x(UP, PX);
+        let t1 = _mm_clmulepi64_si128::<0x10>(_mm_and_si128(x0, _mm_set_epi32(0, 0, 0, !0)), uppx);
+        let t2 = _mm_clmulepi64_si128::<0x00>(_mm_and_si128(t1, _mm_set_epi32(0, 0, 0, !0)), uppx);
+        let mut s = _mm_extract_epi32(_mm_xor_si128(x0, t2), 1) as u32;
+
+        // Handle the remaining bytes that did not fill a 16 byte chunk
+        for remaining_byte in small_chunks.remainder() {
+            let lookup_index = (s & 0xFF) as u8 ^ remaining_byte;
+            s = (s >> 8) ^ super::CRC32_TABLE[lookup_index as usize];
+        }
+
+        s
+    }
+
+    #[inline]
+    unsafe fn reduce(a: __m128i, b: __m128i, k: __m128i) -> __m128i {
+        let t1 = _mm_clmulepi64_si128::<0x00>(a, k);
+        let t2 = _mm_clmulepi64_si128::<0x11>(a, k);
+        _mm_xor_si128(_mm_xor_si128(b, t1), t2)
+    }
 }
 
 #[cfg(test)]
@@ -64,7 +195,9 @@ mod tests {
 
     #[test]
     fn test_crc32() {
-        let text = b"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.";
-        assert_eq!(crc32(text), 0xAA00473C);
+        let text = b"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumx eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.";
+        let mut hasher = CRC32::default();
+        hasher.write(text);
+        assert_eq!(hasher.finish(), 0xf5d5228);
     }
 }
