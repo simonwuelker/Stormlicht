@@ -57,6 +57,7 @@ impl CRC32 {
     }
 }
 
+#[inline]
 fn crc32_update_no_simd(mut crc32: u32, bytes: &[u8]) -> u32 {
     for byte in bytes {
         let lookup_index = (crc32 & 0xFF) as u8 ^ byte;
@@ -182,6 +183,7 @@ mod simd {
     }
 
     #[inline]
+    #[target_feature(enable = "sse2")]
     unsafe fn reduce(a: __m128i, b: __m128i, k: __m128i) -> __m128i {
         let t1 = _mm_clmulepi64_si128::<0x00>(a, k);
         let t2 = _mm_clmulepi64_si128::<0x11>(a, k);
