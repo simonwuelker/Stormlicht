@@ -7,11 +7,20 @@ use gui::{
     sdl2,
     GuiError,
 };
+use image::PixelFormat;
 use sdl2::{
     event::{Event, WindowEvent},
     keyboard::Keycode,
-    pixels::PixelFormatEnum,
+    pixels::{Color, PixelFormatEnum},
 };
+
+fn map_image_format(format: PixelFormat) -> PixelFormatEnum {
+    match format {
+        PixelFormat::RGB8 => PixelFormatEnum::RGB24,
+        PixelFormat::RGBA8 => PixelFormatEnum::RGBA32,
+        _ => todo!("Find mapping for {format:?}"),
+    }
+}
 
 #[cfg(target_os = "linux")]
 #[link(name = "c")]
@@ -41,34 +50,23 @@ pub fn main() -> Result<()> {
         .resizable()
         .build()
         .unwrap();
-    println!("waifu format {:?}", image.format);
-    println!("{:?}", &image.data[..20]);
-    println!(
-        "bytes per pixel {}",
-        image.data.len() / (image.width * image.height) as usize
-    );
 
     let mut canvas = window.into_canvas().build()?;
 
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator.create_texture_target(
-        Some(PixelFormatEnum::RGBA32),
+        Some(map_image_format(image.format)),
         image.width,
         image.height,
     )?;
-    println!("{} {}", image.width, image.height);
 
-    for i in 100..200 {
-        for j in 100..200 {
-            let base = i * 4 + j * image.width as usize;
-            image.data[base] = 0;
-            image.data[base + 1] = 0;
-            image.data[base + 2] = 255;
-            image.data[base + 3] = 255; // red
-        }
-    }
-
-    texture.update(None, &image.data, image.width as usize)?;
+    texture.update(
+        None,
+        &image.data,
+        image.width as usize * image.format.pixel_size(),
+    )?;
+    canvas.set_draw_color(Color::WHITE);
+    canvas.clear();
     canvas
         .copy(&texture, None, None)
         .map_err(GuiError::from_sdl)?;
@@ -83,12 +81,10 @@ pub fn main() -> Result<()> {
 
     // root.render(&mut canvas)?;
     // canvas.present();
-    canvas.present();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     'running: loop {
         for event in event_pump.poll_iter() {
-            println!("{event:?}");
             match event {
                 Event::Quit { .. }
                 | Event::KeyDown {

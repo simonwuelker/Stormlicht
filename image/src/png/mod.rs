@@ -124,7 +124,6 @@ pub fn decode(bytes: &[u8]) -> Result<crate::Image> {
     } else {
         return Err(PNGError::ExpectedIHDR(ihdr_chunk).into());
     };
-    println!("image header {image_header:?}");
 
     let mut parser_stage = ParserStage::BeforeIDAT;
     let mut idat = vec![];
@@ -151,6 +150,7 @@ pub fn decode(bytes: &[u8]) -> Result<crate::Image> {
     }
 
     let decompressed_body = zlib::decode(&idat).context("Failed to decompress PNG image data")?;
+    // std::fs::write("waifu_decompressed_unfiltered", &decompressed_body)?;
 
     let scanline_width = image_header.width as usize * image_header.image_type.pixel_width();
 
@@ -164,14 +164,12 @@ pub fn decode(bytes: &[u8]) -> Result<crate::Image> {
     }
 
     let mut image_data = vec![0; image_header.height as usize * scanline_width];
-
-    // For each scanline, apply a filter (which is the first byte) to the scanline data (which is the rest)
-    for (scanline_data_and_filter_method, scanline) in decompressed_body
-        .chunks_exact(scanline_width + 1)
-        .zip(image_data.chunks_exact_mut(scanline_width))
-    {
-        apply_filter(scanline_data_and_filter_method, scanline)?;
-    }
+    apply_filters(
+        &decompressed_body,
+        &mut image_data,
+        scanline_width,
+        image_header.image_type.pixel_width(),
+    )?;
 
     Ok(crate::Image::new(
         image_data,
@@ -292,34 +290,60 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk> {
 }
 
 /// Apply one of the filter specified in <https://www.w3.org/TR/png/#9-table91> to a scanline
-fn apply_filter(from: &[u8], to: &mut [u8]) -> Result<()> {
-    let (filter_type, scanline_data) = (from[0], &from[1..]);
+fn apply_filters(
+    from: &[u8],
+    to: &mut [u8],
+    scanline_width: usize,
+    pixel_width: usize,
+) -> Result<()> {
+    // For each scanline, apply a filter (which is the first byte) to the scanline data (which is the rest)
+    for (index, scanline_data_and_filter_method) in
+        from.chunks_exact(scanline_width + 1).enumerate()
+    {
+        let (filter_type, filter_scanline_data) = (
+            scanline_data_and_filter_method[0],
+            &scanline_data_and_filter_method[1..],
+        );
 
-    assert_eq!(scanline_data.len(), to.len());
-
-    match filter_type {
-        0 => {
-            // None
-        },
-        1 => {
-            // Sub
-            // First byte always stays the same
-            to[0] = scanline_data[0];
-            for i in 1..scanline_data.len() {
-                to[i] = scanline_data[i].wrapping_add(to[i - 1]);
-            }
-        },
-        2 => {
-            // Up
-        },
-        3 => {
-            // Average
-        },
-        4 => {
-            // Paeth
-            todo!("Paeth filter method")
-        },
-        _ => return Err(PNGError::UnknownFilterType(filter_type).into()),
+        let scanline_base_index = index * scanline_width;
+        match filter_type {
+            0 => {
+                // None
+                to[scanline_base_index..][..scanline_width].copy_from_slice(&filter_scanline_data);
+            },
+            1 => {
+                // Sub
+                // First pixel always stays the same
+                to[scanline_base_index..][..pixel_width]
+                    .copy_from_slice(&filter_scanline_data[..pixel_width]);
+                for i in pixel_width..filter_scanline_data.len() {
+                    to[scanline_base_index + i] = filter_scanline_data[i]
+                        .wrapping_add(to[scanline_base_index + i - pixel_width]);
+                }
+            },
+            2 => {
+                // Up
+                if index == 0 {
+                    // First row stays the same
+                    to[scanline_base_index..][..scanline_width]
+                        .copy_from_slice(filter_scanline_data);
+                } else {
+                    for i in 0..scanline_width {
+                        to[scanline_base_index + i] = filter_scanline_data[i]
+                            .wrapping_add(to[scanline_base_index - scanline_width + i]);
+                    }
+                }
+            },
+            3 => {
+                // Average
+                todo!("Average filter type")
+            },
+            4 => {
+                // Paeth
+                todo!("Paeth filter type")
+            },
+            _ => return Err(PNGError::UnknownFilterType(filter_type).into()),
+        }
     }
     Ok(())
 }
