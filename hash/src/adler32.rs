@@ -1,12 +1,48 @@
-pub fn adler32(bytes: &[u8]) -> u32 {
-    let mut s1: u32 = 1;
-    let mut s2: u32 = 0;
-    for byte in bytes {
-        s1 = (s1 + *byte as u32) % 65521;
-        s2 = (s2 + s1) % 65521;
+const BASE: u32 = 65521;
+pub struct Adler32(u32, u32);
+
+impl Default for Adler32 {
+    fn default() -> Self {
+        Self(1, 0)
+    }
+}
+
+impl Adler32 {
+    pub fn write(&mut self, bytes: &[u8]) {
+        let mut chunks = bytes.chunks_exact(5552);
+        for chunk in chunks.by_ref() {
+            for inner_chunk in chunk.chunks_exact(16) {
+                for b in inner_chunk {
+                    self.0 += *b as u32;
+                    self.1 += self.0;
+                }
+            }
+
+            self.0 %= BASE;
+            self.1 %= BASE;
+        }
+
+        let mut trailing_chunks = chunks.remainder().chunks_exact(16);
+        for inner_chunk in trailing_chunks.by_ref() {
+            for b in inner_chunk {
+                self.0 += *b as u32;
+                self.1 += self.0;
+            }
+        }
+
+        let trailing_bytes = trailing_chunks.remainder();
+        for b in trailing_bytes {
+            self.0 += *b as u32;
+            self.1 += self.0;
+        }
+
+        self.0 %= BASE;
+        self.1 %= BASE;
     }
 
-    s2 << 16 | s1
+    pub fn finish(&self) -> u32 {
+        self.1 << 16 | self.0
+    }
 }
 
 #[cfg(test)]
@@ -15,7 +51,9 @@ mod tests {
 
     #[test]
     fn test_adler32() {
-        let bytes = b"Hello World";
-        assert_eq!(adler32(bytes), 403375133)
+        let text = b"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumx eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.";
+        let mut hasher = Adler32::default();
+        hasher.write(&text[..]);
+        assert_eq!(hasher.finish(), 0x6d7fd7c8);
     }
 }
