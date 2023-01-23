@@ -4,7 +4,6 @@ pub struct HMTXTable<'a>(&'a [u8]);
 
 impl<'a> HMTXTable<'a> {
     pub fn new(data: &'a [u8], offset: usize, num_of_long_hor_metrics: usize) -> Self {
-        println!("num of long hor metrics {num_of_long_hor_metrics}");
         Self(&data[offset..][..num_of_long_hor_metrics * 4])
     }
 

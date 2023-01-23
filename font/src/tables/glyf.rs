@@ -1,7 +1,5 @@
-use crate::{
-    target::{BoundingBox, Point, RasterizerTarget},
-    ttf::{read_i16_at, read_u16_at},
-};
+use crate::ttf::{read_i16_at, read_u16_at};
+use canvas::Canvas;
 use std::fmt;
 
 pub struct GlyphOutlineTable<'a>(&'a [u8]);
@@ -44,29 +42,27 @@ impl<'a> Glyph<'a> {
         read_i16_at(self.0, 8)
     }
 
-    pub fn bounding_box(&self) -> BoundingBox {
-        BoundingBox::new(self.min_x(), self.min_y(), self.max_x(), self.max_y())
+    pub fn bounding_box(&self) -> (i16, i16, i16, i16) {
+        (self.min_x(), self.min_y(), self.max_x(), self.max_y())
     }
 
-    pub fn rasterize<T: RasterizerTarget>(&self, target: &mut T, into: BoundingBox) {
+    pub fn rasterize(&self, target: &mut Canvas, color: &[u8], scale: f32) {
         let mut previous_point = None;
         let mut first_point_of_contour = None;
-        let glyph_bb = BoundingBox::new(self.min_x(), self.min_y(), self.max_x(), self.max_y());
 
-        for glyph_vertex in self.outline().points() {
-            let current_point_unflipped = glyph_bb.translate(glyph_vertex.coordinates, into);
-            let current_point = Point::new(
-                current_point_unflipped.x,
-                into.height() - current_point_unflipped.y + into.min_y,
+        for glyph_vertex in self.outline().points().map(|p| p.with_size(scale)) {
+            let current_point = (
+                glyph_vertex.coordinates.0 as usize,
+                target.height() - glyph_vertex.coordinates.1 as usize,
             );
 
             match previous_point {
-                Some(previous_point) => target.line(previous_point, current_point),
+                Some(previous_point) => target.line(previous_point, current_point, color),
                 None => first_point_of_contour = Some(current_point),
             }
 
             if glyph_vertex.is_last_point_of_contour {
-                target.line(current_point, first_point_of_contour.unwrap());
+                target.line(current_point, first_point_of_contour.unwrap(), color);
                 previous_point = None;
             } else {
                 previous_point = Some(current_point);
@@ -244,11 +240,24 @@ impl GlyphFlag {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct GlyphPoint {
     pub is_on_curve: bool,
     pub is_last_point_of_contour: bool,
-    pub coordinates: Point,
+    pub coordinates: (i16, i16),
+}
+
+impl GlyphPoint {
+    fn with_size(&self, scale: f32) -> Self {
+        Self {
+            is_on_curve: self.is_on_curve,
+            is_last_point_of_contour: self.is_last_point_of_contour,
+            coordinates: (
+                (self.coordinates.0 as f32 * scale).round() as i16,
+                (self.coordinates.1 as f32 * scale).round() as i16,
+            ),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -283,7 +292,7 @@ pub struct GlyphPointIterator<'a> {
     flag_index: usize,
     x_index: usize,
     y_index: usize,
-    previous_point: Point,
+    previous_point: (i16, i16),
     points_emitted: usize,
     contours_emitted: usize,
     num_points: usize,
@@ -305,7 +314,7 @@ impl<'a> GlyphPointIterator<'a> {
             flag_index: 0,
             x_index: x_starts_at,
             y_index: y_starts_at,
-            previous_point: Point::new(0, 0),
+            previous_point: (0, 0),
             points_emitted: 0,
             contours_emitted: 0,
             num_points: num_points,
@@ -352,9 +361,9 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
         };
         self.y_index += self.current_flag.coordinate_type_y().size();
 
-        let new_point = Point::new(
-            self.previous_point.x + delta_x,
-            self.previous_point.y + delta_y,
+        let new_point = (
+            self.previous_point.0 + delta_x,
+            self.previous_point.1 + delta_y,
         );
         self.previous_point = new_point;
         let is_last_point = read_u16_at(self.contour_end_points, self.contours_emitted * 2)

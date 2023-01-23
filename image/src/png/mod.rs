@@ -54,13 +54,15 @@ pub enum PNGError {
     NonEmptyIEND,
     #[error("Unexpected IDAT chunk, IDAT chunk's must be consecutive")]
     NonConsecutiveIDATChunk,
-    #[error("Expected the length of the decompressed zlib stream ({}) to be a multiple of the scanline width ({}", .0, .1)]
+    #[error("Expected the length of the decompressed zlib stream ({}) to be a multiple of the scanline width plus the filter byte ({})", .0, .1)]
     MismatchedDecompressedZlibSize(usize, usize),
     #[error("Unknown filter method: {}", .0)]
     UnknownFilterType(u8),
+    #[error("Image is color-indexed but does not contain a PLTE chunk")]
+    IndexedImageWithoutPLTE,
 }
 
-pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<crate::Image> {
+pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<canvas::Canvas> {
     let mut file_contents = vec![];
     fs::File::open(&path)
         .with_context(|| format!("reading png data from {}", path.as_ref().display()))?
@@ -108,7 +110,7 @@ enum ParserStage {
     AfterIDAT,
 }
 
-pub fn decode(bytes: &[u8]) -> Result<crate::Image> {
+pub fn decode(bytes: &[u8]) -> Result<canvas::Canvas> {
     let mut reader = Cursor::new(bytes);
 
     let mut signature = [0; 8];
@@ -124,12 +126,15 @@ pub fn decode(bytes: &[u8]) -> Result<crate::Image> {
     } else {
         return Err(PNGError::ExpectedIHDR(ihdr_chunk).into());
     };
+    dbg!(image_header);
 
     let mut parser_stage = ParserStage::BeforeIDAT;
     let mut idat = vec![];
+    let mut palette = None;
 
     loop {
         let chunk = read_chunk(&mut reader)?;
+        dbg!(&chunk);
 
         if parser_stage == ParserStage::DuringIDAT && !matches!(chunk, Chunk::IDAT(_)) {
             parser_stage = ParserStage::AfterIDAT;
@@ -145,20 +150,24 @@ pub fn decode(bytes: &[u8]) -> Result<crate::Image> {
                 }
                 idat.extend(data.bytes());
             },
+            Chunk::PLTE(plte) => palette = Some(plte),
             _ => {},
         }
     }
 
-    let decompressed_body = zlib::decode(&idat).context("Failed to decompress PNG image data")?;
-    // std::fs::write("waifu_decompressed_unfiltered", &decompressed_body)?;
+    if image_header.image_type == chunks::ihdr::ImageType::IndexedColor && palette.is_none() {
+        return Err(PNGError::IndexedImageWithoutPLTE.into());
+    }
 
+    let decompressed_body = zlib::decode(&idat).context("Failed to decompress PNG image data")?;
+    dbg!(&decompressed_body[..10]);
     let scanline_width = image_header.width as usize * image_header.image_type.pixel_width();
 
     // NOTE: need to add 1 here because each scanline also contains a byte specifying a filter type
     if decompressed_body.len() % (scanline_width + 1) != 0 {
         return Err(PNGError::MismatchedDecompressedZlibSize(
             decompressed_body.len(),
-            scanline_width,
+            scanline_width + 1,
         )
         .into());
     }
@@ -171,10 +180,10 @@ pub fn decode(bytes: &[u8]) -> Result<crate::Image> {
         image_header.image_type.pixel_width(),
     )?;
 
-    Ok(crate::Image::new(
+    Ok(canvas::Canvas::new(
         image_data,
-        image_header.width,
-        image_header.height,
+        image_header.width as usize,
+        image_header.height as usize,
         image_header.image_type.into(),
     ))
 }
@@ -309,7 +318,7 @@ fn apply_filters(
         match filter_type {
             0 => {
                 // None
-                to[scanline_base_index..][..scanline_width].copy_from_slice(&filter_scanline_data);
+                to[scanline_base_index..][..scanline_width].copy_from_slice(filter_scanline_data);
             },
             1 => {
                 // Sub

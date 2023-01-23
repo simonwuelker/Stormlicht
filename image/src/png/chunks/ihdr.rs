@@ -71,7 +71,7 @@ impl ImageHeader {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ImageType {
     /// Each pixel is a greyscale sample
     GrayScale,
@@ -85,7 +85,7 @@ pub enum ImageType {
     TrueColorWithAlpha,
 }
 
-impl From<ImageType> for crate::PixelFormat {
+impl From<ImageType> for canvas::PixelFormat {
     fn from(value: ImageType) -> Self {
         match &value {
             ImageType::GrayScale => Self::GrayScale,

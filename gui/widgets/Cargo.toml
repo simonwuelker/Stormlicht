@@ -1,15 +1,15 @@
 [package]
-name = "gui"
+name = "widgets"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-font = { path = "../font" }
-http = { path = "../web/http" }
-url = { path = "../web/url" }
-image = { path = "../image" }
+font = { path = "../../font" }
+http = { path = "../../web/http" }
+url = { path = "../../web/url" }
+image = { path = "../../image" }
 sdl2 = { version = "0.35" } # , default-features = false, features = ["gfx"]}
 anyhow = "1"
 thiserror = "1"

@@ -1,17 +1,19 @@
 use anyhow::{anyhow, Result};
-use gui::{
+use canvas::{Canvas, PixelFormat};
+use font::Font;
+use sdl2::{
+    event::{Event, WindowEvent},
+    keyboard::Keycode,
+    pixels::PixelFormatEnum,
+};
+use widgets::{
+    // colorscheme,
     // layout::{
     //     widgets::{ColoredBox, Input},
     //     Divider, Orientation, Sizing, Widget,
     // },
-    sdl2,
+    sdl2::{self},
     GuiError,
-};
-use image::PixelFormat;
-use sdl2::{
-    event::{Event, WindowEvent},
-    keyboard::Keycode,
-    pixels::{Color, PixelFormatEnum},
 };
 
 fn map_image_format(format: PixelFormat) -> PixelFormatEnum {
@@ -37,15 +39,19 @@ pub fn main() -> Result<()> {
     // let response = Request::get("http://google.com/".into())?.send()?;
     // println!("{:?}", response.headers);
     // println!("{:?}", String::from_utf8_lossy(&response.body));
-    let mut image = image::png::load_from_file("/home/alaska/Pictures/red.png")?;
-    // let font = Font::default();
-    // println!("width: {}", font.compute_width("abc"));
+    // let image = image::png::load_from_file("/home/alaska/Pictures/waifu.png")?;
+    const FONT_SIZE: usize = 40;
+    let mut image = Canvas::new_uninit(300, 100, PixelFormat::RGB8);
+    let font = Font::default();
+    println!("units per em: {}", font.units_per_em());
+    font.render_text("A", &mut image, &[255, 255, 255], FONT_SIZE);
+    println!("width: {}", font.compute_width("A", FONT_SIZE));
 
     let sdl_context = sdl2::init().map_err(GuiError::from_sdl)?;
     let video_subsystem = sdl_context.video().map_err(GuiError::from_sdl)?;
 
     let window = video_subsystem
-        .window("Browser", image.width, image.height)
+        .window("Browser", image.width() as u32, image.height() as u32)
         .position_centered()
         .resizable()
         .build()
@@ -55,29 +61,27 @@ pub fn main() -> Result<()> {
 
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator.create_texture_target(
-        Some(map_image_format(image.format)),
-        image.width,
-        image.height,
+        Some(map_image_format(image.format())),
+        image.width() as u32,
+        image.height() as u32,
     )?;
 
     texture.update(
         None,
-        &image.data,
-        image.width as usize * image.format.pixel_size(),
+        image.data(),
+        image.width() * image.format().pixel_size(),
     )?;
-    canvas.set_draw_color(Color::WHITE);
-    canvas.clear();
     canvas
         .copy(&texture, None, None)
         .map_err(GuiError::from_sdl)?;
     canvas.present();
 
-    // let mut textbox = Input::new(Color::RED).into_widget();
+    // let mut textbox = Input::new(colorscheme::BACKGROUND_DARK).into_widget();
     // textbox.set_size(Sizing::Exactly(50));
 
     // let mut root = Divider::new(Orientation::Vertical)
     //     .add_child(textbox)
-    //     .add_child(ColoredBox::new(Color::BLUE).into_widget());
+    //     .add_child(ColoredBox::new(colorscheme::BACKGROUND_LIGHT).into_widget());
 
     // root.render(&mut canvas)?;
     // canvas.present();
@@ -92,7 +96,7 @@ pub fn main() -> Result<()> {
                     ..
                 } => break 'running,
                 Event::Window {
-                    win_event: WindowEvent::Resized(_, _),
+                    win_event: WindowEvent::Resized(_width, _height),
                     ..
                 } => {
                     // root.invalidate_layout();

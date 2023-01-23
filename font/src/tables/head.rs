@@ -1,4 +1,4 @@
-use crate::ttf::read_i16_at;
+use crate::ttf::{read_i16_at, read_u16_at};
 use std::fmt;
 
 pub struct HeadTable<'a>(&'a [u8]);
@@ -6,6 +6,10 @@ pub struct HeadTable<'a>(&'a [u8]);
 impl<'a> HeadTable<'a> {
     pub fn new(data: &'a [u8], offset: usize) -> Self {
         Self(&data[offset..][..54])
+    }
+
+    pub fn units_per_em(&self) -> u16 {
+        read_u16_at(self.0, 18)
     }
 
     pub fn index_to_loc_format(&self) -> i16 {

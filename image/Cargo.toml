@@ -10,3 +10,4 @@ anyhow = "1"
 thiserror = "1"
 compression = { path = "../compression" }
 hash = { path = "../hash" }
+canvas = { path = "../gui/canvas" }

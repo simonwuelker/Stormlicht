@@ -3,6 +3,8 @@
 //! https://formats.kaitai.io/ttf/index.html
 //! https://handmade.network/forums/articles/t/7330-implementing_a_font_reader_and_rasterizer_from_scratch%252C_part_1__ttf_font_reader.
 
+use canvas::Canvas;
+
 use crate::tables::{cmap, glyf, head, hhea, hmtx, loca, offset::OffsetTable};
 
 const CMAP_TAG: u32 = u32::from_be_bytes(*b"cmap");
@@ -99,15 +101,32 @@ impl<'a> Font<'a> {
         Ok(self.glyph_table.get_glyph(glyph_offset))
     }
 
+    /// Return the number of coordinate points per font size unit.
+    /// This value is used to scale fonts, ie. when you render a font with
+    /// size `17px`, one `em` equals `17px`.
+    ///
+    /// Note that this value does not constrain the size of individual glyphs.
+    /// A glyph may have a size larger than `1em`.
+    pub fn units_per_em(&self) -> u16 {
+        self.head_table.units_per_em()
+    }
+
+    pub fn render_text(&self, text: &str, target: &mut Canvas, color: &[u8], font_size: usize) {
+        for codepoint in text.chars().map(|c| c as u16) {
+            let glyph = self.get_glyph(codepoint).unwrap();
+            glyph.rasterize(target, color, font_size as f32 / self.units_per_em() as f32);
+        }
+    }
+
     /// Compute the rendered width of a given character sequence
-    pub fn compute_width(&self, text: &str) -> usize {
+    pub fn compute_width(&self, text: &str, font_size: usize) -> usize {
         let mut total_length = 0;
 
         for c in text.chars() {
             let glyph_index = self.format4.get_glyph_index(c as u16).unwrap_or(0);
             total_length += self.hmtx_table.get_metric_for(glyph_index).advance_width();
         }
-        total_length
+        (font_size as f32 * total_length as f32 / self.units_per_em() as f32).round() as usize
     }
 
     pub fn offset_table(&self) -> &OffsetTable<'a> {

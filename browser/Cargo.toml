@@ -6,6 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gui = { path = "../gui" }
+widgets = { path = "../gui/widgets" }
+canvas = { path = "../gui/canvas" }
 image = { path = "../image" }
+font = { path = "../font" }
 anyhow = "1"
