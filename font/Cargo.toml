@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 canvas = { path = "../gui/canvas" }
+anyhow = "1"
+thiserror = "1"

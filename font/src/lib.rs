@@ -1,4 +1,4 @@
-pub mod tables;
-mod ttf;
+pub mod font;
+pub mod ttf;
 
-pub use ttf::Font;
+pub use font::Font;

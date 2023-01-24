@@ -120,14 +120,16 @@ impl<'a> Format4<'a> {
         read_u16_at(self.0, 2)
     }
 
-    pub fn segcount_x2(&self) -> usize {
+    fn segcount_x2(&self) -> usize {
         read_u16_at(self.0, 6) as usize
     }
 
+    /// Get the number of segments in the table
     pub fn segcount(&self) -> usize {
         self.segcount_x2() / 2
     }
 
+    /// Get the start code for a given segment
     pub fn get_start_code(&self, index: usize) -> u16 {
         read_u16_at(self.0, self.start_code_start() + index * 2)
     }
@@ -154,7 +156,6 @@ impl<'a> Format4<'a> {
         while index < self.segcount() && self.get_end_code(index) < codepoint {
             index += 1;
         }
-        assert!(self.get_end_code(index) > codepoint);
 
         if self.get_start_code(index) < codepoint {
             if self.get_id_range_offset(index) != 0 {
@@ -188,6 +189,18 @@ impl<'a> Format4<'a> {
 
     fn glyph_ids_start(&self) -> usize {
         self.id_range_offset_start() + self.segcount_x2()
+    }
+
+    /// Call `f` for every codepoint defined in the font
+    pub fn codepoints<F: FnMut(u16)>(&self, mut f: F) {
+        for segment_index in 0..self.segcount() {
+            let start = self.get_start_code(segment_index);
+            let end = self.get_end_code(segment_index);
+
+            for codepoint in start..=end {
+                f(codepoint)
+            }
+        }
     }
 }
 

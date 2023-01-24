@@ -3,9 +3,12 @@
 //! https://formats.kaitai.io/ttf/index.html
 //! https://handmade.network/forums/articles/t/7330-implementing_a_font_reader_and_rasterizer_from_scratch%252C_part_1__ttf_font_reader.
 
+pub mod tables;
+use tables::{cmap, glyf, head, hhea, hmtx, loca, maxp, offset::OffsetTable};
+
 use canvas::Canvas;
 
-use crate::tables::{cmap, glyf, head, hhea, hmtx, loca, offset::OffsetTable};
+use self::tables::name;
 
 const CMAP_TAG: u32 = u32::from_be_bytes(*b"cmap");
 const HEAD_TAG: u32 = u32::from_be_bytes(*b"head");
@@ -13,6 +16,8 @@ const LOCA_TAG: u32 = u32::from_be_bytes(*b"loca");
 const GLYF_TAG: u32 = u32::from_be_bytes(*b"glyf");
 const HHEA_TAG: u32 = u32::from_be_bytes(*b"hhea");
 const HMTX_TAG: u32 = u32::from_be_bytes(*b"hmtx");
+const MAXP_TAG: u32 = u32::from_be_bytes(*b"maxp");
+const NAME_TAG: u32 = u32::from_be_bytes(*b"name");
 
 #[derive(Debug)]
 pub enum TTFParseError {
@@ -28,10 +33,9 @@ pub struct Font<'a> {
     loca_table: loca::LocaTable<'a>,
     glyph_table: glyf::GlyphOutlineTable<'a>,
     hmtx_table: hmtx::HMTXTable<'a>,
+    maxp_table: maxp::MaxPTable<'a>,
+    name_table: name::NameTable<'a>,
 }
-
-const DEFAULT_FONT: &[u8; 168644] =
-    include_bytes!("../../downloads/fonts/roboto/Roboto-Medium.ttf");
 
 impl<'a> Font<'a> {
     pub fn new(data: &'a [u8]) -> Result<Self, TTFParseError> {
@@ -80,6 +84,16 @@ impl<'a> Font<'a> {
             hhea_table.num_of_long_hor_metrics(),
         );
 
+        let maxp_entry = offset_table
+            .get_table(MAXP_TAG)
+            .ok_or(TTFParseError::MissingTable)?;
+        let maxp_table = maxp::MaxPTable::new(data, maxp_entry.offset());
+
+        let name_entry = offset_table
+            .get_table(NAME_TAG)
+            .ok_or(TTFParseError::MissingTable)?;
+        let name_table = name::NameTable::new(data, name_entry.offset()).unwrap();
+
         Ok(Self {
             offset_table: offset_table,
             head_table: head_table,
@@ -87,7 +101,22 @@ impl<'a> Font<'a> {
             loca_table: loca_table,
             glyph_table: glyph_table,
             hmtx_table: hmtx_table,
+            maxp_table: maxp_table,
+            name_table: name_table,
         })
+    }
+
+    pub fn num_glyphs(&self) -> usize {
+        self.maxp_table.num_glyphs()
+    }
+
+    // TODO: support more than one cmap format table (format 4 seems to be the most common but still)
+    pub fn format_4(&self) -> &cmap::Format4<'a> {
+        &self.format4
+    }
+
+    pub fn name(&self) -> &name::NameTable<'a> {
+        &self.name_table
     }
 
     pub fn get_glyph(&self, codepoint: u16) -> Result<glyf::Glyph<'a>, TTFParseError> {
@@ -131,12 +160,6 @@ impl<'a> Font<'a> {
 
     pub fn offset_table(&self) -> &OffsetTable<'a> {
         &self.offset_table
-    }
-}
-
-impl Default for Font<'static> {
-    fn default() -> Self {
-        Self::new(DEFAULT_FONT).unwrap()
     }
 }
 
