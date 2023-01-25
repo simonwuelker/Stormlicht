@@ -116,7 +116,7 @@ impl<'a> Format4<'a> {
         Self(&our_data[..length])
     }
 
-    pub fn length(&self) -> u16 {
+    fn length(&self) -> u16 {
         read_u16_at(self.0, 2)
     }
 
@@ -125,24 +125,29 @@ impl<'a> Format4<'a> {
     }
 
     /// Get the number of segments in the table
-    pub fn segcount(&self) -> usize {
+    fn segcount(&self) -> usize {
         self.segcount_x2() / 2
     }
 
     /// Get the start code for a given segment
-    pub fn get_start_code(&self, index: usize) -> u16 {
+    fn get_start_code(&self, index: usize) -> u16 {
+        assert!(index < self.segcount());
         read_u16_at(self.0, self.start_code_start() + index * 2)
     }
 
+    /// Get the end code for a given segment
     pub fn get_end_code(&self, index: usize) -> u16 {
+        assert!(index < self.segcount());
         read_u16_at(self.0, self.end_code_start() + index * 2)
     }
 
-    pub fn get_id_delta(&self, index: usize) -> u16 {
+    fn get_id_delta(&self, index: usize) -> u16 {
+        assert!(index < self.segcount());
         read_u16_at(self.0, self.id_delta_start() + index * 2)
     }
 
-    pub fn get_id_range_offset(&self, index: usize) -> u16 {
+    fn get_id_range_offset(&self, index: usize) -> u16 {
+        assert!(index < self.segcount());
         read_u16_at(self.0, self.id_range_offset_start() + index * 2)
     }
 
@@ -151,24 +156,44 @@ impl<'a> Format4<'a> {
     }
 
     pub fn get_glyph_index(&self, codepoint: u16) -> Option<u16> {
-        // TODO optimize. a lot.
-        let mut index: usize = 0;
-        while index < self.segcount() && self.get_end_code(index) < codepoint {
-            index += 1;
+        // Find the segment containing the glyph index
+        // using binary search
+        let mut start = 0;
+        let mut end = self.segcount();
+
+        while end > start {
+            let index = (start + end) / 2;
+            let start_code = self.get_start_code(index);
+
+            if start_code > codepoint {
+                end = index;
+            } else {
+                let end_code = self.get_end_code(index);
+                if end_code >= codepoint {
+                    // We have found the correct segment
+                    let id_delta = self.get_id_delta(index);
+                    let id_range_offset = self.get_id_range_offset(index);
+
+                    if id_range_offset == 0 {
+                        return Some(codepoint.wrapping_add(id_delta));
+                    } else {
+                        let delta = (codepoint - start_code) * 2;
+
+                        let mut pos = (self.id_range_offset_start() + index * 2) as u16;
+                        pos = pos.wrapping_add(delta);
+                        pos = pos.wrapping_add(id_range_offset);
+
+                        let glyph_id = read_u16_at(self.0, pos as usize);
+                        return Some(glyph_id.wrapping_add(id_delta));
+                    }
+                } else {
+                    start = index + 1;
+                }
+            }
         }
 
-        if self.get_start_code(index) < codepoint {
-            if self.get_id_range_offset(index) != 0 {
-                let mut range_index = index + (self.get_id_range_offset(index) / 2) as usize;
-                range_index += (codepoint - self.get_start_code(index)) as usize;
-                // We don't do the unsafe spec pointer magic here!
-                Some(self.get_id_range_offset(range_index) + self.get_id_delta(index))
-            } else {
-                Some(codepoint.wrapping_add(self.get_id_delta(index)))
-            }
-        } else {
-            None
-        }
+        // missing glyph
+        None
     }
 
     fn end_code_start(&self) -> usize {
@@ -196,6 +221,11 @@ impl<'a> Format4<'a> {
         for segment_index in 0..self.segcount() {
             let start = self.get_start_code(segment_index);
             let end = self.get_end_code(segment_index);
+
+            // Indicates the final segment
+            if start == end && end == 0xFFFF {
+                break;
+            }
 
             for codepoint in start..=end {
                 f(codepoint)

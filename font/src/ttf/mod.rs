@@ -6,8 +6,6 @@
 pub mod tables;
 use tables::{cmap, glyf, head, hhea, hmtx, loca, maxp, offset::OffsetTable};
 
-use canvas::Canvas;
-
 use self::tables::name;
 
 const CMAP_TAG: u32 = u32::from_be_bytes(*b"cmap");
@@ -30,9 +28,8 @@ pub struct Font<'a> {
     offset_table: OffsetTable<'a>,
     head_table: head::HeadTable<'a>,
     format4: cmap::Format4<'a>,
-    loca_table: loca::LocaTable<'a>,
     glyph_table: glyf::GlyphOutlineTable<'a>,
-    hmtx_table: hmtx::HMTXTable<'a>,
+    _hmtx_table: hmtx::HMTXTable<'a>,
     maxp_table: maxp::MaxPTable<'a>,
     name_table: name::NameTable<'a>,
 }
@@ -62,13 +59,18 @@ impl<'a> Font<'a> {
         let loca_entry = offset_table
             .get_table(LOCA_TAG)
             .ok_or(TTFParseError::MissingTable)?;
-        let loca_table = loca::LocaTable::new(data, loca_entry.offset());
+        let loca_table =
+            loca::LocaTable::new(data, loca_entry.offset(), head_table.index_to_loc_format());
 
         let glyf_entry = offset_table
             .get_table(GLYF_TAG)
             .ok_or(TTFParseError::MissingTable)?;
-        let glyph_table =
-            glyf::GlyphOutlineTable::new(data, glyf_entry.offset(), glyf_entry.length());
+        let glyph_table = glyf::GlyphOutlineTable::new(
+            data,
+            glyf_entry.offset(),
+            glyf_entry.length(),
+            loca_table,
+        );
 
         let hhea_entry = offset_table
             .get_table(HHEA_TAG)
@@ -98,9 +100,8 @@ impl<'a> Font<'a> {
             offset_table: offset_table,
             head_table: head_table,
             format4: format4,
-            loca_table: loca_table,
             glyph_table: glyph_table,
-            hmtx_table: hmtx_table,
+            _hmtx_table: hmtx_table,
             maxp_table: maxp_table,
             name_table: name_table,
         })
@@ -119,15 +120,19 @@ impl<'a> Font<'a> {
         &self.name_table
     }
 
+    pub fn glyf(&self) -> &glyf::GlyphOutlineTable<'a> {
+        &self.glyph_table
+    }
+
+    pub fn offset_table(&self) -> &OffsetTable<'a> {
+        &self.offset_table
+    }
+
     pub fn get_glyph(&self, codepoint: u16) -> Result<glyf::Glyph<'a>, TTFParseError> {
         // Any character that does not exist is mapped to index zero, which is defined to be the
         // missing character glyph
         let glyph_index = self.format4.get_glyph_index(codepoint).unwrap_or(0);
-
-        let glyph_offset = self
-            .loca_table
-            .get_glyph_offset(glyph_index, self.head_table.index_to_loc_format())?;
-        Ok(self.glyph_table.get_glyph(glyph_offset))
+        Ok(self.glyph_table.get_glyph(glyph_index))
     }
 
     /// Return the number of coordinate points per font size unit.
@@ -138,28 +143,6 @@ impl<'a> Font<'a> {
     /// A glyph may have a size larger than `1em`.
     pub fn units_per_em(&self) -> u16 {
         self.head_table.units_per_em()
-    }
-
-    pub fn render_text(&self, text: &str, target: &mut Canvas, color: &[u8], font_size: usize) {
-        for codepoint in text.chars().map(|c| c as u16) {
-            let glyph = self.get_glyph(codepoint).unwrap();
-            glyph.rasterize(target, color, font_size as f32 / self.units_per_em() as f32);
-        }
-    }
-
-    /// Compute the rendered width of a given character sequence
-    pub fn compute_width(&self, text: &str, font_size: usize) -> usize {
-        let mut total_length = 0;
-
-        for c in text.chars() {
-            let glyph_index = self.format4.get_glyph_index(c as u16).unwrap_or(0);
-            total_length += self.hmtx_table.get_metric_for(glyph_index).advance_width();
-        }
-        (font_size as f32 * total_length as f32 / self.units_per_em() as f32).round() as usize
-    }
-
-    pub fn offset_table(&self) -> &OffsetTable<'a> {
-        &self.offset_table
     }
 }
 

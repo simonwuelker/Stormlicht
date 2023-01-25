@@ -1,16 +1,24 @@
 use crate::ttf::{read_i16_at, read_u16_at};
-use canvas::Canvas;
 use std::fmt;
 
-pub struct GlyphOutlineTable<'a>(&'a [u8]);
+use super::loca::LocaTable;
+
+pub struct GlyphOutlineTable<'a> {
+    data: &'a [u8],
+    loca_table: LocaTable<'a>,
+}
 
 impl<'a> GlyphOutlineTable<'a> {
-    pub fn new(data: &'a [u8], offset: usize, length: usize) -> Self {
-        Self(&data[offset..][..length])
+    pub fn new(data: &'a [u8], offset: usize, length: usize, loca_table: LocaTable<'a>) -> Self {
+        Self {
+            data: &data[offset..][..length],
+            loca_table: loca_table,
+        }
     }
 
-    pub fn get_glyph(&self, glyph_index: u32) -> Glyph<'a> {
-        let data = &self.0[glyph_index as usize..];
+    pub fn get_glyph(&self, glyph_index: u16) -> Glyph<'a> {
+        let offset = self.loca_table.get_glyph_offset(glyph_index);
+        let data = &self.data[offset as usize..];
         Glyph(data)
     }
 }
@@ -44,30 +52,6 @@ impl<'a> Glyph<'a> {
 
     pub fn bounding_box(&self) -> (i16, i16, i16, i16) {
         (self.min_x(), self.min_y(), self.max_x(), self.max_y())
-    }
-
-    pub fn rasterize(&self, target: &mut Canvas, color: &[u8], scale: f32) {
-        let mut previous_point = None;
-        let mut first_point_of_contour = None;
-
-        for glyph_vertex in self.outline().points().map(|p| p.with_size(scale)) {
-            let current_point = (
-                glyph_vertex.coordinates.0 as usize,
-                target.height() - glyph_vertex.coordinates.1 as usize,
-            );
-
-            match previous_point {
-                Some(previous_point) => target.line(previous_point, current_point, color),
-                None => first_point_of_contour = Some(current_point),
-            }
-
-            if glyph_vertex.is_last_point_of_contour {
-                target.line(current_point, first_point_of_contour.unwrap(), color);
-                previous_point = None;
-            } else {
-                previous_point = Some(current_point);
-            }
-        }
     }
 
     pub fn outline(&self) -> GlyphOutline<'a> {
@@ -245,19 +229,6 @@ pub struct GlyphPoint {
     pub is_on_curve: bool,
     pub is_last_point_of_contour: bool,
     pub coordinates: (i16, i16),
-}
-
-impl GlyphPoint {
-    fn with_size(&self, scale: f32) -> Self {
-        Self {
-            is_on_curve: self.is_on_curve,
-            is_last_point_of_contour: self.is_last_point_of_contour,
-            coordinates: (
-                (self.coordinates.0 as f32 * scale).round() as i16,
-                (self.coordinates.1 as f32 * scale).round() as i16,
-            ),
-        }
-    }
 }
 
 #[derive(Debug)]

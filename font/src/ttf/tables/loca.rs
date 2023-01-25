@@ -1,26 +1,30 @@
-use crate::ttf::{read_u16_at, read_u32_at, TTFParseError};
+use crate::ttf::{read_u16_at, read_u32_at};
 
-pub struct LocaTable<'a>(&'a [u8]);
+pub struct LocaTable<'a> {
+    data: &'a [u8],
+    is_short: bool,
+}
 
 impl<'a> LocaTable<'a> {
-    pub fn new(data: &'a [u8], offset: usize) -> Self {
-        Self(&data[offset..])
+    pub fn new(data: &'a [u8], offset: usize, format: i16) -> Self {
+        Self {
+            data: &data[offset..],
+            is_short: format == 0,
+        }
     }
 
-    pub fn get_glyph_offset(
-        &self,
-        glyph_index: u16,
-        loca_format: i16,
-    ) -> Result<u32, TTFParseError> {
-        if loca_format == 0 {
+    pub fn get_glyph_offset(&self, glyph_index: u16) -> u32 {
+        if self.is_short {
             // Short table, u16
             // Indexing is done in words
             // Also, the offset / 2 is stored (don't ask me why)
-            Ok(read_u16_at(self.0, glyph_index as usize * 2) as u32 * 2)
+
+            // TODO we seem to need to subtract 1 here - but i don't really know why
+            read_u16_at(self.data, (glyph_index - 1) as usize * 2) as u32 * 2
         } else {
             // Long table, u32
             // Indexing is done in bytes
-            Ok(read_u32_at(self.0, glyph_index as usize))
+            read_u32_at(self.data, glyph_index as usize)
         }
     }
 }

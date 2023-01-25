@@ -1,29 +1,31 @@
+use canvas::Canvas;
 use std::collections::HashMap;
 
-use crate::ttf;
+use crate::{
+    bezier::QuadraticBezier,
+    ttf::{self, tables::glyf::GlyphPoint},
+};
 
 const DEFAULT_FONT: &[u8; 168644] =
     include_bytes!("../../downloads/fonts/roboto/Roboto-Medium.ttf");
 
-pub struct Outline {
-    points: Vec<(i32, i32)>,
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct BoundingBox {
-    min_x: i32,
-    max_x: i32,
-    min_y: i32,
-    max_y: i32,
+    pub min_x: i32,
+    pub max_x: i32,
+    pub min_y: i32,
+    pub max_y: i32,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct LayoutInfo {
     advance_width: usize,
     advance_height: usize,
 }
+
+#[derive(Debug, Default)]
 pub struct Glyph {
-    outlines: Vec<Outline>,
+    curves: Vec<QuadraticBezier>,
     layout_info: LayoutInfo,
 }
 
@@ -46,13 +48,26 @@ impl Font {
         let name = ttf_font.name().get_font_name();
 
         let num_glyphs = ttf_font.num_glyphs();
-        let glyphs = Vec::with_capacity(num_glyphs);
+        let mut glyphs = Vec::with_capacity(num_glyphs);
         let mut glyph_indices = HashMap::with_capacity(num_glyphs);
 
         let format_4 = ttf_font.format_4();
         format_4.codepoints(|codepoint| {
-            let glyph_index = format_4.get_glyph_index(codepoint).unwrap_or_default();
+            // Add the "character -> glyph index" mapping
+            let glyph_index = format_4.get_glyph_index(codepoint).unwrap_or(1);
             glyph_indices.insert(codepoint, glyph_index);
+
+            // Add the actual glyph
+            let mut ttf_glyph = ttf_font.glyf().get_glyph(glyph_index);
+
+            if !ttf_glyph.is_simple() {
+                // TODO: We can't render complex glyphs yet, use the missing glyph instead
+                ttf_glyph = ttf_font.glyf().get_glyph(1);
+            }
+
+            let glyph_outline = ttf_glyph.outline();
+            let glyph = Glyph::from_glyph_points(glyph_outline.points());
+            glyphs.push(glyph);
         });
 
         Self {
@@ -96,9 +111,73 @@ impl Font {
             .unwrap_or_default() as usize
     }
 
+    pub fn rasterize(&self, text: &str, canvas: &mut Canvas, font_size: f32, color: &[u8]) {
+        let scale = font_size / self.units_per_em;
+        for c in text.chars() {
+            let glyph = self.get_glyph(c as u16);
+
+            for mut curve in glyph.curves().iter().copied() {
+                curve.scale(scale);
+                canvas.quad_bezier(curve.p0.into(), curve.p1.into(), curve.p2.into(), color);
+            }
+        }
+    }
+
     /// Get a glyph by it's index.
     /// If possible, you should prefer to use [Self::get_glyph] instead.
     fn get_indexed(&self, index: usize) -> &Glyph {
         &self.glyphs[index]
+    }
+}
+
+impl Glyph {
+    pub fn advance_width(&self) -> usize {
+        self.layout_info.advance_width
+    }
+
+    pub fn advance_height(&self) -> usize {
+        self.layout_info.advance_height
+    }
+
+    pub fn curves(&self) -> &[QuadraticBezier] {
+        &self.curves
+    }
+
+    pub fn from_glyph_points<I: Iterator<Item = GlyphPoint>>(points: I) -> Self {
+        let mut glyph = Self::default();
+        let mut previous_point: Option<GlyphPoint> = None;
+        let mut first_point_of_contour = None;
+
+        // TODO these aren't actually bezier curves!
+        for point in points {
+            match previous_point {
+                Some(previous_point) => {
+                    glyph.curves.push(QuadraticBezier {
+                        p0: previous_point.into(),
+                        p1: previous_point.into(),
+                        p2: point.into(),
+                    });
+                },
+                None => first_point_of_contour = Some(point),
+            }
+
+            // It is technically possible, while pointless (hah) to have
+            // a contour containing only a single point - in which case
+            // point.is_last_point_of_contour is true but first_point_of_contour
+            // is None. In this case, we silently ignore the point and move on.
+            if let (Some(first_point), true) =
+                (first_point_of_contour, point.is_last_point_of_contour)
+            {
+                glyph.curves.push(QuadraticBezier {
+                    p0: point.into(),
+                    p1: point.into(),
+                    p2: first_point.into(),
+                });
+                previous_point = None;
+            } else {
+                previous_point = Some(point);
+            }
+        }
+        glyph
     }
 }
