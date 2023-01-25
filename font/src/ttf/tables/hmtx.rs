@@ -1,3 +1,5 @@
+//! [Horizontal Metrics](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6hmtx.html) table
+
 use crate::ttf::{read_i16_at, read_u16_at};
 
 pub struct HMTXTable<'a>(&'a [u8]);

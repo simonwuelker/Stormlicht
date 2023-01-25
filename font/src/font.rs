@@ -93,6 +93,8 @@ impl Font {
         self.glyphs.len()
     }
 
+    /// Get the full name of the font, if specified.
+    /// Fonts will usually specify their own name, though it is not required.
     pub fn name(&self) -> Option<&String> {
         self.name.as_ref()
     }
@@ -104,7 +106,7 @@ impl Font {
         self.get_indexed(self.get_glyph_index(codepoint))
     }
 
-    pub fn get_glyph_index(&self, codepoint: u16) -> usize {
+    fn get_glyph_index(&self, codepoint: u16) -> usize {
         self.glyph_indices
             .get(&codepoint)
             .copied()

@@ -1,4 +1,4 @@
-//! [TrueType](https://developer.apple.com/fonts/TrueType-Reference-Manual) font parser
+//! The tables commonly found in a TrueType/OpenType font.
 
 pub mod cmap;
 pub mod glyf;

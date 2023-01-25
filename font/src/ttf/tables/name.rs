@@ -1,4 +1,4 @@
-//! Name table implementation.
+//! [Name](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6name.html) table implementation.
 //!
 //! Note that this implementation includes *some* features from the [OpenType Name Table](https://learn.microsoft.com/en-us/typography/opentype/spec/name)
 
@@ -94,8 +94,6 @@ impl<'a> NameTable<'a> {
     }
 
     /// Get the full name of the font, if any.
-    /// This is a helper method, you could also search through all name records manually
-    /// with [name_records].
     pub fn get_font_name(&self) -> Option<String> {
         self.name_records()
             .filter(|name_record| name_record.name_id == NameID::FullName)

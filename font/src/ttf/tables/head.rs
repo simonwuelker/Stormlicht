@@ -1,3 +1,5 @@
+//! [Head](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6head.html) table implementation
+
 use crate::ttf::{read_i16_at, read_u16_at};
 use std::fmt;
 
@@ -12,6 +14,10 @@ impl<'a> HeadTable<'a> {
         read_u16_at(self.0, 18)
     }
 
+    /// Get the format of the [Loca Table](crate::ttf::tables::loca::LocaTable).
+    ///
+    /// If this is `0`, the loca table is in `short` format.
+    /// Otherwise, it is in `long` format.
     pub fn index_to_loc_format(&self) -> i16 {
         read_i16_at(self.0, 50)
     }

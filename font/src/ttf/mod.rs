@@ -1,7 +1,9 @@
-//! True Typeface parser
-//! https://learn.microsoft.com/en-us/typography/opentype/spec/otff
-//! https://formats.kaitai.io/ttf/index.html
-//! https://handmade.network/forums/articles/t/7330-implementing_a_font_reader_and_rasterizer_from_scratch%252C_part_1__ttf_font_reader.
+//! [TrueType](https://developer.apple.com/fonts/TrueType-Reference-Manual) font parser
+//!
+//! ## Reference Material:
+//! * <https://learn.microsoft.com/en-us/typography/opentype/spec/otff>
+//! * <https://formats.kaitai.io/ttf/index.html>
+//! * <https://handmade.network/forums/articles/t/7330-implementing_a_font_reader_and_rasterizer_from_scratch%252C_part_1__ttf_font_reader>
 
 pub mod tables;
 use tables::{cmap, glyf, head, hhea, hmtx, loca, maxp, offset::OffsetTable};

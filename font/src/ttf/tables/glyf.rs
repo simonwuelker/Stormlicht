@@ -1,3 +1,5 @@
+//! [Glyph](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6glyf.html) table implementation
+
 use crate::ttf::{read_i16_at, read_u16_at};
 use std::fmt;
 

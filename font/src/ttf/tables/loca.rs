@@ -1,3 +1,5 @@
+//! [Loca](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6loca.html) table implementation.
+
 use crate::ttf::{read_u16_at, read_u32_at};
 
 pub struct LocaTable<'a> {
