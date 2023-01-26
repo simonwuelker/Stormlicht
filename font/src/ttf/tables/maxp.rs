@@ -1,4 +1,5 @@
 //! [MaxP](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6maxp.html) table implementation.
+
 use crate::ttf::read_u16_at;
 
 pub struct MaxPTable<'a>(&'a [u8]);

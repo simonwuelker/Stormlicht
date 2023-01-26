@@ -1,4 +1,4 @@
-use canvas::Canvas;
+use canvas::{Canvas, Drawable};
 use std::collections::HashMap;
 
 use crate::{
@@ -9,16 +9,17 @@ use crate::{
 const DEFAULT_FONT: &[u8; 168644] =
     include_bytes!("../../downloads/fonts/roboto/Roboto-Medium.ttf");
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct BoundingBox {
-    pub min_x: i32,
-    pub max_x: i32,
-    pub min_y: i32,
-    pub max_y: i32,
+    pub min_x: f32,
+    pub max_x: f32,
+    pub min_y: f32,
+    pub max_y: f32,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LayoutInfo {
+    bounding_box: BoundingBox,
     advance_width: usize,
     advance_height: usize,
 }
@@ -46,6 +47,7 @@ impl Font {
     pub fn from_bytes(bytes: &[u8]) -> Self {
         let ttf_font = ttf::Font::new(bytes).unwrap();
         let name = ttf_font.name().get_font_name();
+        let units_per_em = ttf_font.units_per_em() as f32;
 
         let num_glyphs = ttf_font.num_glyphs();
         let mut glyphs = Vec::with_capacity(num_glyphs);
@@ -66,13 +68,24 @@ impl Font {
             }
 
             let glyph_outline = ttf_glyph.outline();
-            let glyph = Glyph::from_glyph_points(glyph_outline.points());
+            let mut glyph = Glyph::from_glyph_points(glyph_outline.points());
+
+            // Compute glyph layout stuff
+            glyph.layout_info.advance_width =
+                ttf_font.hmtx().get_metric_for(glyph_index).advance_width();
+            glyph.layout_info.bounding_box = BoundingBox {
+                min_x: ttf_glyph.min_x() as f32 / units_per_em,
+                min_y: ttf_glyph.min_y() as f32 / units_per_em,
+                max_x: ttf_glyph.max_x() as f32 / units_per_em,
+                max_y: ttf_glyph.max_y() as f32 / units_per_em,
+            };
+
             glyphs.push(glyph);
         });
 
         Self {
             name: name,
-            units_per_em: ttf_font.units_per_em() as f32,
+            units_per_em: units_per_em,
             glyphs: glyphs,
             glyph_indices: glyph_indices,
         }
@@ -115,13 +128,37 @@ impl Font {
 
     pub fn rasterize(&self, text: &str, canvas: &mut Canvas, font_size: f32, color: &[u8]) {
         let scale = font_size / self.units_per_em;
+        let mut x = 0;
         for c in text.chars() {
             let glyph = self.get_glyph(c as u16);
 
+            let bounding_box = &glyph.layout_info.bounding_box;
+            let max_x = ((bounding_box.max_x + bounding_box.min_x) * font_size).ceil() as usize;
+            let min_y = (bounding_box.min_y * font_size).ceil() as usize;
+            let max_y = (bounding_box.max_y * font_size).ceil() as usize;
+
+            let mut render_to = canvas.borrow(x..x + max_x, min_y..=max_y);
+
             for mut curve in glyph.curves().iter().copied() {
                 curve.scale(scale);
-                canvas.quad_bezier(curve.p0.into(), curve.p1.into(), curve.p2.into(), color);
+                render_to.quad_bezier(
+                    (
+                        curve.p0.x.round() as usize,
+                        render_to.height() - curve.p0.y.round() as usize,
+                    ),
+                    (
+                        curve.p1.x.round() as usize,
+                        render_to.height() - curve.p1.y.round() as usize,
+                    ),
+                    (
+                        curve.p2.x.round() as usize,
+                        render_to.height() - curve.p2.y.round() as usize,
+                    ),
+                    color,
+                );
             }
+
+            x += (font_size * glyph.advance_width() as f32 / self.units_per_em).ceil() as usize;
         }
     }
 

@@ -39,6 +39,6 @@ impl From<GlyphPoint> for Point {
 
 impl From<Point> for (usize, usize) {
     fn from(value: Point) -> Self {
-        (value.x as usize, value.y as usize)
+        (value.x.round() as usize, value.y.round() as usize)
     }
 }

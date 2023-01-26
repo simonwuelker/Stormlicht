@@ -31,7 +31,7 @@ pub struct Font<'a> {
     head_table: head::HeadTable<'a>,
     format4: cmap::Format4<'a>,
     glyph_table: glyf::GlyphOutlineTable<'a>,
-    _hmtx_table: hmtx::HMTXTable<'a>,
+    hmtx_table: hmtx::HMTXTable<'a>,
     maxp_table: maxp::MaxPTable<'a>,
     name_table: name::NameTable<'a>,
 }
@@ -103,7 +103,7 @@ impl<'a> Font<'a> {
             head_table: head_table,
             format4: format4,
             glyph_table: glyph_table,
-            _hmtx_table: hmtx_table,
+            hmtx_table: hmtx_table,
             maxp_table: maxp_table,
             name_table: name_table,
         })
@@ -124,6 +124,10 @@ impl<'a> Font<'a> {
 
     pub fn glyf(&self) -> &glyf::GlyphOutlineTable<'a> {
         &self.glyph_table
+    }
+
+    pub fn hmtx(&self) -> &hmtx::HMTXTable<'a> {
+        &self.hmtx_table
     }
 
     pub fn offset_table(&self) -> &OffsetTable<'a> {

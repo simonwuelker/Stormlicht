@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use canvas::{Canvas, PixelFormat};
+use canvas::{Canvas, Drawable, PixelFormat};
 use font::Font;
 use sdl2::{
     event::{Event, WindowEvent},
@@ -36,16 +36,10 @@ pub fn main() -> Result<()> {
         return Err(anyhow!("Refusing to run as root"));
     }
 
-    // let response = Request::get("http://google.com/".into())?.send()?;
-    // println!("{:?}", response.headers);
-    // println!("{:?}", String::from_utf8_lossy(&response.body));
-    // let image = image::png::load_from_file("/home/alaska/Pictures/waifu.png")?;
-    const FONT_SIZE: usize = 40;
-    let mut image = Canvas::new_uninit(300, 100, PixelFormat::RGB8);
     let font = Font::default();
-    println!("units per em: {}", font.units_per_em());
-    font.render_text("A", &mut image, &[255, 255, 255], FONT_SIZE);
-    println!("width: {}", font.compute_width("A", FONT_SIZE));
+
+    let mut image = Canvas::new_uninit(300, 100, PixelFormat::RGB8);
+    font.rasterize("ABCDe123", &mut image, 30., &[255, 255, 255]);
 
     let sdl_context = sdl2::init().map_err(GuiError::from_sdl)?;
     let video_subsystem = sdl_context.video().map_err(GuiError::from_sdl)?;
@@ -56,6 +50,13 @@ pub fn main() -> Result<()> {
         .resizable()
         .build()
         .unwrap();
+
+    // let image = image::png::load_from_file("/home/alaska/Pictures/waifu.png")?;
+    // const FONT_SIZE: usize = 40;
+    // let font = Font::default();
+    // println!("units per em: {}", font.units_per_em());
+    // font.render_text("A", &mut image, &[255, 255, 255], FONT_SIZE);
+    // println!("width: {}", font.compute_width("A", FONT_SIZE));
 
     let mut canvas = window.into_canvas().build()?;
 
@@ -76,15 +77,15 @@ pub fn main() -> Result<()> {
         .map_err(GuiError::from_sdl)?;
     canvas.present();
 
-    // let mut textbox = Input::new(colorscheme::BACKGROUND_DARK).into_widget();
-    // textbox.set_size(Sizing::Exactly(50));
+    // // let mut textbox = Input::new(colorscheme::BACKGROUND_DARK).into_widget();
+    // // textbox.set_size(Sizing::Exactly(50));
 
-    // let mut root = Divider::new(Orientation::Vertical)
-    //     .add_child(textbox)
-    //     .add_child(ColoredBox::new(colorscheme::BACKGROUND_LIGHT).into_widget());
+    // // let mut root = Divider::new(Orientation::Vertical)
+    // //     .add_child(textbox)
+    // //     .add_child(ColoredBox::new(colorscheme::BACKGROUND_LIGHT).into_widget());
 
-    // root.render(&mut canvas)?;
-    // canvas.present();
+    // // root.render(&mut canvas)?;
+    // // canvas.present();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     'running: loop {
