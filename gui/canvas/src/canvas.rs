@@ -1,11 +1,33 @@
 use crate::PixelFormat;
+use std::ops::{Bound, RangeBounds};
 
 /// A drawable surface for generic graphic rendering.
 pub struct Canvas {
+    /// Canvas width in pixels
     width: usize,
+    /// Canvas height in pixels
     height: usize,
     data: Vec<u8>,
     format: PixelFormat,
+}
+
+pub struct BorrowedCanvas<'a> {
+    /// Canvas width in pixels
+    width: usize,
+    /// Canvas height in pixels
+    height: usize,
+    /// Length of one pixel row including padding, in bytes
+    pitch: usize,
+    data: &'a mut [u8],
+    format: PixelFormat,
+}
+
+fn unwrap_bound(bound: Bound<&usize>, if_inbounded: usize) -> usize {
+    match bound {
+        Bound::Included(n) => n + 1,
+        Bound::Excluded(n) => *n,
+        Bound::Unbounded => if_inbounded,
+    }
 }
 
 impl Canvas {
@@ -27,12 +49,30 @@ impl Canvas {
         )
     }
 
-    pub fn width(&self) -> usize {
-        self.width
-    }
+    pub fn borrow<X: RangeBounds<usize>, Y: RangeBounds<usize>>(
+        &mut self,
+        width_range: X,
+        height_range: Y,
+    ) -> BorrowedCanvas<'_> {
+        let pitch = self.width * self.format.pixel_size();
+        let width_start = unwrap_bound(width_range.start_bound(), 0);
+        let width_end = unwrap_bound(width_range.end_bound(), self.width - 1);
+        let height_start = unwrap_bound(height_range.start_bound(), 0);
+        let height_end = unwrap_bound(height_range.end_bound(), self.height - 1);
 
-    pub fn height(&self) -> usize {
-        self.height
+        let width = width_end - width_start;
+        let height = height_end - height_start;
+
+        let bytes_start = (self.width * height_start + width_start) * self.format.pixel_size();
+        let bytes_end = (self.width * height_end + width_end) * self.format.pixel_size();
+
+        BorrowedCanvas {
+            width: width,
+            height: height,
+            pitch: pitch,
+            data: &mut self.data[bytes_start..bytes_end],
+            format: self.format,
+        }
     }
 
     pub fn data(&self) -> &[u8] {
@@ -68,28 +108,76 @@ impl Canvas {
         }
         resized_image
     }
+}
 
-    pub fn pixel_at(&self, x: usize, y: usize) -> &[u8] {
+impl Drawable for Canvas {
+    fn pixel_at(&self, x: usize, y: usize) -> &[u8] {
         assert!(self.contains_point(x, y));
 
-        let pitch = self.width * self.format.pixel_size();
-        let pixel_is_at = pitch * y + x * self.format.pixel_size();
+        let pixel_is_at = self.pitch() * y + x * self.format.pixel_size();
         &self.data[pixel_is_at..][..self.format.pixel_size()]
     }
 
-    pub fn pixel_at_mut(&mut self, x: usize, y: usize) -> &mut [u8] {
+    fn pixel_at_mut(&mut self, x: usize, y: usize) -> &mut [u8] {
         assert!(self.contains_point(x, y));
 
-        let pitch = self.width * self.format.pixel_size();
-        let pixel_is_at = pitch * y + x * self.format.pixel_size();
+        let pixel_is_at = self.pitch() * y + x * self.format.pixel_size();
         &mut self.data[pixel_is_at..][..self.format.pixel_size()]
     }
 
-    pub fn contains_point(&self, x: usize, y: usize) -> bool {
+    fn width(&self) -> usize {
+        self.width
+    }
+
+    fn height(&self) -> usize {
+        self.height
+    }
+
+    fn pitch(&self) -> usize {
+        self.width * self.format.pixel_size()
+    }
+}
+
+impl<'a> Drawable for BorrowedCanvas<'a> {
+    fn pixel_at(&self, x: usize, y: usize) -> &[u8] {
+        assert!(self.contains_point(x, y));
+
+        let pixel_is_at = self.pitch() * y + x * self.format.pixel_size();
+        &self.data[pixel_is_at..][..self.format.pixel_size()]
+    }
+
+    fn pixel_at_mut(&mut self, x: usize, y: usize) -> &mut [u8] {
+        assert!(self.contains_point(x, y));
+
+        let pixel_is_at = self.pitch() * y + x * self.format.pixel_size();
+        &mut self.data[pixel_is_at..][..self.format.pixel_size()]
+    }
+
+    fn width(&self) -> usize {
+        self.width
+    }
+
+    fn height(&self) -> usize {
+        self.height
+    }
+
+    fn pitch(&self) -> usize {
+        self.pitch
+    }
+}
+
+pub trait Drawable {
+    fn pixel_at(&self, x: usize, y: usize) -> &[u8];
+    fn pixel_at_mut(&mut self, x: usize, y: usize) -> &mut [u8];
+    fn width(&self) -> usize;
+    fn height(&self) -> usize;
+    fn pitch(&self) -> usize;
+
+    fn contains_point(&self, x: usize, y: usize) -> bool {
         x < self.width() && y < self.height()
     }
 
-    pub fn line(&mut self, from: (usize, usize), to: (usize, usize), color: &[u8]) {
+    fn line(&mut self, from: (usize, usize), to: (usize, usize), color: &[u8]) {
         // http://members.chello.at/~easyfilter/bresenham.html
         // assert!(self.contains_point(from.0, from.1));
         // assert!(self.contains_point(to.0, to.1));
@@ -130,7 +218,7 @@ impl Canvas {
         }
     }
 
-    pub fn quad_bezier(
+    fn quad_bezier(
         &mut self,
         p0: (usize, usize),
         _p1: (usize, usize),
@@ -162,5 +250,13 @@ impl Canvas {
         // }
         // // Draw the remainder of the curve
         // self.line(previous_point, p2.round());
+    }
+
+    fn fill(&mut self, color: &[u8]) {
+        for x in 0..self.width() {
+            for y in 0..self.height() {
+                self.pixel_at_mut(x, y).copy_from_slice(color);
+            }
+        }
     }
 }
