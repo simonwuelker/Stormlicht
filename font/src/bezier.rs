@@ -1,6 +1,11 @@
 use crate::ttf::tables::glyf::GlyphPoint;
 
 #[derive(Clone, Copy, Debug)]
+pub enum Line {
+    Straight(Point, Point),
+    Quad(QuadraticBezier),
+}
+#[derive(Clone, Copy, Debug)]
 pub struct Point {
     pub x: f32,
     pub y: f32,
@@ -25,6 +30,18 @@ impl QuadraticBezier {
         self.p0.scale(scale);
         self.p1.scale(scale);
         self.p2.scale(scale);
+    }
+}
+
+impl Line {
+    pub fn scale(&mut self, scale: f32) {
+        match self {
+            Self::Straight(ref mut p0, ref mut p1) => {
+                p0.scale(scale);
+                p1.scale(scale);
+            },
+            Self::Quad(ref mut quad_bezier) => quad_bezier.scale(scale),
+        }
     }
 }
 

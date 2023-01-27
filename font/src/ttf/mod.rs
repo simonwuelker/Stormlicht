@@ -6,9 +6,9 @@
 //! * <https://handmade.network/forums/articles/t/7330-implementing_a_font_reader_and_rasterizer_from_scratch%252C_part_1__ttf_font_reader>
 
 pub mod tables;
-use tables::{cmap, glyf, head, hhea, hmtx, loca, maxp, offset::OffsetTable};
-
 use self::tables::name;
+use tables::{cmap, glyf, head, hhea, hmtx, loca, maxp, offset::OffsetTable};
+use thiserror::Error;
 
 const CMAP_TAG: u32 = u32::from_be_bytes(*b"cmap");
 const HEAD_TAG: u32 = u32::from_be_bytes(*b"head");
@@ -19,10 +19,13 @@ const HMTX_TAG: u32 = u32::from_be_bytes(*b"hmtx");
 const MAXP_TAG: u32 = u32::from_be_bytes(*b"maxp");
 const NAME_TAG: u32 = u32::from_be_bytes(*b"name");
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum TTFParseError {
+    #[error("Unexpected end of file")]
     UnexpectedEOF,
+    #[error("Unsupported ttf format")]
     UnsupportedFormat,
+    #[error("Missing required table")]
     MissingTable,
 }
 

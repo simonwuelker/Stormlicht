@@ -1,9 +1,18 @@
 //! [Glyph](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6glyf.html) table implementation
 
+use super::loca::LocaTable;
+use crate::bezier::{Line, QuadraticBezier};
 use crate::ttf::{read_i16_at, read_u16_at};
+use crate::Stream;
+use anyhow::{anyhow, Result};
 use std::fmt;
 
-use super::loca::LocaTable;
+/// The maximum number of components that a glyph may reference during
+/// outline calculation. Note that this number is not necessarily equal to
+/// the number of components actually used, because compound glyphs are counted
+/// as well even though they "ultimately" only consist of a number of other
+/// glyphs.
+const MAX_COMPONENTS: usize = 10;
 
 pub struct GlyphOutlineTable<'a> {
     data: &'a [u8],
@@ -56,129 +65,194 @@ impl<'a> Glyph<'a> {
         (self.min_x(), self.min_y(), self.max_x(), self.max_y())
     }
 
-    pub fn outline(&self) -> GlyphOutline<'a> {
-        // Memory map is like this:
+    pub fn compute_outline(
+        &self,
+        glyph_table: &GlyphOutlineTable<'a>,
+        lines: &mut Vec<Line>,
+    ) -> Result<()> {
+        let mut num_components = 0;
+        self.compute_outline_inner(glyph_table, lines, (0, 0), &mut num_components)
+    }
+
+    fn compute_outline_inner(
+        &self,
+        glyph_table: &GlyphOutlineTable<'a>,
+        lines: &mut Vec<Line>,
+        offset: (i16, i16),
+        num_components: &mut usize,
+    ) -> Result<()> {
+        // Memory map is like this (same for simple & compound glyphs):
         // num contours          : i16
         // min x                 : i16
         // min y                 : i16
         // max x                 : i16
         // max y                 : i16
-        // end points of contours: [u16; num contours]
-        // instruction length    : u16
-        // instructions          : [u8; instruction length]
-        // flags                 : [u8; unknown]
-        // x coords              : [u16; last value in "end points of contours" + 1]
-        // y coords              : [u16; last value in "end points of contours" + 1]
+        let mut stream = Stream::new(self.0);
+        stream.skip_bytes(10);
+        if self.is_simple() {
+            // Simple glyphs are structured as follows:
+            //
+            // end points of contours: [u16; num contours]
+            // instruction length    : u16
+            // instructions          : [u8; instruction length]
+            // flags                 : [u8; unknown]
+            // x coords              : [u16; last value in "end points of contours" + 1]
+            // y coords              : [u16; last value in "end points of contours" + 1]
 
-        assert!(self.is_simple());
+            let num_contours = self.num_contours() as usize;
+            let instruction_length = read_u16_at(self.0, 10 + num_contours * 2) as usize;
 
-        let num_contours = self.num_contours() as usize;
-        let instruction_length = read_u16_at(self.0, 10 + num_contours * 2) as usize;
+            // last value in end_points_of_contours
+            let n_points = read_u16_at(self.0, 10 + num_contours * 2 - 2) + 1;
 
-        // last value in end_points_of_contours
-        let n_points = read_u16_at(self.0, 10 + num_contours * 2 - 2) + 1;
+            let first_flag_addr = 10 + num_contours * 2 + 2 + instruction_length;
 
-        let first_flag_addr = 10 + num_contours * 2 + 2 + instruction_length;
+            // The size of the flag array is unknown.
+            // That is because a flag can repeat itself n times -
+            // so we can't tell how large the flag array will be without actually iterating over it
+            // once.
+            // (Knowing how large the flag array is is necessary to know where the x and y coordinates
+            // start)
+            // Note that the flag array can never be larger than n_points (thats the case when no
+            // compression happens)
+            let mut remaining_flags = n_points;
+            let mut num_flag_bytes_read = 0;
+            let mut x_size = 0;
+            let mut _y_size = 0;
 
-        // The size of the flag array is unknown.
-        // That is because a flag can repeat itself n times -
-        // so we can't tell how large the flag array will be without actually iterating over it
-        // once.
-        // (Knowing how large the flag array is is necessary to know where the x and y coordinates
-        // start)
-        // Note that the flag array can never be larger than n_points (thats the case when no
-        // compression happens)
-        let mut remaining_flags = n_points;
-        let mut num_flag_bytes_read = 0;
-        let mut x_size = 0;
-        let mut y_size = 0;
-
-        while remaining_flags > 0 {
-            remaining_flags -= 1;
-            let flag = GlyphFlag(self.0[first_flag_addr + num_flag_bytes_read]);
-            num_flag_bytes_read += 1;
-
-            if flag.repeat() {
-                // read another byte, this is the number of times the flag should be
-                // repeated
-                let repeat_for = self.0[first_flag_addr + num_flag_bytes_read];
+            while remaining_flags > 0 {
+                remaining_flags -= 1;
+                let flag = GlyphFlag(self.0[first_flag_addr + num_flag_bytes_read]);
                 num_flag_bytes_read += 1;
 
-                remaining_flags -= repeat_for as u16;
-                x_size += flag.coordinate_type_x().size() * repeat_for as usize;
-                y_size += flag.coordinate_type_y().size() * repeat_for as usize;
+                if flag.repeat() {
+                    // read another byte, this is the number of times the flag should be
+                    // repeated
+                    let repeat_for = self.0[first_flag_addr + num_flag_bytes_read];
+                    num_flag_bytes_read += 1;
+
+                    remaining_flags -= repeat_for as u16;
+                    x_size += flag.coordinate_type_x().size() * repeat_for as usize;
+                    _y_size += flag.coordinate_type_y().size() * repeat_for as usize;
+                }
+
+                x_size += flag.coordinate_type_x().size();
+                _y_size += flag.coordinate_type_y().size();
             }
+            let flag_array_size = num_flag_bytes_read;
 
-            x_size += flag.coordinate_type_x().size();
-            y_size += flag.coordinate_type_y().size();
+            let contour_end_points = &self.0[10..][..num_contours * 2];
+            let num_points = read_u16_at(self.0, 10 + num_contours * 2 - 2) as usize + 1;
+
+            let points = GlyphPointIterator::new(
+                contour_end_points,
+                &self.0[first_flag_addr..],
+                num_points,
+                flag_array_size,
+                flag_array_size + x_size,
+            );
+
+            let mut previous_point: Option<GlyphPoint> = None;
+            let mut first_point_of_contour = None;
+            for point in points {
+                match previous_point {
+                    Some(previous_point) => {
+                        lines.push(Line::Quad(QuadraticBezier {
+                            p0: previous_point.with_offset(offset).into(),
+                            p1: previous_point.with_offset(offset).into(),
+                            p2: point.with_offset(offset).into(),
+                        }));
+                    },
+                    None => first_point_of_contour = Some(point),
+                }
+
+                // It is technically possible, while pointless (hah) to have
+                // a contour containing only a single point - in which case
+                // point.is_last_point_of_contour is true but first_point_of_contour
+                // is None. In this case, we silently ignore the point and move on.
+                if let (Some(first_point), true) =
+                    (first_point_of_contour, point.is_last_point_of_contour)
+                {
+                    lines.push(Line::Quad(QuadraticBezier {
+                        p0: point.into(),
+                        p1: point.into(),
+                        p2: first_point.into(),
+                    }));
+                    previous_point = None;
+                } else {
+                    previous_point = Some(point);
+                }
+            }
+        } else {
+            // Memory map for compound glyphs looks like this:
+            //
+            // component flag: u16                       \
+            // glyph index: u16                           |
+            // X offset, type depends on component flags  | Repeated any number
+            // Y offset, type depends on component flags  | of times
+            // Transformation options                    /
+
+            loop {
+                let component_flag = CompoundGlyphFlag(stream.read::<u16>()?);
+                let referenced_glyph_index = stream.read::<u16>()?;
+
+                let referenced_glyph_offset = match (
+                    component_flag.arg_1_and_2_are_words(),
+                    component_flag.args_are_xy_values(),
+                ) {
+                    (false, false) => {
+                        // u8
+                        (stream.read::<u8>()? as i16, stream.read::<u8>()? as i16)
+                    },
+                    (false, true) => {
+                        // i8
+                        (stream.read::<i8>()? as i16, stream.read::<i8>()? as i16)
+                    },
+                    (true, false) => {
+                        // u16
+                        (stream.read::<u16>()? as i16, stream.read::<u16>()? as i16)
+                    },
+                    (true, true) => {
+                        // i16
+                        (stream.read::<i16>()?, stream.read::<i16>()?)
+                    },
+                };
+
+                // TODO We don't really do any transformation stuff yet
+                if component_flag.has_scale() {
+                    stream.read::<u16>()?;
+                } else if component_flag.has_xy_scale() {
+                    stream.read::<u16>()?;
+                    stream.read::<u16>()?;
+                } else if component_flag.has_two_by_two() {
+                    stream.read::<u16>()?;
+                    stream.read::<u16>()?;
+                    stream.read::<u16>()?;
+                    stream.read::<u16>()?;
+                }
+
+                let referenced_glyph = glyph_table.get_glyph(referenced_glyph_index);
+
+                // Check if adding this glyph exceeded our max component count, if so, return error
+                *num_components += 1;
+                if *num_components > MAX_COMPONENTS {
+                    return Err(anyhow!(
+                        "Max glyph component count ({MAX_COMPONENTS}) exceeded"
+                    ));
+                }
+                referenced_glyph.compute_outline_inner(
+                    glyph_table,
+                    lines,
+                    referenced_glyph_offset,
+                    num_components,
+                )?;
+
+                if component_flag.is_last_component() {
+                    break;
+                }
+            }
         }
-        let flag_array_size = num_flag_bytes_read;
-
-        let total_size =
-            10 + num_contours * 2 + 2 + instruction_length + flag_array_size + x_size + y_size;
-
-        GlyphOutline {
-            data: &self.0[..total_size],
-            x_starts_at: flag_array_size,
-            y_starts_at: flag_array_size + x_size,
-        }
-    }
-}
-
-/// Constructed via the [GlyphOutlineTable].
-pub struct GlyphOutline<'a> {
-    data: &'a [u8],
-    // This is nontrivial to compute and we need to compute it once to create
-    // the Outline, so we store it for later use instead of recomputing it
-    // every time
-    x_starts_at: usize,
-    y_starts_at: usize,
-}
-
-impl<'a> GlyphOutline<'a> {
-    pub fn is_simple(&self) -> bool {
-        read_i16_at(self.data, 0) >= 0
-    }
-
-    /// If the Glyph is a simple glyph, this is the number of contours.
-    /// Don't call this if the glyph is not simple.
-    pub fn num_contours(&self) -> usize {
-        assert!(self.is_simple());
-        read_i16_at(self.data, 0) as usize
-    }
-
-    pub fn instruction_length(&self) -> usize {
-        read_u16_at(self.data, 10 + self.num_contours() * 2) as usize
-    }
-
-    pub fn num_points(&self) -> usize {
-        // last value in end_points_of_contours
-        read_u16_at(self.data, 10 + self.num_contours() * 2 - 2) as usize + 1
-    }
-
-    pub fn points(&'a self) -> GlyphPointIterator<'a> {
-        // The iterator only needs the data from the flags onwards
-        let first_flag_addr = 10 + self.num_contours() * 2 + 2 + self.instruction_length();
-        let contour_end_points = &self.data[10..][..self.num_contours() * 2];
-
-        GlyphPointIterator::new(
-            contour_end_points,
-            &self.data[first_flag_addr..],
-            self.num_points(),
-            self.x_starts_at,
-            self.y_starts_at,
-        )
-    }
-}
-
-// TODO: this panics if the glyf is not simple :^(
-impl<'a> fmt::Debug for GlyphOutline<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Glyph Outline")
-            .field("is_simple", &self.is_simple())
-            .field("num_contours", &self.num_contours())
-            .field("instruction_length", &self.instruction_length())
-            .finish()
+        Ok(())
     }
 }
 
@@ -356,7 +430,7 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub struct CompoundGlyphFlag(u16);
 
 impl CompoundGlyphFlag {
@@ -409,5 +483,31 @@ impl CompoundGlyphFlag {
 
     pub fn overlap_compound(&self) -> bool {
         self.0 & Self::OVERLAP_COMPOUND != 0
+    }
+}
+
+impl fmt::Debug for CompoundGlyphFlag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Compound Glyph Flag")
+            .field("arg 1 and 2 are words", &self.arg_1_and_2_are_words())
+            .field("args are xy values", &self.args_are_xy_values())
+            .field("round xy to grid", &self.round_xy_to_grid())
+            .field("has scale", &self.has_scale())
+            .field("is last component", &self.is_last_component())
+            .field("has xy scale", &self.has_xy_scale())
+            .field("has two by two", &self.has_two_by_two())
+            .field("has instructions", &self.has_instructions())
+            .field("use my metrics", &self.use_my_metrics())
+            .field("overlap compound", &self.overlap_compound())
+            .finish()
+    }
+}
+
+impl GlyphPoint {
+    pub fn with_offset(&self, offset: (i16, i16)) -> Self {
+        let mut new_point = *self;
+        new_point.coordinates.0 += offset.0;
+        new_point.coordinates.1 += offset.1;
+        new_point
     }
 }

@@ -20,9 +20,7 @@ impl<'a> LocaTable<'a> {
             // Short table, u16
             // Indexing is done in words
             // Also, the offset / 2 is stored (don't ask me why)
-
-            // TODO we seem to need to subtract 1 here - but i don't really know why
-            read_u16_at(self.data, (glyph_index - 1) as usize * 2) as u32 * 2
+            read_u16_at(self.data, (glyph_index) as usize * 2) as u32 * 2
         } else {
             // Long table, u32
             // Indexing is done in bytes
