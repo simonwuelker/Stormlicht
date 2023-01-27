@@ -16,6 +16,8 @@
 
 pub mod bezier;
 pub mod font;
+mod stream;
 pub mod ttf;
 
 pub use crate::font::Font;
+pub use stream::{Readable, Stream};
