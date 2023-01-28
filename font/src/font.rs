@@ -3,14 +3,15 @@ use canvas::{Canvas, Drawable};
 use std::collections::HashMap;
 
 use crate::{
-    bezier::{Line, Point, QuadraticBezier},
-    ttf::{self, tables::glyf::GlyphPoint},
+    bezier::{Line, Point},
+    ttf,
 };
 
 const DEFAULT_FONT: &[u8; 168644] =
     include_bytes!("../../downloads/fonts/roboto/Roboto-Medium.ttf");
 
 #[derive(Clone, Copy, Debug, Default)]
+/// A rectangular bounding box, units are in `em`.
 pub struct BoundingBox {
     pub min_x: f32,
     pub max_x: f32,
@@ -21,8 +22,11 @@ pub struct BoundingBox {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LayoutInfo {
     bounding_box: BoundingBox,
-    advance_width: usize,
-    advance_height: usize,
+    /// The amount of space the reader should advance by horizontally after
+    /// rendering this glyph, in `em`
+    advance_width: f32,
+    advance_height: f32,
+    left_side_bearing: f32,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -33,6 +37,7 @@ pub struct Glyph {
 
 pub struct Font {
     name: Option<String>,
+    max_bb: BoundingBox,
     units_per_em: f32,
     glyphs: Vec<Glyph>,
     glyph_indices: HashMap<u16, u16>,
@@ -54,6 +59,14 @@ impl Font {
         let mut glyphs = vec![Glyph::default(); num_glyphs];
         let mut glyph_indices = HashMap::with_capacity(num_glyphs);
 
+        let head = ttf_font.head();
+        let max_bb = BoundingBox {
+            min_x: head.min_x() as f32 / units_per_em,
+            min_y: head.min_y() as f32 / units_per_em,
+            max_x: head.max_x() as f32 / units_per_em,
+            max_y: head.max_y() as f32 / units_per_em,
+        };
+
         let format_4 = ttf_font.format_4();
         format_4.codepoints(|codepoint| {
             // Add the "character -> glyph index" mapping
@@ -68,8 +81,12 @@ impl Font {
                 .unwrap();
 
             // Compute glyph layout stuff
+            let horizontal_metric = ttf_font.hmtx().get_metric_for(glyph_index);
             glyph.layout_info.advance_width =
-                ttf_font.hmtx().get_metric_for(glyph_index).advance_width();
+                horizontal_metric.advance_width() as f32 / units_per_em;
+            glyph.layout_info.left_side_bearing =
+                horizontal_metric.left_side_bearing() as f32 / units_per_em;
+
             glyph.layout_info.bounding_box = BoundingBox {
                 min_x: ttf_glyph.min_x() as f32 / units_per_em,
                 min_y: ttf_glyph.min_y() as f32 / units_per_em,
@@ -81,6 +98,7 @@ impl Font {
         Ok(Self {
             name: name,
             units_per_em: units_per_em,
+            max_bb: max_bb,
             glyphs: glyphs,
             glyph_indices: glyph_indices,
         })
@@ -122,23 +140,24 @@ impl Font {
     }
 
     pub fn rasterize(&self, text: &str, canvas: &mut Canvas, font_size: f32, color: &[u8]) {
+        let mut glyph_bb = self.max_bb;
+        glyph_bb.scale(font_size);
+
         let scale = font_size / self.units_per_em;
         let mut x = 0;
         for c in text.chars() {
             let glyph = self.get_glyph(c as u16);
-            let glyph_width = glyph.layout_info.width(font_size);
-            let glyph_height = glyph.layout_info.height(font_size);
-
-            let mut render_to = canvas.borrow(x..x + glyph_width, 0..glyph_height);
+            dbg!(x, font_size);
+            let mut render_to = canvas.borrow(
+                x..x + glyph_bb.width().ceil() as usize,
+                0..glyph_bb.height().ceil() as usize,
+            );
             render_to.fill(&[0, 0, 255]);
 
             let min_y = glyph.layout_info.bounding_box.min_y * font_size;
-            let map_point = |p: Point| {
-                (
-                    p.x.round() as usize,
-                    glyph_height - (p.y - min_y).round() as usize,
-                )
-            };
+            let max_y = glyph.layout_info.bounding_box.max_y * font_size;
+            let map_point =
+                |p: Point| (p.x.round() as usize, (max_y - p.y - min_y).round() as usize);
 
             for mut curve in glyph.curves().iter().copied() {
                 curve.scale(scale);
@@ -153,7 +172,7 @@ impl Font {
                 }
             }
 
-            x += (font_size * glyph.advance_width() as f32 / self.units_per_em).ceil() as usize;
+            x += (font_size * glyph.advance_width()).ceil() as usize;
         }
     }
 
@@ -165,63 +184,46 @@ impl Font {
 }
 
 impl Glyph {
-    pub fn advance_width(&self) -> usize {
+    pub fn advance_width(&self) -> f32 {
         self.layout_info.advance_width
     }
 
-    pub fn advance_height(&self) -> usize {
+    pub fn advance_height(&self) -> f32 {
         self.layout_info.advance_height
     }
 
     pub fn curves(&self) -> &[Line] {
         &self.curves
     }
-
-    pub fn from_glyph_points<I: Iterator<Item = GlyphPoint>>(points: I) -> Self {
-        let mut glyph = Self::default();
-        let mut previous_point: Option<GlyphPoint> = None;
-        let mut first_point_of_contour = None;
-
-        // TODO these aren't actually bezier curves!
-        for point in points {
-            match previous_point {
-                Some(previous_point) => {
-                    glyph.curves.push(Line::Quad(QuadraticBezier {
-                        p0: previous_point.into(),
-                        p1: previous_point.into(),
-                        p2: point.into(),
-                    }));
-                },
-                None => first_point_of_contour = Some(point),
-            }
-
-            // It is technically possible, while pointless (hah) to have
-            // a contour containing only a single point - in which case
-            // point.is_last_point_of_contour is true but first_point_of_contour
-            // is None. In this case, we silently ignore the point and move on.
-            if let (Some(first_point), true) =
-                (first_point_of_contour, point.is_last_point_of_contour)
-            {
-                glyph.curves.push(Line::Quad(QuadraticBezier {
-                    p0: point.into(),
-                    p1: point.into(),
-                    p2: first_point.into(),
-                }));
-                previous_point = None;
-            } else {
-                previous_point = Some(point);
-            }
-        }
-        glyph
-    }
 }
 
 impl LayoutInfo {
     pub fn width(&self, font_size: f32) -> usize {
-        ((self.bounding_box.max_x - self.bounding_box.min_x) * font_size).ceil() as usize
+        (self.advance_width * font_size).ceil() as usize
+        // ((self.left_side_bearing + self.bounding_box.max_x - self.bounding_box.min_x) * font_size)
+        //     .ceil() as usize
     }
 
     pub fn height(&self, font_size: f32) -> usize {
         ((self.bounding_box.max_y - self.bounding_box.min_y) * font_size).ceil() as usize
+    }
+}
+
+impl BoundingBox {
+    pub fn scale(&mut self, scale: f32) {
+        self.min_x *= scale;
+        self.max_x *= scale;
+        self.min_y *= scale;
+        self.max_y *= scale;
+    }
+
+    /// Width of the bounding box, in `em`
+    pub fn width(&self) -> f32 {
+        self.max_x - self.min_x
+    }
+
+    /// Height of the bounding box, in `em`
+    pub fn height(&self) -> f32 {
+        self.max_y - self.min_y
     }
 }

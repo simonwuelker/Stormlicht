@@ -133,6 +133,10 @@ impl<'a> Font<'a> {
         &self.hmtx_table
     }
 
+    pub fn head(&self) -> &head::HeadTable<'a> {
+        &self.head_table
+    }
+
     pub fn offset_table(&self) -> &OffsetTable<'a> {
         &self.offset_table
     }
