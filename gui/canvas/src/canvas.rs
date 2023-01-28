@@ -60,6 +60,9 @@ impl Canvas {
         let height_start = unwrap_bound(height_range.start_bound(), 0);
         let height_end = unwrap_bound(height_range.end_bound(), self.height - 1);
 
+        assert!(width_end < self.width);
+        assert!(height_end < self.height);
+
         let width = width_end - width_start;
         let height = height_end - height_start;
 
