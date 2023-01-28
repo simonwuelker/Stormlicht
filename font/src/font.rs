@@ -143,21 +143,23 @@ impl Font {
         let mut glyph_bb = self.max_bb;
         glyph_bb.scale(font_size);
 
+        let baseline = glyph_bb.max_y.round() as usize;
+
         let scale = font_size / self.units_per_em;
         let mut x = 0;
         for c in text.chars() {
             let glyph = self.get_glyph(c as u16);
-            dbg!(x, font_size);
+            let glyph_starts_at_y =
+                glyph_bb.max_y - glyph.layout_info.bounding_box.max_y * font_size;
+
             let mut render_to = canvas.borrow(
                 x..x + glyph_bb.width().ceil() as usize,
-                0..glyph_bb.height().ceil() as usize,
+                glyph_starts_at_y.ceil() as usize..glyph_bb.height().ceil() as usize,
             );
             render_to.fill(&[0, 0, 255]);
 
-            let min_y = glyph.layout_info.bounding_box.min_y * font_size;
             let max_y = glyph.layout_info.bounding_box.max_y * font_size;
-            let map_point =
-                |p: Point| (p.x.round() as usize, (max_y - p.y - min_y).round() as usize);
+            let map_point = |p: Point| (p.x.round() as usize, (max_y - p.y).round() as usize);
 
             for mut curve in glyph.curves().iter().copied() {
                 curve.scale(scale);
@@ -174,6 +176,7 @@ impl Font {
 
             x += (font_size * glyph.advance_width()).ceil() as usize;
         }
+        canvas.line((0, baseline), (canvas.width(), baseline), &[255, 0, 0]);
     }
 
     /// Get a glyph by it's index.
