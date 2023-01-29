@@ -12,7 +12,8 @@ members = [
     "parser_combinators", 
     "async/executor",
     "browser",
-    "hash",
+    "crypto/hash",
+    "crypto/tls",
 ]
 
 [profile.bench]
