@@ -1,14 +1,4 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+//! TLS 1.2 [RFC 5246](https://www.rfc-editor.org/rfc/rfc5246) implementation.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub mod error_alert;
+pub mod record_layer;
