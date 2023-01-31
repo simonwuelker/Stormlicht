@@ -15,5 +15,5 @@ jobs:
       - name: Download required files
         run: ./download.sh
       - name: Run Clippy
-        run: cargo clippy --all-targets --all-features -- -Dclippy::correctness -Dclippy::perf -Aclippy::redundant_field_names -Aclippy::neg_multiply -Aclippy::upper_case_acronyms -Aclippy::iter_nth_zero
+        run: cargo clippy --all-targets --all-features -- -Dclippy::correctness -Dclippy::perf -Aclippy::needless_range_loop -Aclippy::redundant_field_names -Aclippy::neg_multiply -Aclippy::upper_case_acronyms -Aclippy::iter_nth_zero
 
