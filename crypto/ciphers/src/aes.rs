@@ -1,5 +1,7 @@
 //! [AES](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf) implementation.
 
+use crate::BlockCipher;
+
 const S_BOX: [u8; 256] = [
     0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
     0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0,
@@ -400,12 +402,26 @@ impl<const A: usize, const B: usize> AES<A, B> {
     }
 }
 
-impl AES<128, 11> {
-    pub fn new(master_key: [u8; 16]) -> Self {
+impl BlockCipher for AES<128, 11> {
+    type Block = [u8; 16];
+    type Key = [u8; 16];
+
+    fn new(key: Self::Key) -> Self
+    where
+        Self: Sized,
+    {
         Self {
-            round_keys: key_expand::<16, 11>(master_key),
+            round_keys: key_expand::<16, 11>(key),
             state: [[0; 4]; 4],
         }
+    }
+
+    fn encrypt_block(&mut self, input: Self::Block) -> Self::Block {
+        self.encrypt_block(input)
+    }
+
+    fn decrypt_block(&mut self, input: Self::Block) -> Self::Block {
+        self.decrypt_block(input)
     }
 }
 

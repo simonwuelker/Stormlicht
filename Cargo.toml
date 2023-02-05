@@ -12,6 +12,7 @@ members = [
     "parser_combinators", 
     "async/executor",
     "browser",
+    "crypto/ciphers",
     "crypto/hash",
     "crypto/tls",
 ]
