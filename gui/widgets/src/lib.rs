@@ -1,3 +1,4 @@
+pub mod application;
 pub mod colorscheme;
 pub mod layout;
 pub mod primitives;

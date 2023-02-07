@@ -50,7 +50,7 @@ impl Widget for Input {
 
     fn swallow_event(&mut self, event: Event) {
         if let Event::KeyDown { keycode, .. } = event {
-            println!("{:?}", keycode);
+            println!("{keycode:?}");
         }
     }
 }
