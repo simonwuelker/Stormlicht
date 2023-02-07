@@ -3,6 +3,7 @@
 pub mod connection;
 pub mod error_alert;
 pub mod handshake;
+pub mod random;
 pub mod record_layer;
 
 mod cipher_suite;

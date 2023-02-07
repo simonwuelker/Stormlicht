@@ -132,6 +132,8 @@ pub struct AES<const S: usize, const R: usize> {
     state: [[u8; 4]; 4],
 }
 
+pub type AES128 = AES<128, 11>;
+
 #[inline]
 fn rot_word(word_bytes: [u8; 4]) -> [u8; 4] {
     let mut w = word_bytes;
