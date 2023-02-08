@@ -1,9 +1,9 @@
-mod divider;
+mod container;
 mod widget;
 
 pub mod widgets;
 
-pub use divider::Divider;
+pub use container::Container;
 pub use widget::Widget;
 
 #[derive(Debug)]

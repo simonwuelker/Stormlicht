@@ -3,7 +3,7 @@ use widgets::{
     colorscheme,
     layout::{
         widgets::{ColoredBox, Input},
-        Divider, Orientation, Sizing, Widget,
+        Container, Orientation, Sizing, Widget,
     },
     sdl2::{render::Canvas, video::Window},
 };
@@ -12,14 +12,16 @@ pub struct BrowserApplication<T: Widget> {
     root: T,
 }
 
-impl Default for BrowserApplication<Divider> {
+impl Default for BrowserApplication<Container> {
     fn default() -> Self {
         let mut textbox = Input::new(colorscheme::BACKGROUND_DARK).into_widget();
         textbox.set_size(Sizing::Exactly(50));
 
-        let root = Divider::new(Orientation::Vertical)
+        let webcontent = ColoredBox::new(colorscheme::BACKGROUND_LIGHT).into_widget();
+
+        let root = Container::new(Orientation::Vertical)
             .add_child(textbox)
-            .add_child(ColoredBox::new(colorscheme::BACKGROUND_LIGHT).into_widget());
+            .add_child(webcontent);
 
         Self { root }
     }
