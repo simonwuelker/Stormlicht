@@ -1,9 +1,8 @@
-use crate::GuiError;
+use crate::{layout::Widget, GuiError};
 use anyhow::Result;
 use sdl2::{
     event::{Event, WindowEvent},
     keyboard::Keycode,
-    render::Canvas,
     video::Window,
 };
 
@@ -19,7 +18,7 @@ pub trait Application {
     /// Generally speaking, a paint event should not cause side effects.
     /// The reason that `self` is mutable here is that some applications may want
     /// to cache layout calculations which may or may not have to be refreshed on paint.
-    fn on_paint(&mut self, canvas: &mut Canvas<Window>);
+    fn view(&self) -> Box<dyn Widget<Message = Self::Message>>;
 
     /// Handle a resize event
     fn on_resize(&mut self, width: i32, height: i32) {
@@ -36,7 +35,7 @@ pub trait Application {
         &mut self,
         window: &mut Window,
         message: Self::Message,
-        message_queue: &mut AppendOnlyQueue<Self::Message>,
+        message_queue: AppendOnlyQueue<Self::Message>,
     ) {
         _ = window;
         _ = message;
@@ -60,7 +59,9 @@ pub trait Application {
         let mut canvas = window.into_canvas().build().unwrap();
 
         // Trigger one initial paint event
-        self.on_paint(&mut canvas);
+        let mut view_tree = self.view();
+        view_tree.render(&mut canvas).unwrap();
+        canvas.present();
 
         // Game loop, handle events
         let mut event_pump = sdl_context.event_pump().unwrap();
@@ -74,12 +75,19 @@ pub trait Application {
                         keycode: Some(Keycode::Escape),
                         ..
                     } => break 'running,
+                    Event::MouseButtonDown {
+                        mouse_btn, x, y, ..
+                    } => view_tree.on_mouse_down(
+                        mouse_btn,
+                        x,
+                        y,
+                        AppendOnlyQueue::new(&mut message_queue),
+                    ),
                     Event::Window {
                         win_event: WindowEvent::Resized(width, height),
                         ..
                     } => {
                         self.on_resize(width, height);
-                        self.on_paint(&mut canvas);
                     },
                     _ => {},
                 }
@@ -87,9 +95,11 @@ pub trait Application {
 
             // Handle application-internal messages
             while let Some(message) = message_queue.pop_front() {
-                let mut queue = message_queue.into();
-                self.on_message(canvas.window_mut(), message, &mut queue);
-                message_queue = queue.into();
+                self.on_message(
+                    canvas.window_mut(),
+                    message,
+                    AppendOnlyQueue::new(&mut message_queue),
+                );
             }
             std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
         }
@@ -100,23 +110,15 @@ pub trait Application {
 /// An abstraction over a [VecDeque] that only allows append operations, without
 /// looking at the queues content.
 /// This is a type-safe to avoid confusion in [Application::on_message].
-pub struct AppendOnlyQueue<T> {
-    queue: VecDeque<T>,
+pub struct AppendOnlyQueue<'a, T> {
+    queue: &'a mut VecDeque<T>,
 }
 
-impl<T> From<VecDeque<T>> for AppendOnlyQueue<T> {
-    fn from(queue: VecDeque<T>) -> Self {
+impl<'a, T> AppendOnlyQueue<'a, T> {
+    pub fn new(queue: &'a mut VecDeque<T>) -> Self {
         Self { queue }
     }
-}
 
-impl<T> From<AppendOnlyQueue<T>> for VecDeque<T> {
-    fn from(value: AppendOnlyQueue<T>) -> Self {
-        value.queue
-    }
-}
-
-impl<T> AppendOnlyQueue<T> {
     pub fn append(&mut self, element: T) {
         self.queue.push_back(element)
     }

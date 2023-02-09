@@ -3,29 +3,33 @@ use crate::{
     GuiError,
 };
 
+use anyhow::Result;
 use sdl2::{
     event::Event, mouse::MouseButton, pixels::Color, rect::Rect, render::Canvas, video::Window,
 };
+use std::marker::PhantomData;
 
-use anyhow::Result;
-
-pub struct ColoredBox {
+pub struct ColoredBox<M> {
     color: Color,
     bounding_box: Option<Rect>,
     sizing: Sizing,
+    phantom: PhantomData<M>,
 }
 
-impl ColoredBox {
+impl<M> ColoredBox<M> {
     pub fn new(color: Color) -> Self {
         Self {
             color: color,
             bounding_box: None,
             sizing: Sizing::Grow(1.),
+            phantom: PhantomData,
         }
     }
 }
 
-impl Widget for ColoredBox {
+impl<M> Widget for ColoredBox<M> {
+    type Message = M;
+
     fn bounding_box(&self) -> Option<Rect> {
         self.bounding_box
     }

@@ -5,23 +5,32 @@ use crate::{
 use anyhow::Result;
 use sdl2::{event::Event, pixels::Color, rect::Rect, render::Canvas, video::Window};
 
-pub struct Input {
+pub struct Input<M> {
     color: Color,
     bounding_box: Option<Rect>,
     sizing: Sizing,
+    on_input: Option<M>,
 }
 
-impl Input {
+impl<M> Input<M> {
     pub fn new(color: Color) -> Self {
         Self {
             color: color,
             bounding_box: None,
             sizing: Sizing::Grow(1.),
+            on_input: None,
         }
+    }
+
+    /// Define a message that should be emitted once the
+    pub fn on_input(&mut self, message: M) {
+        self.on_input = Some(message);
     }
 }
 
-impl Widget for Input {
+impl<M> Widget for Input<M> {
+    type Message = M;
+
     fn bounding_box(&self) -> Option<Rect> {
         self.bounding_box
     }

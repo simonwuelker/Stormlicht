@@ -10,9 +10,9 @@ use sdl2::{
     video::Window,
 };
 
-pub struct Container {
+pub struct Container<M> {
     orientation: Orientation,
-    children: Vec<Box<dyn Widget>>,
+    children: Vec<Box<dyn Widget<Message = M>>>,
     focused_child: Option<usize>,
     cached_layout: Option<Rect>,
     sizing: Sizing,
@@ -104,7 +104,7 @@ fn compute_item_sizes(
     element_sizes
 }
 
-impl Container {
+impl<M> Container<M> {
     pub fn new(orientation: Orientation) -> Self {
         Self {
             orientation,
@@ -121,7 +121,7 @@ impl Container {
         self
     }
 
-    pub fn add_child(mut self, child: Box<dyn Widget>) -> Self {
+    pub fn add_child(mut self, child: Box<dyn Widget<Message = M>>) -> Self {
         self.children.push(child);
         self
     }
@@ -141,7 +141,9 @@ impl Container {
     }
 }
 
-impl Widget for Container {
+impl<M> Widget for Container<M> {
+    type Message = M;
+
     fn bounding_box(&self) -> Option<Rect> {
         self.cached_layout
     }
@@ -208,6 +210,19 @@ impl Widget for Container {
 
         for child in &mut self.children {
             child.invalidate_layout();
+        }
+    }
+
+    fn on_mouse_down(
+        &mut self,
+        mouse_btn: MouseButton,
+        x: i32,
+        y: i32,
+        message_queue: crate::application::AppendOnlyQueue<Self::Message>,
+    ) {
+        // Forward the event to the child that contains the given location
+        if let Some(child_index) = self.widget_containing(Point::new(x, y)) {
+            self.children[child_index].on_mouse_down(mouse_btn, x, y, message_queue);
         }
     }
 

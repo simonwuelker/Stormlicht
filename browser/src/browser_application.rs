@@ -2,36 +2,44 @@ use widgets::{
     application::Application,
     colorscheme,
     layout::{
-        widgets::{ColoredBox, Input},
+        widgets::{Button, ColoredBox, Input},
         Container, Orientation, Sizing, Widget,
     },
-    sdl2::{render::Canvas, video::Window},
 };
 
-pub struct BrowserApplication<T: Widget> {
-    root: T,
+#[derive(Clone, Copy, Default, Debug)]
+pub struct BrowserApplication;
+
+#[derive(Clone, Copy, Debug)]
+pub enum Message {
+    Click,
 }
 
-impl Default for BrowserApplication<Container> {
-    fn default() -> Self {
+impl Application for BrowserApplication {
+    type Message = Message;
+
+    fn view(&self) -> Box<dyn Widget<Message = Self::Message>> {
         let mut textbox = Input::new(colorscheme::BACKGROUND_DARK).into_widget();
         textbox.set_size(Sizing::Exactly(50));
 
-        let webcontent = ColoredBox::new(colorscheme::BACKGROUND_LIGHT).into_widget();
+        let webcontent = Button::new(ColoredBox::new(colorscheme::BACKGROUND_LIGHT).into_widget())
+            .on_click(Message::Click)
+            .into_widget();
 
         let root = Container::new(Orientation::Vertical)
             .add_child(textbox)
             .add_child(webcontent);
-
-        Self { root }
+        Box::new(root) as Box<dyn Widget<Message = Self::Message>>
     }
-}
 
-impl<W: Widget> Application for BrowserApplication<W> {
-    type Message = ();
-
-    fn on_paint(&mut self, canvas: &mut Canvas<Window>) {
-        self.root.render(canvas).unwrap();
-        canvas.present();
+    fn on_message(
+        &mut self,
+        window: &mut widgets::sdl2::video::Window,
+        message: Self::Message,
+        message_queue: widgets::application::AppendOnlyQueue<Self::Message>,
+    ) {
+        dbg!(message);
+        _ = window;
+        _ = message_queue;
     }
 }
