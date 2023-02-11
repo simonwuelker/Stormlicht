@@ -42,6 +42,8 @@ pub trait Application {
         _ = message_queue;
     }
 
+    fn should_run(&self) -> bool;
+
     // TODO this should be generic to support non-browser applications.
     // Currently, window dimensions, title and other attributes are hardcoded
     fn run(&mut self) -> Result<()> {
@@ -66,7 +68,7 @@ pub trait Application {
         // Game loop, handle events
         let mut event_pump = sdl_context.event_pump().unwrap();
         let mut message_queue = VecDeque::new();
-        'running: loop {
+        'running: while self.should_run() {
             // Handle window events
             for event in event_pump.poll_iter() {
                 match event {

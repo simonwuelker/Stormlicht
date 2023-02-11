@@ -9,7 +9,8 @@ use sdl2::{mouse::MouseButton, rect::Rect, render::Canvas, video::Window};
 pub struct Button<M> {
     inner: Box<dyn Widget<Message = M>>,
     bounding_box: Option<Rect>,
-    sizing: Sizing,
+    width: Sizing,
+    height: Sizing,
     on_click: Option<M>,
 }
 
@@ -18,7 +19,8 @@ impl<M> Button<M> {
         Self {
             inner: inner,
             bounding_box: None,
-            sizing: Sizing::Grow(1.),
+            width: Sizing::default(),
+            height: Sizing::default(),
             on_click: None,
         }
     }
@@ -26,6 +28,16 @@ impl<M> Button<M> {
     /// Define a message that should be emitted once the button is clicked
     pub fn on_click(mut self, message: M) -> Self {
         self.on_click = Some(message);
+        self
+    }
+
+    pub fn set_width(mut self, width: Sizing) -> Self {
+        self.width = width;
+        self
+    }
+
+    pub fn set_height(mut self, height: Sizing) -> Self {
+        self.height = height;
         self
     }
 }
@@ -37,12 +49,12 @@ impl<M: Copy> Widget for Button<M> {
         self.bounding_box
     }
 
-    fn set_size(&mut self, sizing: Sizing) {
-        self.sizing = sizing;
+    fn width(&self) -> Sizing {
+        self.width
     }
 
-    fn preferred_sizing(&self) -> Sizing {
-        self.sizing
+    fn height(&self) -> Sizing {
+        self.height
     }
 
     fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<()> {

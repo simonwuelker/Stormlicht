@@ -12,7 +12,8 @@ use std::marker::PhantomData;
 pub struct ColoredBox<M> {
     color: Color,
     bounding_box: Option<Rect>,
-    sizing: Sizing,
+    width: Sizing,
+    height: Sizing,
     phantom: PhantomData<M>,
 }
 
@@ -21,7 +22,8 @@ impl<M> ColoredBox<M> {
         Self {
             color: color,
             bounding_box: None,
-            sizing: Sizing::Grow(1.),
+            width: Sizing::default(),
+            height: Sizing::default(),
             phantom: PhantomData,
         }
     }
@@ -34,12 +36,12 @@ impl<M> Widget for ColoredBox<M> {
         self.bounding_box
     }
 
-    fn set_size(&mut self, sizing: Sizing) {
-        self.sizing = sizing;
+    fn width(&self) -> Sizing {
+        self.width
     }
 
-    fn preferred_sizing(&self) -> Sizing {
-        self.sizing
+    fn height(&self) -> Sizing {
+        self.height
     }
 
     fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<()> {

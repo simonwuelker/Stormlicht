@@ -7,29 +7,49 @@ use widgets::{
     },
 };
 
-#[derive(Clone, Copy, Default, Debug)]
-pub struct BrowserApplication;
+#[derive(Clone, Copy, Debug)]
+pub struct BrowserApplication {
+    should_run: bool,
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum Message {
-    Click,
+    Close,
+}
+
+impl Default for BrowserApplication {
+    fn default() -> Self {
+        Self { should_run: true }
+    }
 }
 
 impl Application for BrowserApplication {
     type Message = Message;
 
     fn view(&self) -> Box<dyn Widget<Message = Self::Message>> {
-        let mut textbox = Input::new(colorscheme::BACKGROUND_DARK).into_widget();
-        textbox.set_size(Sizing::Exactly(50));
+        let search_bar = Input::default().into_widget();
 
-        let webcontent = Button::new(ColoredBox::new(colorscheme::BACKGROUND_LIGHT).into_widget())
-            .on_click(Message::Click)
+        let close_btn = Button::new(ColoredBox::new(colorscheme::ALTERNATIVE).into_widget())
+            .on_click(Message::Close)
+            .set_width(Sizing::Exactly(50))
+            .set_height(Sizing::Exactly(50))
             .into_widget();
 
+        let navbar = Container::new(Orientation::Horizontal)
+            .add_child(search_bar)
+            .add_child(close_btn)
+            .into_widget();
+
+        let webcontent = ColoredBox::new(colorscheme::BACKGROUND_LIGHT).into_widget();
+
         let root = Container::new(Orientation::Vertical)
-            .add_child(textbox)
+            .add_child(navbar)
             .add_child(webcontent);
         Box::new(root) as Box<dyn Widget<Message = Self::Message>>
+    }
+
+    fn should_run(&self) -> bool {
+        self.should_run
     }
 
     fn on_message(
@@ -39,6 +59,9 @@ impl Application for BrowserApplication {
         message_queue: widgets::application::AppendOnlyQueue<Self::Message>,
     ) {
         dbg!(message);
+        match message {
+            Message::Close => self.should_run = false,
+        }
         _ = window;
         _ = message_queue;
     }

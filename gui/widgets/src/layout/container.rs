@@ -15,7 +15,6 @@ pub struct Container<M> {
     children: Vec<Box<dyn Widget<Message = M>>>,
     focused_child: Option<usize>,
     cached_layout: Option<Rect>,
-    sizing: Sizing,
     alignment: Alignment,
 }
 
@@ -111,7 +110,6 @@ impl<M> Container<M> {
             children: vec![],
             focused_child: None,
             cached_layout: None,
-            sizing: Sizing::Grow(1.),
             alignment: Alignment::default(),
         }
     }
@@ -148,12 +146,28 @@ impl<M> Widget for Container<M> {
         self.cached_layout
     }
 
-    fn set_size(&mut self, sizing: Sizing) {
-        self.sizing = sizing;
+    fn width(&self) -> Sizing {
+        match self.orientation {
+            Orientation::Horizontal => Sizing::default(),
+            Orientation::Vertical => self
+                .children
+                .iter()
+                .map(|c| c.width())
+                .max()
+                .unwrap_or_default(),
+        }
     }
 
-    fn preferred_sizing(&self) -> Sizing {
-        self.sizing
+    fn height(&self) -> Sizing {
+        match self.orientation {
+            Orientation::Horizontal => self
+                .children
+                .iter()
+                .map(|c| c.height())
+                .max()
+                .unwrap_or_default(),
+            Orientation::Vertical => Sizing::default(),
+        }
     }
 
     fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<()> {
@@ -179,7 +193,13 @@ impl<M> Widget for Container<M> {
         };
         let positions = compute_item_sizes(
             available_space,
-            self.children.iter().map(|c| c.preferred_sizing()).collect(),
+            self.children
+                .iter()
+                .map(|c| match self.orientation {
+                    Orientation::Horizontal => c.width(),
+                    Orientation::Vertical => c.height(),
+                })
+                .collect(),
             self.alignment,
         );
 

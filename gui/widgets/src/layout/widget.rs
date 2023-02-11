@@ -17,12 +17,8 @@ pub trait Widget {
         Ok(())
     }
 
-    /// Set the preferred size of the element to the given size.
-    fn set_size(&mut self, sizing: Sizing) {
-        _ = sizing;
-    }
-
-    fn preferred_sizing(&self) -> Sizing;
+    fn width(&self) -> Sizing;
+    fn height(&self) -> Sizing;
 
     fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<()>;
 
