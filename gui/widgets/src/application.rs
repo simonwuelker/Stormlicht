@@ -6,7 +6,7 @@ use sdl2::{
     video::Window,
 };
 
-use std::collections::VecDeque;
+use std::{collections::VecDeque, ops::BitOrAssign};
 
 pub trait Application {
     /// A type that can be used to send user-defined messages
@@ -21,9 +21,10 @@ pub trait Application {
     fn view(&self) -> Box<dyn Widget<Message = Self::Message>>;
 
     /// Handle a resize event
-    fn on_resize(&mut self, width: i32, height: i32) {
+    fn on_resize(&mut self, width: i32, height: i32) -> RepaintState {
         _ = width;
         _ = height;
+        RepaintState::NoRepaintRequired
     }
 
     /// Handle a message from another part of the application
@@ -36,10 +37,11 @@ pub trait Application {
         window: &mut Window,
         message: Self::Message,
         message_queue: AppendOnlyQueue<Self::Message>,
-    ) {
+    ) -> RepaintState {
         _ = window;
         _ = message;
         _ = message_queue;
+        RepaintState::default()
     }
 
     fn should_run(&self) -> bool;
@@ -69,6 +71,9 @@ pub trait Application {
         let mut event_pump = sdl_context.event_pump().unwrap();
         let mut message_queue = VecDeque::new();
         'running: while self.should_run() {
+            // While processing the state and new events, keep track of whether we need to redraw the application
+            let mut repaint_required = RepaintState::default();
+
             // Handle window events
             for event in event_pump.poll_iter() {
                 match event {
@@ -79,17 +84,32 @@ pub trait Application {
                     } => break 'running,
                     Event::MouseButtonDown {
                         mouse_btn, x, y, ..
-                    } => view_tree.on_mouse_down(
-                        mouse_btn,
-                        x,
-                        y,
-                        AppendOnlyQueue::new(&mut message_queue),
-                    ),
+                    } => {
+                        repaint_required |= view_tree.on_mouse_down(
+                            mouse_btn,
+                            x,
+                            y,
+                            AppendOnlyQueue::new(&mut message_queue),
+                        )
+                    },
+                    // I don't know when an event would not have a KeyCode.
+                    // Let's just ignore any keyboard events without a code
+                    Event::KeyDown {
+                        keycode: Some(keycode),
+                        keymod,
+                        ..
+                    } => {
+                        repaint_required |= view_tree.on_key_down(
+                            keycode,
+                            keymod,
+                            AppendOnlyQueue::new(&mut message_queue),
+                        );
+                    },
                     Event::Window {
                         win_event: WindowEvent::Resized(width, height),
                         ..
                     } => {
-                        self.on_resize(width, height);
+                        repaint_required |= self.on_resize(width, height);
                     },
                     _ => {},
                 }
@@ -97,11 +117,16 @@ pub trait Application {
 
             // Handle application-internal messages
             while let Some(message) = message_queue.pop_front() {
-                self.on_message(
+                repaint_required |= self.on_message(
                     canvas.window_mut(),
                     message,
                     AppendOnlyQueue::new(&mut message_queue),
                 );
+            }
+
+            if repaint_required == RepaintState::RepaintRequired {
+                view_tree.render(&mut canvas).unwrap();
+                canvas.present()
             }
             std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
         }
@@ -123,5 +148,29 @@ impl<'a, T> AppendOnlyQueue<'a, T> {
 
     pub fn append(&mut self, element: T) {
         self.queue.push_back(element)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum RepaintState {
+    #[default]
+    NoRepaintRequired,
+    RepaintRequired,
+}
+
+impl std::ops::BitOr for RepaintState {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Self::NoRepaintRequired, Self::NoRepaintRequired) => Self::NoRepaintRequired,
+            _ => Self::RepaintRequired,
+        }
+    }
+}
+
+impl BitOrAssign for RepaintState {
+    fn bitor_assign(&mut self, rhs: Self) {
+        *self = *self | rhs;
     }
 }

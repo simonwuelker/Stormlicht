@@ -1,7 +1,16 @@
 use anyhow::Result;
-use sdl2::{event::Event, mouse::MouseButton, rect::Rect, render::Canvas, video::Window};
+use sdl2::{
+    keyboard::{Keycode, Mod},
+    mouse::MouseButton,
+    rect::Rect,
+    render::Canvas,
+    video::Window,
+};
 
-use crate::{application::AppendOnlyQueue, layout::Sizing};
+use crate::{
+    application::{AppendOnlyQueue, RepaintState},
+    layout::Sizing,
+};
 
 pub trait Widget {
     /// The message type used in the [Application](crate::application::Application).
@@ -33,14 +42,25 @@ pub trait Widget {
         x: i32,
         y: i32,
         message_queue: AppendOnlyQueue<Self::Message>,
-    ) {
+    ) -> RepaintState {
         _ = mouse_btn;
         _ = x;
         _ = y;
         _ = message_queue;
+        RepaintState::NoRepaintRequired
     }
 
-    fn swallow_event(&mut self, _event: Event) {}
+    fn on_key_down(
+        &mut self,
+        keycode: Keycode,
+        keymod: Mod,
+        message_queue: AppendOnlyQueue<Self::Message>,
+    ) -> RepaintState {
+        _ = keycode;
+        _ = keymod;
+        _ = message_queue;
+        RepaintState::NoRepaintRequired
+    }
 
     fn into_widget(self) -> Box<dyn Widget<Message = Self::Message>>
     where

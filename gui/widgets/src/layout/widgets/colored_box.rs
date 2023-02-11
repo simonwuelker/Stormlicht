@@ -4,9 +4,7 @@ use crate::{
 };
 
 use anyhow::Result;
-use sdl2::{
-    event::Event, mouse::MouseButton, pixels::Color, rect::Rect, render::Canvas, video::Window,
-};
+use sdl2::{pixels::Color, rect::Rect, render::Canvas, video::Window};
 use std::marker::PhantomData;
 
 pub struct ColoredBox<M> {
@@ -56,15 +54,5 @@ impl<M> Widget for ColoredBox<M> {
 
     fn compute_layout(&mut self, into: Rect) {
         self.bounding_box = Some(into);
-    }
-
-    fn swallow_event(&mut self, event: Event) {
-        if let Event::MouseButtonDown {
-            mouse_btn: MouseButton::Left,
-            ..
-        } = event
-        {
-            println!("Clicked {:?}", self.color);
-        }
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    application::AppendOnlyQueue,
+    application::{AppendOnlyQueue, RepaintState},
     layout::{Sizing, Widget},
 };
 
@@ -75,11 +75,12 @@ impl<M: Copy> Widget for Button<M> {
         _x: i32,
         _y: i32,
         mut message_queue: AppendOnlyQueue<Self::Message>,
-    ) {
+    ) -> RepaintState {
         if let Some(message) = self.on_click {
             if mouse_btn == MouseButton::Left {
                 message_queue.append(message)
             }
         }
+        RepaintState::NoRepaintRequired
     }
 }

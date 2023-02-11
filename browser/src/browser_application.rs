@@ -1,5 +1,5 @@
 use widgets::{
-    application::Application,
+    application::{Application, RepaintState},
     colorscheme,
     layout::{
         widgets::{Button, ColoredBox, Input},
@@ -57,12 +57,13 @@ impl Application for BrowserApplication {
         window: &mut widgets::sdl2::video::Window,
         message: Self::Message,
         message_queue: widgets::application::AppendOnlyQueue<Self::Message>,
-    ) {
+    ) -> RepaintState {
+        _ = window;
+        _ = message_queue;
         dbg!(message);
         match message {
             Message::Close => self.should_run = false,
         }
-        _ = window;
-        _ = message_queue;
+        RepaintState::NoRepaintRequired
     }
 }

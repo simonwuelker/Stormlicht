@@ -1,9 +1,9 @@
 use super::{Orientation, Widget};
-use crate::layout::Sizing;
 use crate::Alignment;
+use crate::{application::RepaintState, layout::Sizing};
 use anyhow::Result;
 use sdl2::{
-    event::Event,
+    keyboard::{Keycode, Mod},
     mouse::MouseButton,
     rect::{Point, Rect},
     render::Canvas,
@@ -239,41 +239,29 @@ impl<M> Widget for Container<M> {
         x: i32,
         y: i32,
         message_queue: crate::application::AppendOnlyQueue<Self::Message>,
-    ) {
+    ) -> RepaintState {
         // Forward the event to the child that contains the given location
         if let Some(child_index) = self.widget_containing(Point::new(x, y)) {
-            self.children[child_index].on_mouse_down(mouse_btn, x, y, message_queue);
+            // The clicked widget gains focus
+            self.focused_child = Some(child_index);
+
+            self.children[child_index].on_mouse_down(mouse_btn, x, y, message_queue)
+        } else {
+            RepaintState::NoRepaintRequired
         }
     }
 
-    fn swallow_event(&mut self, event: Event) {
-        if let Event::MouseButtonDown {
-            mouse_btn: MouseButton::Left,
-            x,
-            y,
-            ..
-        } = event
-        {
-            self.focused_child = self.widget_containing(Point::new(x, y))
-        }
-
-        // If the event has a location
-        if let Event::MouseButtonUp { x, y, .. }
-        | Event::MouseButtonDown { x, y, .. }
-        | Event::MouseMotion { x, y, .. }
-        | Event::MouseWheel { x, y, .. } = event
-        {
-            // Forward the event to the child that contains the given location
-            let containing_child = self.widget_containing(Point::new(x, y));
-
-            if let Some(child_index) = containing_child {
-                self.children[child_index].swallow_event(event);
-            }
+    fn on_key_down(
+        &mut self,
+        keycode: Keycode,
+        keymod: Mod,
+        message_queue: crate::application::AppendOnlyQueue<Self::Message>,
+    ) -> RepaintState {
+        // Forward the event to the focused widget, if any
+        if let Some(child_index) = self.focused_child {
+            self.children[child_index].on_key_down(keycode, keymod, message_queue)
         } else {
-            // else, send it to the focused widget, if any
-            if let Some(focused_child) = self.focused_child {
-                self.children[focused_child].swallow_event(event);
-            }
+            RepaintState::NoRepaintRequired
         }
     }
 }
