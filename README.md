@@ -16,6 +16,11 @@ Here are some of the cool things built (from scratch) for this browser:
 ## Building
 Simply run
 ```
+sudo apt install build-essential
+sudo apt install libsdl2-dev
+```
+and
+```
 ./download.sh
 ```
 to download all required files and then
