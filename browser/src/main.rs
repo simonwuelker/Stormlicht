@@ -1,3 +1,5 @@
+#![feature(panic_update_hook)]
+
 mod browser_application;
 
 use anyhow::{anyhow, Result};
@@ -19,6 +21,12 @@ extern "C" {
 }
 
 pub fn main() -> Result<()> {
+    // Register a custom panic handler
+    std::panic::update_hook(move |prev, info| {
+        println!("The browser has panicked. This is a bug. Please open an issue at {}, including the debug information below. Thanks!\n", env!("CARGO_PKG_REPOSITORY"));
+        prev(info);
+    });
+
     #[cfg(target_os = "linux")]
     if unsafe { geteuid() } == 0 {
         return Err(anyhow!("Refusing to run as root"));
