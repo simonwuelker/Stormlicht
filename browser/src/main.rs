@@ -10,8 +10,11 @@ use widgets::application::Application;
 
 #[derive(Debug, Default, CommandLineArgumentParser)]
 struct ArgumentParser {
-    #[argument(optional, short_name = u, long_name = url)]
+    #[argument(optional, short_name = 'u', long_name = "url")]
     _url: Option<String>,
+
+    #[argument(flag, short_name = 'h', long_name = "help")]
+    help: bool,
 }
 
 #[cfg(target_os = "linux")]
@@ -30,6 +33,19 @@ pub fn main() -> Result<()> {
     #[cfg(target_os = "linux")]
     if unsafe { geteuid() } == 0 {
         return Err(anyhow!("Refusing to run as root"));
+    }
+
+    let arguments = match ArgumentParser::parse() {
+        Ok(arguments) => arguments,
+        Err(_) => {
+            println!("{}", ArgumentParser::help());
+            return Ok(());
+        },
+    };
+
+    if arguments.help {
+        println!("{}", ArgumentParser::help());
+        return Ok(());
     }
 
     let mut application = BrowserApplication::default();
