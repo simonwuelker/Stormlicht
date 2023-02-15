@@ -10,4 +10,5 @@ widgets = { path = "../gui/widgets" }
 canvas = { path = "../gui/canvas" }
 image = { path = "../image" }
 font = { path = "../font" }
+cli = { path = "../util/cli" }
 anyhow = "1"

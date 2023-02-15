@@ -43,6 +43,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "canvas",
+ "cli",
  "font",
  "image",
  "widgets",
@@ -121,6 +122,17 @@ checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
 dependencies = [
  "os_str_bytes",
 ]
+
+[[package]]
+name = "cli"
+version = "0.1.0"
+dependencies = [
+ "cli-derive",
+]
+
+[[package]]
+name = "cli-derive"
+version = "0.1.0"
 
 [[package]]
 name = "compression"

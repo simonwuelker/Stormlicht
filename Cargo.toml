@@ -6,6 +6,8 @@ members = [
     "web/dns",
     "compression",
     "util/random",
+    "util/cli",
+    "util/cli-derive",
     "gui/widgets", 
     "gui/canvas", 
     "font", 

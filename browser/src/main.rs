@@ -3,15 +3,14 @@ mod browser_application;
 use anyhow::{anyhow, Result};
 use browser_application::BrowserApplication;
 
+use cli::CommandLineArgumentParser;
 use widgets::application::Application;
 
-// fn map_image_format(format: PixelFormat) -> PixelFormatEnum {
-//     match format {
-//         PixelFormat::RGB8 => PixelFormatEnum::RGB24,
-//         PixelFormat::RGBA8 => PixelFormatEnum::RGBA32,
-//         _ => todo!("Find mapping for {format:?}"),
-//     }
-// }
+#[derive(Debug, Default, CommandLineArgumentParser)]
+struct ArgumentParser {
+    #[argument(optional, short_name = u, long_name = url)]
+    _url: Option<String>,
+}
 
 #[cfg(target_os = "linux")]
 #[link(name = "c")]
