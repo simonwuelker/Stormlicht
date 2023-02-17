@@ -5,6 +5,7 @@ pub enum CommandLineParseError {
     InvalidArguments,
     MissingRequiredArgument(&'static str),
     NotAFlag(&'static str),
+    EmptyOption,
 }
 
 pub trait CommandLineArgumentParser: Sized {
