@@ -23,5 +23,7 @@ pub trait CommandLineArgumentParser: Sized {
     /// * 3 short options `d`, `j``and `k` (assuming none of these need values)
     /// * 1 long option `ef` with value `1`
     fn parse() -> Result<Self, CommandLineParseError>;
+
+    /// Return a help message intended to be shown to the user.
     fn help() -> &'static str;
 }

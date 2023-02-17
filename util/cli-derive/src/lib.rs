@@ -72,7 +72,7 @@ struct Argument {
     destination: StructField,
     short_name: String,
     long_name: String,
-    _description: String,
+    description: String,
     is_optional: bool,
     is_positional: bool,
     is_flag: bool,
@@ -104,7 +104,7 @@ enum MacroError {
 fn helper_key_requires_value(key: &Ident) -> Result<bool, MacroError> {
     match key.to_string().as_str() {
         "optional" | "positional" | "flag" => Ok(false),
-        "long_name" | "short_name" => Ok(true),
+        "long_name" | "short_name" | "description" => Ok(true),
         _ => Err(MacroError::UnknownKey(key.span())),
     }
 }
@@ -142,7 +142,10 @@ fn read_helper_attribute<I: Iterator<Item = TokenTree>>(
 
         if helper_key_requires_value(&key)? {
             punct_or_error!(helper_arg_tokens, '=')?;
-            let value = literal_or_error!(helper_arg_tokens)?;
+            let quoted_value = literal_or_error!(helper_arg_tokens)?.to_string();
+
+            // Strip quotes
+            let value = &quoted_value[1..quoted_value.len() - 1];
 
             match key.to_string().as_str() {
                 "description" => helper_attribute.description = value.to_string(), // TODO: We'll want to parse full string literals here
@@ -232,7 +235,7 @@ fn read_arguments<I: Iterator<Item = TokenTree>>(
             is_optional: helper.is_optional,
             is_positional: helper.is_positional,
             is_flag: helper.is_flag,
-            _description: helper.description,
+            description: helper.description,
         })
     }
     Ok(arguments)
@@ -272,6 +275,7 @@ fn derive_argumentparser(input: TokenStream) -> Result<TokenStream, MacroError> 
     let struct_ident = read_struct_def(&mut tokens)?;
 
     let commandline_arguments = read_arguments(&mut tokens)?;
+    let help_msg = build_help_msg(&commandline_arguments);
 
     let positional_args: Vec<Argument> = commandline_arguments
         .iter()
@@ -289,7 +293,7 @@ fn derive_argumentparser(input: TokenStream) -> Result<TokenStream, MacroError> 
         optional_args
             .iter()
             .enumerate()
-            .map(|(index, arg)| format!("{} => Some({index})", arg.short_name))
+            .map(|(index, arg)| format!("\'{}\' => Some({index})", arg.short_name))
             .collect::<Vec<String>>()
             .join(",")
     );
@@ -298,7 +302,7 @@ fn derive_argumentparser(input: TokenStream) -> Result<TokenStream, MacroError> 
         optional_args
             .iter()
             .enumerate()
-            .map(|(index, arg)| format!("{} => Some({index})", arg.long_name))
+            .map(|(index, arg)| format!("\"{}\" => Some({index})", arg.long_name))
             .collect::<Vec<String>>()
             .join(",")
     );
@@ -311,10 +315,24 @@ fn derive_argumentparser(input: TokenStream) -> Result<TokenStream, MacroError> 
         .enumerate()
         .map(|(index, arg)| {
             format!(
-                "{}: match &positional_arguments[{index}] {{ 
-                        Some(val) => val.parse().map_err(|_| ::cli::CommandLineParseError::InvalidArguments)?,
-                        None => if {} {{ Default::default() }} else {{ return Err(::cli::CommandLineParseError::MissingRequiredArgument(\"{0}\")) }},
-                }}", arg.destination.name, arg.is_optional
+                "{}: match &positional_arguments[{index}] {{
+                        Some(val) => {handle_positional_arg_passed},
+                        None => {handle_positional_arg_not_passed}, 
+                }}",
+                arg.destination.name,
+                handle_positional_arg_passed = if arg.is_optional {
+                    "Some(val.parse().map_err(|_| ::cli::CommandLineParseError::InvalidArguments)?)"
+                } else {
+                    "val.parse().map_err(|_| ::cli::CommandLineParseError::InvalidArguments)?,"
+                },
+                handle_positional_arg_not_passed = if arg.is_optional {
+                    "Default::default()".to_string()
+                } else {
+                    format!(
+                        "return Err(::cli::CommandLineParseError::MissingRequiredArgument(\"{}\"))",
+                        arg.destination.name
+                    )
+                }
             )
         })
         .collect::<Vec<String>>()
@@ -374,7 +392,7 @@ fn derive_argumentparser(input: TokenStream) -> Result<TokenStream, MacroError> 
         #[automatically_derived]
         impl ::cli::CommandLineArgumentParser for {struct_ident} {{
             fn parse() -> Result<Self, ::cli::CommandLineParseError> {{
-                let mut env_args = ::std::env::args();
+                let mut env_args = ::std::env::args().skip(1);
 
                 // First, find all the options
                 let mut options: [Option<Option<String>>; {num_args_passed_as_options}] = [{optional_arguments_found}];
@@ -447,13 +465,13 @@ fn derive_argumentparser(input: TokenStream) -> Result<TokenStream, MacroError> 
 
                 // Construct the actual struct and return it
                 Ok(Self {{
-                    {positional_field_initializer}
+                    {positional_field_initializer},
                     {optional_field_initializer}
                 }})
             }}
 
             fn help() -> &'static str {{
-                \"TODO\"
+                concat!(\"Usage: \", env!(\"CARGO_BIN_NAME\"), \"{help_msg}\")
             }}
         }}
     ");
@@ -461,4 +479,49 @@ fn derive_argumentparser(input: TokenStream) -> Result<TokenStream, MacroError> 
     Ok(autogenerated_code
         .parse::<TokenStream>()
         .expect("Macro produced invalid rust code"))
+}
+
+fn build_help_msg(arguments: &[Argument]) -> String {
+    let options_names = arguments
+        .iter()
+        .filter(|arg| !arg.is_positional)
+        .map(|arg| format!("   -{} or --{}", arg.short_name, arg.long_name))
+        .collect::<Vec<String>>();
+    let longest_name = options_names
+        .iter()
+        .map(String::len)
+        .max()
+        .unwrap_or_default();
+    let description_indentation = longest_name + 5;
+
+    let options_descriptions = arguments
+        .iter()
+        .filter(|arg| !arg.is_positional)
+        .zip(options_names)
+        .map(|(arg, name)| {
+            format!(
+                "{}{}{}",
+                name,
+                " ".repeat(description_indentation - name.len()),
+                arg.description
+            )
+        })
+        .collect::<Vec<String>>()
+        .join("\n");
+
+    let positional_arg_names = arguments
+        .iter()
+        .filter(|arg| arg.is_positional)
+        .map(|arg| {
+            if arg.is_optional {
+                format!("[{}]", arg.long_name)
+            } else {
+                arg.long_name.clone()
+            }
+        })
+        .collect::<Vec<String>>()
+        .join(" ");
+    format!(
+        "[ options ] {positional_arg_names}\n\twhere options include:\n\n{options_descriptions}"
+    )
 }
