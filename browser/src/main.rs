@@ -10,11 +10,24 @@ use widgets::application::Application;
 
 #[derive(Debug, Default, CommandLineArgumentParser)]
 struct ArgumentParser {
-    #[argument(optional, short_name = 'u', long_name = "url")]
+    #[argument(optional, positional, long_name = "URL")]
     _url: Option<String>,
 
-    #[argument(flag, short_name = 'h', long_name = "help")]
+    #[argument(
+        flag,
+        short_name = 'h',
+        long_name = "help",
+        description = "Show this help menu"
+    )]
     help: bool,
+
+    #[argument(
+        flag,
+        short_name = 'v',
+        long_name = "version",
+        description = "Show browser version"
+    )]
+    version: bool,
 }
 
 #[cfg(target_os = "linux")]
@@ -45,6 +58,11 @@ pub fn main() -> Result<()> {
 
     if arguments.help {
         println!("{}", ArgumentParser::help());
+        return Ok(());
+    }
+
+    if arguments.version {
+        println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
 
