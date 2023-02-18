@@ -42,10 +42,8 @@ name = "browser"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "canvas",
  "cli",
- "font",
- "image",
+ "tls",
  "widgets",
 ]
 
@@ -631,6 +629,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ciphers",
+ "thiserror",
 ]
 
 [[package]]

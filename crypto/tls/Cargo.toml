@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+thiserror = "1"
 ciphers = { path = "../ciphers" }
