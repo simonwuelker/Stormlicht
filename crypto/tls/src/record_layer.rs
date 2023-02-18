@@ -1,6 +1,6 @@
 //! TLS Record Layer Protocol.
 
-use crate::connection::TLS_VERSION;
+use crate::connection::{ProtocolVersion, TLS_VERSION};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ConnectionEnd {
@@ -76,12 +76,6 @@ pub struct SecurityParameters {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ProtocolVersion {
-    pub major: u8,
-    pub minor: u8,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ContentType {
     ChangeCipherSpec,
     Alert,
@@ -96,6 +90,8 @@ pub struct TLSRecord {
     content_type: ContentType,
     version: ProtocolVersion,
     length: u16,
+    /// The data contained within the record
+    /// A higher-level message may be split into multiple records
     fragment: Vec<u8>,
 }
 
@@ -124,11 +120,41 @@ impl From<ContentType> for u8 {
 }
 
 impl TLSRecord {
-    pub fn new(content_type: ContentType, fragment: Vec<u8>) -> Self {
+    pub fn new(
+        content_type: ContentType,
+        version: ProtocolVersion,
+        length: u16,
+        fragment: Vec<u8>,
+    ) -> Self {
+        Self {
+            content_type,
+            version,
+            length,
+            fragment,
+        }
+    }
+
+    pub fn content_type(&self) -> ContentType {
+        self.content_type
+    }
+
+    pub fn fragment(&self) -> &[u8] {
+        &self.fragment
+    }
+
+    pub fn from_data(content_type: ContentType, fragment: Vec<u8>) -> Self {
+        Self::from_data_and_version(content_type, TLS_VERSION, fragment)
+    }
+
+    pub fn from_data_and_version(
+        content_type: ContentType,
+        version: ProtocolVersion,
+        fragment: Vec<u8>,
+    ) -> Self {
         assert!(fragment.len() < (1 << 15));
         Self {
             content_type: content_type,
-            version: TLS_VERSION,
+            version: version,
             length: fragment.len() as u16,
             fragment: fragment,
         }
@@ -140,19 +166,7 @@ impl TLSRecord {
         bytes[1..3].copy_from_slice(&self.version.as_bytes());
         bytes[3..5].copy_from_slice(&self.length.to_be_bytes());
         bytes[5..].copy_from_slice(&self.fragment);
+
         bytes
-    }
-}
-
-impl ProtocolVersion {
-    pub const fn new(major: u8, minor: u8) -> Self {
-        Self { major, minor }
-    }
-
-    /// Note that the version is TLS 1.2 but the version number
-    /// is slightly odd since TLS 1.0 was the successor of OpenSSL 3.0
-    /// which gave it the version number [0x03, 0x01] and so on.
-    pub fn as_bytes(&self) -> [u8; 2] {
-        [self.major + 2, self.minor + 1]
     }
 }

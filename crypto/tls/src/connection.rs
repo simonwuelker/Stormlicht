@@ -1,13 +1,112 @@
-use crate::record_layer::{ContentType, ProtocolVersion, TLSRecord};
-use anyhow::Result;
-use std::io::{Read, Write};
+use crate::{
+    alert::Alert,
+    handshake::client_hello,
+    record_layer::{ContentType, TLSRecord},
+};
+use anyhow::{Context, Result};
+use std::{
+    io::{BufRead, BufReader, Read, Write},
+    net::TcpStream,
+};
+use thiserror::Error;
+
+#[derive(Clone, Copy, Debug, Error)]
+pub enum TLSError {
+    #[error("Unknown TLS record content type: {}", .0)]
+    UnknownContentType(u8),
+    #[error("Unknown TLS version {}.{}", .0, .1)]
+    UnknownTLSVersion(u8, u8),
+}
 
 /// The TLS version implemented.
 pub const TLS_VERSION: ProtocolVersion = ProtocolVersion::new(1, 2);
 
-pub fn do_handshake<C: Read + Write>(connection: &mut C) -> Result<()> {
-    let data = vec![];
-    let client_hello = TLSRecord::new(ContentType::Handshake, data);
-    connection.write_all(&client_hello.as_bytes())?;
-    Ok(())
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ProtocolVersion {
+    pub major: u8,
+    pub minor: u8,
+}
+
+impl ProtocolVersion {
+    pub const fn new(major: u8, minor: u8) -> Self {
+        Self { major, minor }
+    }
+
+    /// Note that the version is TLS 1.2 but the version number
+    /// is slightly odd (`3.3`) since TLS 1.0 was the successor of OpenSSL 3.0
+    /// which gave it the version number [0x03, 0x01] and so on.
+    pub fn as_bytes(&self) -> [u8; 2] {
+        [self.major + 2, self.minor + 1]
+    }
+}
+
+impl TryFrom<[u8; 2]> for ProtocolVersion {
+    type Error = TLSError;
+    fn try_from(value: [u8; 2]) -> Result<Self, TLSError> {
+        if value[0] < 3 || value[1] < 1 {
+            Err(TLSError::UnknownTLSVersion(value[0], value[1]))
+        } else {
+            Ok(Self::new(value[0] - 2, value[1] - 1))
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct TLSConnection {
+    writer: TcpStream,
+    reader: BufReader<TcpStream>,
+}
+
+impl TLSConnection {
+    pub fn create(hostname: &str) -> Result<Self> {
+        let stream = TcpStream::connect((hostname, 443))?;
+        let mut connection = Self {
+            writer: stream.try_clone()?,
+            reader: BufReader::new(stream),
+        };
+        connection.do_handshake(hostname)?;
+
+        Ok(connection)
+    }
+
+    pub fn do_handshake(&mut self, hostname: &str) -> Result<()> {
+        let client_hello = client_hello(hostname);
+        self.writer.write_all(&client_hello.as_bytes())?;
+
+        let response = self.next_tls_record().context("Reading TLS record")?;
+
+        match response.content_type() {
+            ContentType::Alert => {
+                let alert = Alert::try_from(response.fragment())?;
+                dbg!(alert);
+            },
+            ContentType::Handshake => {
+                println!("Hey, moving forwards");
+            },
+            _ => {},
+        }
+        Ok(())
+    }
+
+    pub fn next_tls_record(&mut self) -> Result<TLSRecord> {
+        self.reader.fill_buf()?;
+
+        let mut content_type_buffer = [0];
+        self.reader.read_exact(&mut content_type_buffer)?;
+        let content_type =
+            ContentType::try_from(content_type_buffer[0]).map_err(TLSError::UnknownContentType)?;
+
+        let mut tls_version_buffer = [0, 0];
+        self.reader.read_exact(&mut tls_version_buffer)?;
+        let tls_version = ProtocolVersion::try_from(tls_version_buffer)?;
+
+        let mut length_buffer = [0, 0];
+        self.reader.read_exact(&mut length_buffer)?;
+        let length = u16::from_be_bytes(length_buffer);
+
+        let mut data = vec![0; length as usize];
+        self.reader.read_exact(&mut data)?;
+
+        Ok(TLSRecord::new(content_type, tls_version, length, data))
+    }
 }
