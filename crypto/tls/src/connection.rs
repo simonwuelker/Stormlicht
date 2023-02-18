@@ -1,6 +1,6 @@
 use crate::{
     alert::Alert,
-    handshake::{ClientHello, HandshakeType},
+    handshake::{ClientHello, HandshakeMessage},
     random::CryptographicRand,
     record_layer::{ContentType, TLSRecord},
 };
@@ -19,6 +19,10 @@ pub enum TLSError {
     InvalidTLSVersion(u8, u8),
     #[error("Unknown handshake message type: {}", .0)]
     UnknownHandshakeMessageType(u8),
+    #[error("Unknown Cipher Suite: {:?}", .0)]
+    UnknownCipherSuite([u8; 2]),
+    #[error("Unknown compression method: {}", .0)]
+    UnknownCompressionMethod(u8),
 }
 
 /// The TLS version implemented.
@@ -90,39 +94,23 @@ impl TLSConnection {
         );
         self.writer.write_all(&client_hello.into_bytes())?;
 
-        let response = self
-            .next_tls_record()
-            .context("Failed to read TLS record")?;
+        for _ in 0..10 {
+            let response = self
+                .next_tls_record()
+                .context("Failed to read TLS record")?;
 
-        match response.content_type() {
-            ContentType::Alert => {
-                let alert = Alert::try_from(response.fragment())?;
-                dbg!(alert);
-            },
-            ContentType::Handshake => {
-                for i in 0..response.fragment().len() {
-                    if i % 32 == 0 {
-                        println!()
-                    }
-                    print!("{:0>2x} ", response.fragment()[i]);
-                }
-                let fragment = response.fragment();
-                let handshake_type = HandshakeType::try_from(fragment[0])
-                    .map_err(TLSError::UnknownHandshakeMessageType)?;
-                dbg!(handshake_type);
-
-                let mut length_bytes = [0, 0, 0, 0];
-                length_bytes[1..].copy_from_slice(&fragment[1..4]);
-                let message_length = u32::from_be_bytes(length_bytes) as usize;
-
-                if fragment.len() - 4 != message_length {
-                    todo!(
-                        "Message is fragmented (message len {message_length} but we only got {}",
-                        fragment.len() - 4
-                    );
-                }
-            },
-            _ => {},
+            // TODO: fragmented messages are not yet supported
+            match response.content_type() {
+                ContentType::Alert => {
+                    let alert = Alert::try_from(response.fragment())?;
+                    dbg!(alert);
+                },
+                ContentType::Handshake => {
+                    let handshake_msg = HandshakeMessage::new(response.fragment())?;
+                    dbg!(handshake_msg);
+                },
+                _ => {},
+            }
         }
         Ok(())
     }

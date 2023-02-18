@@ -1,9 +1,40 @@
-use anyhow::Result;
+use std::io::{Cursor, Read};
+
+use anyhow::{Context, Result};
 
 use crate::{
-    connection::{ProtocolVersion, TLS_VERSION},
+    certificate::X509v3Certificate,
+    connection::{ProtocolVersion, TLSError, TLS_VERSION},
     CipherSuite,
 };
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+/// TLS Compression methods are defined in [RFC 3749](https://www.rfc-editor.org/rfc/rfc3749)
+///
+/// # Security
+/// Encrypting compressed data can compromise security.
+/// See [CRIME](https://en.wikipedia.org/wiki/CRIME) and [BREACH](https://en.wikipedia.org/wiki/BREACH)
+/// for more information.
+///
+/// We will therefore **never** set a [CompressionMethod] other than [CompressionMethod::None].
+/// Seeing how future TLS protocol version removed this option altogether, this
+/// seems like the correct approach.
+pub enum CompressionMethod {
+    None,
+    Deflate,
+}
+
+impl TryFrom<u8> for CompressionMethod {
+    type Error = TLSError;
+
+    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::None),
+            1 => Ok(Self::Deflate),
+            _ => Err(TLSError::UnknownCompressionMethod(value)),
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum HandshakeType {
@@ -55,26 +86,69 @@ impl TryFrom<u8> for HandshakeType {
         }
     }
 }
-
-#[derive(Debug, Clone)]
-pub enum HandshakeMessage {
-    ClientHello(ClientHello),
-}
-
 #[derive(Debug, Clone)]
 pub struct ClientHello {
     version: ProtocolVersion,
-    random: [u8; 32],
-    session_id_to_resume: Option<u8>,
+    client_random: [u8; 32],
+    session_id_to_resume: Option<Vec<u8>>,
     supported_cipher_suites: Vec<CipherSuite>,
     extensions: Vec<Extension>,
 }
 
+#[derive(Debug, Clone)]
+pub struct ServerHello {
+    version: ProtocolVersion,
+    server_random: [u8; 32],
+    session_id: Option<Vec<u8>>,
+    selected_cipher_suite: CipherSuite,
+    selected_compression_method: CompressionMethod,
+    extensions: Vec<Extension>,
+}
+
+#[derive(Debug, Clone)]
+pub enum HandshakeMessage {
+    ClientHello(ClientHello),
+    ServerHello(ServerHello),
+    Certificate(CertificateChain),
+    ServerHelloDone,
+}
+
+#[derive(Debug, Clone)]
+pub enum CertificateChain {
+    X509v3(Vec<X509v3Certificate>),
+}
+
+impl ServerHello {
+    pub fn version(&self) -> ProtocolVersion {
+        self.version
+    }
+
+    pub fn server_random(&self) -> [u8; 32] {
+        self.server_random
+    }
+
+    pub fn session_id(&self) -> &Option<Vec<u8>> {
+        &self.session_id
+    }
+
+    pub fn selected_cipher_suite(&self) -> CipherSuite {
+        self.selected_cipher_suite
+    }
+
+    pub fn selected_compression_method(&self) -> CompressionMethod {
+        self.selected_compression_method
+    }
+
+    pub fn extensions(&self) -> &[Extension] {
+        &self.extensions
+    }
+}
+
 impl ClientHello {
-    pub fn new(hostname: &str, random: [u8; 32]) -> Self {
+    pub fn new(hostname: &str, client_random: [u8; 32]) -> Self {
         Self {
             version: TLS_VERSION,
-            random: random,
+            client_random: client_random,
             session_id_to_resume: None,
             supported_cipher_suites: vec![CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA],
             extensions: vec![
@@ -95,6 +169,103 @@ pub enum Extension {
     SignedCertificateTimestamp,
 }
 
+impl HandshakeMessage {
+    pub fn new(message_data: &[u8]) -> Result<Self> {
+        // Every Handshake message starts with the same header
+        // * 1 bytes message type
+        // * 3 bytes length
+        // Everything after that depends on the message type
+        if message_data.len() < 4 {
+            todo!("fragmented message");
+        }
+
+        let handshake_type = HandshakeType::try_from(message_data[0])
+            .map_err(TLSError::UnknownHandshakeMessageType)?;
+
+        let mut length_bytes = [0, 0, 0, 0];
+        length_bytes[1..].copy_from_slice(&message_data[1..4]);
+        let message_length = u32::from_be_bytes(length_bytes) as usize;
+
+        if message_data.len() - 4 != message_length {
+            todo!(
+                "Message is fragmented (message len {message_length} but we only got {}",
+                message_data.len() - 4
+            );
+        };
+
+        let mut reader = Cursor::new(&message_data[4..]);
+
+        match handshake_type {
+            HandshakeType::ServerHello => {
+                let mut server_version_bytes: [u8; 2] = [0, 0];
+                reader.read_exact(&mut server_version_bytes)?;
+                let server_version = ProtocolVersion::try_from(server_version_bytes)?;
+
+                let mut server_random: [u8; 32] = [0; 32];
+                reader.read_exact(&mut server_random)?;
+
+                let mut session_id_length_buffer = [0];
+                reader.read_exact(&mut session_id_length_buffer)?;
+                let session_id_length = session_id_length_buffer[0];
+
+                let session_id = if session_id_length == 0 {
+                    None
+                } else {
+                    let mut session_id = vec![0; session_id_length as usize];
+                    reader.read_exact(&mut session_id)?;
+                    Some(session_id)
+                };
+
+                let mut cipher_suite_bytes = [0, 0];
+                reader.read_exact(&mut cipher_suite_bytes)?;
+                let cipher_suite = CipherSuite::try_from(cipher_suite_bytes)?;
+
+                let mut selected_compression_method_buffer = [0];
+                reader.read_exact(&mut selected_compression_method_buffer)?;
+                let selected_compression_method =
+                    CompressionMethod::try_from(selected_compression_method_buffer[0])?;
+
+                let server_hello = Self::ServerHello(ServerHello {
+                    version: server_version,
+                    server_random: server_random,
+                    session_id: session_id,
+                    selected_cipher_suite: cipher_suite,
+                    selected_compression_method: selected_compression_method,
+                    extensions: vec![],
+                });
+                Ok(server_hello)
+            },
+            HandshakeType::Certificate => {
+                let mut certificate_chain_length_bytes = [0; 4];
+                reader.read_exact(&mut certificate_chain_length_bytes[1..])?;
+                let certificate_chain_length =
+                    u32::from_be_bytes(certificate_chain_length_bytes) as usize;
+                let mut certificate_chain = vec![];
+                let mut bytes_read = 0;
+                while bytes_read != certificate_chain_length {
+                    let mut certificate_length_bytes = [0; 4];
+                    reader.read_exact(&mut certificate_length_bytes[1..])?;
+                    let certificate_length = u32::from_be_bytes(certificate_length_bytes) as usize;
+
+                    let mut certificate_bytes = vec![0; certificate_length];
+                    reader
+                        .read_exact(&mut certificate_bytes)
+                        .context("Failed to read certificate")?;
+
+                    certificate_chain.push(X509v3Certificate::new(certificate_bytes));
+                    bytes_read += certificate_length + 3;
+                }
+
+                Ok(Self::Certificate(CertificateChain::X509v3(
+                    certificate_chain,
+                )))
+            },
+            HandshakeType::ServerHelloDone => Ok(Self::ServerHelloDone),
+            _ => unimplemented!("Parse {handshake_type:?} message"),
+        }
+    }
+}
+
 impl ClientHello {
     pub fn into_bytes(self) -> Vec<u8> {
         let mut data = vec![];
@@ -107,10 +278,18 @@ impl ClientHello {
         data.extend_from_slice(&self.version.as_bytes());
 
         // 32 bytes of random data
-        data.extend_from_slice(&self.random);
+        data.extend_from_slice(&self.client_random);
 
         // Session id (in case we want to resume a session)
-        data.push(self.session_id_to_resume.unwrap_or(0));
+        let session_id_length = self
+            .session_id_to_resume
+            .as_ref()
+            .map(|id| id.len() as u8)
+            .unwrap_or(0);
+        data.push(session_id_length);
+        if let Some(session_id) = &self.session_id_to_resume {
+            data.extend_from_slice(session_id)
+        }
 
         // List supported cipher suites
         data.extend_from_slice(&(2 * self.supported_cipher_suites.len() as u16).to_be_bytes()); // we support 1 cipher which takes up two bytes

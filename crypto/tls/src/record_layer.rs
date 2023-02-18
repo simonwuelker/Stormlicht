@@ -1,6 +1,9 @@
 //! TLS Record Layer Protocol.
 
-use crate::connection::{ProtocolVersion, TLS_VERSION};
+use crate::{
+    connection::{ProtocolVersion, TLS_VERSION},
+    handshake::CompressionMethod,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ConnectionEnd {
@@ -38,22 +41,6 @@ pub enum MACAlgorithm {
     HMAC_SHA256,
     HMAC_SHA384,
     HMAC_SHA512,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-/// TLS Compression methods are defined in [RFC 3749](https://www.rfc-editor.org/rfc/rfc3749)
-///
-/// # Security
-/// Encrypting compressed data can compromise security.
-/// See [CRIME](https://en.wikipedia.org/wiki/CRIME) and [BREACH](https://en.wikipedia.org/wiki/BREACH)
-/// for more information.
-///
-/// We will therefore **never** set a [CompressionMethod] other than [CompressionMethod::Null].
-/// Seeing how future TLS protocol version removed this option altogether, this
-/// seems like the correct approach.
-pub enum CompressionMethod {
-    Null,
-    Deflate,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

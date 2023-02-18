@@ -1,5 +1,7 @@
 //! TLS Cipher suites as defined in [Appendix A.5](https://www.rfc-editor.org/rfc/rfc5246#appendix-A.5)
 
+use crate::connection::TLSError;
+
 #[derive(Clone, Copy, Debug)]
 #[allow(non_camel_case_types)]
 pub enum CipherSuite {
@@ -93,7 +95,7 @@ impl From<CipherSuite> for [u8; 2] {
 }
 
 impl TryFrom<[u8; 2]> for CipherSuite {
-    type Error = [u8; 2];
+    type Error = TLSError;
 
     fn try_from(value: [u8; 2]) -> Result<Self, Self::Error> {
         let cipher_suite = match value {
@@ -134,7 +136,7 @@ impl TryFrom<[u8; 2]> for CipherSuite {
             [0x00, 0x3A] => Self::TLS_DH_anon_WITH_AES_256_CBC_SHA,
             [0x00, 0x6C] => Self::TLS_DH_anon_WITH_AES_128_CBC_SHA256,
             [0x00, 0x6D] => Self::TLS_DH_anon_WITH_AES_256_CBC_SHA256,
-            _ => return Err(value),
+            _ => return Err(TLSError::UnknownCipherSuite(value)),
         };
         Ok(cipher_suite)
     }
