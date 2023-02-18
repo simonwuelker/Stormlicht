@@ -1,10 +1,7 @@
 use anyhow::Result;
-use std::io::Write;
 
 use crate::{
     connection::{ProtocolVersion, TLS_VERSION},
-    random,
-    record_layer::{ContentType, TLSRecord},
     CipherSuite,
 };
 
@@ -59,159 +56,172 @@ impl TryFrom<u8> for HandshakeType {
     }
 }
 
-#[derive(Debug)]
-pub struct Handshake {
-    msg_type: HandshakeType,
-    data: Vec<u8>,
+#[derive(Debug, Clone)]
+pub enum HandshakeMessage {
+    ClientHello(ClientHello),
 }
 
-impl Handshake {
-    pub fn new(msg_type: HandshakeType, data: Vec<u8>) -> Self {
+#[derive(Debug, Clone)]
+pub struct ClientHello {
+    version: ProtocolVersion,
+    random: [u8; 32],
+    session_id_to_resume: Option<u8>,
+    supported_cipher_suites: Vec<CipherSuite>,
+    extensions: Vec<Extension>,
+}
+
+impl ClientHello {
+    pub fn new(hostname: &str, random: [u8; 32]) -> Self {
         Self {
-            msg_type: msg_type,
-            data: data,
+            version: TLS_VERSION,
+            random: random,
+            session_id_to_resume: None,
+            supported_cipher_suites: vec![CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA],
+            extensions: vec![
+                Extension::ServerName(hostname.to_string()),
+                Extension::StatusRequest,
+                Extension::RenegotiationInfo,
+                Extension::SignedCertificateTimestamp,
+            ],
         }
     }
+}
 
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
-        // Write record header
-        let length_bytes = (self.data.len() as u32).to_be_bytes();
-        let header = [
-            self.msg_type.into(),
-            length_bytes[1],
-            length_bytes[2],
-            length_bytes[3],
-        ];
-        writer.write_all(&header)?;
+#[derive(Debug, Clone)]
+pub enum Extension {
+    ServerName(String),
+    StatusRequest,
+    RenegotiationInfo,
+    SignedCertificateTimestamp,
+}
 
-        writer.write_all(&self.data)?;
-        Ok(())
+impl ClientHello {
+    pub fn into_bytes(self) -> Vec<u8> {
+        let mut data = vec![];
+        data.push(HandshakeType::ClientHello.into());
+
+        // Three length bytes which we will fill in later
+        data.extend_from_slice(&[0, 0, 0]);
+
+        // Client version
+        data.extend_from_slice(&self.version.as_bytes());
+
+        // 32 bytes of random data
+        data.extend_from_slice(&self.random);
+
+        // Session id (in case we want to resume a session)
+        data.push(self.session_id_to_resume.unwrap_or(0));
+
+        // List supported cipher suites
+        data.extend_from_slice(&(2 * self.supported_cipher_suites.len() as u16).to_be_bytes()); // we support 1 cipher which takes up two bytes
+        for suite in self.supported_cipher_suites {
+            let suite_bytes: [u8; 2] = suite.into();
+            data.extend_from_slice(suite_bytes.as_slice());
+        }
+
+        // Compression method
+        // Since compression can compromise security (see CRIME), we will
+        // never use compression.
+        data.push(0x01); // 1 byte of compression info
+        data.push(0x00); // no compression
+
+        // Extensions supported by the client
+        let mut extension_data = vec![];
+
+        // Server name extension
+        for extension in self.extensions {
+            extension_data.extend_from_slice(&extension.into_bytes());
+        }
+        // extension_data.extend_from_slice(&server_name_extension(hostname));
+        // extension_data.extend_from_slice(&status_request_extension());
+        // extension_data.extend_from_slice(&renegotiation_info_extension());
+        // extension_data.extend_from_slice(&signed_certificate_timestamp_extension());
+
+        // TODO: extensions temporarily disabled
+        let extension_length = (extension_data.len() as u16).to_be_bytes();
+        data.extend_from_slice(&extension_length);
+        data.extend_from_slice(&extension_data);
+
+        // Write the final length into bytes 1-3
+        let data_length = data.len() as u32 - 4;
+        data[1..4].copy_from_slice(&data_length.to_be_bytes()[1..]);
+
+        data
     }
 }
 
-pub fn client_hello(hostname: &str) -> TLSRecord {
-    let mut data = vec![];
-    data.push(HandshakeType::ClientHello.into());
+impl Extension {
+    pub fn into_bytes(self) -> Vec<u8> {
+        match self {
+            Self::ServerName(hostname) => {
+                let hostname_bytes = hostname.as_bytes();
+                let mut extension_data = Vec::with_capacity(9 + hostname_bytes.len());
+                let hostname_len = hostname_bytes.len() as u16;
 
-    // Three length bytes which we will fill in later
-    data.extend_from_slice(&[0, 0, 0]);
+                // Assigned value for server name extension
+                extension_data.extend_from_slice(&[0x00, 0x00]);
 
-    // Client version
-    data.extend_from_slice(&TLS_VERSION.as_bytes());
+                // Server name extension length
+                extension_data.extend_from_slice(&(5 + hostname_len).to_be_bytes());
 
-    // 32 bytes of random data
-    let mut rng = random::CryptographicRand::new().unwrap();
-    data.extend_from_slice(&rng.next_u128().to_ne_bytes());
-    data.extend_from_slice(&rng.next_u128().to_ne_bytes());
+                // First (and only) list entry length
+                extension_data.extend_from_slice(&(3 + hostname_len).to_be_bytes());
 
-    // Session id (in case we want to resume a session)
-    // Since we don't support resuming session we pass 0x00 (no session id)
-    data.push(0x00);
+                // Entry is a DNS hostname
+                extension_data.push(0x00);
 
-    // List supported cipher suites
-    data.extend_from_slice(&2_u16.to_be_bytes()); // we support 1 cipher which takes up two bytes
-    let suite_bytes: [u8; 2] = CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA.into();
-    data.extend_from_slice(suite_bytes.as_slice());
+                // hostname length
+                extension_data.extend_from_slice(&hostname_len.to_be_bytes());
 
-    // Compression method
-    // Since compression can compromise security (see CRIME), we will
-    // never use compression.
-    data.push(0x01); // 1 byte of compression info
-    data.push(0x00); // no compression
+                // The actual hostname
+                extension_data.extend_from_slice(hostname_bytes);
 
-    // Extensions supported by the client
-    let mut extension_data = vec![];
+                extension_data
+            },
+            Self::StatusRequest => {
+                let mut extension_data = Vec::with_capacity(9);
 
-    // Server name extension
-    extension_data.extend_from_slice(&server_name_extension(hostname));
-    extension_data.extend_from_slice(&status_request_extension());
-    extension_data.extend_from_slice(&renegotiation_info_extension());
-    extension_data.extend_from_slice(&signed_certificate_timestamp_extension());
+                // Assigned value for status request extension
+                extension_data.extend_from_slice(&[0x00, 0x05]);
 
-    // TODO: extensions temporarily disabled
-    let extension_length = (extension_data.len() as u16).to_be_bytes();
-    data.extend_from_slice(&extension_length);
-    data.extend_from_slice(&extension_data);
+                // Status request extension length
+                extension_data.extend_from_slice(&5u16.to_be_bytes());
 
-    // Write the final length into bytes 1-3
-    let data_length = data.len() as u32 - 4;
-    data[1..4].copy_from_slice(&data_length.to_be_bytes()[1..]);
+                // OCSP status type
+                extension_data.push(0x01);
 
-    // NOTE: We override the version here because some TLS server apparently fail if the version isn't 1.0
-    // for the initial ClientHello
-    // This is also mentioned in https://www.rfc-editor.org/rfc/rfc5246#appendix-E
-    TLSRecord::from_data_and_version(ContentType::Handshake, ProtocolVersion::new(1, 0), data)
-}
+                // No responder ID
+                extension_data.extend_from_slice(&[0x00, 0x00]);
 
-fn server_name_extension(hostname: &str) -> Vec<u8> {
-    let hostname_bytes = hostname.as_bytes();
-    let mut extension_data = Vec::with_capacity(9 + hostname_bytes.len());
-    let hostname_len = hostname_bytes.len() as u16;
+                // No request extension information
+                extension_data.extend_from_slice(&[0x00, 0x00]);
 
-    // Assigned value for server name extension
-    extension_data.extend_from_slice(&[0x00, 0x00]);
+                extension_data
+            },
+            Self::RenegotiationInfo => {
+                let mut extension_data = Vec::with_capacity(5);
 
-    // Server name extension length
-    extension_data.extend_from_slice(&(5 + hostname_len).to_be_bytes());
+                // Assigned value for renegotiation info extension
+                extension_data.extend_from_slice(&[0xFF, 0x01]);
 
-    // First (and only) list entry length
-    extension_data.extend_from_slice(&(3 + hostname_len).to_be_bytes());
+                // Status request extension length
+                extension_data.extend_from_slice(&1u16.to_be_bytes());
 
-    // Entry is a DNS hostname
-    extension_data.push(0x00);
+                extension_data.push(0x00); // new connection
 
-    // hostname length
-    extension_data.extend_from_slice(&hostname_len.to_be_bytes());
+                extension_data
+            },
+            Self::SignedCertificateTimestamp => {
+                let mut extension_data = Vec::with_capacity(4);
 
-    // The actual hostname
-    extension_data.extend_from_slice(hostname_bytes);
+                // Assigned value for renegotiation info extension
+                extension_data.extend_from_slice(&[0x00, 0x12]);
 
-    extension_data
-}
+                // Status request extension length
+                extension_data.extend_from_slice(&0u16.to_be_bytes());
 
-fn status_request_extension() -> Vec<u8> {
-    let mut extension_data = Vec::with_capacity(9);
-
-    // Assigned value for status request extension
-    extension_data.extend_from_slice(&[0x00, 0x05]);
-
-    // Status request extension length
-    extension_data.extend_from_slice(&5u16.to_be_bytes());
-
-    // OCSP status type
-    extension_data.push(0x01);
-
-    // No responder ID
-    extension_data.extend_from_slice(&[0x00, 0x00]);
-
-    // No request extension information
-    extension_data.extend_from_slice(&[0x00, 0x00]);
-
-    extension_data
-}
-
-fn renegotiation_info_extension() -> Vec<u8> {
-    let mut extension_data = Vec::with_capacity(5);
-
-    // Assigned value for renegotiation info extension
-    extension_data.extend_from_slice(&[0xFF, 0x01]);
-
-    // Status request extension length
-    extension_data.extend_from_slice(&1u16.to_be_bytes());
-
-    extension_data.push(0x00); // new connection
-
-    extension_data
-}
-
-fn signed_certificate_timestamp_extension() -> Vec<u8> {
-    let mut extension_data = Vec::with_capacity(4);
-
-    // Assigned value for renegotiation info extension
-    extension_data.extend_from_slice(&[0x00, 0x12]);
-
-    // Status request extension length
-    extension_data.extend_from_slice(&0u16.to_be_bytes());
-
-    extension_data
+                extension_data
+            },
+        }
+    }
 }

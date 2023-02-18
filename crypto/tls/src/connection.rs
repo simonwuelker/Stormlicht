@@ -1,6 +1,7 @@
 use crate::{
     alert::Alert,
-    handshake::client_hello,
+    handshake::{ClientHello, HandshakeType},
+    random::CryptographicRand,
     record_layer::{ContentType, TLSRecord},
 };
 use anyhow::{Context, Result};
@@ -15,7 +16,9 @@ pub enum TLSError {
     #[error("Unknown TLS record content type: {}", .0)]
     UnknownContentType(u8),
     #[error("Unknown TLS version {}.{}", .0, .1)]
-    UnknownTLSVersion(u8, u8),
+    InvalidTLSVersion(u8, u8),
+    #[error("Unknown handshake message type: {}", .0)]
+    UnknownHandshakeMessageType(u8),
 }
 
 /// The TLS version implemented.
@@ -44,7 +47,7 @@ impl TryFrom<[u8; 2]> for ProtocolVersion {
     type Error = TLSError;
     fn try_from(value: [u8; 2]) -> Result<Self, TLSError> {
         if value[0] < 3 || value[1] < 1 {
-            Err(TLSError::UnknownTLSVersion(value[0], value[1]))
+            Err(TLSError::InvalidTLSVersion(value[0], value[1]))
         } else {
             Ok(Self::new(value[0] - 2, value[1] - 1))
         }
@@ -64,16 +67,32 @@ impl TLSConnection {
             writer: stream.try_clone()?,
             reader: BufReader::new(stream),
         };
-        connection.do_handshake(hostname)?;
+        connection
+            .do_handshake(hostname)
+            .with_context(|| format!("Failed to perform handshake with {}", hostname))?;
 
         Ok(connection)
     }
 
     pub fn do_handshake(&mut self, hostname: &str) -> Result<()> {
-        let client_hello = client_hello(hostname);
-        self.writer.write_all(&client_hello.as_bytes())?;
+        let mut client_random = [0; 32];
+        let mut rng = CryptographicRand::new().unwrap();
+        client_random[0..16].copy_from_slice(&rng.next_u128().to_ne_bytes());
+        client_random[16..32].copy_from_slice(&rng.next_u128().to_ne_bytes());
 
-        let response = self.next_tls_record().context("Reading TLS record")?;
+        // NOTE: We override the version here because some TLS server apparently fail if the version isn't 1.0
+        // for the initial ClientHello
+        // This is also mentioned in https://www.rfc-editor.org/rfc/rfc5246#appendix-E
+        let client_hello = TLSRecord::from_data_and_version(
+            ContentType::Handshake,
+            ProtocolVersion::new(1, 0),
+            ClientHello::new(hostname, client_random).into_bytes(),
+        );
+        self.writer.write_all(&client_hello.into_bytes())?;
+
+        let response = self
+            .next_tls_record()
+            .context("Failed to read TLS record")?;
 
         match response.content_type() {
             ContentType::Alert => {
@@ -81,7 +100,27 @@ impl TLSConnection {
                 dbg!(alert);
             },
             ContentType::Handshake => {
-                println!("Hey, moving forwards");
+                for i in 0..response.fragment().len() {
+                    if i % 32 == 0 {
+                        println!()
+                    }
+                    print!("{:0>2x} ", response.fragment()[i]);
+                }
+                let fragment = response.fragment();
+                let handshake_type = HandshakeType::try_from(fragment[0])
+                    .map_err(TLSError::UnknownHandshakeMessageType)?;
+                dbg!(handshake_type);
+
+                let mut length_bytes = [0, 0, 0, 0];
+                length_bytes[1..].copy_from_slice(&fragment[1..4]);
+                let message_length = u32::from_be_bytes(length_bytes) as usize;
+
+                if fragment.len() - 4 != message_length {
+                    todo!(
+                        "Message is fragmented (message len {message_length} but we only got {}",
+                        fragment.len() - 4
+                    );
+                }
             },
             _ => {},
         }

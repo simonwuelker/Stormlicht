@@ -160,7 +160,7 @@ impl TLSRecord {
         }
     }
 
-    pub fn as_bytes(&self) -> Vec<u8> {
+    pub fn into_bytes(self) -> Vec<u8> {
         let mut bytes = vec![0; 5 + self.fragment.len()];
         bytes[0] = self.content_type.into();
         bytes[1..3].copy_from_slice(&self.version.as_bytes());
