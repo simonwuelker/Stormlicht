@@ -1877,11 +1877,12 @@ impl<'source> Tokenizer<'source> {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
                     Some(c @ 'A'..='Z') => {
                         // Create a new DOCTYPE token.
-                        let mut doctype_token = Doctype::default();
-
                         // Set the token's name to the lowercase version of the current input character (add 0x0020 to the
                         // character's code point).
-                        doctype_token.name = Some(c.to_ascii_lowercase().to_string());
+                        let doctype_token = Doctype {
+                            name: Some(c.to_ascii_lowercase().to_string()),
+                            ..Default::default()
+                        };
                         self.current_token = Some(Token::DOCTYPE(doctype_token));
 
                         // Switch to the DOCTYPE name state.
@@ -1889,11 +1890,14 @@ impl<'source> Tokenizer<'source> {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
-                        // Create a new DOCTYPE token.
-                        let mut doctype_token = Doctype::default();
 
+                        // Create a new DOCTYPE token.
                         // Set the token's name to a U+FFFD REPLACEMENT CHARACTER character.
-                        doctype_token.name = Some(UNICODE_REPLACEMENT.to_string());
+                        let doctype_token = Doctype {
+                            name: Some(UNICODE_REPLACEMENT.to_string()),
+                            ..Default::default()
+                        };
+
                         self.current_token = Some(Token::DOCTYPE(doctype_token));
 
                         // Switch to the DOCTYPE name state.
@@ -1901,24 +1905,28 @@ impl<'source> Tokenizer<'source> {
                     },
                     Some('>') => {
                         // This is a missing-doctype-name parse error.
-                        // Create a new DOCTYPE token.
-                        let mut doctype_token = Doctype::default();
 
+                        // Create a new DOCTYPE token.
                         // Set its force-quirks flag to on.
-                        doctype_token.force_quirks = true;
+                        let doctype_token = Doctype {
+                            force_quirks: true,
+                            ..Default::default()
+                        };
 
                         // Switch to the data state.
-                        self.emit(Token::DOCTYPE(doctype_token));
+                        self.switch_to(TokenizerState::DataState);
 
                         // Emit the current token.
-                        self.switch_to(TokenizerState::DataState);
+                        self.emit(Token::DOCTYPE(doctype_token));
                     },
                     Some(c) => {
                         // Create a new DOCTYPE token.
-                        let mut doctype_token = Doctype::default();
-
                         // Set the token's name to the current input character.
-                        doctype_token.name = Some(c.to_string());
+                        let doctype_token = Doctype {
+                            name: Some(c.to_string()),
+                            ..Default::default()
+                        };
+
                         self.current_token = Some(Token::DOCTYPE(doctype_token));
 
                         // Switch to the DOCTYPE name state.
@@ -1927,10 +1935,11 @@ impl<'source> Tokenizer<'source> {
                     None => {
                         // This is an eof-in-doctype parse error.
                         // Create a new DOCTYPE token.
-                        let mut doctype_token = Doctype::default();
-
                         // Set its force-quirks flag to on.
-                        doctype_token.force_quirks = true;
+                        let doctype_token = Doctype {
+                            force_quirks: true,
+                            ..Default::default()
+                        };
 
                         // Emit the current token.
                         self.emit(Token::DOCTYPE(doctype_token));
@@ -1956,25 +1965,22 @@ impl<'source> Tokenizer<'source> {
                     Some(c @ 'A'..='Z') => {
                         // Append the lowercase version of the current input character (add 0x0020
                         // to the character's code point) to the current DOCTYPE token's name.
-                        self.get_current_doctype()
-                            .name
-                            .as_mut()
-                            .map(|name| name.push(c.to_ascii_lowercase()));
+                        if let Some(name) = self.get_current_doctype().name.as_mut() {
+                            name.push(c.to_ascii_lowercase())
+                        }
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's name.
-                        self.get_current_doctype()
-                            .name
-                            .as_mut()
-                            .map(|name| name.push(UNICODE_REPLACEMENT));
+                        if let Some(name) = self.get_current_doctype().name.as_mut() {
+                            name.push(UNICODE_REPLACEMENT)
+                        }
                     },
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's name.
-                        self.get_current_doctype()
-                            .name
-                            .as_mut()
-                            .map(|name| name.push(c));
+                        if let Some(name) = self.get_current_doctype().name.as_mut() {
+                            name.push(c)
+                        }
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
@@ -2162,10 +2168,9 @@ impl<'source> Tokenizer<'source> {
                         // This is an unexpected-null-character parse error.
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's public
                         // identifier.
-                        self.get_current_doctype()
-                            .public_ident
-                            .as_mut()
-                            .map(|ident| ident.push(UNICODE_REPLACEMENT));
+                        if let Some(ident) = self.get_current_doctype().public_ident.as_mut() {
+                            ident.push(UNICODE_REPLACEMENT)
+                        }
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-public-identifier parse error.
@@ -2181,10 +2186,9 @@ impl<'source> Tokenizer<'source> {
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's
                         // public identifier.
-                        self.get_current_doctype()
-                            .public_ident
-                            .as_mut()
-                            .map(|ident| ident.push(c));
+                        if let Some(ident) = self.get_current_doctype().public_ident.as_mut() {
+                            ident.push(c)
+                        }
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
@@ -2211,10 +2215,9 @@ impl<'source> Tokenizer<'source> {
                         // This is an unexpected-null-character parse error.
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's public
                         // identifier.
-                        self.get_current_doctype()
-                            .public_ident
-                            .as_mut()
-                            .map(|ident| ident.push(UNICODE_REPLACEMENT));
+                        if let Some(ident) = self.get_current_doctype().public_ident.as_mut() {
+                            ident.push(UNICODE_REPLACEMENT)
+                        }
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-public-identifier parse error.
@@ -2230,10 +2233,9 @@ impl<'source> Tokenizer<'source> {
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's public
                         // identifier.
-                        self.get_current_doctype()
-                            .public_ident
-                            .as_mut()
-                            .map(|ident| ident.push(c));
+                        if let Some(ident) = self.get_current_doctype().public_ident.as_mut() {
+                            ident.push(c)
+                        }
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
@@ -2467,10 +2469,9 @@ impl<'source> Tokenizer<'source> {
                         // This is an unexpected-null-character parse error.
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current
                         // DOCTYPE token's system identifier.
-                        self.get_current_doctype()
-                            .system_ident
-                            .as_mut()
-                            .map(|ident| ident.push(UNICODE_REPLACEMENT));
+                        if let Some(ident) = self.get_current_doctype().system_ident.as_mut() {
+                            ident.push(UNICODE_REPLACEMENT)
+                        }
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-system-identifier parse error.
@@ -2486,10 +2487,9 @@ impl<'source> Tokenizer<'source> {
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's system
                         // identifier.
-                        self.get_current_doctype()
-                            .system_ident
-                            .as_mut()
-                            .map(|ident| ident.push(c));
+                        if let Some(ident) = self.get_current_doctype().system_ident.as_mut() {
+                            ident.push(c)
+                        }
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
@@ -2516,10 +2516,9 @@ impl<'source> Tokenizer<'source> {
                         // This is an unexpected-null-character parse error.
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's system
                         // identifier.
-                        self.get_current_doctype()
-                            .system_ident
-                            .as_mut()
-                            .map(|ident| ident.push(UNICODE_REPLACEMENT));
+                        if let Some(ident) = self.get_current_doctype().system_ident.as_mut() {
+                            ident.push(UNICODE_REPLACEMENT)
+                        }
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-system-identifier parse error. Set the current
@@ -2535,10 +2534,9 @@ impl<'source> Tokenizer<'source> {
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's system
                         // identifier.
-                        self.get_current_doctype()
-                            .system_ident
-                            .as_mut()
-                            .map(|ident| ident.push(c));
+                        if let Some(ident) = self.get_current_doctype().system_ident.as_mut() {
+                            ident.push(c)
+                        }
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
