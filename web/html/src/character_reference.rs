@@ -1,6 +1,6 @@
 //! Mappings from HTML escape sequences to their unicode character
 
-const KEYS: [&'static str; 2231] = [
+const KEYS: [&str; 2231] = [
     "AElig",
     "AElig;",
     "AMP",
@@ -2233,7 +2233,7 @@ const KEYS: [&'static str; 2231] = [
     "zwj;",
     "zwnj;",
 ];
-const VALUES: [&'static str; 2231] = [
+const VALUES: [&str; 2231] = [
     "\u{00c6}",
     "\u{00c6}",
     "\u{0026}",
@@ -4468,11 +4468,5 @@ const VALUES: [&'static str; 2231] = [
 ];
 
 pub fn match_reference(source: &str) -> Option<&'static str> {
-    // TODO: surely we can do some kind of binary search here? At least beat O(n)
-    let matched = KEYS
-        .iter()
-        .enumerate()
-        .find(|(_i, k)| source.starts_with(*k));
-
-    matched.map(|(i, _)| VALUES[i])
+    KEYS.binary_search(&source).ok().map(|index| VALUES[index])
 }
