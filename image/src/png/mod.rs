@@ -126,7 +126,6 @@ pub fn decode(bytes: &[u8]) -> Result<canvas::Canvas> {
     } else {
         return Err(PNGError::ExpectedIHDR(ihdr_chunk).into());
     };
-    dbg!(image_header);
 
     let mut parser_stage = ParserStage::BeforeIDAT;
     let mut idat = vec![];
@@ -134,7 +133,6 @@ pub fn decode(bytes: &[u8]) -> Result<canvas::Canvas> {
 
     loop {
         let chunk = read_chunk(&mut reader)?;
-        dbg!(&chunk);
 
         if parser_stage == ParserStage::DuringIDAT && !matches!(chunk, Chunk::IDAT(_)) {
             parser_stage = ParserStage::AfterIDAT;
@@ -160,7 +158,7 @@ pub fn decode(bytes: &[u8]) -> Result<canvas::Canvas> {
     }
 
     let decompressed_body = zlib::decode(&idat).context("Failed to decompress PNG image data")?;
-    dbg!(&decompressed_body[..10]);
+
     let scanline_width = image_header.width as usize * image_header.image_type.pixel_width();
 
     // NOTE: need to add 1 here because each scanline also contains a byte specifying a filter type
