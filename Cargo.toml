@@ -8,6 +8,7 @@ members = [
     "util/random",
     "util/cli",
     "util/cli-derive",
+    "util/bignum",
     "gui/widgets", 
     "gui/canvas", 
     "font", 
