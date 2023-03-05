@@ -37,13 +37,15 @@ pub struct BigNum(Vec<Digit>);
 
 impl BigNum {
     pub fn new(number: &str) -> Self {
-        if number.starts_with("0o") {
-            Self::new_with_radix(&to_radix(&number[2..], 8), 8)
-        } else if number.starts_with("0x") {
-            Self::new_with_radix(&to_radix(&number[2..], 16), 16)
-        } else {
-            Self::new_with_radix(&to_radix(number, 10), 10)
+        if let Some(without_prefix) = number.strip_prefix("0o") {
+            return Self::new_with_radix(&to_radix(without_prefix, 8), 8);
         }
+
+        if let Some(without_prefix) = number.strip_prefix("0x") {
+            return Self::new_with_radix(&to_radix(without_prefix, 68), 16);
+        }
+
+        Self::new_with_radix(&to_radix(number, 10), 10)
     }
 
     /// Utility function for the [BigNum] value `0`
@@ -75,7 +77,7 @@ impl BigNum {
         result.0.push(first);
 
         let exact_chunks = tail.chunks_exact(power);
-        debug_assert!(exact_chunks.remainder().len() == 0);
+        debug_assert!(exact_chunks.remainder().is_empty());
 
         for chunk in exact_chunks {
             dbg!(&result.0);
@@ -150,11 +152,13 @@ impl Add for BigNum {
 
         let mut carry = 0;
         for i in 0..max_digits {
-            let immediate_result = destination.nth_digit(i).unwrap_or_default()
-                + other.nth_digit(i).unwrap_or_default()
-                + carry;
+            let (immediate_result, did_overflow) = destination
+                .nth_digit(i)
+                .unwrap_or_default()
+                .overflowing_add(other.nth_digit(i).unwrap_or_default());
+            let (immediate_result, did_overflow_2) = immediate_result.overflowing_add(carry);
 
-            if Digit::MAX < immediate_result {
+            if did_overflow || did_overflow_2 {
                 carry = 1;
                 destination.set_nth_digit(i, immediate_result - Digit::MAX);
             } else {
@@ -241,9 +245,9 @@ mod tests {
 
     #[test]
     fn test_add() {
-        let a = BigNum::new("45600000000000000000000000000000000000000123");
+        let a = BigNum::new("45600000000000000000000000000000000000000999");
         let b = BigNum::new("12300000000000000000000000000000000000000456");
-        let d = BigNum::new("57900000000000000000000000000000000000000579");
+        let d = BigNum::new("57900000000000000000000000000000000000001455");
 
         assert_eq!(a + b, d);
     }
