@@ -1,4 +1,4 @@
-use std::ops::Add;
+use std::{iter, ops::Add};
 
 #[cfg(target_pointer_width = "32")]
 type Digit = u32;
@@ -103,25 +103,10 @@ impl BigNum {
         result
     }
 
-    fn digits(&self) -> usize {
-        self.0.len()
-    }
-
-    fn nth_digit(&self, index: usize) -> Option<Digit> {
-        if index < self.digits() {
-            Some(self.0[index])
-        } else {
-            None
-        }
-    }
-
-    fn set_nth_digit(&mut self, index: usize, digit: Digit) {
-        if index < self.digits() {
-            self.0[index] = digit;
-        } else {
-            self.0.resize(index + 1, 0);
-            self.0[index] = digit;
-        }
+    /// Try to shrink the internal vector as much as possible by
+    /// deallocating unused capacity and removing leading zeros.
+    pub fn compact(&mut self) {
+        self.0.truncate(self.first_nonzero_digit() + 1);
     }
 
     fn first_nonzero_digit(&self) -> usize {
@@ -153,25 +138,35 @@ impl Add for BigNum {
             (self, other)
         };
 
-        let max_digits = std::cmp::max(destination.digits(), other.digits());
+        let max_digits = if destination.0.len() < other.0.len() {
+            // Reserve the maximum space that the result can take up
+            // This might not be a reallocation since we chose the
+            // vector with a larger capacity earlier.
+            destination.0.resize(other.0.len() + 1, 0);
+            other.0.len()
+        } else {
+            destination.0.len()
+        };
 
         let mut carry = 0;
-        for i in 0..max_digits {
-            let (immediate_result, did_overflow) = destination
-                .nth_digit(i)
-                .unwrap_or_default()
-                .overflowing_add(other.nth_digit(i).unwrap_or_default());
+        for (d1, &d2) in destination
+            .0
+            .iter_mut()
+            .zip(other.0.iter().chain(iter::repeat(&0)))
+            .take(max_digits)
+        {
+            let (immediate_result, did_overflow) = d1.overflowing_add(d2);
             let (immediate_result, did_overflow_2) = immediate_result.overflowing_add(carry);
 
             if did_overflow || did_overflow_2 {
                 carry = 1;
-                destination.set_nth_digit(i, immediate_result - Digit::MAX);
+                *d1 = immediate_result - Digit::MAX;
             } else {
                 carry = 0;
-                destination.set_nth_digit(i, immediate_result);
+                *d1 = immediate_result;
             }
         }
-
+        destination.compact(); // if we allocated too much, free the space
         destination
     }
 }
@@ -210,7 +205,7 @@ impl PartialEq for BigNum {
         }
 
         for i in 0..up_to_a + 1 {
-            if self.nth_digit(i) != other.nth_digit(i) {
+            if self.0[i] != other.0[i] {
                 return false;
             }
         }
