@@ -37,12 +37,16 @@ pub struct BigNum(Vec<Digit>);
 
 impl BigNum {
     pub fn new(number: &str) -> Self {
+        if let Some(without_prefix) = number.strip_prefix("0b") {
+            return Self::new_with_radix(&to_radix(without_prefix, 2), 2);
+        }
+
         if let Some(without_prefix) = number.strip_prefix("0o") {
             return Self::new_with_radix(&to_radix(without_prefix, 8), 8);
         }
 
         if let Some(without_prefix) = number.strip_prefix("0x") {
-            return Self::new_with_radix(&to_radix(without_prefix, 68), 16);
+            return Self::new_with_radix(&to_radix(without_prefix, 16), 16);
         }
 
         Self::new_with_radix(&to_radix(number, 10), 10)
@@ -63,7 +67,7 @@ impl BigNum {
 
         // Split the digits into chunks
         let (base, power) = POWERS[radix as usize];
-        dbg!(base, power);
+
         let head_len = if digits.len() % power == 0 {
             power
         } else {
@@ -73,14 +77,15 @@ impl BigNum {
         let (head, tail) = digits.split_at(head_len);
 
         let mut result = Self(Vec::new());
-        let first = Digit::from(head.iter().fold(0, |acc, &digit| acc * radix + digit));
+        let first = head.iter().fold(0, |acc, &digit| {
+            acc * Digit::from(radix) + Digit::from(digit)
+        });
         result.0.push(first);
 
         let exact_chunks = tail.chunks_exact(power);
         debug_assert!(exact_chunks.remainder().is_empty());
 
         for chunk in exact_chunks {
-            dbg!(&result.0);
             result.0.push(0);
 
             let mut carry: BigDigit = 0;
@@ -241,6 +246,18 @@ mod tests {
         assert_eq!(a, b);
         assert_eq!(b, c);
         assert_ne!(c, d);
+    }
+
+    #[test]
+    fn test_different_radix() {
+        let base_10 = BigNum::new("234793475345234234");
+        let base_16 = BigNum::new("0x342276BFD88393A");
+        let base_8 = BigNum::new("0o15021166577542034472");
+        let base_2 = BigNum::new("0b1101000010001001110110101111111101100010000011100100111010");
+
+        assert_eq!(base_10, base_16);
+        assert_eq!(base_16, base_8);
+        assert_eq!(base_8, base_2);
     }
 
     #[test]
