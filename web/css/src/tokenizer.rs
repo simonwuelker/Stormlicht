@@ -15,6 +15,12 @@ pub enum HashFlag {
     Id,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Number {
+    Integer(i32),
+    Number(f32),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token<'a> {
     Ident(Cow<'a, str>),
@@ -24,9 +30,9 @@ pub enum Token<'a> {
     BadURI(Cow<'a, str>),
     BadComment(Cow<'a, str>),
     Hash(Cow<'a, str>, HashFlag),
-    Number(Cow<'a, str>),
-    Percentage(Cow<'a, str>),
-    Dimension(Cow<'a, str>, Cow<'a, str>),
+    Number(Number),
+    Percentage(Number),
+    Dimension(Number, Cow<'a, str>),
     URI(Cow<'a, str>),
     CommentDeclarationOpen,
     CommentDeclarationClose,
@@ -71,34 +77,90 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// https://drafts.csswg.org/css-syntax/#check-if-two-code-points-are-a-valid-escape
-    fn is_valid_escape(&self) -> bool {
-        // If the first code point is not U+005C REVERSE SOLIDUS (\)
-        if self.peek_codepoint(0) != Some(BACKSLASH) {
-            // return false.
-            false
-        } else {
-            // Otherwise, if the second code point is a newline return false.
-            // Otherwise return true.
-            self.peek_codepoint(1) != Some(NEWLINE)
-        }
+    fn is_valid_escape_start(&self) -> bool {
+        is_valid_escape(self.peek_codepoint(0), self.peek_codepoint(1))
     }
 
     /// https://drafts.csswg.org/css-syntax/#check-if-three-code-points-would-start-an-ident-sequence
     fn is_valid_ident_start(&self) -> bool {
-        todo!()
+        // Look at the first code point:
+        match self.peek_codepoint(0) {
+            Some('-') => {
+                let n2 = self.peek_codepoint(1);
+
+                // If the second code point is an ident-start code point or a U+002D HYPHEN-MINUS
+                // 	or the second and third code points are a valid escape
+                // 	return true. Otherwise, return false.
+                (n2.is_some() && (is_ident_start_code_point(n2.unwrap()) || n2.unwrap() == '-'))
+                    || is_valid_escape(n2, self.peek_codepoint(2))
+            },
+            Some(BACKSLASH) => {
+                // If the first and second code points are a valid escape, return true. Otherwise, return false.
+                is_valid_escape(self.peek_codepoint(1), self.peek_codepoint(2))
+            },
+            Some(c) if is_ident_start_code_point(c) => {
+                // Return true.
+                true
+            },
+            _ => {
+                // Return false.
+                false
+            },
+        }
     }
 
     /// https://drafts.csswg.org/css-syntax/#check-if-three-code-points-would-start-a-number
+    #[allow(clippy::needless_bool, clippy::if_same_then_else)] // spec things...
     fn is_valid_number_start(&self) -> bool {
-        todo!()
+        // Look at the first code point:
+        match self.peek_codepoint(0) {
+            Some('+' | '-') => {
+                // If the second code point is a digit,
+                if matches!(self.peek_codepoint(1), Some('0'..='9')) {
+                    // return true.
+                    true
+                }
+                // Otherwise, if the second code point is a U+002E FULL STOP (.) and the third code point is a digit,
+                else if self.peek_codepoint(1) == Some('.')
+                    && matches!(self.peek_codepoint(2), Some('0'..='9'))
+                {
+                    // return true.
+                    true
+                }
+                // Otherwise
+                else {
+                    // return false.
+                    false
+                }
+            },
+            Some('.') => {
+                // If the second code point is a digit, return true. Otherwise, return false.
+                matches!(self.peek_codepoint(1), Some('0'..='9'))
+            },
+            Some('0'..='9') => {
+                // return true.
+                true
+            },
+            _ => {
+                // Return false.
+                false
+            },
+        }
     }
 
+    #[inline]
+    fn current_position(&self) -> usize {
+        self.position
+    }
+
+    #[inline]
     fn next_codepoint(&mut self) -> Option<char> {
         let c = self.source.chars().nth(self.position);
         self.advance(1);
         c
     }
 
+    #[inline]
     fn consume_whitespace(&mut self) {
         while matches!(self.peek_codepoint(0), Some(NEWLINE | TAB | WHITESPACE)) {
             self.advance(1);
@@ -122,7 +184,7 @@ impl<'a> Tokenizer<'a> {
                         result.push(c);
                     }
                     // the stream starts with a valid escape:
-                    else if self.is_valid_escape() {
+                    else if self.is_valid_escape_start() {
                         // Consume an escaped code point.
                         let c = self.consume_escaped_codepoint();
 
@@ -191,14 +253,215 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    /// https://drafts.csswg.org/css-syntax/#consume-a-number
+    fn consume_number(&mut self) -> Number {
+        // Initially set type to "integer". Let repr be the empty string.
+        let mut is_integer = true;
+
+        // NOTE we keep track of repr by remembering the starting position and slicing the source string.
+        // This avoids unnecessary heap allocations
+        let start = self.current_position();
+
+        // If the next input code point is U+002B PLUS SIGN (+) or U+002D HYPHEN-MINUS (-),
+        if matches!(self.peek_codepoint(0), Some('+' | '-')) {
+            // consume it and append it to repr.
+            self.advance(1);
+        }
+
+        // While the next input code point is a digit,
+        while matches!(self.peek_codepoint(0), Some('0'..='9')) {
+            // consume it and append it to repr.
+            self.advance(1);
+        }
+
+        // If the next 2 input code points are U+002E FULL STOP (.) followed by a digit, then:
+        if self.peek_codepoint(0) == Some('.') && matches!(self.peek_codepoint(1), Some('0'..='9'))
+        {
+            // Consume them.
+            // Append them to repr.
+            self.advance(2);
+
+            // Set type to "number".
+            is_integer = false;
+
+            // While the next input code point is a digit,
+            while matches!(self.peek_codepoint(0), Some('0'..='9')) {
+                // consume it and append it to repr.
+                self.advance(1);
+            }
+
+            // If the next 2 or 3 input code points are U+0045 LATIN CAPITAL LETTER E (E) or U+0065 LATIN SMALL LETTER E (e),
+            // optionally followed by U+002D HYPHEN-MINUS (-) or U+002B PLUS SIGN (+), followed by a digit, then:
+            if matches!(self.peek_codepoint(0), Some('e' | 'E')) {
+                if matches!(self.peek_codepoint(1), Some('0'..='9')) {
+                    // Consume them.
+                    // Append them to repr.
+                    self.advance(2);
+
+                    // Set type to "number".
+                    is_integer = true;
+
+                    // While the next input code point is a digit,
+                    while matches!(self.peek_codepoint(0), Some('0'..='9')) {
+                        // consume it and append it to repr.
+                        self.advance(1);
+                    }
+                } else if matches!(
+                    (self.peek_codepoint(1), self.peek_codepoint(2)),
+                    (Some('+' | '-'), Some('0'..='9'))
+                ) {
+                    // Consume them.
+                    // Append them to repr.
+                    self.advance(3);
+
+                    // Set type to "number".
+                    is_integer = true;
+
+                    // While the next input code point is a digit,
+                    while matches!(self.peek_codepoint(0), Some('0'..='9')) {
+                        // consume it and append it to repr.
+                        self.advance(1);
+                    }
+                }
+            }
+        }
+
+        // Convert repr to a number, and set the value to the returned value.
+        // Return value and type.
+        let end = self.current_position();
+        if is_integer {
+            Number::Integer(self.source[start..end].parse().unwrap())
+        } else {
+            Number::Number(self.source[start..end].parse().unwrap())
+        }
+    }
+
     /// https://drafts.csswg.org/css-syntax/#consume-a-numeric-token
     fn consume_numeric_token(&mut self) -> Token<'a> {
-        todo!()
+        // Consume a number and let number be the result.
+        let number = self.consume_number();
+
+        // If the next 3 input code points would start an ident sequence, then:
+        if self.is_valid_ident_start() {
+            // Create a <dimension-token> with the same value and type flag as number, and a unit set initially to the empty string.
+
+            // Consume an ident sequence. Set the <dimension-token>’s unit to the returned value.
+            let unit = self.consume_ident_sequence();
+
+            // Return the <dimension-token>.
+            Token::Dimension(number, Cow::Owned(unit))
+        }
+        // Otherwise, if the next input code point is U+0025 PERCENTAGE SIGN (%)
+        else if self.peek_codepoint(0) == Some('%') {
+            //	consume it.
+            self.advance(1);
+
+            // Create a <percentage-token> with the same value as number, and return it.
+            Token::Percentage(number)
+        }
+        // Otherwise,
+        else {
+            // create a <number-token> with the same value and type flag as number, and return it.
+            Token::Number(number)
+        }
+    }
+
+    /// https://drafts.csswg.org/css-syntax/#consume-the-remnants-of-a-bad-url
+    fn consume_remnants_of_a_bad_url(&mut self) {
+        // Repeatedly consume the next input code point from the stream:
+        loop {
+            let n = self.next_codepoint();
+
+            if matches!(n, Some('(') | None) {
+                // Return.
+                return;
+            } else if self.is_valid_escape_start() {
+                // Consume an escaped code point.
+                self.consume_escaped_codepoint();
+
+                // This allows an escaped right parenthesis ("\)") to be encountered without ending the <bad-url-token>. This is otherwise identical to the "anything else" clause.
+            } else {
+                // Do nothing.
+            }
+        }
     }
 
     /// https://drafts.csswg.org/css-syntax/#consume-a-url-token
     fn consume_url_token(&mut self) -> Token<'a> {
-        todo!()
+        // Initially create a <url-token> with its value set to the empty string.
+        let mut value = String::new();
+
+        // Consume as much whitespace as possible.
+        self.consume_whitespace();
+
+        // Repeatedly consume the next input code point from the stream:
+        loop {
+            match self.next_codepoint() {
+                Some(')') => {
+                    // Return the <url-token>.
+                    return Token::URI(Cow::Owned(value));
+                },
+                None => {
+                    // This is a parse error.
+                    // Return the <url-token>.
+                    return Token::URI(Cow::Owned(value));
+                },
+                Some(c) if is_whitespace(c) => {
+                    // Consume as much whitespace as possible
+                    self.consume_whitespace();
+
+                    //  If the next input code point is U+0029 RIGHT PARENTHESIS ()) or EOF
+                    if matches!(self.peek_codepoint(0), Some(')') | None) {
+                        // consume it
+                        self.advance(1);
+
+                        // and return the <url-token> (if EOF was encountered, this is a parse error)
+                        return Token::URI(Cow::Owned(value));
+                    }
+                    // otherwise,
+                    else {
+                        // consume the remnants of a bad url
+                        self.consume_remnants_of_a_bad_url();
+
+                        // create a <bad-url-token>, and return it.
+                        return Token::BadURI(Cow::Owned(value));
+                    }
+                },
+                Some(
+                    '"' | APOSTROPHE | '(' | '\x00'..='\x08' | '\x0b' | '\x0e'..='\x1f' | '\x7f',
+                ) => {
+                    // This is a parse error.
+                    // Consume the remnants of a bad url
+                    self.consume_remnants_of_a_bad_url();
+
+                    // create a <bad-url-token>, and return it.
+                    return Token::BadURI(Cow::Owned(value));
+                },
+                Some(BACKSLASH) => {
+                    // If the stream starts with a valid escape
+                    if self.is_valid_escape_start() {
+                        // consume an escaped code point
+                        let c = self.consume_escaped_codepoint();
+
+                        // and append the returned code point to the <url-token>’s value.
+                        value.push(c);
+                    }
+                    // Otherwise,
+                    else {
+                        // This is a parse error.
+                        // Consume the remnants of a bad url
+                        self.consume_remnants_of_a_bad_url();
+
+                        // create a <bad-url-token>, and return it.
+                        return Token::BadURI(Cow::Owned(value));
+                    }
+                },
+                Some(c) => {
+                    // Append the current input code point to the <url-token>’s value.
+                    value.push(c);
+                },
+            }
+        }
     }
 
     /// https://drafts.csswg.org/css-syntax/#consume-an-ident-like-token
@@ -315,14 +578,40 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    // https://drafts.csswg.org/css-syntax/#consume-comment
+    fn consume_comments(&mut self) {
+        // If the next two input code point are U+002F SOLIDUS (/) followed by a U+002A ASTERISK (*),
+        while self.peek_codepoint(0) == Some('/') && self.peek_codepoint(1) == Some('*') {
+            // consume them
+            self.advance(2);
+
+            // and all following code points up to and including the first U+002A ASTERISK (*) followed by a U+002F SOLIDUS (/), or up to an EOF code point.
+            loop {
+                match self.next_codepoint() {
+                    Some('*') => {
+                        if self.next_codepoint() == Some('/') {
+                            break;
+                        }
+                    },
+                    None => break,
+                    _ => {},
+                }
+            }
+            // Return to the start of this step.
+        }
+        // If the preceding paragraph ended by consuming an EOF code point, this is a parse error.
+
+        // Return nothing.
+    }
+
     fn advance(&mut self, n: usize) {
         self.position += n;
     }
 
     /// https://drafts.csswg.org/css-syntax/#consume-token
     pub fn next_token(&mut self) -> Token<'a> {
-        // TODO
         // Consume comments.
+        self.consume_comments();
 
         // Consume the next input code point.
         match self.next_codepoint() {
@@ -342,7 +631,7 @@ impl<'a> Tokenizer<'a> {
             Some('#') => {
                 match self.peek_codepoint(0) {
                     // If the next input code point is an ident code point or the next two input code points are a valid escape, then:
-                    Some(c) if is_ident_code_point(c) || self.is_valid_escape() => {
+                    Some(c) if is_ident_code_point(c) || self.is_valid_escape_start() => {
                         // Create a <hash-token>.
                         let mut hash_flag = HashFlag::Unrestricted;
 
@@ -502,7 +791,7 @@ impl<'a> Tokenizer<'a> {
 
             Some(BACKSLASH) => {
                 // If the input stream starts with a valid escape
-                if self.is_valid_escape() {
+                if self.is_valid_escape_start() {
                     // reconsume the current input code point,
                     self.reconsume();
 
@@ -590,4 +879,18 @@ fn is_ident_start_code_point(c: char) -> bool {
 #[inline]
 fn is_ident_code_point(c: char) -> bool {
     matches!(c, '-' | '0'..='9') || is_ident_start_code_point(c)
+}
+
+/// https://drafts.csswg.org/css-syntax/#check-if-three-code-points-would-start-an-ident-sequence
+#[inline]
+fn is_valid_escape(c1: Option<char>, c2: Option<char>) -> bool {
+    // If the first code point is not U+005C REVERSE SOLIDUS (\)
+    if c1 != Some(BACKSLASH) {
+        // return false.
+        false
+    } else {
+        // Otherwise, if the second code point is a newline return false.
+        // Otherwise return true.
+        c2 != Some(NEWLINE)
+    }
 }
