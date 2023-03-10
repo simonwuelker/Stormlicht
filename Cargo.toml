@@ -1,6 +1,7 @@
 [workspace]
 members = [
     # "web/html", 
+    "web/css",
     "web/http", 
     "web/url",
     "web/dns",
