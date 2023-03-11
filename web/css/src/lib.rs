@@ -3,5 +3,6 @@
 #![feature(exclusive_range_pattern)]
 
 pub mod parser;
-mod tokenizer;
+pub mod stylesheet;
+pub mod tokenizer;
 pub mod tree;

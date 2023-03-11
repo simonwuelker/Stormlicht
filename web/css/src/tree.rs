@@ -2,8 +2,6 @@
 //!
 //! See <https://drafts.csswg.org/css-syntax/#parsing> for more details.
 
-use std::borrow::Cow;
-
 use crate::tokenizer::{HashFlag, Number, Token};
 
 #[derive(Clone, Copy, Debug)]
@@ -20,38 +18,38 @@ pub enum BlockDelimiter {
 
 /// https://drafts.csswg.org/css-syntax/#simple-block
 #[derive(Clone, Debug)]
-pub struct SimpleBlock<'a> {
+pub struct SimpleBlock {
     delimiter: BlockDelimiter,
-    value: Vec<ComponentValue<'a>>,
+    value: Vec<ComponentValue>,
 }
 
 /// https://drafts.csswg.org/css-syntax/#function
 #[derive(Clone, Debug)]
-pub struct Function<'a> {
-    name: Cow<'a, str>,
-    body: Vec<ComponentValue<'a>>,
+pub struct Function {
+    name: String,
+    body: Vec<ComponentValue>,
 }
 
 #[derive(Clone, Debug)]
-pub enum ComponentValue<'a> {
-    Block(SimpleBlock<'a>),
-    Function(Function<'a>),
-    Token(PreservedToken<'a>),
+pub enum ComponentValue {
+    Block(SimpleBlock),
+    Function(Function),
+    Token(PreservedToken),
 }
 
 /// https://drafts.csswg.org/css-syntax/#preserved-tokens
 #[derive(Clone, Debug)]
-pub enum PreservedToken<'a> {
-    Ident(Cow<'a, str>),
-    AtKeyword(Cow<'a, str>),
-    String(Cow<'a, str>),
-    BadString(Cow<'a, str>),
-    BadURI(Cow<'a, str>),
-    Hash(Cow<'a, str>, HashFlag),
+pub enum PreservedToken {
+    Ident(String),
+    AtKeyword(String),
+    String(String),
+    BadString(String),
+    BadURI(String),
+    Hash(String, HashFlag),
     Number(Number),
     Percentage(Number),
-    Dimension(Number, Cow<'a, str>),
-    URI(Cow<'a, str>),
+    Dimension(Number, String),
+    URI(String),
     CommentDeclarationOpen,
     CommentDeclarationClose,
     Colon,
@@ -66,35 +64,35 @@ pub enum PreservedToken<'a> {
 
 /// https://drafts.csswg.org/css-syntax/#declaration
 #[derive(Clone, Debug)]
-pub struct Declaration<'a> {
-    name: Cow<'a, str>,
-    value: Vec<ComponentValue<'a>>,
+pub struct Declaration {
+    name: String,
+    value: Vec<ComponentValue>,
     is_important: bool,
 }
 
 /// https://drafts.csswg.org/css-syntax/#at-rule
 #[derive(Clone, Debug)]
-pub struct AtRule<'a> {
-    name: Cow<'a, str>,
-    prelude: Vec<ComponentValue<'a>>,
-    block: Option<SimpleBlock<'a>>,
+pub struct AtRule {
+    name: String,
+    prelude: Vec<ComponentValue>,
+    block: Option<SimpleBlock>,
 }
 
 /// https://drafts.csswg.org/css-syntax/#qualified-rule
 #[derive(Clone, Debug)]
-pub struct QualifiedRule<'a> {
-    prelude: Vec<ComponentValue<'a>>,
-    block: SimpleBlock<'a>,
+pub struct QualifiedRule {
+    prelude: Vec<ComponentValue>,
+    block: SimpleBlock,
 }
 
 #[derive(Clone, Debug)]
-pub enum Rule<'a> {
-    QualifiedRule(QualifiedRule<'a>),
-    AtRule(AtRule<'a>),
+pub enum Rule {
+    QualifiedRule(QualifiedRule),
+    AtRule(AtRule),
 }
 
-impl<'a> SimpleBlock<'a> {
-    pub fn new(delimiter: BlockDelimiter, value: Vec<ComponentValue<'a>>) -> Self {
+impl SimpleBlock {
+    pub fn new(delimiter: BlockDelimiter, value: Vec<ComponentValue>) -> Self {
         Self { delimiter, value }
     }
 
@@ -102,13 +100,13 @@ impl<'a> SimpleBlock<'a> {
         self.delimiter
     }
 
-    pub fn values(&self) -> &[ComponentValue<'a>] {
+    pub fn values(&self) -> &[ComponentValue] {
         &self.value
     }
 }
 
-impl<'a> Function<'a> {
-    pub fn new(name: Cow<'a, str>, body: Vec<ComponentValue<'a>>) -> Self {
+impl Function {
+    pub fn new(name: String, body: Vec<ComponentValue>) -> Self {
         Self { name, body }
     }
 
@@ -116,13 +114,13 @@ impl<'a> Function<'a> {
         &self.name
     }
 
-    pub fn body(&self) -> &[ComponentValue<'a>] {
+    pub fn body(&self) -> &[ComponentValue] {
         &self.body
     }
 }
 
-impl<'a> Declaration<'a> {
-    pub fn new(name: Cow<'a, str>, value: Vec<ComponentValue<'a>>, is_important: bool) -> Self {
+impl Declaration {
+    pub fn new(name: String, value: Vec<ComponentValue>, is_important: bool) -> Self {
         Self {
             name,
             value,
@@ -138,17 +136,13 @@ impl<'a> Declaration<'a> {
         self.is_important
     }
 
-    pub fn value(&self) -> &[ComponentValue<'a>] {
+    pub fn value(&self) -> &[ComponentValue] {
         &self.value
     }
 }
 
-impl<'a> AtRule<'a> {
-    pub fn new(
-        name: Cow<'a, str>,
-        prelude: Vec<ComponentValue<'a>>,
-        block: Option<SimpleBlock<'a>>,
-    ) -> Self {
+impl AtRule {
+    pub fn new(name: String, prelude: Vec<ComponentValue>, block: Option<SimpleBlock>) -> Self {
         Self {
             name,
             prelude,
@@ -160,7 +154,7 @@ impl<'a> AtRule<'a> {
         &self.name
     }
 
-    pub fn prelude(&self) -> &[ComponentValue<'a>] {
+    pub fn prelude(&self) -> &[ComponentValue] {
         &self.prelude
     }
 
@@ -169,12 +163,12 @@ impl<'a> AtRule<'a> {
     }
 }
 
-impl<'a> QualifiedRule<'a> {
-    pub fn new(prelude: Vec<ComponentValue<'a>>, block: SimpleBlock<'a>) -> Self {
+impl QualifiedRule {
+    pub fn new(prelude: Vec<ComponentValue>, block: SimpleBlock) -> Self {
         Self { prelude, block }
     }
 
-    pub fn prelude(&self) -> &[ComponentValue<'a>] {
+    pub fn prelude(&self) -> &[ComponentValue] {
         &self.prelude
     }
 
@@ -183,8 +177,8 @@ impl<'a> QualifiedRule<'a> {
     }
 }
 
-impl<'a> Rule<'a> {
-    pub fn prelude(&self) -> &[ComponentValue<'a>] {
+impl Rule {
+    pub fn prelude(&self) -> &[ComponentValue] {
         match self {
             Self::AtRule(at_rule) => at_rule.prelude(),
             Self::QualifiedRule(qualified_rule) => qualified_rule.prelude(),
@@ -202,7 +196,7 @@ impl BlockDelimiter {
     }
 }
 
-impl<'a> PreservedToken<'a> {
+impl PreservedToken {
     /// Converts from a regular [Token] to a [PreservedToken]. [PreservedTokens](PreservedToken)
     /// are a limited subset of [Tokens](Token).
     ///
@@ -211,18 +205,18 @@ impl<'a> PreservedToken<'a> {
     /// This is the case for [Token::CurlyBraceOpen], [Token::BracketOpen], [Token::ParenthesisOpen],
     /// , [Token::Function] and [Token::EOF].
     #[inline]
-    pub fn from_regular_token(regular_token: Token<'a>) -> Self {
+    pub fn from_regular_token(regular_token: Token<'_>) -> Self {
         match regular_token {
-            Token::Ident(name) => Self::Ident(name),
-            Token::AtKeyword(keyword) => Self::AtKeyword(keyword),
-            Token::String(string) => Self::String(string),
-            Token::BadString(bad_string) => Self::BadString(bad_string),
-            Token::BadURI(bad_uri) => Self::BadURI(bad_uri),
-            Token::Hash(hash, flag) => Self::Hash(hash, flag),
+            Token::Ident(name) => Self::Ident(name.into_owned()),
+            Token::AtKeyword(keyword) => Self::AtKeyword(keyword.into_owned()),
+            Token::String(string) => Self::String(string.into_owned()),
+            Token::BadString(bad_string) => Self::BadString(bad_string.into_owned()),
+            Token::BadURI(bad_uri) => Self::BadURI(bad_uri.into_owned()),
+            Token::Hash(hash, flag) => Self::Hash(hash.into_owned(), flag),
             Token::Number(number) => Self::Number(number),
             Token::Percentage(number) => Self::Percentage(number),
-            Token::Dimension(number, unit) => Self::Dimension(number, unit),
-            Token::URI(uri) => Self::URI(uri),
+            Token::Dimension(number, unit) => Self::Dimension(number, unit.into_owned()),
+            Token::URI(uri) => Self::URI(uri.into_owned()),
             Token::CommentDeclarationOpen => Self::CommentDeclarationOpen,
             Token::CommentDeclarationClose => Self::CommentDeclarationClose,
             Token::Colon => Self::Colon,
