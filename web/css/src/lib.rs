@@ -1,3 +1,6 @@
+//! Implements the [CSS Syntax Module Level 3](https://drafts.csswg.org/css-syntax/) draft.
+
 #![feature(exclusive_range_pattern)]
 
-pub mod tokenizer;
+mod tokenizer;
+pub mod tree;
