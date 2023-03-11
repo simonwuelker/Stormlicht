@@ -4,7 +4,7 @@
 
 use std::borrow::Cow;
 
-use crate::tokenizer::{HashFlag, Number};
+use crate::tokenizer::{HashFlag, Number, Token};
 
 #[derive(Clone, Copy, Debug)]
 pub enum BlockDelimiter {
@@ -188,6 +188,55 @@ impl<'a> Rule<'a> {
         match self {
             Self::AtRule(at_rule) => at_rule.prelude(),
             Self::QualifiedRule(qualified_rule) => qualified_rule.prelude(),
+        }
+    }
+}
+
+impl BlockDelimiter {
+    pub fn end_token(&self) -> Token<'static> {
+        match self {
+            BlockDelimiter::CurlyBrace => Token::CurlyBraceClose,
+            BlockDelimiter::Parenthesis => Token::ParenthesisClose,
+            BlockDelimiter::Bracket => Token::BracketClose,
+        }
+    }
+}
+
+impl<'a> PreservedToken<'a> {
+    /// Converts from a regular [Token] to a [PreservedToken]. [PreservedTokens](PreservedToken)
+    /// are a limited subset of [Tokens](Token).
+    ///
+    /// # Panic
+    /// This function panics if the provided argument is not a valid [PreservedToken].
+    /// This is the case for [Token::CurlyBraceOpen], [Token::BracketOpen], [Token::ParenthesisOpen],
+    /// , [Token::Function] and [Token::EOF].
+    #[inline]
+    pub fn from_regular_token(regular_token: Token<'a>) -> Self {
+        match regular_token {
+            Token::Ident(name) => Self::Ident(name),
+            Token::AtKeyword(keyword) => Self::AtKeyword(keyword),
+            Token::String(string) => Self::String(string),
+            Token::BadString(bad_string) => Self::BadString(bad_string),
+            Token::BadURI(bad_uri) => Self::BadURI(bad_uri),
+            Token::Hash(hash, flag) => Self::Hash(hash, flag),
+            Token::Number(number) => Self::Number(number),
+            Token::Percentage(number) => Self::Percentage(number),
+            Token::Dimension(number, unit) => Self::Dimension(number, unit),
+            Token::URI(uri) => Self::URI(uri),
+            Token::CommentDeclarationOpen => Self::CommentDeclarationOpen,
+            Token::CommentDeclarationClose => Self::CommentDeclarationClose,
+            Token::Colon => Self::Colon,
+            Token::Semicolon => Self::Semicolon,
+            Token::CurlyBraceClose => Self::CurlyBraceClose,
+            Token::ParenthesisClose => Self::ParenthesisClose,
+            Token::BracketClose => Self::BracketClose,
+            Token::Whitespace => Self::Whitespace,
+            Token::Comma => Self::Comma,
+            Token::Delim(char) => Self::Delim(char),
+            _ => panic!(
+                "Trying to convert from {:?} to preserved token",
+                regular_token
+            ),
         }
     }
 }
