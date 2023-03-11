@@ -72,12 +72,12 @@ impl<'a> Tokenizer<'a> {
         self.source.chars().nth(self.position + n)
     }
 
-    /// https://drafts.csswg.org/css-syntax/#check-if-two-code-points-are-a-valid-escape
+    /// <https://drafts.csswg.org/css-syntax/#check-if-two-code-points-are-a-valid-escape>
     fn is_valid_escape_start(&self) -> bool {
         is_valid_escape(self.peek_codepoint(0), self.peek_codepoint(1))
     }
 
-    /// https://drafts.csswg.org/css-syntax/#check-if-three-code-points-would-start-an-ident-sequence
+    /// <https://drafts.csswg.org/css-syntax/#check-if-three-code-points-would-start-an-ident-sequence>
     fn is_valid_ident_start(&self) -> bool {
         // Look at the first code point:
         match self.peek_codepoint(0) {
@@ -105,7 +105,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#check-if-three-code-points-would-start-a-number
+    /// <https://drafts.csswg.org/css-syntax/#check-if-three-code-points-would-start-a-number>
     #[allow(clippy::needless_bool, clippy::if_same_then_else)] // spec things...
     fn is_valid_number_start(&self) -> bool {
         // Look at the first code point:
@@ -163,7 +163,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-an-ident-sequence
+    /// <https://drafts.csswg.org/css-syntax/#consume-an-ident-sequence>
     fn consume_ident_sequence(&mut self) -> String {
         // Let result initially be an empty string.
         let mut result = String::new();
@@ -207,6 +207,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    /// <https://drafts.csswg.org/css-syntax-3/#consume-escaped-code-point>
     fn consume_escaped_codepoint(&mut self) -> char {
         // Consume the next input code point.
         match self.next_codepoint() {
@@ -249,7 +250,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-a-number
+    /// <https://drafts.csswg.org/css-syntax/#consume-a-number>
     fn consume_number(&mut self) -> Number {
         // Initially set type to "integer". Let repr be the empty string.
         let mut is_integer = true;
@@ -332,7 +333,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-a-numeric-token
+    /// <https://drafts.csswg.org/css-syntax/#consume-a-numeric-token>
     fn consume_numeric_token(&mut self) -> Token<'a> {
         // Consume a number and let number be the result.
         let number = self.consume_number();
@@ -362,7 +363,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-the-remnants-of-a-bad-url
+    /// <https://drafts.csswg.org/css-syntax/#consume-the-remnants-of-a-bad-url>
     fn consume_remnants_of_a_bad_url(&mut self) {
         // Repeatedly consume the next input code point from the stream:
         loop {
@@ -382,7 +383,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-a-url-token
+    /// <https://drafts.csswg.org/css-syntax/#consume-a-url-token>
     fn consume_url_token(&mut self) -> Token<'a> {
         // Initially create a <url-token> with its value set to the empty string.
         let mut value = String::new();
@@ -460,7 +461,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-an-ident-like-token
+    /// <https://drafts.csswg.org/css-syntax/#consume-an-ident-like-token>
     fn consume_ident_like_token(&mut self) -> Token<'a> {
         // Consume an ident sequence, and let string be the result.
         let string = self.consume_ident_sequence();
@@ -519,7 +520,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-a-string-token
+    /// <https://drafts.csswg.org/css-syntax/#consume-a-string-token>
     ///
     /// This algorithm may be called with an ending code point, which denotes the code point that ends the string.
     /// If an ending code point is not specified, the current input code point is used.
@@ -574,7 +575,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    // https://drafts.csswg.org/css-syntax/#consume-comment
+    // <https://drafts.csswg.org/css-syntax/#consume-comment>
     fn consume_comments(&mut self) {
         // If the next two input code point are U+002F SOLIDUS (/) followed by a U+002A ASTERISK (*),
         while self.peek_codepoint(0) == Some('/') && self.peek_codepoint(1) == Some('*') {
@@ -604,7 +605,7 @@ impl<'a> Tokenizer<'a> {
         self.position += n;
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-token
+    /// <https://drafts.csswg.org/css-syntax/#consume-token>
     pub fn next_token(&mut self) -> Token<'a> {
         // Consume comments.
         self.consume_comments();
@@ -843,13 +844,13 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
-/// https://drafts.csswg.org/css-syntax/#whitespace
+/// <https://drafts.csswg.org/css-syntax/#whitespace>
 #[inline]
 fn is_whitespace(c: char) -> bool {
     matches!(c, NEWLINE | TAB | WHITESPACE)
 }
 
-/// https://drafts.csswg.org/css-syntax/#non-ascii-ident-code-point
+/// <https://drafts.csswg.org/css-syntax/#non-ascii-ident-code-point>
 #[inline]
 fn is_non_ascii_ident_code_point(c: char) -> bool {
     matches!(c, '\u{00B7}' | '\u{00C0}'..'\u{00D6}'
@@ -865,19 +866,19 @@ fn is_non_ascii_ident_code_point(c: char) -> bool {
         | '\u{10000}'..)
 }
 
-/// https://drafts.csswg.org/css-syntax/#ident-start-code-point
+/// <https://drafts.csswg.org/css-syntax/#ident-start-code-point>
 #[inline]
 fn is_ident_start_code_point(c: char) -> bool {
     matches!(c, 'a'..='z' | 'A'..='Z' | '_') || is_non_ascii_ident_code_point(c)
 }
 
-/// https://drafts.csswg.org/css-syntax/#ident-code-point
+/// <https://drafts.csswg.org/css-syntax/#ident-code-point>
 #[inline]
 fn is_ident_code_point(c: char) -> bool {
     matches!(c, '-' | '0'..='9') || is_ident_start_code_point(c)
 }
 
-/// https://drafts.csswg.org/css-syntax/#check-if-three-code-points-would-start-an-ident-sequence
+/// <https://drafts.csswg.org/css-syntax/#check-if-three-code-points-would-start-an-ident-sequence>
 #[inline]
 fn is_valid_escape(c1: Option<char>, c2: Option<char>) -> bool {
     // If the first code point is not U+005C REVERSE SOLIDUS (\)

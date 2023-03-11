@@ -31,7 +31,7 @@ pub struct Parser<'a> {
     token_to_reconsume: Option<Token<'a>>,
 }
 
-/// https://drafts.csswg.org/css-syntax/#css-decode-bytes
+/// <https://drafts.csswg.org/css-syntax/#css-decode-bytes>
 #[inline]
 fn decode_bytes(bytes: &[u8]) -> Cow<'_, str> {
     // FIXME: make this spec compliant!
@@ -39,7 +39,7 @@ fn decode_bytes(bytes: &[u8]) -> Cow<'_, str> {
     String::from_utf8_lossy(bytes)
 }
 
-/// https://drafts.csswg.org/css-syntax/#parse-stylesheet
+/// <https://drafts.csswg.org/css-syntax/#parse-stylesheet>
 pub fn parse_stylesheet(bytes: &[u8], location: Option<URL>) -> Stylesheet {
     // If input is a byte stream for stylesheet, decode bytes from input, and set input to the result.
     let input = decode_bytes(bytes);
@@ -58,7 +58,7 @@ pub fn parse_stylesheet(bytes: &[u8], location: Option<URL>) -> Stylesheet {
     stylesheet
 }
 
-// https://drafts.csswg.org/css-syntax-3/#parse-a-list-of-component-values
+/// <https://drafts.csswg.org/css-syntax-3/#parse-a-list-of-component-values>
 pub fn parse_list_of_component_values(bytes: &[u8]) -> Vec<ComponentValue> {
     let input = decode_bytes(bytes); // The spec doesn't specify this part
 
@@ -96,13 +96,13 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#reconsume-the-current-input-token
+    /// <https://drafts.csswg.org/css-syntax/#reconsume-the-current-input-token>
     fn reconsume(&mut self, token: Token<'a>) {
         debug_assert!(self.token_to_reconsume.is_none());
         self.token_to_reconsume = Some(token);
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-list-of-rules
+    /// <https://drafts.csswg.org/css-syntax/#consume-list-of-rules>
     pub fn consume_list_of_rules(&mut self, top_level: TopLevel) -> Vec<Rule> {
         // Create an initially empty list of rules.
         let mut rules = vec![];
@@ -158,7 +158,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-a-qualified-rule
+    /// <https://drafts.csswg.org/css-syntax/#consume-a-qualified-rule>
     pub fn consume_qualified_rule(
         &mut self,
         mixed_with_declarations: MixedWithDeclarations,
@@ -216,7 +216,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-an-at-rule
+    /// <https://drafts.csswg.org/css-syntax/#consume-an-at-rule>
     pub fn consume_at_rule(&mut self) -> Rule {
         // Consume the next input token.
         let _token = self.next_token();
@@ -261,7 +261,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-a-simple-block
+    /// <https://drafts.csswg.org/css-syntax/#consume-a-simple-block>
     pub fn consume_simple_block(&mut self, delimiter: BlockDelimiter) -> SimpleBlock {
         // The ending token is the mirror variant of the current input token.
         let end_token = delimiter.end_token();
@@ -292,7 +292,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-a-component-value
+    /// <https://drafts.csswg.org/css-syntax/#consume-a-component-value>
     pub fn consume_component_value(&mut self) -> ComponentValue {
         // Consume the next input token.
         match self.next_token() {
@@ -313,7 +313,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// https://drafts.csswg.org/css-syntax/#consume-a-function
+    /// <https://drafts.csswg.org/css-syntax/#consume-a-function>
     pub fn consume_function(&mut self, name: String) -> Function {
         // Create a function with its name equal to the value of the current input token and with its value initially set to an empty list.
         let mut value = vec![];

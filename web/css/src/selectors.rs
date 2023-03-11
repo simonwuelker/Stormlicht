@@ -1,84 +1,84 @@
-//! https://drafts.csswg.org/selectors/#grammar
+//! <https://drafts.csswg.org/selectors/#grammar>
 
 use crate::tree::{ComponentValue, Function};
 
-/// https://drafts.csswg.org/selectors/#typedef-selector-list
+/// <https://drafts.csswg.org/selectors/#typedef-selector-list>
 pub type SelectorList = ComplexSelectorList;
 
-/// https://drafts.csswg.org/selectors/#typedef-complex-selector-list
+/// <https://drafts.csswg.org/selectors/#typedef-complex-selector-list>
 pub type ComplexSelectorList = Vec<ComplexSelector>;
 
-/// https://drafts.csswg.org/selectors/#typedef-complex-real-selector-list
+/// <https://drafts.csswg.org/selectors/#typedef-complex-real-selector-list>
 pub type ComplexRealSelectorList = Vec<ComplexRealSelector>;
 
-/// https://drafts.csswg.org/selectors/#typedef-compound-selector-list
+/// <https://drafts.csswg.org/selectors/#typedef-compound-selector-list>
 pub type CompoundSelectorList = Vec<CompoundSelector>;
 
-/// https://drafts.csswg.org/selectors/#typedef-simple-selector-list
+/// <https://drafts.csswg.org/selectors/#typedef-simple-selector-list>
 pub type SimpleSelectorList = Vec<SimpleSelector>;
 
-/// https://drafts.csswg.org/selectors/#typedef-relative-selector-list
+/// <https://drafts.csswg.org/selectors/#typedef-relative-selector-list>
 pub type RelativeSelectorList = Vec<RelativeSelector>;
 
-/// https://drafts.csswg.org/selectors/#typedef-relative-real-selector-list
+/// <https://drafts.csswg.org/selectors/#typedef-relative-real-selector-list>
 pub type RelativeRealSelectorList = Vec<RelativeRealSelector>;
 
-/// https://drafts.csswg.org/selectors/#typedef-complex-selector
+/// <https://drafts.csswg.org/selectors/#typedef-complex-selector>
 #[derive(Clone, Debug)]
 pub struct ComplexSelector {
     pub first_unit: ComplexSelectorUnit,
     pub other_units: Vec<(Option<Combinator>, ComplexSelectorUnit)>,
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-complex-selector-unit
+/// <https://drafts.csswg.org/selectors/#typedef-complex-selector-unit>
 #[derive(Clone, Debug)]
 pub struct ComplexSelectorUnit {
     pub selectors: Vec<(Option<CompoundSelector>, Vec<PseudoCompoundSelector>)>,
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-complex-real-selector
+/// <https://drafts.csswg.org/selectors/#typedef-complex-real-selector>
 #[derive(Clone, Debug)]
 pub struct ComplexRealSelector {
     pub first_selector: CompoundSelector,
     pub other_selectors: Vec<(Option<Combinator>, CompoundSelector)>,
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-relative-selector
+/// <https://drafts.csswg.org/selectors/#typedef-relative-selector>
 #[derive(Clone, Debug)]
 pub struct RelativeSelector {
     pub combinator: Option<Combinator>,
     pub selector: ComplexSelector,
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-relative-real-selector
+/// <https://drafts.csswg.org/selectors/#typedef-relative-real-selector>
 #[derive(Clone, Debug)]
 pub struct RelativeRealSelector {
     pub combinator: Option<Combinator>,
     pub selector: ComplexRealSelector,
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-compound-selector
+/// <https://drafts.csswg.org/selectors/#typedef-compound-selector>
 #[derive(Clone, Debug)]
 pub struct CompoundSelector {
     pub selectors: Vec<(Option<TypeSelector>, Vec<SubclassSelector>)>,
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-pseudo-compound-selector
+/// <https://drafts.csswg.org/selectors/#typedef-pseudo-compound-selector>
 #[derive(Clone, Debug)]
 pub struct PseudoCompoundSelector {
     pub element_selector: PseudoElementSelector,
     pub class_selectors: Vec<PseudoClassSelector>,
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-simple-selector
+/// <https://drafts.csswg.org/selectors/#typedef-simple-selector>
 #[derive(Clone, Debug)]
 pub enum SimpleSelector {
     TypeSelector(TypeSelector),
     SubclassSelector(SubclassSelector),
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-combinator
-#[derive(Clone, Debug)]
+/// <https://drafts.csswg.org/selectors/#typedef-combinator>
+#[derive(Clone, Copy, Debug)]
 pub enum Combinator {
     /// `>`
     Child,
@@ -90,14 +90,14 @@ pub enum Combinator {
     DoubleOr, // TODO find better name, idk what this does
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-wq-name
+/// <https://drafts.csswg.org/selectors/#typedef-wq-name>
 #[derive(Clone, Debug)]
 pub struct WQName {
     pub prefix: Option<NSPrefix>,
     pub ident: String,
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-ns-prefix
+/// <https://drafts.csswg.org/selectors/#typedef-ns-prefix>
 #[derive(Clone, Debug)]
 pub enum NSPrefix {
     Ident(String),
@@ -105,7 +105,7 @@ pub enum NSPrefix {
     Nothing,
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-type-selector
+/// <https://drafts.csswg.org/selectors/#typedef-type-selector>
 #[derive(Clone, Debug)]
 pub enum TypeSelector {
     WQName(WQName),
@@ -113,7 +113,7 @@ pub enum TypeSelector {
     NoNSPrefix,
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-subclass-selector
+/// <https://drafts.csswg.org/selectors/#typedef-subclass-selector>
 #[derive(Clone, Debug)]
 pub enum SubclassSelector {
     Id(IdSelector),
@@ -122,15 +122,15 @@ pub enum SubclassSelector {
     PseudoClass(PseudoClassSelector),
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-id-selector
+/// <https://drafts.csswg.org/selectors/#typedef-id-selector>
 #[derive(Clone, Debug)]
 pub struct IdSelector(String);
 
-/// https://drafts.csswg.org/selectors/#typedef-class-selector
+/// <https://drafts.csswg.org/selectors/#typedef-class-selector>
 #[derive(Clone, Debug)]
 pub struct ClassSelector(String);
 
-/// https://drafts.csswg.org/selectors/#typedef-attribute-selector
+/// <https://drafts.csswg.org/selectors/#typedef-attribute-selector>
 #[derive(Clone, Debug)]
 pub enum AttributeSelector {
     ByName(WQName),
@@ -142,7 +142,7 @@ pub enum AttributeSelector {
     },
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-attr-matcher
+/// <https://drafts.csswg.org/selectors/#typedef-attr-matcher>
 #[derive(Clone, Copy, Debug)]
 pub enum AttributeMatcher {
     /// `~=`
@@ -159,7 +159,7 @@ pub enum AttributeMatcher {
     Default,
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-attr-modifier
+/// <https://drafts.csswg.org/selectors/#typedef-attr-modifier>
 #[derive(Clone, Copy, Debug)]
 pub enum AttributeModifier {
     /// `i`
@@ -168,21 +168,21 @@ pub enum AttributeModifier {
     S,
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-pseudo-class-selector
+/// <https://drafts.csswg.org/selectors/#typedef-pseudo-class-selector>
 #[derive(Clone, Debug)]
 pub enum PseudoClassSelector {
     Name(String),
     Function(Function, ComponentValue),
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-pseudo-element-selector
+/// <https://drafts.csswg.org/selectors/#typedef-pseudo-element-selector>
 #[derive(Clone, Debug)]
 pub enum PseudoElementSelector {
     PseudoClass(PseudoClassSelector),
     Legacy(LegacyPseudoElementSelector),
 }
 
-/// https://drafts.csswg.org/selectors/#typedef-legacy-pseudo-element-selector
+/// <https://drafts.csswg.org/selectors/#typedef-legacy-pseudo-element-selector>
 #[derive(Clone, Copy, Debug)]
 pub enum LegacyPseudoElementSelector {
     /// `:before`

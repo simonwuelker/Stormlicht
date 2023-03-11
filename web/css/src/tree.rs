@@ -16,14 +16,14 @@ pub enum BlockDelimiter {
     Parenthesis,
 }
 
-/// https://drafts.csswg.org/css-syntax/#simple-block
+/// <https://drafts.csswg.org/css-syntax/#simple-block>
 #[derive(Clone, Debug)]
 pub struct SimpleBlock {
     delimiter: BlockDelimiter,
     value: Vec<ComponentValue>,
 }
 
-/// https://drafts.csswg.org/css-syntax/#function
+/// <https://drafts.csswg.org/css-syntax/#function>
 #[derive(Clone, Debug)]
 pub struct Function {
     name: String,
@@ -37,7 +37,7 @@ pub enum ComponentValue {
     Token(PreservedToken),
 }
 
-/// https://drafts.csswg.org/css-syntax/#preserved-tokens
+/// <https://drafts.csswg.org/css-syntax/#preserved-tokens>
 #[derive(Clone, Debug, PartialEq)]
 pub enum PreservedToken {
     Ident(String),
@@ -63,7 +63,7 @@ pub enum PreservedToken {
     EOF,
 }
 
-/// https://drafts.csswg.org/css-syntax/#declaration
+/// <https://drafts.csswg.org/css-syntax/#declaration>
 #[derive(Clone, Debug)]
 pub struct Declaration {
     name: String,
@@ -71,7 +71,7 @@ pub struct Declaration {
     is_important: bool,
 }
 
-/// https://drafts.csswg.org/css-syntax/#at-rule
+/// <https://drafts.csswg.org/css-syntax/#at-rule>
 #[derive(Clone, Debug)]
 pub struct AtRule {
     name: String,
@@ -79,7 +79,7 @@ pub struct AtRule {
     block: Option<SimpleBlock>,
 }
 
-/// https://drafts.csswg.org/css-syntax/#qualified-rule
+/// <https://drafts.csswg.org/css-syntax/#qualified-rule>
 #[derive(Clone, Debug)]
 pub struct QualifiedRule {
     prelude: Vec<ComponentValue>,
