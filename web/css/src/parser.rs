@@ -152,6 +152,8 @@ impl<'a> Parser<'a> {
             match self.next_token() {
                 Token::EOF => {
                     // This is a parse error.
+                    log::warn!(target: "css", "Parse Error: EOF in qualified rule");
+
                     // Return nothing.
                     return None;
                 },
@@ -159,6 +161,8 @@ impl<'a> Parser<'a> {
                     // If mixed with declarations is true
                     if mixed_with_declarations == MixedWithDeclarations::True {
                         // this is a parse error;
+                        log::warn!(target: "css", "Parse Error: Semicolon in qualified rule with mixed_with_declarations=true");
+
                         // return nothing.
                         return None;
                     }
@@ -208,6 +212,8 @@ impl<'a> Parser<'a> {
                 },
                 Token::EOF => {
                     // This is a parse error.
+                    log::warn!(target: "css", "Parse Error: EOF in @Rule");
+
                     // Return the at-rule.
                     return Rule::AtRule(AtRule::new(name, prelude, block));
                 },
@@ -233,7 +239,6 @@ impl<'a> Parser<'a> {
     }
 
     /// https://drafts.csswg.org/css-syntax/#consume-a-simple-block
-    #[allow(clippy::if_same_then_else)]
     pub fn consume_simple_block(&mut self, delimiter: BlockDelimiter) -> SimpleBlock {
         // The ending token is the mirror variant of the current input token.
         let end_token = delimiter.end_token();
@@ -250,6 +255,8 @@ impl<'a> Parser<'a> {
                 return SimpleBlock::new(delimiter, value);
             } else if next_token == Token::EOF {
                 // This is a parse error.
+                log::warn!(target: "css", "Parse Error: EOF in simple block");
+
                 // Return the block.
                 return SimpleBlock::new(delimiter, value);
             } else {
@@ -297,6 +304,8 @@ impl<'a> Parser<'a> {
                 },
                 Token::EOF => {
                     // This is a parse error.
+                    log::warn!(target: "css", "Parse Error: EOF in function");
+
                     // Return the function.
                     return Function::new(name, value);
                 },

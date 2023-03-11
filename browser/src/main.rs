@@ -48,6 +48,10 @@ pub fn main() -> Result<()> {
         return Err(anyhow!("Refusing to run as root"));
     }
 
+    env_logger::Builder::new()
+        .filter_level(log::LevelFilter::Info)
+        .init();
+
     let arguments = match ArgumentParser::parse() {
         Ok(arguments) => arguments,
         Err(_) => {
