@@ -240,6 +240,8 @@ impl<'a> Tokenizer<'a> {
             },
             None => {
                 // This is a parse error.
+                log::warn!(target: "css", "Parse Error: EOF in escaped codepoint");
+
                 // Return U+FFFD REPLACEMENT CHARACTER (�).
                 REPLACEMENT
             },
@@ -400,6 +402,8 @@ impl<'a> Tokenizer<'a> {
                 },
                 None => {
                     // This is a parse error.
+                    log::warn!(target: "css", "Parse Error: EOF in URL token");
+
                     // Return the <url-token>.
                     return Token::URI(Cow::Owned(value));
                 },
@@ -412,7 +416,11 @@ impl<'a> Tokenizer<'a> {
                         // consume it
                         self.advance(1);
 
-                        // and return the <url-token> (if EOF was encountered, this is a parse error)
+                        // and return the <url-token>
+                        // (if EOF was encountered, this is a parse error)
+                        if self.peek_codepoint(0).is_none() {
+                            log::warn!(target: "css", "Parse Error: EOF in URL token");
+                        }
                         return Token::URI(Cow::Owned(value));
                     }
                     // otherwise,
@@ -425,9 +433,17 @@ impl<'a> Tokenizer<'a> {
                     }
                 },
                 Some(
-                    '"' | APOSTROPHE | '(' | '\x00'..='\x08' | '\x0b' | '\x0e'..='\x1f' | '\x7f',
+                    c @ ('"'
+                    | APOSTROPHE
+                    | '('
+                    | '\x00'..='\x08'
+                    | '\x0b'
+                    | '\x0e'..='\x1f'
+                    | '\x7f'),
                 ) => {
                     // This is a parse error.
+                    log::warn!(target: "css", "Parse Error: Illegal character {c:?} in URL token");
+
                     // Consume the remnants of a bad url
                     self.consume_remnants_of_a_bad_url();
 
@@ -446,6 +462,8 @@ impl<'a> Tokenizer<'a> {
                     // Otherwise,
                     else {
                         // This is a parse error.
+                        log::warn!(target: "css", "Parse Error: Backslash character is not a valid escape start");
+
                         // Consume the remnants of a bad url
                         self.consume_remnants_of_a_bad_url();
 
@@ -539,6 +557,8 @@ impl<'a> Tokenizer<'a> {
                 },
                 Some(NEWLINE) => {
                     // This is a parse error.
+                    log::warn!(target: "css", "Parse Error: Newline in string token");
+
                     // Reconsume the current input code point
                     self.reconsume();
 
@@ -569,7 +589,10 @@ impl<'a> Tokenizer<'a> {
                 },
                 None => {
                     // This is a parse error.
+                    log::warn!(target: "css", "Parse Error: EOF in string token");
+
                     // Return the <string-token>.
+                    return Token::String(Cow::Owned(string));
                 },
             }
         }
@@ -590,13 +613,18 @@ impl<'a> Tokenizer<'a> {
                             break;
                         }
                     },
-                    None => break,
+                    None => {
+                        log::warn!(target: "css", "Parse Error: EOF in comment");
+                        break;
+                    },
                     _ => {},
                 }
             }
             // Return to the start of this step.
         }
+
         // If the preceding paragraph ended by consuming an EOF code point, this is a parse error.
+        // NOTE: we report the error above
 
         // Return nothing.
     }
@@ -798,6 +826,8 @@ impl<'a> Tokenizer<'a> {
                 // Otherwise,
                 else {
                     // this is a parse error.
+                    log::warn!(target: "css", "Parse Error: Backslash character is not a valid escape start");
+
                     // Return a <delim-token> with its value set to the current input code point.
                     Token::Delim(BACKSLASH)
                 }
