@@ -195,22 +195,14 @@ pub enum LegacyPseudoElementSelector {
     FirstLetter,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct ParseError;
+pub trait CssGrammar: Sized {
+    type ParseError = ();
 
-pub trait Parseable: Sized {
-    fn parse(bytes: &[u8]) -> Result<Self, ParseError> {
-        let compound_values = crate::parser::parse_list_of_component_values(bytes);
-        Self::parse_from_component_values(&compound_values)
-    }
-
-    fn parse_from_component_values(compound_values: &[ComponentValue]) -> Result<Self, ParseError>;
+    fn parse(component_values: &[ComponentValue]) -> Result<Self, Self::ParseError>;
 }
 
-impl Parseable for ComplexSelectorList {
-    fn parse_from_component_values(
-        _compound_values: &[ComponentValue],
-    ) -> Result<Self, ParseError> {
+impl CssGrammar for ComplexSelectorList {
+    fn parse(_component_values: &[ComponentValue]) -> Result<Self, Self::ParseError> {
         todo!()
     }
 }

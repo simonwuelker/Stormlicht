@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use url::URL;
 
 use crate::{
+    selectors::CssGrammar,
     stylesheet::Stylesheet,
     tokenizer::{Token, Tokenizer},
     tree::{
@@ -58,6 +59,28 @@ pub fn parse_stylesheet(bytes: &[u8], location: Option<URL>) -> Stylesheet {
     stylesheet
 }
 
+/// <https://drafts.csswg.org/css-syntax-3/#css-parse-a-comma-separated-list-according-to-a-css-grammar>
+pub fn parse_comma_seperated_list_according_to_css_grammar<G: CssGrammar>(
+    bytes: &[u8],
+) -> Vec<Result<G, G::ParseError>> {
+    // Normalize input, and set input to the result.
+    // NOTE: parse_comma_seperated_list_of_component_values takes care of that
+
+    // FIXME If input contains only <whitespace-token>s, return an empty list.
+
+    // Parse a comma-separated list of component values from input, and let list be the return value.
+    let component_value_lists = parse_comma_seperated_list_of_component_values(bytes);
+
+    // For each item of list, replace item with the result of parsing item with grammar.
+    let mut parsed_items = Vec::with_capacity(component_value_lists.len());
+    for component_values in component_value_lists {
+        parsed_items.push(G::parse(&component_values))
+    }
+
+    // Return list.
+    parsed_items
+}
+
 /// <https://drafts.csswg.org/css-syntax-3/#parse-a-list-of-component-values>
 pub fn parse_list_of_component_values(bytes: &[u8]) -> Vec<ComponentValue> {
     let input = decode_bytes(bytes); // The spec doesn't specify this part
@@ -79,6 +102,40 @@ pub fn parse_list_of_component_values(bytes: &[u8]) -> Vec<ComponentValue> {
 
     // Return the list.
     values
+}
+
+/// <https://drafts.csswg.org/css-syntax-3/#parse-a-comma-separated-list-of-component-values>
+fn parse_comma_seperated_list_of_component_values(bytes: &[u8]) -> Vec<Vec<ComponentValue>> {
+    let input = decode_bytes(bytes); // The spec doesn't specify this part
+
+    // Normalize input, and set input to the result.
+    let mut parser = Parser::new(&input);
+
+    // Let list of cvls be an initially empty list of component value lists.
+    let mut component_value_lists = vec![];
+
+    let mut done = false;
+    while !done {
+        let mut component_values = vec![];
+        loop {
+            // Repeatedly consume a component value from input until an <EOF-token> or <comma-token> is returned,
+            // appending the returned values (except the final <EOF-token> or <comma-token>) into a list.
+            match parser.consume_component_value() {
+                ComponentValue::Token(PreservedToken::EOF) => {
+                    done = true;
+                    break;
+                },
+                ComponentValue::Token(PreservedToken::Comma) => break,
+                other => component_values.push(other),
+            }
+        }
+
+        // Append the list to list of cvls.
+        component_value_lists.push(component_values);
+    }
+
+    // Return list of cvls.
+    component_value_lists
 }
 
 impl<'a> Parser<'a> {
