@@ -44,24 +44,47 @@ pub fn parse_stylesheet(bytes: &[u8], location: Option<URL>) -> Stylesheet {
     // If input is a byte stream for stylesheet, decode bytes from input, and set input to the result.
     let input = decode_bytes(bytes);
 
-    // If input is a byte stream for stylesheet, decode bytes from input, and set input to the result.
+    // Normalize input, and set input to the result.
     // See https://drafts.csswg.org/css-syntax/#normalize-into-a-token-stream
-    let tokenizer = Tokenizer::new(&input);
+    let mut parser = Parser::new(&input);
 
     // Create a new stylesheet, with its location set to location (or null, if location was not passed).
     let mut stylesheet = Stylesheet::new(location);
 
     // Consume a list of rules from input, with the top-level flag set, and set the stylesheet’s value to the result.
-    stylesheet.rules = Parser::new(tokenizer).consume_list_of_rules(TopLevel::True);
+    stylesheet.rules = parser.consume_list_of_rules(TopLevel::True);
 
     // Return the stylesheet.
     stylesheet
 }
 
+// https://drafts.csswg.org/css-syntax-3/#parse-a-list-of-component-values
+pub fn parse_list_of_component_values(bytes: &[u8]) -> Vec<ComponentValue> {
+    let input = decode_bytes(bytes); // The spec doesn't specify this part
+
+    // Normalize input, and set input to the result.
+    let mut parser = Parser::new(&input);
+
+    // Repeatedly consume a component value from input until an <EOF-token> is returned, appending the returned values (except the final <EOF-token>) into a list.
+    let mut values = vec![];
+    loop {
+        let component_value = parser.consume_component_value();
+
+        if let ComponentValue::Token(PreservedToken::EOF) = component_value {
+            break;
+        }
+
+        values.push(component_value);
+    }
+
+    // Return the list.
+    values
+}
+
 impl<'a> Parser<'a> {
-    fn new(source: Tokenizer<'a>) -> Self {
+    fn new(source: &'a str) -> Self {
         Self {
-            tokenizer: source,
+            tokenizer: Tokenizer::new(source),
             token_to_reconsume: None,
         }
     }

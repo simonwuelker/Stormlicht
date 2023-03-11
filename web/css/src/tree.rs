@@ -38,7 +38,7 @@ pub enum ComponentValue {
 }
 
 /// https://drafts.csswg.org/css-syntax/#preserved-tokens
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PreservedToken {
     Ident(String),
     AtKeyword(String),
@@ -60,6 +60,7 @@ pub enum PreservedToken {
     Whitespace,
     Comma,
     Delim(char),
+    EOF,
 }
 
 /// https://drafts.csswg.org/css-syntax/#declaration
@@ -203,7 +204,7 @@ impl PreservedToken {
     /// # Panic
     /// This function panics if the provided argument is not a valid [PreservedToken].
     /// This is the case for [Token::CurlyBraceOpen], [Token::BracketOpen], [Token::ParenthesisOpen],
-    /// , [Token::Function] and [Token::EOF].
+    /// and [Token::Function].
     #[inline]
     pub fn from_regular_token(regular_token: Token<'_>) -> Self {
         match regular_token {
@@ -227,6 +228,7 @@ impl PreservedToken {
             Token::Whitespace => Self::Whitespace,
             Token::Comma => Self::Comma,
             Token::Delim(char) => Self::Delim(char),
+            Token::EOF => Self::EOF,
             _ => panic!(
                 "Trying to convert from {:?} to preserved token",
                 regular_token
