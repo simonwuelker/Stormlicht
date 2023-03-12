@@ -1,6 +1,6 @@
 //! <https://drafts.csswg.org/selectors/#grammar>
 
-use crate::tree::{ComponentValue, Function};
+use crate::tree::ComponentValue;
 
 /// <https://drafts.csswg.org/selectors/#typedef-selector-list>
 pub type SelectorList = ComplexSelectorList;
@@ -172,7 +172,7 @@ pub enum AttributeModifier {
 #[derive(Clone, Debug)]
 pub enum PseudoClassSelector {
     Name(String),
-    Function(Function, ComponentValue),
+    Function(String, ()),
 }
 
 /// <https://drafts.csswg.org/selectors/#typedef-pseudo-element-selector>
