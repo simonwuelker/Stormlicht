@@ -46,7 +46,6 @@ pub enum Token<'a> {
     Whitespace,
     Function(Cow<'a, str>),
     Comma,
-    EOF,
     Delim(char),
 }
 
@@ -632,9 +631,13 @@ impl<'a> Tokenizer<'a> {
     fn advance(&mut self, n: usize) {
         self.position += n;
     }
+}
 
-    /// <https://drafts.csswg.org/css-syntax/#consume-token>
-    pub fn next_token(&mut self) -> Token<'a> {
+impl<'a> Iterator for Tokenizer<'a> {
+    type Item = Token<'a>;
+
+    // <https://drafts.csswg.org/css-syntax/#consume-token>
+    fn next(&mut self) -> Option<Self::Item> {
         // Consume comments.
         self.consume_comments();
 
@@ -645,12 +648,12 @@ impl<'a> Tokenizer<'a> {
                 self.consume_whitespace();
 
                 // Return a <whitespace-token>.
-                Token::Whitespace
+                Some(Token::Whitespace)
             },
 
             Some('"') => {
                 // Consume a string token and return it.
-                self.consume_string_token('"')
+                Some(self.consume_string_token('"'))
             },
 
             Some('#') => {
@@ -669,29 +672,29 @@ impl<'a> Tokenizer<'a> {
                         let value = self.consume_ident_sequence();
 
                         // Return the <hash-token>.
-                        Token::Hash(Cow::Owned(value), hash_flag)
+                        Some(Token::Hash(Cow::Owned(value), hash_flag))
                     },
                     // Otherwise
                     _ => {
                         // return a <delim-token> with its value set to the current input code point.
-                        Token::Delim('#')
+                        Some(Token::Delim('#'))
                     },
                 }
             },
 
             Some(APOSTROPHE) => {
                 // Consume a string token and return it.
-                self.consume_string_token(APOSTROPHE)
+                Some(self.consume_string_token(APOSTROPHE))
             },
 
             Some('(') => {
                 // Return a <(-token>.
-                Token::ParenthesisOpen
+                Some(Token::ParenthesisOpen)
             },
 
             Some(')') => {
                 // Return a <)-token>.
-                Token::ParenthesisClose
+                Some(Token::ParenthesisClose)
             },
 
             Some('+') => {
@@ -701,18 +704,18 @@ impl<'a> Tokenizer<'a> {
                     self.reconsume();
 
                     // consume a numeric token, and return it
-                    self.consume_numeric_token()
+                    Some(self.consume_numeric_token())
                 }
                 // Otherwise,
                 else {
                     // return a <delim-token> with its value set to the current input code point.
-                    Token::Delim('+')
+                    Some(Token::Delim('+'))
                 }
             },
 
             Some(',') => {
                 // Return a <comma-token>.
-                Token::Comma
+                Some(Token::Comma)
             },
 
             Some('-') => {
@@ -722,7 +725,7 @@ impl<'a> Tokenizer<'a> {
                     self.reconsume();
 
                     // consume a numeric token, and return it.
-                    self.consume_numeric_token()
+                    Some(self.consume_numeric_token())
                 }
                 // Otherwise, if the next 2 input code points are U+002D HYPHEN-MINUS U+003E GREATER-THAN SIGN (->)
                 else if self.peek_codepoint(0) == Some('-') && self.peek_codepoint(1) == Some('>')
@@ -731,7 +734,7 @@ impl<'a> Tokenizer<'a> {
                     self.advance(2);
 
                     // and return a <CDC-token>.
-                    Token::CommentDeclarationClose
+                    Some(Token::CommentDeclarationClose)
                 }
                 // Otherwise, if the input stream starts with an ident sequence
                 else if self.is_valid_ident_start() {
@@ -739,12 +742,12 @@ impl<'a> Tokenizer<'a> {
                     self.reconsume();
 
                     // consume an ident-like token, and return it.
-                    self.consume_ident_like_token()
+                    Some(self.consume_ident_like_token())
                 }
                 // Otherwise,
                 else {
                     // return a <delim-token> with its value set to the current input code point.
-                    Token::Delim('-')
+                    Some(Token::Delim('-'))
                 }
             },
 
@@ -755,23 +758,23 @@ impl<'a> Tokenizer<'a> {
                     self.reconsume();
 
                     // consume a numeric token, and return it.
-                    self.consume_numeric_token()
+                    Some(self.consume_numeric_token())
                 }
                 // Otherwise,
                 else {
                     // return a <delim-token> with its value set to the current input code point.
-                    Token::Delim('.')
+                    Some(Token::Delim('.'))
                 }
             },
 
             Some(':') => {
                 // Return a <colon-token>.
-                Token::Colon
+                Some(Token::Colon)
             },
 
             Some(';') => {
                 // Return a <semicolon-token>.
-                Token::Semicolon
+                Some(Token::Semicolon)
             },
 
             Some('<') => {
@@ -784,12 +787,12 @@ impl<'a> Tokenizer<'a> {
                     self.advance(3);
 
                     // and return a <CDO-token>.
-                    Token::CommentDeclarationOpen
+                    Some(Token::CommentDeclarationOpen)
                 }
                 // Otherwise,
                 else {
                     // return a <delim-token> with its value set to the current input code point.
-                    Token::Delim('<')
+                    Some(Token::Delim('<'))
                 }
             },
 
@@ -800,18 +803,18 @@ impl<'a> Tokenizer<'a> {
                     let value = self.consume_ident_sequence();
 
                     // create an <at-keyword-token> with its value set to the returned value, and return it.
-                    Token::AtKeyword(Cow::Owned(value))
+                    Some(Token::AtKeyword(Cow::Owned(value)))
                 }
                 // Otherwise,
                 else {
                     // return a <delim-token> with its value set to the current input code point.
-                    Token::Delim('@')
+                    Some(Token::Delim('@'))
                 }
             },
 
             Some('[') => {
                 // Return a <[-token>.
-                Token::BracketOpen
+                Some(Token::BracketOpen)
             },
 
             Some(BACKSLASH) => {
@@ -821,7 +824,7 @@ impl<'a> Tokenizer<'a> {
                     self.reconsume();
 
                     // consume an ident-like token, and return it.
-                    self.consume_ident_like_token()
+                    Some(self.consume_ident_like_token())
                 }
                 // Otherwise,
                 else {
@@ -829,23 +832,23 @@ impl<'a> Tokenizer<'a> {
                     log::warn!(target: "css", "Parse Error: Backslash character is not a valid escape start");
 
                     // Return a <delim-token> with its value set to the current input code point.
-                    Token::Delim(BACKSLASH)
+                    Some(Token::Delim(BACKSLASH))
                 }
             },
 
             Some(']') => {
                 // Return a <]-token>.
-                Token::BracketClose
+                Some(Token::BracketClose)
             },
 
             Some('{') => {
                 // Return a <{-token>.
-                Token::CurlyBraceOpen
+                Some(Token::CurlyBraceOpen)
             },
 
             Some('}') => {
                 // Return a <}-token>.
-                Token::CurlyBraceClose
+                Some(Token::CurlyBraceClose)
             },
 
             Some('0'..='9') => {
@@ -853,7 +856,7 @@ impl<'a> Tokenizer<'a> {
                 self.reconsume();
 
                 // consume a numeric token, and return it.
-                self.consume_numeric_token()
+                Some(self.consume_numeric_token())
             },
 
             Some(c) if is_ident_start_code_point(c) => {
@@ -861,15 +864,15 @@ impl<'a> Tokenizer<'a> {
                 self.reconsume();
 
                 // consume an ident-like token, and return it.
-                self.consume_ident_like_token()
+                Some(self.consume_ident_like_token())
             },
-
-            None => Token::EOF,
 
             Some(c) => {
                 // Return a <delim-token> with its value set to the current input code point.
-                Token::Delim(c)
+                Some(Token::Delim(c))
             },
+
+            None => None,
         }
     }
 }

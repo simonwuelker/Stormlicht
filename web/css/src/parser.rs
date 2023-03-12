@@ -93,7 +93,7 @@ pub fn parse_list_of_component_values(bytes: &[u8]) -> Vec<ComponentValue> {
     loop {
         let component_value = parser.consume_component_value();
 
-        if let ComponentValue::Token(PreservedToken::EOF) = component_value {
+        if let ComponentValue::EOF = component_value {
             break;
         }
 
@@ -121,7 +121,7 @@ fn parse_comma_seperated_list_of_component_values(bytes: &[u8]) -> Vec<Vec<Compo
             // Repeatedly consume a component value from input until an <EOF-token> or <comma-token> is returned,
             // appending the returned values (except the final <EOF-token> or <comma-token>) into a list.
             match parser.consume_component_value() {
-                ComponentValue::Token(PreservedToken::EOF) => {
+                ComponentValue::EOF => {
                     done = true;
                     break;
                 },
@@ -146,17 +146,20 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn next_token(&mut self) -> Token<'a> {
-        match self.token_to_reconsume.take() {
-            Some(token) => token,
-            None => self.tokenizer.next_token(),
+    fn next_token(&mut self) -> Option<Token<'a>> {
+        if self.token_to_reconsume.is_some() {
+            self.token_to_reconsume.take()
+        } else {
+            self.tokenizer.next()
         }
     }
 
     /// <https://drafts.csswg.org/css-syntax/#reconsume-the-current-input-token>
-    fn reconsume(&mut self, token: Token<'a>) {
+    /// The reason this takes an `Option<Token>` instead of just a `Token` is
+    /// that a lot of algorithms reconsume `EOF` (`None`) tokens
+    fn reconsume(&mut self, token: Option<Token<'a>>) {
         debug_assert!(self.token_to_reconsume.is_none());
-        self.token_to_reconsume = Some(token);
+        self.token_to_reconsume = token;
     }
 
     /// <https://drafts.csswg.org/css-syntax/#consume-list-of-rules>
@@ -167,14 +170,14 @@ impl<'a> Parser<'a> {
         // Repeatedly consume the next input token:
         loop {
             match self.next_token() {
-                Token::Whitespace => {
+                Some(Token::Whitespace) => {
                     // Do nothing.
                 },
-                Token::EOF => {
+                None => {
                     // Return the list of rules.
                     return rules;
                 },
-                token @ (Token::CommentDeclarationOpen | Token::CommentDeclarationClose) => {
+                token @ Some(Token::CommentDeclarationOpen | Token::CommentDeclarationClose) => {
                     // If the top-level flag is set,
                     if top_level == TopLevel::True {
                         // do nothing.
@@ -193,7 +196,7 @@ impl<'a> Parser<'a> {
                         }
                     }
                 },
-                token @ Token::AtKeyword(_) => {
+                token @ Some(Token::AtKeyword(_)) => {
                     // Reconsume the current input token
                     self.reconsume(token);
 
@@ -230,14 +233,14 @@ impl<'a> Parser<'a> {
         // Repeatedly consume the next input token:
         loop {
             match self.next_token() {
-                Token::EOF => {
+                None => {
                     // This is a parse error.
                     log::warn!(target: "css", "Parse Error: EOF in qualified rule");
 
                     // Return nothing.
                     return None;
                 },
-                Token::Semicolon => {
+                Some(Token::Semicolon) => {
                     // If mixed with declarations is true
                     if mixed_with_declarations == MixedWithDeclarations::True {
                         // this is a parse error;
@@ -252,7 +255,7 @@ impl<'a> Parser<'a> {
                         prelude.push(ComponentValue::Token(PreservedToken::Semicolon));
                     }
                 },
-                Token::CurlyBraceOpen => {
+                Some(Token::CurlyBraceOpen) => {
                     // Consume a simple block and assign it to the qualified rule’s block
                     let block = self.consume_simple_block(BlockDelimiter::CurlyBrace);
 
@@ -286,18 +289,18 @@ impl<'a> Parser<'a> {
         // Repeatedly consume the next input token:
         loop {
             match self.next_token() {
-                Token::Semicolon => {
+                Some(Token::Semicolon) => {
                     // Return the at-rule.
                     return Rule::AtRule(AtRule::new(name, prelude, block));
                 },
-                Token::EOF => {
+                None => {
                     // This is a parse error.
                     log::warn!(target: "css", "Parse Error: EOF in @Rule");
 
                     // Return the at-rule.
                     return Rule::AtRule(AtRule::new(name, prelude, block));
                 },
-                Token::CurlyBraceOpen => {
+                Some(Token::CurlyBraceOpen) => {
                     // Consume a simple block and assign it to the at-rule’s block.
                     block = Some(self.consume_simple_block(BlockDelimiter::CurlyBrace))
 
@@ -330,13 +333,13 @@ impl<'a> Parser<'a> {
         loop {
             let next_token = self.next_token();
 
-            if next_token == end_token {
-                // Return the block.
-                return SimpleBlock::new(delimiter, value);
-            } else if next_token == Token::EOF {
+            if next_token.is_none() {
                 // This is a parse error.
                 log::warn!(target: "css", "Parse Error: EOF in simple block");
 
+                // Return the block.
+                return SimpleBlock::new(delimiter, value);
+            } else if next_token.as_ref().unwrap() == &end_token {
                 // Return the block.
                 return SimpleBlock::new(delimiter, value);
             } else {
@@ -354,19 +357,20 @@ impl<'a> Parser<'a> {
         // Consume the next input token.
         match self.next_token() {
             // If the current input token is a <{-token>, <[-token>, or <(-token>, consume a simple block and return it.
-            Token::CurlyBraceOpen => {
+            Some(Token::CurlyBraceOpen) => {
                 ComponentValue::Block(self.consume_simple_block(BlockDelimiter::CurlyBrace))
             },
-            Token::BracketOpen => {
+            Some(Token::BracketOpen) => {
                 ComponentValue::Block(self.consume_simple_block(BlockDelimiter::Bracket))
             },
-            Token::ParenthesisOpen => {
+            Some(Token::ParenthesisOpen) => {
                 ComponentValue::Block(self.consume_simple_block(BlockDelimiter::Parenthesis))
             },
-            Token::Function(name) => {
+            Some(Token::Function(name)) => {
                 ComponentValue::Function(self.consume_function(name.into_owned()))
             },
-            other => ComponentValue::Token(PreservedToken::from_regular_token(other)),
+            Some(other) => ComponentValue::Token(PreservedToken::from_regular_token(other)),
+            None => ComponentValue::EOF,
         }
     }
 
@@ -378,11 +382,11 @@ impl<'a> Parser<'a> {
         // Repeatedly consume the next input token and process it as follows:
         loop {
             match self.next_token() {
-                Token::ParenthesisClose => {
+                Some(Token::ParenthesisClose) => {
                     // Return the function.
                     return Function::new(name, value);
                 },
-                Token::EOF => {
+                None => {
                     // This is a parse error.
                     log::warn!(target: "css", "Parse Error: EOF in function");
 

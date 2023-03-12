@@ -35,6 +35,7 @@ pub enum ComponentValue {
     Block(SimpleBlock),
     Function(Function),
     Token(PreservedToken),
+    EOF,
 }
 
 /// <https://drafts.csswg.org/css-syntax/#preserved-tokens>
@@ -60,7 +61,6 @@ pub enum PreservedToken {
     Whitespace,
     Comma,
     Delim(char),
-    EOF,
 }
 
 /// <https://drafts.csswg.org/css-syntax/#declaration>
@@ -228,7 +228,6 @@ impl PreservedToken {
             Token::Whitespace => Self::Whitespace,
             Token::Comma => Self::Comma,
             Token::Delim(char) => Self::Delim(char),
-            Token::EOF => Self::EOF,
             _ => panic!(
                 "Trying to convert from {:?} to preserved token",
                 regular_token
