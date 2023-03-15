@@ -4,6 +4,7 @@ members = [
     "web/http", 
     "web/url",
     "web/dns",
+    "web/dom",
     "web/dom-derive",
     "compression",
     "util/random",

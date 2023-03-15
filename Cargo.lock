@@ -237,6 +237,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "dom"
+version = "0.1.0"
+dependencies = [
+ "dom-derive",
+]
+
+[[package]]
 name = "dom-derive"
 version = "0.1.0"
 dependencies = [
