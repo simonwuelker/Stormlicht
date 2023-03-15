@@ -3,6 +3,11 @@ use quote::quote;
 
 #[proc_macro_attribute]
 pub fn inherit(attr: TokenStream, item: TokenStream) -> TokenStream {
+    if attr.is_empty() {
+        // This is a root object that does not inherit from anything
+        return item;
+    }
+
     // The attribute must only contain the name of the struct to inherit
     let parent_type_ident: syn::Ident =
         syn::parse(attr).expect("Expected a struct ident as inherit argument");
