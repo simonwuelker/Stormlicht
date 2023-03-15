@@ -7,3 +7,7 @@ edition = "2021"
 
 [dependencies]
 dom-derive = { path = "../dom-derive"}
+
+[build-dependencies]
+syn = "1"
+proc-macro2 = "1"

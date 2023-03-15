@@ -241,6 +241,8 @@ name = "dom"
 version = "0.1.0"
 dependencies = [
  "dom-derive",
+ "proc-macro2",
+ "syn",
 ]
 
 [[package]]
