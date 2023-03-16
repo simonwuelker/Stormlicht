@@ -3,17 +3,22 @@ use quote::quote;
 
 #[proc_macro_attribute]
 pub fn inherit(attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Parse the child struct declaration
+    let mut struct_declaration: syn::ItemStruct = syn::parse(item).unwrap();
+
     if attr.is_empty() {
         // This is a root object that does not inherit from anything
-        return item;
+        return quote!(
+            #[repr(C)]
+            #[derive(Default, Debug)]
+            #struct_declaration
+        )
+        .into();
     }
 
     // The attribute must only contain the name of the struct to inherit
     let parent_type_ident: syn::Ident =
         syn::parse(attr).expect("Expected a struct ident as inherit argument");
-
-    // Parse the child struct declaration
-    let mut struct_declaration: syn::ItemStruct = syn::parse(item).unwrap();
 
     // Inject our parent struct field
     // TODO: the way we parse the struct field is a bit janky,
@@ -35,6 +40,7 @@ pub fn inherit(attr: TokenStream, item: TokenStream) -> TokenStream {
     let struct_ident = &struct_declaration.ident;
     quote!(
         #[repr(C)]
+        #[derive(Default, Debug)]
         #struct_declaration
 
         #[automatically_derived]

@@ -2,7 +2,7 @@ use dom_derive::inherit;
 
 use crate::DOMPtr;
 
-/// https://dom.spec.whatwg.org/#interface-node
+/// <https://dom.spec.whatwg.org/#interface-node>
 #[inherit]
 pub struct Node {
     parent_node: Option<DOMPtr<Node>>,
