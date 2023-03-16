@@ -26,7 +26,7 @@ const HEADINGS: [DOMNodeType; 6] = [
 ];
 
 #[derive(Debug, Clone, Copy)]
-/// https://html.spec.whatwg.org/multipage/parsing.html#parse-state
+/// <https://html.spec.whatwg.org/multipage/parsing.html#parse-state>
 pub enum InsertionMode {
     Initial,
     BeforeHtml,
@@ -99,17 +99,17 @@ impl<'source> Parser<'source> {
         self.consume_in_mode(self.insertion_mode, token);
     }
 
-    // https://html.spec.whatwg.org/multipage/parsing.html#creating-and-inserting-nodes
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#creating-and-inserting-nodes>
     fn appropriate_place_for_inserting_node(&self) -> SharedDOMNode {
         self.appropriate_place_for_inserting_node_with_override(None)
     }
 
-    // https://html.spec.whatwg.org/multipage/parsing.html#insert-a-character
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-a-character>
     pub fn insert_character(&self, c: char) {
         DOMNode::insert_character(self.appropriate_place_for_inserting_node(), c);
     }
 
-    // https://html.spec.whatwg.org/multipage/parsing.html#creating-and-inserting-nodes
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#creating-and-inserting-nodes>
     fn appropriate_place_for_inserting_node_with_override(
         &self,
         override_target: Option<SharedDOMNode>,
@@ -134,7 +134,7 @@ impl<'source> Parser<'source> {
         adjusted_insertion_location.clone()
     }
 
-    // https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment>
     fn insert_comment_at(&mut self, data: String, at: Option<SharedDOMNode>) {
         // Let data be the data given in the comment token being processed.
 
@@ -155,12 +155,12 @@ impl<'source> Parser<'source> {
         )
     }
 
-    // https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment>
     fn insert_comment(&mut self, data: String) {
         self.insert_comment_at(data, None);
     }
 
-    // https://html.spec.whatwg.org/multipage/parsing.html#parsing-elements-that-contain-only-text
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#parsing-elements-that-contain-only-text>
     fn generic_rcdata_element_parsing_algorithm(&mut self, tagdata: TagData) {
         // Insert an HTML element for the token.
         self.insert_html_element_for_token(&tagdata);
@@ -175,7 +175,7 @@ impl<'source> Parser<'source> {
         self.insertion_mode = InsertionMode::Text;
     }
 
-    // https://html.spec.whatwg.org/multipage/parsing.html#parsing-elements-that-contain-only-text
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#parsing-elements-that-contain-only-text>
     fn generic_raw_text_element_parsing_algorithm(&mut self, tagdata: TagData) {
         // Insert an HTML element for the token.
         let domnode = DOMNode::from(tagdata).to_shared();
@@ -191,7 +191,7 @@ impl<'source> Parser<'source> {
         self.insertion_mode = InsertionMode::Text;
     }
 
-    /// https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-scope
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-scope>
     fn is_element_in_scope(&self, target_node_type: &DOMNodeType, scope: Vec<DOMNodeType>) -> bool {
         // The stack of open elements is said to have an element target node in a specific scope
         // consisting of a list of element types list when the following algorithm terminates in a
@@ -221,7 +221,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    /// https://html.spec.whatwg.org/multipage/parsing.html#close-a-p-element
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#close-a-p-element>
     fn close_p_element(&mut self) {
         self.generate_implied_end_tags_excluding(Some(DOMNodeType::P));
         // Pop elements from the stack of open elements until a p element has been popped from the
@@ -233,12 +233,12 @@ impl<'source> Parser<'source> {
         }
     }
 
-    // https://html.spec.whatwg.org/multipage/parsing.html#closing-elements-that-have-implied-end-tags
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#closing-elements-that-have-implied-end-tags>
     fn generate_implied_end_tags(&mut self) {
         self.generate_implied_end_tags_excluding(None);
     }
 
-    // https://html.spec.whatwg.org/multipage/parsing.html#closing-elements-that-have-implied-end-tags
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#closing-elements-that-have-implied-end-tags>
     fn generate_implied_end_tags_excluding(&mut self, exclude: Option<DOMNodeType>) {
         // pop as long as the node type is in a give set of types excluding an (optional) value
         loop {
@@ -252,7 +252,7 @@ impl<'source> Parser<'source> {
         }
     }
 
-    // https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token>
     fn create_html_element_for_token(&self, tagdata: &TagData) -> SharedDOMNode {
         // TODO there's a long algorithm here and we don't support 99% of it. Implement the rest
         let mut html_element = DOMNode::new(DOMNodeType::from(tagdata.name.as_str()));
@@ -263,6 +263,7 @@ impl<'source> Parser<'source> {
         html_element.to_shared()
     }
 
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-an-html-element>
     fn insert_html_element_for_token(&mut self, tagdata: &TagData) -> Shared<HtmlElement> {
         let html_element = Rc::new(GenericNode::default());
         self.current_node().add_child(html_element.clone());
@@ -270,12 +271,10 @@ impl<'source> Parser<'source> {
         html_element
     }
 
-    // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhtml
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhtml>
     fn consume_in_mode(&mut self, mode: InsertionMode, token: Token) {
-        println!("consuming {token:?} in {mode:?} mode");
-        println!("{:?}", self.open_elements.last());
         match mode {
-            // https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode
+            /// https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode
             InsertionMode::Initial => {
                 match token {
                     Token::Character(TAB | LINE_FEED | FORM_FEED | SPACE) => {
@@ -307,7 +306,7 @@ impl<'source> Parser<'source> {
                     },
                 }
             },
-            // https://html.spec.whatwg.org/multipage/parsing.html#the-before-html-insertion-mode
+            /// https://html.spec.whatwg.org/multipage/parsing.html#the-before-html-insertion-mode
             InsertionMode::BeforeHtml => {
                 match token {
                     Token::Character(TAB | LINE_FEED | FORM_FEED | SPACE) => {

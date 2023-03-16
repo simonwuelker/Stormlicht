@@ -12,85 +12,244 @@ const SPACE: char = '\u{0020}';
 
 #[derive(Debug, Clone, Copy)]
 pub enum TokenizerState {
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#data-state>
     DataState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#rcdata-state>
     RCDATAState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#rawtext-state>
     RAWTEXTState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-state>
     ScriptDataState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#plaintext-state>
     PLAINTEXTState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#tag-open-state>
     TagOpenState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#end-tag-open-state>
     EndTagOpenState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#tag-name-state>
     TagNameState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#rcdata-less-than-sign-state>
     RCDATALessThanSignState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#rcdata-end-tag-open-state>
     RCDATAEndTagOpenState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#rcdata-end-tag-name-state>
     RCDATAEndTagNameState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#rawtext-less-than-sign-state>
     RAWTEXTLessThanSignState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#rawtext-end-tag-open-state>
     RAWTEXTEndTagOpenState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#rawtext-end-tag-name-state>
     RAWTEXTEndTagNameState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-less-than-sign-state>
     ScriptDataLessThanSignState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-end-tag-open-state>
     ScriptDataEndTagOpenState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-end-tag-name-state>
     ScriptDataEndTagNameState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escape-start-state>
     ScriptDataEscapeStartState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escape-start-dash-state>
     ScriptDataEscapeStartDashState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-state>
     ScriptDataEscapedState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-dash-state>
     ScriptDataEscapedDashState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-dash-dash-state>
     ScriptDataEscapedDashDashState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-less-than-sign-state>
     ScriptDataEscapedLessThanSignState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-end-tag-open-state>
     ScriptDataEscapedEndTagOpenState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-end-tag-name-state>
     ScriptDataEscapedEndTagNameState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escape-start-state>
     ScriptDataDoubleEscapeStartState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escaped-state>
     ScriptDataDoubleEscapedState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escaped-dash-state>
     ScriptDataDoubleEscapedDashState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escaped-dash-dash-state>
     ScriptDataDoubleEscapedDashDashState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escaped-less-than-sign-state>
     ScriptDataDoubleEscapedLessThanSignState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escape-end-state>
     ScriptDataDoubleEscapeEndState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#before-attribute-name-state>
     BeforeAttributeNameState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#attribute-name-state>
     AttributeNameState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#after-attribute-name-state>
     AfterAttributeNameState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#before-attribute-value-state>
     BeforeAttributeValueState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#attribute-value-(double-quoted)-state>
     AttributeValueDoublequotedState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#attribute-value-(single-quoted)-state>
     AttributeValueSinglequotedState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#attribute-value-(unquoted)-state>
     AttributeValueUnquotedState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#after-attribute-value-(quoted)-state>
     AfterAttributeValueQuotedState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#self-closing-start-tag-state>
     SelfClosingStartTagState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#bogus-comment-state>
     BogusCommentState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#markup-declaration-open-state>
     MarkupDeclarationOpenState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-start-state>
     CommentStartState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-start-dash-state>
     CommentStartDashState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-state>
     CommentState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-less-than-sign-state>
     CommentLessThanSignState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-less-than-sign-bang-state>
     CommentLessThanSignBangState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-less-than-sign-bang-dash-state>
     CommentLessThanSignBangDashState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-less-than-sign-bang-dash-dash-state>
     CommentLessThanSignBangDashDashState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-end-dash-state>
     CommentEndDashState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-end-state>
     CommentEndState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-end-bang-state>
     CommentEndBangState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#doctype-state>
     DOCTYPEState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#before-doctype-name-state>
     BeforeDOCTYPENameState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#doctype-name-state>
     DOCTYPENameState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-name-state>
     AfterDOCTYPENameState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-public-keyword-state>
     AfterDOCTYPEPublicKeywordState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#before-doctype-public-identifier-state>
     BeforeDOCTYPEPublicIdentifierState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#doctype-public-identifier-(double-quoted)-state>
     DOCTYPEPublicIdentifierDoublequotedState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#doctype-public-identifier-(single-quoted)-state>
     DOCTYPEPublicIdentifierSinglequotedState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-public-identifier-state>
     AfterDOCTYPEPublicIdentifierState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#between-doctype-public-and-system-identifiers-state>
     BetweenDOCTYPEPublicAndSystemIdentifiersState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-system-keyword-state>
     AfterDOCTYPESystemKeywordState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#before-doctype-system-identifier-state>
     BeforeDOCTYPESystemIdentifierState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#doctype-system-identifier-(double-quoted)-state>
     DOCTYPESystemIdentifierDoublequotedState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#doctype-system-identifier-(single-quoted)-state>
     DOCTYPESystemIdentifierSinglequotedState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-system-identifier-state>
     AfterDOCTYPESystemIdentifierState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#bogus-doctype-state>
     BogusDOCTYPEState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#cdata-section-state>
     CDATASectionState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#cdata-section-bracket-state>
     CDATASectionBracketState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#cdata-section-end-state>
     CDATASectionEndState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#character-reference-state>
     CharacterReferenceState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#named-character-reference-state>
     NamedCharacterReferenceState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#ambiguous-ampersand-state>
     AmbiguousAmpersandState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-state>
     NumericCharacterReferenceState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#hexadecimal-character-reference-start-state>
     HexadecimalCharacterReferenceStartState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#decimal-character-reference-start-state>
     DecimalCharacterReferenceStartState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#hexadecimal-character-reference-state>
     HexadecimalCharacterReferenceState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#decimal-character-reference-state>
     DecimalCharacterReferenceState,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-end-state>
     NumericCharacterReferenceEndState,
 }
 
