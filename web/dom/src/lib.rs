@@ -2,9 +2,12 @@
 
 mod codegen;
 pub mod dom_objects;
-mod dom_type;
 
-use std::ops::{Deref, DerefMut};
+use std::{
+    cell::RefCell,
+    ops::Deref,
+    rc::{Rc, Weak},
+};
 
 pub use codegen::{DOMType, DOMTyped};
 
@@ -12,34 +15,43 @@ pub use codegen::{DOMType, DOMTyped};
 /// Each [DOMPtr] contains a pointer to an object of type `T`.
 /// `T` is either the actual type stored at the address or any
 /// of its supertypes.
+/// The internal objects are reference counted and inside a `RefCell`.
 #[derive(Debug)]
 pub struct DOMPtr<T: DOMTyped> {
-    /// We can't automatically drop this memory since we don't know how large
-    /// the allocated section is (since T may be a supertype of the actually-stored type)
-    inner: Box<T>,
+    inner: Rc<RefCell<T>>,
+
+    /// The actual type pointed to by inner.
+    underlying_type: DOMType,
+}
+
+#[derive(Debug)]
+pub struct WeakDOMPtr<T: DOMTyped> {
+    inner: Weak<RefCell<T>>,
 
     /// The actual type pointed to by inner.
     underlying_type: DOMType,
 }
 
 impl<T: DOMTyped> Deref for DOMPtr<T> {
-    type Target = T;
+    type Target = Rc<RefCell<T>>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<T: DOMTyped> DerefMut for DOMPtr<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
+impl<T: DOMTyped> Deref for WeakDOMPtr<T> {
+    type Target = Weak<RefCell<T>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 
 impl<T: DOMTyped> DOMPtr<T> {
     pub fn new(inner: T) -> Self {
         Self {
-            inner: Box::new(inner),
+            inner: Rc::new(RefCell::new(inner)),
             underlying_type: T::as_type(),
         }
     }
@@ -57,6 +69,48 @@ impl<T: DOMTyped> DOMPtr<T> {
             Some(unsafe { std::mem::transmute(self) })
         } else {
             None
+        }
+    }
+
+    pub fn downgrade(&self) -> WeakDOMPtr<T> {
+        WeakDOMPtr {
+            inner: Rc::downgrade(&self.inner),
+            underlying_type: self.underlying_type,
+        }
+    }
+}
+
+impl<T: DOMTyped> WeakDOMPtr<T> {
+    pub fn underlying_type(&self) -> DOMType {
+        self.underlying_type
+    }
+
+    pub fn is_a<O: DOMTyped>(&self) -> bool {
+        self.underlying_type.is_a(O::as_type())
+    }
+
+    pub fn upgrade(&self) -> Option<DOMPtr<T>> {
+        self.inner.upgrade().map(|upgraded_ptr| DOMPtr {
+            inner: upgraded_ptr,
+            underlying_type: self.underlying_type,
+        })
+    }
+}
+
+impl<T: DOMTyped> Clone for DOMPtr<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            underlying_type: self.underlying_type,
+        }
+    }
+}
+
+impl<T: DOMTyped> Clone for WeakDOMPtr<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            underlying_type: self.underlying_type,
         }
     }
 }
