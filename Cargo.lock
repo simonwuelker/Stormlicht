@@ -313,6 +313,9 @@ dependencies = [
 [[package]]
 name = "html"
 version = "0.1.0"
+dependencies = [
+ "dom",
+]
 
 [[package]]
 name = "http"
