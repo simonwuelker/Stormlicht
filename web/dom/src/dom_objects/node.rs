@@ -25,8 +25,9 @@ impl Node {
         self.child_nodes.first().cloned()
     }
 
-    pub fn append_child(&mut self, child: DOMPtr<Node>) {
-        self.child_nodes.push(child)
+    pub fn append_child(parent: DOMPtr<Node>, child: DOMPtr<Node>) {
+        child.borrow_mut().parent_node = Some(parent.downgrade());
+        parent.borrow_mut().child_nodes.push(child);
     }
 
     pub fn owning_document(&self) -> Option<DOMPtr<Document>> {

@@ -1,9 +1,12 @@
 //! Implements the [Tree Construction Stage](https://html.spec.whatwg.org/multipage/parsing.html#tree-construction)
 
-use crate::tokenizer::{TagData, Token, Tokenizer, TokenizerState};
+use crate::{
+    infra::Namespace,
+    tokenizer::{TagData, Token, Tokenizer, TokenizerState},
+}
 
 use dom::{
-    dom_objects::{Document, Node, Text},
+    dom_objects::{Comment, Document, DocumentType, Node, Text},
     DOMPtr, DOMType,
 };
 
@@ -27,6 +30,12 @@ const WHITESPACE: char = '\u{0020}';
 //     DOMType::H5,
 //     DOMType::H6,
 // ];
+
+#[derive(Clone, Copy, Debug)]
+enum GenericParsingAlgorithm {
+    RCDATA,
+    RawText,
+}
 
 #[derive(Debug, Clone, Copy)]
 /// <https://html.spec.whatwg.org/multipage/parsing.html#parse-state>
@@ -72,8 +81,7 @@ pub struct Parser<'source> {
 impl<'source> Parser<'source> {
     pub fn new(source: &'source str) -> Self {
         let document = DOMPtr::new(Document::default())
-            .into_type::<Node>()
-            .unwrap();
+            .into_type::<Node>();
 
         Self {
             tokenizer: Tokenizer::new(source),
@@ -104,6 +112,11 @@ impl<'source> Parser<'source> {
         DOMPtr::clone(self.open_elements.first().unwrap())
     }
 
+    /// Convenience method to get the current [Document] node
+    fn document(&self) -> DOMPtr<Document> {
+        DOMPtr::clone(self.open_elements.first().unwrap()).into_type::<Document>()
+    }
+
     fn consume(&mut self, token: Token) {
         self.consume_in_mode(self.insertion_mode, token);
     }
@@ -124,7 +137,7 @@ impl<'source> Parser<'source> {
         // If there is a Text node immediately before the adjusted insertion location
         if let Some(last_child) = adjusted_insert_location.borrow().last_child() {
             if last_child.is_a::<Text>() {
-                let text = last_child.into_type::<Text>().unwrap();
+                let text = last_child.into_type::<Text>();
                 // then append data to that Text node's data.
                 text.borrow_mut().content_mut().push(c);
             }
@@ -143,8 +156,8 @@ impl<'source> Parser<'source> {
         new_text.set_owning_document(document);
 
         // and insert the newly created node at the adjusted insertion location.
-        let new_node = DOMPtr::new(new_text).into_type().unwrap();
-        adjusted_insert_location.borrow_mut().append_child(new_node);
+        let new_node = DOMPtr::new(new_text).into_type();
+        Node::append_child(adjusted_insert_location, new_node)
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#appropriate-place-for-inserting-a-node>
@@ -159,23 +172,43 @@ impl<'source> Parser<'source> {
     ) -> DOMPtr<Node> {
         // If there was an override target specified, then let target be the override target.
         // Otherwise, let target be the current node.
-        // let target = override_target.unwrap_or(self.current_node());
+        override_target.unwrap_or_else(|| self.current_node())
 
-        // TODO spec talks about foster parenting here, which we don't support
+        // TODO: the specificaiton  talks about foster parenting here, which we don't support
 
         // Let adjusted insertion location be inside target, after its last child (if any).
 
-        // TODO
+        // TODO:
         // If the adjusted insertion location is inside a template element, let it instead be
         // inside the template element's template contents, after its last child (if any).
 
         // Return the adjusted insertion location.
-        todo!()
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment>
-    fn insert_comment_at(&mut self, _data: String, _at: Option<DOMPtr<Node>>) {
-        todo!()
+    fn insert_comment_at(&mut self, data: String, position: Option<DOMPtr<Node>>) {
+        // Let data be the data given in the comment token being processed.
+
+        // If position was specified, then let the adjusted insertion location be position.
+        // Otherwise, let adjusted insertion location be the appropriate place for inserting a node.
+        let adjusted_insert_location =
+            position.unwrap_or_else(|| self.appropriate_place_for_inserting_node());
+
+        // Create a Comment node whose data attribute is set to data and whose node document is the same
+        // as that of the node in which the adjusted insertion location finds itself.
+        let document = adjusted_insert_location
+            .borrow()
+            .owning_document()
+            .unwrap()
+            .downgrade();
+
+        let mut new_comment = Comment::default();
+        new_comment.content_mut().push_str(&data);
+        new_comment.set_owning_document(document);
+
+        // Insert the newly created node at the adjusted insertion location.
+        let new_node = DOMPtr::new(new_comment).into_type();
+        Node::append_child(adjusted_insert_location, new_node);
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment>
@@ -184,12 +217,22 @@ impl<'source> Parser<'source> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#parsing-elements-that-contain-only-text>
-    fn generic_rcdata_element_parsing_algorithm(&mut self, tagdata: TagData) {
+    fn generic_parsing_algorithm(&mut self, tagdata: TagData, algorithm: GenericParsingAlgorithm) {
         // Insert an HTML element for the token.
         self.insert_html_element_for_token(&tagdata);
 
+        // If the algorithm that was invoked is the generic raw text element parsing algorithm,
+        // switch the tokenizer to the RAWTEXT state;
+        // otherwise the algorithm invoked was the generic RCDATA element parsing algorithm,
         // switch the tokenizer to the RCDATA state.
-        self.tokenizer.switch_to(TokenizerState::RCDATAState);
+        match algorithm {
+            GenericParsingAlgorithm::RawText => {
+                self.tokenizer.switch_to(TokenizerState::RAWTEXTState)
+            },
+            GenericParsingAlgorithm::RCDATA => {
+                self.tokenizer.switch_to(TokenizerState::RCDATAState)
+            },
+        }
 
         // Let the original insertion mode be the current insertion mode.
         self.original_insertion_mode = Some(self.insertion_mode);
@@ -198,13 +241,8 @@ impl<'source> Parser<'source> {
         self.insertion_mode = InsertionMode::Text;
     }
 
-    /// <https://html.spec.whatwg.org/multipage/parsing.html#parsing-elements-that-contain-only-text>
-    fn generic_raw_text_element_parsing_algorithm(&mut self, _tagdata: TagData) {
-        todo!()
-    }
-
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-scope>
-    fn is_element_in_scope(&self, _target_node_type: &DOMType, _scope: Vec<DOMType>) -> bool {
+    fn is_element_in_scope(&self, _target_node_type: &DOMType, _scope: &[DOMType]) -> bool {
         todo!()
     }
 
@@ -224,8 +262,74 @@ impl<'source> Parser<'source> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token>
-    fn create_html_element_for_token(&self, _tagdata: &TagData) -> DOMPtr<Node> {
-        todo!()
+    fn create_html_element_for_token(&self, tagdata: &TagData, namespace: Namespace, intended_parent: DOMPtr<Node>) -> DOMPtr<Node> {
+        // FIXME: If the active speculative HTML parser is not null, then return the result of creating a speculative mock element 
+        // given given namespace, the tag name of the given token, and the attributes of the given token.
+
+        // FIXME: Otherwise, optionally create a speculative mock element given given namespace, the tag name of the given token, and the attributes of the given token.
+
+        // Let document be intended parent's node document.
+        let document = intended_parent.borrow().owning_document();
+
+        // Let local name be the tag name of the token.
+        let local_name = tagdata.name;
+
+        // Let is be the value of the "is" attribute in the given token, if such an attribute exists, or null otherwise.
+        let is = tagdata.lookup_attribute("is");
+
+        // Let definition be the result of looking up a custom element definition given document, given namespace, local name, and is.
+        let _definition = self.lookup_custom_element_definition(namespace, &local_name, is);
+
+        // FIXME: If definition is non-null and the parser was not created as part of the HTML fragment parsing algorithm, then let will execute script be true. Otherwise, let it be false.
+
+        // FIXME: If will execute script is true, then:
+        //      Increment document's throw-on-dynamic-markup-insertion counter.
+        //      If the JavaScript execution context stack is empty, then perform a microtask checkpoint.
+        //      Push a new element queue onto document's relevant agent's custom element reactions stack.
+
+        // Let element be the result of creating an element given document, localName, given namespace, null, and is. 
+        // FIXME: If will execute script is true, set the synchronous custom elements flag; otherwise, leave it unset.
+        let element = self.create_element(document, local_name, namespace, None, is);
+
+        // FIXME: Append each attribute in the given token to element.
+
+        // FIXME: If will execute script is true, then:
+        //      Let queue be the result of popping from document's relevant agent's custom element reactions stack. (This will be the same element queue as was pushed above.)
+        //      Invoke custom element reactions in queue.
+        //      Decrement document's throw-on-dynamic-markup-insertion counter.
+
+        // FIXME: If element has an xmlns attribute in the XMLNS namespace whose value is not exactly the same as the element's namespace, that is a parse error. 
+        // Similarly, if element has an xmlns:xlink attribute in the XMLNS namespace whose value is not the XLink Namespace, that is a parse error.
+
+        // FIXME: If element is a resettable element, invoke its reset algorithm. (This initializes the element's value and checkedness based on the element's attributes.)
+
+        // FIXME: If element is a form-associated element and not a form-associated custom element, the form element pointer is not null, 
+        // there is no template element on the stack of open elements, element is either not listed or doesn't have a form attribute, 
+        // and the intended parent is in the same tree as the element pointed to by the form element pointer, then associate element 
+        // with the form element pointed to by the form element pointer and set element's parser inserted flag.
+
+        // Return element.
+        element
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/custom-elements.html#look-up-a-custom-element-definition>
+    fn lookup_custom_element_definition(&self, namespace: Namespace, local_name: &str, is: Option<&str>) -> Option<()> {
+        // If namespace is not the HTML namespace
+        if namespace != Namespace::HTML {
+            // return null.
+            return None;
+        }
+
+        // FIXME: If document's browsing context is null, return null.
+
+        // FIXME: Let registry be document's relevant global object's CustomElementRegistry object.
+
+        // FIXME: If there is custom element definition in registry with name and local name both equal to localName, return that custom element definition.
+
+        // FIXME: If there is a custom element definition in registry with name equal to is and local name equal to localName, return that custom element definition.
+
+        // Return null.
+        None
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-an-html-element>
@@ -246,11 +350,29 @@ impl<'source> Parser<'source> {
                         // Insert a comment as the last child of the Document object.
                         self.insert_comment(data);
                     },
-                    Token::DOCTYPE(doctype) => {
-                        todo!()
+                    Token::DOCTYPE(doctype_token) => {
+                        // If the DOCTYPE token's name is not "html", or the token's public identifier is not missing,
+                        // or the token's system identifier is neither missing nor "about:legacy-compat", then there is a parse error.
+
+                        // Append a DocumentType node to the Document node, with its name set to the name given in the DOCTYPE token,
+                        // or the empty string if the name was missing; its public ID set to the public identifier given in the DOCTYPE token,
+                        // or the empty string if the public identifier was missing; and its system ID set to the system identifier given in
+                        // the DOCTYPE token, or the empty string if the system identifier was missing.
+                        let mut doctype_node = DocumentType::default();
+                        *doctype_node.name_mut() = doctype_token.name.unwrap_or_default();
+                        *doctype_node.public_id_mut() =
+                            doctype_token.public_ident.unwrap_or_default();
+                        *doctype_node.system_id_mut() =
+                            doctype_token.system_ident.unwrap_or_default();
+
+                        // FIXME: Then, if the document is not an iframe srcdoc document, and the parser cannot change the mode flag is false,
+                        // and the DOCTYPE token matches one of the conditions in the following list, then set the Document to quirks mode:
+                        let new_node = DOMPtr::new(doctype_node).into_type();
+                        Node::append_child(self.document().into_type(), new_node);
                     },
                     _ => {
-                        // TODO check for quirks mode
+                        // FIXME: If the document is not an iframe srcdoc document, then this is a parse error;
+                        // if the parser cannot change the mode flag is false, set the Document to quirks mode.
 
                         // In any case, switch the insertion mode to "before html", then reprocess the token.
                         self.insertion_mode = InsertionMode::BeforeHtml;
@@ -279,7 +401,13 @@ impl<'source> Parser<'source> {
                         // Parse error. Ignore the token.
                     },
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
+                        // Create an element for the token in the HTML namespace, with the Document as the intended parent.
+                        let element = self.create_html_element_for_token(tagdata, self.document().into_type::<Node>());
                         todo!()
+                        // Append it to the Document object.
+
+                        // Put this element in the stack of open elements.
+                        self.open_elements.push(element);
                     },
                     _ => {
                         todo!()
@@ -378,20 +506,20 @@ impl<'source> Parser<'source> {
                     },
                     Token::Tag(tagdata) if tagdata.opening && tagdata.name == "title" => {
                         // Follow the generic RCDATA element parsing algorithm.
-                        self.generic_rcdata_element_parsing_algorithm(tagdata);
+                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RCDATA);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == "noscript" && self.scripting =>
                     {
                         // Follow the generic raw text element parsing algorithm.
-                        self.generic_raw_text_element_parsing_algorithm(tagdata);
+                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
                             && (tagdata.name == "noframes" || tagdata.name == "style") =>
                     {
                         // Follow the generic raw text element parsing algorithm.
-                        self.generic_raw_text_element_parsing_algorithm(tagdata);
+                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
                     },
                     Token::Tag(ref tagdata)
                         if tagdata.opening && tagdata.name == "noscript" && !self.scripting =>

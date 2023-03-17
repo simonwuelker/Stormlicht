@@ -64,12 +64,14 @@ impl<T: DOMTyped> DOMPtr<T> {
         self.underlying_type.is_a(O::as_type())
     }
 
-    pub fn into_type<O: DOMTyped>(self) -> Option<DOMPtr<O>> {
-        if self.is_a::<O>() {
-            Some(unsafe { std::mem::transmute(self) })
-        } else {
-            None
-        }
+    /// Cast a object into another.
+    /// One of the objects must inherit from another.
+    ///
+    /// # Panics
+    /// This function panics if the types are incompatible
+    pub fn into_type<O: DOMTyped>(self) -> DOMPtr<O> {
+        assert!(self.is_a::<O>());
+        unsafe { std::mem::transmute(self) }
     }
 
     pub fn downgrade(&self) -> WeakDOMPtr<T> {

@@ -280,6 +280,15 @@ pub struct TagData {
 }
 
 impl TagData {
+    pub fn lookup_attribute<'a>(&'a self, want: &str) -> Option<&'a str> {
+        for (key, value) in &self.attributes {
+            if key == want {
+                return Some(value);
+            }
+        }
+        None
+    }
+
     fn new_attribute(&mut self) {
         self.attributes.push((String::new(), String::new()));
     }
