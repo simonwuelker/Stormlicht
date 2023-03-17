@@ -51,6 +51,7 @@ pub enum InsertionMode {
 
 pub struct Parser<'source> {
     tokenizer: Tokenizer<'source>,
+    document: DOMPtr<Document>,
     /// When the insertion mode is switched to "text" or "in table text", the original insertion
     /// mode is also set. This is the insertion mode to which the tree construction stage will
     /// return.
@@ -64,13 +65,19 @@ pub struct Parser<'source> {
 
 impl<'source> Parser<'source> {
     pub fn new(source: &'source str) -> Self {
-        let document = DOMPtr::new(Document::default()).into_type::<Node>();
+        let document = DOMPtr::new(Document::default());
+        // TODO: judging from the spec behaviour, it appears that document's document's
+        // point to themselves. We should find a note for that somewhere in a spec.
+        document
+            .borrow_mut()
+            .set_owning_document(DOMPtr::clone(&document).downgrade());
 
         Self {
             tokenizer: Tokenizer::new(source),
+            document: document,
             original_insertion_mode: None,
             insertion_mode: InsertionMode::Initial,
-            open_elements: vec![document],
+            open_elements: vec![],
             head: None,
             execute_script: false,
             done: false,
@@ -93,11 +100,6 @@ impl<'source> Parser<'source> {
     fn current_node(&self) -> DOMPtr<Node> {
         // The current node is the bottommost node in this stack of open elements.
         DOMPtr::clone(self.open_elements.first().unwrap())
-    }
-
-    /// Convenience method to get the current [Document] node
-    fn document(&self) -> DOMPtr<Document> {
-        DOMPtr::clone(self.open_elements.first().unwrap()).into_type::<Document>()
     }
 
     fn consume(&mut self, token: Token) {
@@ -249,7 +251,7 @@ impl<'source> Parser<'source> {
         &self,
         tagdata: &TagData,
         namespace: Namespace,
-        intended_parent: DOMPtr<Node>,
+        intended_parent: &DOMPtr<Node>,
     ) -> DOMPtr<Node> {
         // FIXME: If the active speculative HTML parser is not null, then return the result of creating a speculative mock element
         // given given namespace, the tag name of the given token, and the attributes of the given token.
@@ -257,7 +259,10 @@ impl<'source> Parser<'source> {
         // FIXME: Otherwise, optionally create a speculative mock element given given namespace, the tag name of the given token, and the attributes of the given token.
 
         // Let document be intended parent's node document.
-        let document = intended_parent.borrow().owning_document().unwrap();
+        let document = intended_parent
+            .borrow()
+            .owning_document()
+            .expect("Intended Parent does not belong to a document");
 
         // Let local name be the tag name of the token.
         let local_name = tagdata.name.to_string();
@@ -308,12 +313,45 @@ impl<'source> Parser<'source> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-an-html-element>
-    fn insert_html_element_for_token(&mut self, _tagdata: &TagData) -> DOMPtr<Node> {
+    fn insert_html_element_for_token(&mut self, tagdata: &TagData) -> DOMPtr<Node> {
+        self.insert_foreign_element(tagdata, Namespace::HTML)
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-a-foreign-element>
+    fn insert_foreign_element(&mut self, tagdata: &TagData, namespace: Namespace) -> DOMPtr<Node> {
+        // Let the adjusted insertion location be the appropriate place for inserting a node.
+        let adjusted_insertion_location = self.appropriate_place_for_inserting_node();
+
+        // Let element be the result of creating an element for the token in the given namespace, with the intended parent being the element in which the adjusted insertion location finds itself.
+        let element =
+            self.create_html_element_for_token(tagdata, namespace, &adjusted_insertion_location);
+
+        // If it is possible to insert element at the adjusted insertion location, then:
+        // FIXME: it is currently always possible to insert more elements
+
+        // FIXME: If the parser was not created as part of the HTML fragment parsing algorithm, then push a new element queue onto element's relevant agent's custom element reactions stack.
+
+        // Insert element at the adjusted insertion location.
+        Node::append_child(adjusted_insertion_location, DOMPtr::clone(&element));
+
+        // FIXME: If the parser was not created as part of the HTML fragment parsing algorithm, then pop the element queue from
+        // element's relevant agent's custom element reactions stack, and invoke custom element reactions in that queue.
+
+        // Push element onto the stack of open elements so that it is the new current node.
+        self.open_elements.push(DOMPtr::clone(&element));
+
+        // Return element.
+        element
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#reconstruct-the-active-formatting-elements>
+    fn reconstruct_active_formatting_elements(&mut self) {
         todo!()
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhtml>
     fn consume_in_mode(&mut self, mode: InsertionMode, token: Token) {
+        log::info!("Consuming {token:?} in {mode:?}");
         match mode {
             // https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode
             InsertionMode::Initial => {
@@ -343,7 +381,7 @@ impl<'source> Parser<'source> {
                         // FIXME: Then, if the document is not an iframe srcdoc document, and the parser cannot change the mode flag is false,
                         // and the DOCTYPE token matches one of the conditions in the following list, then set the Document to quirks mode:
                         let new_node = DOMPtr::new(doctype_node).into_type();
-                        Node::append_child(self.document().into_type(), new_node);
+                        Node::append_child(DOMPtr::clone(&self.document).into_type(), new_node);
                     },
                     _ => {
                         // FIXME: If the document is not an iframe srcdoc document, then this is a parse error;
@@ -380,11 +418,14 @@ impl<'source> Parser<'source> {
                         let element = self.create_html_element_for_token(
                             tagdata,
                             Namespace::HTML,
-                            self.document().into_type::<Node>(),
+                            &DOMPtr::clone(&self.document).into_type::<Node>(),
                         );
 
                         // Append it to the Document object.
-                        Node::append_child(self.document().into_type(), DOMPtr::clone(&element));
+                        Node::append_child(
+                            DOMPtr::clone(&self.document).into_type(),
+                            DOMPtr::clone(&element),
+                        );
 
                         // Put this element in the stack of open elements.
                         self.open_elements.push(element);
@@ -395,11 +436,14 @@ impl<'source> Parser<'source> {
                     other => {
                         // Create an html element whose node document is the Document object.
                         let mut html_element = HTMLHtmlElement::default();
-                        html_element.set_owning_document(self.document().downgrade());
+                        html_element.set_owning_document(DOMPtr::clone(&self.document).downgrade());
                         let new_node = DOMPtr::new(html_element).into_type();
 
                         // Append it to the Document object.
-                        Node::append_child(self.document().into_type(), DOMPtr::clone(&new_node));
+                        Node::append_child(
+                            DOMPtr::clone(&self.document).into_type(),
+                            DOMPtr::clone(&new_node),
+                        );
 
                         // Put this element in the stack of open elements.
                         self.open_elements.push(new_node);
@@ -448,16 +492,33 @@ impl<'source> Parser<'source> {
                     {
                         // Parse error. Ignore the token.
                     },
-                    _ => {
-                        todo!()
+                    other => {
+                        // Insert an HTML element for a "head" start tag token with no attributes.
+                        let bogus_head_token = TagData {
+                            name: "head".to_string(),
+                            opening: true,
+                            self_closing: false,
+                            attributes: vec![],
+                        };
+                        let head_element = self.insert_html_element_for_token(&bogus_head_token);
+
+                        // Set the head element pointer to the newly created head element.
+                        self.head = Some(head_element);
+
+                        // Switch the insertion mode to "in head".
+                        self.insertion_mode = InsertionMode::InHead;
+
+                        // Reprocess the current token.
+                        self.consume(other);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead
             InsertionMode::InHead => {
                 match token {
-                    Token::Character(_c @ (TAB | LINE_FEED | FORM_FEED | WHITESPACE)) => {
-                        todo!()
+                    Token::Character(c @ (TAB | LINE_FEED | FORM_FEED | WHITESPACE)) => {
+                        // Insert the character.
+                        self.insert_character(c);
                     },
                     Token::Comment(data) => {
                         // Insert a comment.
@@ -595,8 +656,19 @@ impl<'source> Parser<'source> {
                     {
                         // Parse error. Ignore the token.
                     },
-                    _ => {
-                        todo!()
+                    other => {
+                        // Pop the current node (which will be the head element) off the stack of open elements.
+                        let popped_node = self.open_elements.pop();
+                        debug_assert_eq!(
+                            popped_node.map(|n| n.underlying_type()),
+                            Some(DOMType::HTMLHeadElement)
+                        );
+
+                        // Switch the insertion mode to "after head".
+                        self.insertion_mode = InsertionMode::AfterHead;
+
+                        // Reprocess the token.
+                        self.consume(other);
                     },
                 }
             },
@@ -612,7 +684,19 @@ impl<'source> Parser<'source> {
                         self.consume_in_mode(InsertionMode::InBody, token);
                     },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "noscript" => {
-                        todo!()
+                        // Pop the current node (which will be a noscript element) from the stack of open elements; the new current node will be a head element.
+                        let popped_node = self.open_elements.pop();
+                        debug_assert_eq!(
+                            popped_node.map(|n| n.underlying_type()),
+                            Some(DOMType::HTMLNoscriptElement)
+                        );
+                        debug_assert_eq!(
+                            self.current_node().underlying_type(),
+                            DOMType::HTMLHeadElement
+                        );
+
+                        // Switch the insertion mode to "in head".
+                        self.insertion_mode = InsertionMode::InHead;
                     },
                     Token::Character(TAB | LINE_FEED | FORM_FEED | WHITESPACE)
                     | Token::Comment(_) => {
@@ -636,16 +720,34 @@ impl<'source> Parser<'source> {
                         if tagdata.opening
                             && (tagdata.name == "head" || tagdata.name == "noscript") => {}, // Parse error. Ignore the token.
                     Token::Tag(ref tagdata) if !tagdata.opening && (tagdata.name != "br") => {}, // Parse error. Ignore the token.
-                    _ => {
-                        todo!()
+                    other => {
+                        // Parse error.
+
+                        // Pop the current node (which will be a noscript element) from the stack of open elements; the new current node will be a head element.
+                        let popped_node = self.open_elements.pop();
+                        debug_assert_eq!(
+                            popped_node.map(|n| n.underlying_type()),
+                            Some(DOMType::HTMLNoscriptElement)
+                        );
+                        debug_assert_eq!(
+                            self.current_node().underlying_type(),
+                            DOMType::HTMLHeadElement
+                        );
+
+                        // Switch the insertion mode to "in head".
+                        self.insertion_mode = InsertionMode::InHead;
+
+                        // Reprocess the token.
+                        self.consume(other);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#the-after-head-insertion-mode
             InsertionMode::AfterHead => {
                 match token {
-                    Token::Character(_c @ (TAB | LINE_FEED | FORM_FEED | WHITESPACE)) => {
-                        todo!()
+                    Token::Character(c @ (TAB | LINE_FEED | FORM_FEED | WHITESPACE)) => {
+                        // Insert the character.
+                        self.insert_character(c);
                     },
                     Token::Comment(data) => {
                         // Insert a comment.
@@ -685,7 +787,22 @@ impl<'source> Parser<'source> {
                                 || tagdata.name == "template"
                                 || tagdata.name == "title") =>
                     {
-                        todo!()
+                        // Parse error.
+
+                        // Push the node pointed to by the head element pointer onto the stack of open elements.
+                        let head = DOMPtr::clone(
+                            self.head
+                                .as_ref()
+                                .expect("Spec: self.head cannot be none at this point"),
+                        );
+                        self.open_elements.push(DOMPtr::clone(&head));
+
+                        // Process the token using the rules for the "in head" insertion mode.
+                        self.consume_in_mode(InsertionMode::InHead, token);
+
+                        // Remove the node pointed to by the head element pointer from the stack of open elements. (It might not be the current node at this point.)
+                        self.open_elements
+                            .retain_mut(|element| !DOMPtr::ptr_eq(&head, element));
                     },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "template" => {
                         // Process the token using the rules for the "in head" insertion mode.
@@ -721,8 +838,12 @@ impl<'source> Parser<'source> {
                     Token::Character('\0') => {
                         // Parse error. Ignore the token.
                     },
-                    Token::Character(_c) => {
-                        todo!()
+                    Token::Character(c) => {
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // Insert the token's character.
+                        self.insert_character(c);
                     },
                     Token::Comment(data) => {
                         // Insert a comment.
@@ -734,11 +855,12 @@ impl<'source> Parser<'source> {
 
                         // If there is a template element on the stack of open elements, then ignore
                         // the token.
-
-                        // Otherwise, for each attribute on the token, check to see if the attribute is
-                        // already present on the top element of the stack of open elements. If it is
-                        // not, add the attribute and its corresponding value to that element.
-                        todo!();
+                        if self.current_node().underlying_type() != DOMType::HTMLTemplateElement {
+                            // Otherwise, for each attribute on the token, check to see if the attribute is
+                            // already present on the top element of the stack of open elements. If it is
+                            // not, add the attribute and its corresponding value to that element.
+                            todo!();
+                        }
                     },
                     Token::Tag(ref tagdata)
                         if (tagdata.opening

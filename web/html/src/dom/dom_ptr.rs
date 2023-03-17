@@ -77,6 +77,14 @@ impl<T: DOMTyped> DOMPtr<T> {
         }
     }
 
+    /// Check if two [DOMPtr]'s point to the same object.
+    /// This is the equivalent `ptr_eq` on [Rc](std::rc::Rc).
+    /// Note that due to the constraints on [Rc], the two dom
+    /// pointers must point to the same type.
+    pub fn ptr_eq(this: &DOMPtr<T>, other: &DOMPtr<T>) -> bool {
+        Rc::ptr_eq(&this.inner, &other.inner)
+    }
+
     pub fn downgrade(&self) -> WeakDOMPtr<T> {
         WeakDOMPtr {
             inner: Rc::downgrade(&self.inner),

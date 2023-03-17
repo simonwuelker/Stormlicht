@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 dom-derive = { path = "../dom-derive"}
+log = "0.4"
 
 [build-dependencies]
 syn = "1"
