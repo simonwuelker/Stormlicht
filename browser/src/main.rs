@@ -43,6 +43,10 @@ pub fn main() -> Result<()> {
         prev(info);
     });
 
+    env_logger::Builder::from_default_env()
+        .filter_level(log::LevelFilter::Debug)
+        .init();
+
     #[cfg(target_os = "linux")]
     if unsafe { geteuid() } == 0 {
         return Err(anyhow!("Refusing to run as root"));
