@@ -1,15 +1,10 @@
-//! <https://dom.spec.whatwg.org/>
-
-mod codegen;
-pub mod dom_objects;
-
 use std::{
     cell::RefCell,
     ops::Deref,
     rc::{Rc, Weak},
 };
 
-pub use codegen::{DOMType, DOMTyped};
+pub use super::codegen::{DOMType, DOMTyped};
 
 /// Smartpointer used for inheritance-objects.
 /// Each [DOMPtr] contains a pointer to an object of type `T`.

@@ -1,8 +1,7 @@
 use dom_derive::inherit;
 
-use crate::{DOMPtr, WeakDOMPtr};
-
 use super::Document;
+use crate::dom::{DOMPtr, WeakDOMPtr};
 
 /// <https://dom.spec.whatwg.org/#interface-node>
 #[inherit]

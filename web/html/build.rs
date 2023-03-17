@@ -106,18 +106,21 @@ fn find_path(
     None
 }
 
+const DOM_OBJECT_PATH: &str = "src/dom/dom_objects";
+const DOM_OBJECT_MODULE_PATH: &str = "crate::dom::dom_objects";
+
 fn main() -> Result<(), io::Error> {
     // Rerun if any DOM object changes
     // TODO: Since this is probably going to take a considerable amount of time
     // if the number of DOM object grows, we should consider caching and only updating
     // the files that changed.
-    println!("cargo:rerun-if-changed=src/dom_objects");
+    println!("cargo:rerun-if-changed={DOM_OBJECT_PATH}");
 
     // Used to keep track of who derives from where
     let mut type_journal = TypeJournal::default();
 
     // Search for inherited structs in each file inside src/dom_objects
-    for dir_entry_or_error in fs::read_dir("src/dom_objects")? {
+    for dir_entry_or_error in fs::read_dir(DOM_OBJECT_PATH)? {
         let dir_entry = dir_entry_or_error?;
 
         if dir_entry.file_type()?.is_file() {
@@ -140,7 +143,7 @@ fn main() -> Result<(), io::Error> {
         .iter()
         .map(|typename| {
             format!(
-                "Self::{typename} => ::std::alloc::Layout::new::<crate::dom_objects::{typename}>()"
+                "Self::{typename} => ::std::alloc::Layout::new::<{DOM_OBJECT_MODULE_PATH}::{typename}>()"
             )
         })
         .collect::<Vec<String>>()
@@ -152,7 +155,7 @@ fn main() -> Result<(), io::Error> {
         .map(|typename| {
             format!(
                 "
-                impl DOMTyped for crate::dom_objects::{typename} {{
+                impl DOMTyped for {DOM_OBJECT_MODULE_PATH}::{typename} {{
                     fn as_type() -> DOMType {{
                         DOMType::{typename}
                     }}

@@ -410,6 +410,7 @@ impl<'source> Parser<'source> {
                         self.open_elements.push(element);
                     },
                     _ => {
+                        // Create an html element whose node document is the Document object.
                         todo!()
                     },
                 }

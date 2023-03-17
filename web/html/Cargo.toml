@@ -6,4 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dom = { path = "../dom" }
+dom-derive = { path = "../dom-derive"}
+
+[build-dependencies]
+syn = "1"
+proc-macro2 = "1"
