@@ -1,9 +1,10 @@
 //! <https://infra.spec.whatwg.org>
 
 /// <https://infra.spec.whatwg.org/#namespaces>
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum Namespace {
     /// <https://infra.spec.whatwg.org/#html-namespace>
+    #[default]
     HTML,
 
     /// <https://infra.spec.whatwg.org/#mathml-namespace>

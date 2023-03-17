@@ -4,7 +4,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-pub use super::codegen::{DOMType, DOMTyped};
+use super::codegen::{DOMType, DOMTyped};
 
 /// Smartpointer used for inheritance-objects.
 /// Each [DOMPtr] contains a pointer to an object of type `T`.
@@ -67,6 +67,14 @@ impl<T: DOMTyped> DOMPtr<T> {
     pub fn into_type<O: DOMTyped>(self) -> DOMPtr<O> {
         assert!(self.is_a::<O>());
         unsafe { std::mem::transmute(self) }
+    }
+
+    pub fn try_into<O: DOMTyped>(&self) -> Option<DOMPtr<O>> {
+        if self.is_a::<O>() {
+            Some(DOMPtr::clone(self).into_type())
+        } else {
+            None
+        }
     }
 
     pub fn downgrade(&self) -> WeakDOMPtr<T> {

@@ -237,15 +237,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dom"
-version = "0.1.0"
-dependencies = [
- "dom-derive",
- "proc-macro2",
- "syn",
-]
-
-[[package]]
 name = "dom-derive"
 version = "0.1.0"
 dependencies = [
@@ -314,7 +305,9 @@ dependencies = [
 name = "html"
 version = "0.1.0"
 dependencies = [
- "dom",
+ "dom-derive",
+ "proc-macro2",
+ "syn",
 ]
 
 [[package]]
