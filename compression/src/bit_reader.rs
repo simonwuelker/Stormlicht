@@ -64,7 +64,11 @@ impl<'a> BitReader<'a> {
     }
 
     pub fn num_consumed_bytes(&self) -> usize {
-        self.byte_ptr + 1
+        if self.bit_ptr == 0 {
+            self.byte_ptr
+        } else {
+            self.byte_ptr + 1
+        }
     }
 
     pub fn read_single_bit(&mut self) -> Result<bool, BitReaderError> {
