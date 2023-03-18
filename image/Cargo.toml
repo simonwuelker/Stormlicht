@@ -11,3 +11,4 @@ thiserror = "1"
 compression = { path = "../compression" }
 hash = { path = "../crypto/hash" }
 canvas = { path = "../gui/canvas" }
+log = "0.4"

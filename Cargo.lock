@@ -394,6 +394,7 @@ dependencies = [
  "canvas",
  "compression",
  "hash",
+ "log",
  "thiserror",
 ]
 

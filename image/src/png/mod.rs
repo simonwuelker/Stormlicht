@@ -37,6 +37,7 @@ const tEXt: [u8; 4] = [116, 69, 88, 116];
 const tIME: [u8; 4] = [116, 73, 77, 69];
 const tRNS: [u8; 4] = [116, 82, 78, 83];
 const zTXt: [u8; 4] = [122, 84, 88, 116];
+const bKGD: [u8; 4] = [98, 75, 71, 68];
 
 #[derive(Error, Debug)]
 pub enum PNGError {
@@ -101,6 +102,8 @@ pub enum Chunk {
     tIME,
     tRNS,
     zTXt,
+    /// Background
+    bKGD,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -290,7 +293,17 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk> {
         tIME => Chunk::tIME,
         tRNS => Chunk::tRNS,
         zTXt => Chunk::zTXt,
-        _ => return Err(PNGError::UnknownChunk(chunk_name_bytes).into()),
+        bKGD => Chunk::bKGD,
+        _ => {
+            // Any chunk that we don't know about is not critical (since only IHDR, IDAT, PLTE and IEND are critical)
+            log::info!(
+                "Ignoring unknown chunk type: {}",
+                String::from_utf8_lossy(&chunk_name_bytes)
+            );
+
+            // Just read another chunk
+            read_chunk(reader)?
+        },
     };
 
     Ok(chunk)
