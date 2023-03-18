@@ -292,56 +292,137 @@ fn apply_filters(
     from: &[u8],
     to: &mut [u8],
     scanline_width: usize,
-    pixel_width: usize,
+    _pixel_width: usize,
 ) -> Result<()> {
     // For each scanline, apply a filter (which is the first byte) to the scanline data (which is the rest)
+    let mut previous_scanline = vec![0; scanline_width];
     for (index, scanline_data_and_filter_method) in
         from.chunks_exact(scanline_width + 1).enumerate()
     {
-        let (filter_type, filter_scanline_data) = (
+        let (filter_type, filtered_data) = (
             scanline_data_and_filter_method[0],
             &scanline_data_and_filter_method[1..],
         );
 
         let scanline_base_index = index * scanline_width;
-        match filter_type {
-            0 => {
-                // None
-                to[scanline_base_index..][..scanline_width].copy_from_slice(filter_scanline_data);
-            },
-            1 => {
-                // Sub
-                // First pixel always stays the same
-                to[scanline_base_index..][..pixel_width]
-                    .copy_from_slice(&filter_scanline_data[..pixel_width]);
-                for i in pixel_width..filter_scanline_data.len() {
-                    to[scanline_base_index + i] = filter_scanline_data[i]
-                        .wrapping_add(to[scanline_base_index + i - pixel_width]);
+        let filter = Filter::try_from(filter_type)?;
+
+        let current_scanline = &mut to[scanline_base_index..scanline_base_index + scanline_width];
+
+        // FIXME: this code assumes 3 bytes per pixel
+        match filter {
+            Filter::None => current_scanline.copy_from_slice(filtered_data),
+            Filter::Sub => {
+                // Unfiltered = Filtered + a
+                let mut a = [0; 3];
+                for (unfiltered_pixel, filtered_pixel) in current_scanline
+                    .chunks_exact_mut(3)
+                    .zip(filtered_data.chunks_exact(3))
+                {
+                    unfiltered_pixel[0] = filtered_pixel[0].wrapping_add(a[0]);
+                    unfiltered_pixel[1] = filtered_pixel[1].wrapping_add(a[1]);
+                    unfiltered_pixel[2] = filtered_pixel[2].wrapping_add(a[2]);
+                    a.copy_from_slice(unfiltered_pixel);
                 }
             },
-            2 => {
-                // Up
-                if index == 0 {
-                    // First row stays the same
-                    to[scanline_base_index..][..scanline_width]
-                        .copy_from_slice(filter_scanline_data);
-                } else {
-                    for i in 0..scanline_width {
-                        to[scanline_base_index + i] = filter_scanline_data[i]
-                            .wrapping_add(to[scanline_base_index - scanline_width + i]);
-                    }
+            Filter::Up => {
+                // Unfiltered = Filtered + b
+                for ((unfiltered_pixel, filtered_pixel), b) in current_scanline
+                    .chunks_exact_mut(3)
+                    .zip(filtered_data.chunks_exact(3))
+                    .zip(previous_scanline.chunks_exact(3))
+                {
+                    unfiltered_pixel[0] = filtered_pixel[0].wrapping_add(b[0]);
+                    unfiltered_pixel[1] = filtered_pixel[1].wrapping_add(b[1]);
+                    unfiltered_pixel[2] = filtered_pixel[2].wrapping_add(b[2]);
                 }
             },
-            3 => {
-                // Average
-                todo!("Average filter type")
+            Filter::Average => {
+                // Unfiltered = Filtered + (a + b) // 2
+                let mut a = [0; 3];
+                for ((unfiltered_pixel, filtered_pixel), b) in current_scanline
+                    .chunks_exact_mut(3)
+                    .zip(filtered_data.chunks_exact(3))
+                    .zip(previous_scanline.chunks_exact(3))
+                {
+                    unfiltered_pixel[0] =
+                        filtered_pixel[0].wrapping_add(((a[0] as u16 + b[0] as u16) / 2) as u8);
+                    unfiltered_pixel[1] =
+                        filtered_pixel[1].wrapping_add(((a[1] as u16 + b[1] as u16) / 2) as u8);
+                    unfiltered_pixel[2] =
+                        filtered_pixel[2].wrapping_add(((a[2] as u16 + b[2] as u16) / 2) as u8);
+                    a.copy_from_slice(unfiltered_pixel);
+                }
             },
-            4 => {
-                // Paeth
-                todo!("Paeth filter type")
+            Filter::Paeth => {
+                // Unfiltered = Filtered + Unpaeth(a, b, c)
+                let mut a = [0; 3];
+                let mut c = [0; 3];
+
+                for ((unfiltered_pixel, filtered_pixel), b) in current_scanline
+                    .chunks_exact_mut(3)
+                    .zip(filtered_data.chunks_exact(3))
+                    .zip(previous_scanline.chunks_exact(3))
+                {
+                    unfiltered_pixel[0] = filtered_pixel[0].wrapping_add(paeth(a[0], b[0], c[0]));
+                    unfiltered_pixel[1] = filtered_pixel[1].wrapping_add(paeth(a[1], b[1], c[1]));
+                    unfiltered_pixel[2] = filtered_pixel[2].wrapping_add(paeth(a[2], b[2], c[2]));
+
+                    a.copy_from_slice(unfiltered_pixel);
+                    c.copy_from_slice(b);
+                }
             },
-            _ => return Err(PNGError::UnknownFilterType(filter_type).into()),
         }
+        previous_scanline.copy_from_slice(current_scanline);
     }
     Ok(())
+}
+
+/// <https://www.w3.org/TR/png/#9Filter-type-4-Paeth>
+/// Note that this function only implements a single selection
+/// step in the paeth algorithm
+#[inline]
+fn paeth(a: u8, b: u8, c: u8) -> u8 {
+    // Note that we need to use i16's because all the calculations
+    // must be performed without overflows
+    let a_i16 = a as i16;
+    let b_i16 = b as i16;
+    let c_i16 = c as i16;
+
+    let p = a_i16 + b_i16 - c_i16;
+    let pa = (p - a_i16).abs();
+    let pb = (p - b_i16).abs();
+    let pc = (p - c_i16).abs();
+
+    if pa <= pb && pa <= pc {
+        a
+    } else if pb <= pc {
+        b
+    } else {
+        c
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Filter {
+    None = 0,
+    Sub = 1,
+    Up = 2,
+    Average = 3,
+    Paeth = 4,
+}
+
+impl TryFrom<u8> for Filter {
+    type Error = PNGError;
+
+    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::None),
+            1 => Ok(Self::Sub),
+            2 => Ok(Self::Up),
+            3 => Ok(Self::Average),
+            4 => Ok(Self::Paeth),
+            filter_type => Err(PNGError::UnknownFilterType(filter_type)),
+        }
+    }
 }
