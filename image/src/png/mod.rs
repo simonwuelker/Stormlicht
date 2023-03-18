@@ -17,28 +17,6 @@ use hash::CRC32;
 
 const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
-const IHDR: [u8; 4] = [73, 72, 68, 82];
-const PLTE: [u8; 4] = [80, 76, 84, 69];
-const IDAT: [u8; 4] = [73, 68, 65, 84];
-const IEND: [u8; 4] = [73, 69, 78, 68];
-const cHRM: [u8; 4] = [99, 72, 82, 77];
-const dSIG: [u8; 4] = [100, 83, 73, 71];
-const eXIF: [u8; 4] = [101, 88, 73, 102];
-const gAMA: [u8; 4] = [103, 65, 77, 65];
-const hIST: [u8; 4] = [104, 73, 83, 84];
-const iCCP: [u8; 4] = [105, 67, 67, 80];
-const iTXt: [u8; 4] = [105, 84, 88, 116];
-const pHYs: [u8; 4] = [112, 72, 89, 115];
-const sBIT: [u8; 4] = [115, 66, 73, 84];
-const sPLT: [u8; 4] = [115, 80, 76, 84];
-const sRGB: [u8; 4] = [115, 82, 71, 66];
-const sTER: [u8; 4] = [115, 84, 69, 82];
-const tEXt: [u8; 4] = [116, 69, 88, 116];
-const tIME: [u8; 4] = [116, 73, 77, 69];
-const tRNS: [u8; 4] = [116, 82, 78, 83];
-const zTXt: [u8; 4] = [122, 84, 88, 116];
-const bKGD: [u8; 4] = [98, 75, 71, 68];
-
 #[derive(Error, Debug)]
 pub enum PNGError {
     #[error("The given file is not a png file")]
@@ -217,8 +195,8 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk> {
         .into());
     }
 
-    let chunk = match chunk_name_bytes {
-        IHDR => {
+    let chunk = match &chunk_name_bytes {
+        b"IHDR" => {
             if length != 13 {
                 return Err(PNGError::IncorrectChunkLengthExpectedExactly {
                     expected: 13,
@@ -237,16 +215,16 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk> {
                 data[12].try_into()?,
             )?)
         },
-        PLTE => Chunk::PLTE(chunks::Palette::new(&data)?),
-        IDAT => Chunk::IDAT(chunks::ImageData::new(data)),
-        IEND => {
+        b"PLTE" => Chunk::PLTE(chunks::Palette::new(&data)?),
+        b"IDAT" => Chunk::IDAT(chunks::ImageData::new(data)),
+        b"IEND" => {
             if length != 0 {
                 return Err(PNGError::NonEmptyIEND.into());
             }
 
             Chunk::IEND
         },
-        cHRM => {
+        b"cHRM" => {
             if length != 32 {
                 return Err(PNGError::IncorrectChunkLengthExpectedExactly {
                     expected: 32,
@@ -278,27 +256,27 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk> {
                 blue_point,
             ))
         },
-        dSIG => Chunk::dSIG,
-        eXIF => Chunk::eXIf,
-        gAMA => Chunk::gAMA,
-        hIST => Chunk::hIST,
-        iCCP => Chunk::iCCP,
-        iTXt => Chunk::iTXt,
-        pHYs => Chunk::pHYs,
-        sBIT => Chunk::sBIT,
-        sPLT => Chunk::sPLT,
-        sRGB => Chunk::sRGB,
-        sTER => Chunk::sTER,
-        tEXt => Chunk::tEXt,
-        tIME => Chunk::tIME,
-        tRNS => Chunk::tRNS,
-        zTXt => Chunk::zTXt,
-        bKGD => Chunk::bKGD,
-        _ => {
+        b"dSIG" => Chunk::dSIG,
+        b"eXIf" => Chunk::eXIf,
+        b"gAMA" => Chunk::gAMA,
+        b"hIST" => Chunk::hIST,
+        b"iCCP" => Chunk::iCCP,
+        b"iTXt" => Chunk::iTXt,
+        b"pHYs" => Chunk::pHYs,
+        b"sBIT" => Chunk::sBIT,
+        b"sPLT" => Chunk::sPLT,
+        b"sRGB" => Chunk::sRGB,
+        b"sTER" => Chunk::sTER,
+        b"tEXt" => Chunk::tEXt,
+        b"tIME" => Chunk::tIME,
+        b"tRNS" => Chunk::tRNS,
+        b"zTXt" => Chunk::zTXt,
+        b"bKGD" => Chunk::bKGD,
+        unknown_chunk_type => {
             // Any chunk that we don't know about is not critical (since only IHDR, IDAT, PLTE and IEND are critical)
             log::info!(
                 "Ignoring unknown chunk type: {}",
-                String::from_utf8_lossy(&chunk_name_bytes)
+                String::from_utf8_lossy(unknown_chunk_type)
             );
 
             // Just read another chunk
