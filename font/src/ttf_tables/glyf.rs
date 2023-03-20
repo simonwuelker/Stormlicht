@@ -1,7 +1,10 @@
 //! [Glyph](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6glyf.html) table implementation
 
 use super::loca::LocaTable;
-use crate::ttf::{read_i16_at, read_u16_at};
+use crate::{
+    ttf::{read_i16_at, read_u16_at},
+    Stream,
+};
 use std::fmt;
 
 /// The maximum number of components that a glyph may reference during
@@ -52,7 +55,7 @@ impl Metrics {
 #[derive(Clone, Copy, Debug)]
 pub enum Glyph<'a> {
     Simple(SimpleGlyph<'a>),
-    Compound(CompoundGlyph),
+    Compound(CompoundGlyph<'a>),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -67,7 +70,18 @@ pub struct SimpleGlyph<'a> {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct CompoundGlyph;
+pub struct CompoundGlyph<'a> {
+    data: Stream<'a>,
+    done: bool,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct CompoundGlyphComponent {
+    pub component_flag: CompoundGlyphFlag,
+    pub glyph_index: u16,
+    pub x_offset: i16,
+    pub y_offset: i16,
+}
 
 impl<'a> Glyph<'a> {
     pub fn from_data(data: &'a [u8]) -> Self {
@@ -154,46 +168,6 @@ impl<'a> Glyph<'a> {
                 x_coordinates,
                 y_coordinates,
             })
-
-            // let points = GlyphPointIterator::new(
-            //     contour_end_points,
-            //     &self.0[first_flag_addr..],
-            //     num_points,
-            //     flag_array_size,
-            //     flag_array_size + x_size,
-            // );
-
-            // let mut previous_point: Option<GlyphPoint> = None;
-            // let mut first_point_of_contour = None;
-            // for point in points {
-            //     match previous_point {
-            //         Some(previous_point) => {
-            //             lines.push(Line::Quad(QuadraticBezier {
-            //                 p0: previous_point.with_offset(offset).into(),
-            //                 p1: previous_point.with_offset(offset).into(),
-            //                 p2: point.with_offset(offset).into(),
-            //             }));
-            //         },
-            //         None => first_point_of_contour = Some(point),
-            //     }
-
-            //     // It is technically possible, while pointless (hah) to have
-            //     // a contour containing only a single point - in which case
-            //     // point.is_last_point_of_contour is true but first_point_of_contour
-            //     // is None. In this case, we silently ignore the point and move on.
-            //     if let (Some(first_point), true) =
-            //         (first_point_of_contour, point.is_last_point_of_contour)
-            //     {
-            //         lines.push(Line::Quad(QuadraticBezier {
-            //             p0: point.into(),
-            //             p1: point.into(),
-            //             p2: first_point.into(),
-            //         }));
-            //         previous_point = None;
-            //     } else {
-            //         previous_point = Some(point);
-            //     }
-            // }
         } else {
             // Memory map for compound glyphs looks like this:
             //
@@ -202,67 +176,71 @@ impl<'a> Glyph<'a> {
             // X offset, type depends on component flags  | Repeated any number
             // Y offset, type depends on component flags  | of times
             // Transformation options                    /
-            todo!()
-            // loop {
-            //     let component_flag = CompoundGlyphFlag(stream.read::<u16>()?);
-            //     let referenced_glyph_index = stream.read::<u16>()?;
-
-            //     let referenced_glyph_offset = match (
-            //         component_flag.arg_1_and_2_are_words(),
-            //         component_flag.args_are_xy_values(),
-            //     ) {
-            //         (false, false) => {
-            //             // u8
-            //             (stream.read::<u8>()? as i16, stream.read::<u8>()? as i16)
-            //         },
-            //         (false, true) => {
-            //             // i8
-            //             (stream.read::<i8>()? as i16, stream.read::<i8>()? as i16)
-            //         },
-            //         (true, false) => {
-            //             // u16
-            //             (stream.read::<u16>()? as i16, stream.read::<u16>()? as i16)
-            //         },
-            //         (true, true) => {
-            //             // i16
-            //             (stream.read::<i16>()?, stream.read::<i16>()?)
-            //         },
-            //     };
-
-            //     // TODO We don't really do any transformation stuff yet
-            //     if component_flag.has_scale() {
-            //         stream.read::<u16>()?;
-            //     } else if component_flag.has_xy_scale() {
-            //         stream.read::<u16>()?;
-            //         stream.read::<u16>()?;
-            //     } else if component_flag.has_two_by_two() {
-            //         stream.read::<u16>()?;
-            //         stream.read::<u16>()?;
-            //         stream.read::<u16>()?;
-            //         stream.read::<u16>()?;
-            //     }
-
-            //     let referenced_glyph = glyph_table.get_glyph(referenced_glyph_index);
-
-            //     // Check if adding this glyph exceeded our max component count, if so, return error
-            //     *num_components += 1;
-            //     if *num_components > MAX_COMPONENTS {
-            //         return Err(anyhow!(
-            //             "Max glyph component count ({MAX_COMPONENTS}) exceeded"
-            //         ));
-            //     }
-            //     referenced_glyph.compute_outline_inner(
-            //         glyph_table,
-            //         lines,
-            //         referenced_glyph_offset,
-            //         num_components,
-            //     )?;
-
-            //     if component_flag.is_last_component() {
-            //         break;
-            //     }
-            // }
+            Self::Compound(CompoundGlyph {
+                data: Stream::new(&data[10..]),
+                done: false,
+            })
         }
+    }
+}
+
+impl<'a> Iterator for CompoundGlyph<'a> {
+    type Item = CompoundGlyphComponent;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
+        let component_flag = CompoundGlyphFlag(self.data.read::<u16>().unwrap());
+        let referenced_glyph_index = self.data.read::<u16>().unwrap();
+
+        if component_flag.is_last_component() {
+            self.done = true;
+        }
+
+        let (x_offset, y_offset) = match (
+            component_flag.arg_1_and_2_are_words(),
+            component_flag.args_are_xy_values(),
+        ) {
+            (false, false) => {
+                // u8
+                (
+                    self.data.read::<u8>().unwrap() as i16,
+                    self.data.read::<u8>().unwrap() as i16,
+                )
+            },
+            (false, true) => {
+                // i8
+                (
+                    self.data.read::<i8>().unwrap() as i16,
+                    self.data.read::<i8>().unwrap() as i16,
+                )
+            },
+            (true, false) => {
+                // u16
+                (
+                    self.data.read::<u16>().unwrap() as i16,
+                    self.data.read::<u16>().unwrap() as i16,
+                )
+            },
+            (true, true) => {
+                // i16
+                (
+                    self.data.read::<i16>().unwrap(),
+                    self.data.read::<i16>().unwrap(),
+                )
+            },
+        };
+
+        // TODO: Transformations
+
+        Some(CompoundGlyphComponent {
+            component_flag: component_flag,
+            glyph_index: referenced_glyph_index,
+            x_offset,
+            y_offset,
+        })
     }
 }
 

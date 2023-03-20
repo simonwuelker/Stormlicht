@@ -223,10 +223,14 @@ impl<'a> Font<'a> {
                     font_size,
                 ) as i16;
 
-                let glyph_width =
-                    self.scale(simple_glyph.metrics.width() as f32, font_size) as usize + 1;
-                let glyph_height =
-                    self.scale(simple_glyph.metrics.height() as f32, font_size) as usize + 1;
+                let glyph_width = self
+                    .scale(simple_glyph.metrics.width() as f32, font_size)
+                    .ceil() as usize
+                    + 1;
+                let glyph_height = self
+                    .scale(simple_glyph.metrics.height() as f32, font_size)
+                    .ceil() as usize
+                    + 1;
                 let mut rasterizer = Rasterizer::new(glyph_width, glyph_height);
 
                 let mut previous_point_in_contour = None;
@@ -234,10 +238,15 @@ impl<'a> Font<'a> {
                 for glyph_point in simple_glyph {
                     let point = Point {
                         x: self.scale(
-                            (glyph_point.coordinates.0 - left_side_bearing) as f32,
+                            (glyph_point.coordinates.0
+                                - left_side_bearing
+                                - simple_glyph.metrics.min_x) as f32,
                             font_size,
                         ),
-                        y: self.scale((glyph_point.coordinates.1) as f32, font_size),
+                        y: self.scale(
+                            (glyph_point.coordinates.1 - simple_glyph.metrics.min_y) as f32,
+                            font_size,
+                        ),
                     };
 
                     if let Some(previous_point) = previous_point_in_contour {
@@ -258,16 +267,37 @@ impl<'a> Font<'a> {
 
                 // Translate the rasterized glyph onto the canvas
                 rasterizer.for_each_pixel(|coords, opacity| {
+                    let translated_x = position.0 as usize + coords.0;
+                    let translated_y =
+                        (position.1 + top_side_bearing) as usize + glyph_height - 1 - coords.1;
+
                     let color = [255 - opacity; 3];
-                    bitmap
-                        .pixel_at_mut(
-                            position.0 as usize + coords.0,
-                            (position.1 + top_side_bearing) as usize + glyph_height - 1 - coords.1,
-                        )
-                        .copy_from_slice(&color);
+
+                    // If the pixel is already darker, keep it as-is
+                    if 255 - opacity < bitmap.pixel_at(translated_x, translated_y)[0] {
+                        bitmap
+                            .pixel_at_mut(translated_x, translated_y)
+                            .copy_from_slice(&color);
+                    }
                 });
             },
-            Glyph::Compound(_compound_glyph) => todo!(),
+            Glyph::Compound(compound_glyph) => {
+                for glyph_component in compound_glyph {
+                    let glyph_x =
+                        position.0 + self.scale(glyph_component.x_offset, font_size) as i16;
+                    let glyph_y =
+                        position.1 - self.scale(glyph_component.y_offset, font_size) as i16;
+
+                    let referenced_glyph = self.get_glyph(glyph_component.glyph_index).unwrap();
+                    self.rasterize_glyph(
+                        referenced_glyph,
+                        bitmap,
+                        (glyph_x, glyph_y),
+                        font_size,
+                        LongHorMetric::default(),
+                    );
+                }
+            },
         }
     }
 

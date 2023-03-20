@@ -7,6 +7,7 @@ pub enum StreamError {
     UnexpectedEOF,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct Stream<'a> {
     bytes: &'a [u8],
     ptr: usize,

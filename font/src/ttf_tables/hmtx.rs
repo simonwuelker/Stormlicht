@@ -17,7 +17,7 @@ impl<'a> HMTXTable<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct LongHorMetric {
     advance_width: u16,
     left_side_bearing: i16,
