@@ -6,6 +6,7 @@
 //! * <https://handmade.network/forums/articles/t/7330-implementing_a_font_reader_and_rasterizer_from_scratch%252C_part_1__ttf_font_reader>
 
 use crate::{
+    path::{DiscretePoint, Operation, PathReader},
     ttf_tables::{
         cmap,
         glyf::{self, Glyph},
@@ -215,7 +216,7 @@ impl<'a> Font<'a> {
         font_size: f32,
         horizontal_metric: LongHorMetric,
     ) {
-        let left_side_bearing = horizontal_metric.left_side_bearing();
+        let left_side_bearing = self.scale(horizontal_metric.left_side_bearing(), font_size) as i16;
         match glyph {
             Glyph::Simple(simple_glyph) => {
                 let top_side_bearing = self.scale(
@@ -231,43 +232,41 @@ impl<'a> Font<'a> {
                     .scale(simple_glyph.metrics.height() as f32, font_size)
                     .ceil() as usize
                     + 1;
+
                 let mut rasterizer = Rasterizer::new(glyph_width, glyph_height);
+                let scale_point = |glyph_point: DiscretePoint| Point {
+                    x: self.scale(
+                        (glyph_point.x - simple_glyph.metrics.min_x) as f32,
+                        font_size,
+                    ),
+                    y: self.scale(
+                        (glyph_point.y - simple_glyph.metrics.min_y) as f32,
+                        font_size,
+                    ),
+                };
 
-                let mut previous_point_in_contour = None;
-                let mut first_point_in_contour = None;
-                for glyph_point in simple_glyph {
-                    let point = Point {
-                        x: self.scale(
-                            (glyph_point.coordinates.0
-                                - left_side_bearing
-                                - simple_glyph.metrics.min_x) as f32,
-                            font_size,
-                        ),
-                        y: self.scale(
-                            (glyph_point.coordinates.1 - simple_glyph.metrics.min_y) as f32,
-                            font_size,
-                        ),
-                    };
-
-                    if let Some(previous_point) = previous_point_in_contour {
-                        rasterizer.draw_line(previous_point, point);
-                    } else {
-                        first_point_in_contour = Some(point);
-                    }
-
-                    if glyph_point.is_last_point_of_contour {
-                        if let Some(first_point) = first_point_in_contour {
-                            rasterizer.draw_line(point, first_point);
-                        }
-                        previous_point_in_contour = None;
-                    } else {
-                        previous_point_in_contour = Some(point);
+                // Draw the outlines of the glyph on the rasterizer buffer
+                let mut write_head = Point::default();
+                let path_operations = PathReader::new(simple_glyph.into_iter());
+                for path_op in path_operations {
+                    match path_op {
+                        Operation::MoveTo(destination) => write_head = scale_point(destination),
+                        Operation::LineTo(destination) => {
+                            let scaled_destionation = scale_point(destination);
+                            rasterizer.draw_line(write_head, scaled_destionation);
+                            write_head = scaled_destionation;
+                        },
+                        Operation::QuadBezTo(p1, p2) => {
+                            let scaled_p2 = scale_point(p2);
+                            rasterizer.draw_quad_bezier(write_head, scale_point(p1), scaled_p2);
+                            write_head = scaled_p2;
+                        },
                     }
                 }
 
                 // Translate the rasterized glyph onto the canvas
                 rasterizer.for_each_pixel(|coords, opacity| {
-                    let translated_x = position.0 as usize + coords.0;
+                    let translated_x = (position.0 + left_side_bearing) as usize + coords.0;
                     let translated_y =
                         (position.1 + top_side_bearing) as usize + glyph_height - 1 - coords.1;
 

@@ -14,6 +14,7 @@
 //! font.rasterize("abc", &mut canvas, 24, &[0, 0, 0]);
 //! ```
 
+pub mod path;
 mod rasterizer;
 mod stream;
 pub mod ttf;
