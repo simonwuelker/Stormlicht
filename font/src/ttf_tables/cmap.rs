@@ -3,7 +3,7 @@
 use crate::ttf::{read_u16_at, read_u32_at};
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum PlatformID {
     Unicode,
     Mac,

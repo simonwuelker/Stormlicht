@@ -14,10 +14,11 @@
 //! font.rasterize("abc", &mut canvas, 24, &[0, 0, 0]);
 //! ```
 
-pub mod bezier;
-pub mod font;
+mod rasterizer;
 mod stream;
 pub mod ttf;
+pub mod ttf_tables;
 
-pub use crate::font::Font;
+pub use rasterizer::{Point, Rasterizer};
 pub use stream::{Readable, Stream};
+pub use ttf::Font;

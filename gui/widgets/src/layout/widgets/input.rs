@@ -74,7 +74,7 @@ impl<M> Widget for Input<M> {
             into.height() as usize,
             PixelFormat::RGB8,
         );
-        font.rasterize(&self.text, &mut canvas, 30., &[0, 0, 0]);
+        font.rasterize(&self.text, &mut canvas, (0, 0), 30.);
 
         texture.update(
             None,

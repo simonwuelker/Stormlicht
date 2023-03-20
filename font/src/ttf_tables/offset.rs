@@ -47,7 +47,7 @@ impl<'a> OffsetTable<'a> {
         assert_eq!(data.len() % 16, 0);
         assert_eq!(search_range % 16, 0);
 
-        if data.is_empty() {
+        if data[..search_range].is_empty() {
             None
         } else {
             let index = (search_range / 2) & !0b1111;

@@ -9,3 +9,5 @@ pub mod loca;
 pub mod maxp;
 pub mod name;
 pub mod offset;
+pub mod vhea;
+pub mod vmtx;
