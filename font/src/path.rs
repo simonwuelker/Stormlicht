@@ -14,19 +14,14 @@ pub struct DiscretePoint {
 }
 
 impl DiscretePoint {
+    pub fn origin() -> Self {
+        Self { x: 0, y: 0 }
+    }
+
     pub fn mid(p0: Self, p1: Self) -> Self {
         Self {
             x: (p0.x + p1.x) / 2,
             y: (p0.y + p1.y) / 2,
-        }
-    }
-}
-
-impl From<GlyphPoint> for DiscretePoint {
-    fn from(value: GlyphPoint) -> Self {
-        Self {
-            x: value.coordinates.0,
-            y: value.coordinates.1,
         }
     }
 }
@@ -94,8 +89,8 @@ impl<I: Iterator<Item = GlyphPoint>> Iterator for PathReader<I> {
                         (true, true) => {
                             // Consecutive on-curve points are connected by a line
                             self.previous_point = Some(glyph_point);
-                            self.last_on_curve_point = Some(glyph_point.into());
-                            return Some(Operation::LineTo(glyph_point.into()));
+                            self.last_on_curve_point = Some(glyph_point.coordinates);
+                            return Some(Operation::LineTo(glyph_point.coordinates));
                         },
                         (true, false) => {
                             // If the previous point was on the curve but the current one is not, this is the start of
@@ -106,17 +101,22 @@ impl<I: Iterator<Item = GlyphPoint>> Iterator for PathReader<I> {
                             // If the previous point was not on the curve but the current one is, we draw a bezier curve
                             self.previous_point = Some(glyph_point);
                             return Some(Operation::QuadBezTo(
-                                previous_point.into(),
-                                glyph_point.into(),
+                                previous_point.coordinates,
+                                glyph_point.coordinates,
                             ));
                         },
                         (false, false) => {
                             // If multiple off-curve points occur consecutively, we insert a linearly interpolated mid point (on-curve) between them
-                            let mid_point =
-                                DiscretePoint::mid(previous_point.into(), glyph_point.into());
+                            let mid_point = DiscretePoint::mid(
+                                previous_point.coordinates,
+                                glyph_point.coordinates,
+                            );
                             self.last_on_curve_point = Some(mid_point);
                             self.previous_point = Some(glyph_point);
-                            return Some(Operation::QuadBezTo(previous_point.into(), mid_point));
+                            return Some(Operation::QuadBezTo(
+                                previous_point.coordinates,
+                                mid_point,
+                            ));
                         },
                     }
                 },
@@ -125,9 +125,9 @@ impl<I: Iterator<Item = GlyphPoint>> Iterator for PathReader<I> {
                     self.first_point_of_contour = Some(glyph_point);
                     self.previous_point = Some(glyph_point);
                     if glyph_point.is_on_curve {
-                        self.last_on_curve_point = Some(glyph_point.into());
+                        self.last_on_curve_point = Some(glyph_point.coordinates);
                     }
-                    return Some(Operation::MoveTo(glyph_point.into()));
+                    return Some(Operation::MoveTo(glyph_point.coordinates));
                 },
             }
         }

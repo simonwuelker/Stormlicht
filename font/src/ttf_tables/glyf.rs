@@ -2,6 +2,7 @@
 
 use super::loca::LocaTable;
 use crate::{
+    path::DiscretePoint,
     ttf::{read_i16_at, read_u16_at},
     Stream,
 };
@@ -292,7 +293,7 @@ impl GlyphFlag {
 pub struct GlyphPoint {
     pub is_on_curve: bool,
     pub is_last_point_of_contour: bool,
-    pub coordinates: (i16, i16),
+    pub coordinates: DiscretePoint,
 }
 
 #[derive(Debug)]
@@ -329,7 +330,7 @@ pub struct GlyphPointIterator<'a> {
     flag_index: usize,
     x_index: usize,
     y_index: usize,
-    previous_point: (i16, i16),
+    previous_point: DiscretePoint,
     points_emitted: usize,
     contours_emitted: usize,
     num_points: usize,
@@ -353,7 +354,7 @@ impl<'a> GlyphPointIterator<'a> {
             flag_index: 0,
             x_index: 0,
             y_index: 0,
-            previous_point: (0, 0),
+            previous_point: DiscretePoint::origin(),
             points_emitted: 0,
             contours_emitted: 0,
             num_points: num_points,
@@ -404,10 +405,10 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
         };
         self.y_index += self.current_flag.coordinate_type_y().size();
 
-        let new_point = (
-            self.previous_point.0 + delta_x,
-            self.previous_point.1 + delta_y,
-        );
+        let new_point = DiscretePoint {
+            x: self.previous_point.x + delta_x,
+            y: self.previous_point.y + delta_y,
+        };
         self.previous_point = new_point;
         let is_last_point = read_u16_at(self.contour_end_points, self.contours_emitted * 2)
             as usize
@@ -496,15 +497,6 @@ impl fmt::Debug for CompoundGlyphFlag {
             .field("use my metrics", &self.use_my_metrics())
             .field("overlap compound", &self.overlap_compound())
             .finish()
-    }
-}
-
-impl GlyphPoint {
-    pub fn with_offset(&self, offset: (i16, i16)) -> Self {
-        let mut new_point = *self;
-        new_point.coordinates.0 += offset.0;
-        new_point.coordinates.1 += offset.1;
-        new_point
     }
 }
 
