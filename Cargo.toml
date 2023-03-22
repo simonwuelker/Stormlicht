@@ -21,5 +21,11 @@ members = [
     "crypto/tls",
 ]
 
+[workspace.package]
+authors = ["Simon Wülker"]
+edition = "2021"
+repository = "https://github.com/wuelle/browser"
+license = "MIT"
+
 [profile.bench]
 debug = true
