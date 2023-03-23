@@ -10,7 +10,13 @@ use widgets::application::Application;
 
 #[derive(Debug, Default, CommandLineArgumentParser)]
 struct ArgumentParser {
-    #[argument(optional, positional, long_name = "URL")]
+    #[argument(
+        may_be_omitted,
+        positional,
+        short_name = 'u',
+        long_name = "URL",
+        description = "URL to load"
+    )]
     _url: Option<String>,
 
     #[argument(
