@@ -6,6 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+syn = "1"
+quote = "1"
+proc-macro2 = "1"
 
 [lib]
 proc-macro = true
+
+[build]
+# See https://docs.rs/proc-macro2/latest/proc_macro2/#unstable-features
+rustflags = ["procmacro2_semver_exempt"]
