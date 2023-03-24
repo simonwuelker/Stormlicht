@@ -219,15 +219,30 @@ pub fn derive_argumentparser_wrapper(input: proc_macro::TokenStream) -> proc_mac
                         
                         if let Some(argument) = arg.strip_prefix(\"-\") {{
                             if let Some(argument) = argument.strip_prefix(\"-\") {{
+                                let (argument_name, argument_value) = if argument.contains('=') {{
+                                    let (name, value) = argument.split_once('=').unwrap();
+                                    (name, Some(value))
+                                }} else {{
+                                    (argument, None)
+                                }}
+                                ;
                                 // Parse long option
-                                let argument_index = match long_option_index_map(argument) {{
+                                let argument_index = match long_option_index_map(argument_name) {{
                                     Some(index) => index,
                                     None => continue, // unknown flags are ignored
                                 }};
+
                                 if argument_is_flag[argument_index] {{
                                     arguments[argument_index] = Some(None);
                                 }} else {{
-                                    let value = env_args.next().ok_or(::cli::CommandLineParseError::EmptyOption)?;
+                                    // If no value was provided with '--key=value' syntax,
+                                    // we read the next argument and use that instead
+                                    let value = if let Some(value) = argument_value {{
+                                        value.to_string()
+                                    }} else {{
+                                        env_args.next().ok_or(::cli::CommandLineParseError::EmptyOption)?
+                                    }};
+
                                     arguments[argument_index] = Some(Some(value));
                                 }}
                             }} else {{
