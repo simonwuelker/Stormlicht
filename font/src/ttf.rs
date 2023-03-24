@@ -9,7 +9,7 @@ use crate::{
     path::{DiscretePoint, Operation, PathReader},
     ttf_tables::{
         cmap,
-        glyf::{self, Glyph, GlyphPointIterator, Metrics},
+        glyf::{self, CompoundGlyph, Glyph, GlyphPointIterator, Metrics},
         head, hhea, hmtx, loca, maxp, name,
         offset::OffsetTable,
     },
@@ -289,6 +289,7 @@ impl<'a> Font<'a> {
         <svg version=\"1.1\"
             xmlns=\"http://www.w3.org/2000/svg\"
             xmlns:xlink=\"http://www.w3.org/1999/xlink\"
+            transform=\"scale(1, -1)\"
             viewBox=\"{min_x} {min_y} {width} {height}\">
           {} {}
         </svg>",
@@ -327,20 +328,44 @@ pub struct RenderedGlyphIterator<'a, 'b> {
     x: i16,
     y: i16,
     chars: std::str::Chars<'b>,
+    current_compound_glyphs: Vec<CompoundGlyph<'a>>,
+    advance_before_next_glyph: i16,
 }
 
 impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
     type Item = RenderedGlyph<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let c = self.chars.next()?;
-        let glyph_id = self.font.get_glyph_index(c as u16).unwrap_or(0);
+        // Determine which glyph we should render and where we should render it to.
+        // If we are currently in the process of emitting the components of some compound glyph, continue doing that
+        // else, read the next character and emit that
+        let (glyph_id, glyph_x, glyph_y) =
+            if let Some(current_glyph) = self.current_compound_glyphs.last_mut() {
+                if let Some(component) = current_glyph.next() {
+                    (
+                        component.glyph_index,
+                        self.x + component.x_offset,
+                        self.y + component.y_offset,
+                    )
+                } else {
+                    // We are done emitting all parts of the current component glyph, pop it from the stack and start again
+                    self.current_compound_glyphs.pop();
+                    return self.next();
+                }
+            } else {
+                let c = self.chars.next()?;
+                self.x += self.advance_before_next_glyph;
+
+                let glyph_id = self.font.get_glyph_index(c as u16).unwrap_or(0);
+                let horizontal_metrics = self.font.hmtx_table.get_metric_for(glyph_id);
+                let glyph_x = self.x + horizontal_metrics.left_side_bearing();
+
+                self.advance_before_next_glyph = horizontal_metrics.advance_width() as i16;
+
+                (glyph_id, glyph_x, self.y)
+            };
+
         let glyph = self.font.get_glyph(glyph_id).unwrap();
-
-        let horizontal_metrics = self.font.hmtx_table.get_metric_for(glyph_id);
-
-        let glyph_x = self.x + horizontal_metrics.left_side_bearing();
-        let glyph_y = self.y;
 
         match glyph {
             Glyph::Simple(simple_glyph) => {
@@ -355,8 +380,9 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
                     path_operations,
                 })
             },
-            _ => {
-                todo!()
+            Glyph::Compound(compound_glyph) => {
+                self.current_compound_glyphs.push(compound_glyph);
+                self.next()
             },
         }
     }
@@ -369,6 +395,8 @@ impl<'a, 'b> RenderedGlyphIterator<'a, 'b> {
             x: 0,
             y: 0,
             chars: text.chars(),
+            current_compound_glyphs: vec![],
+            advance_before_next_glyph: 0,
         }
     }
 }

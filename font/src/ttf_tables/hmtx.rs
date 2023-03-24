@@ -24,8 +24,8 @@ pub struct LongHorMetric {
 }
 
 impl LongHorMetric {
-    pub fn advance_width(&self) -> usize {
-        self.advance_width as usize
+    pub fn advance_width(&self) -> u16 {
+        self.advance_width
     }
 
     pub fn left_side_bearing(&self) -> i16 {
