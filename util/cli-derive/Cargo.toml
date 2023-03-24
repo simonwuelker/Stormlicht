@@ -12,7 +12,3 @@ proc-macro2 = "1"
 
 [lib]
 proc-macro = true
-
-[build]
-# See https://docs.rs/proc-macro2/latest/proc_macro2/#unstable-features
-rustflags = ["procmacro2_semver_exempt"]
