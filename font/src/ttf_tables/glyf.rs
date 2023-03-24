@@ -369,6 +369,7 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
         if self.points_emitted == self.num_points {
             return None;
         }
+
         if self.times_to_repeat_flag == 0 {
             // Read the next flag as usual
             self.current_flag = GlyphFlag(self.flags[self.flag_index]);
@@ -422,6 +423,7 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
             is_last_point_of_contour: is_last_point,
             coordinates: new_point,
         };
+
         self.points_emitted += 1;
         Some(glyph_point)
     }

@@ -48,8 +48,12 @@ impl<I: Iterator<Item = GlyphPoint>> PathReader<I> {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PathReaderState {
+    /// Regular operation
     BeforeEndOfContour,
+    /// Indicates that after the path reader is done processing the current point,
+    /// it should insert an extra curve back to the first point
     AtEndOfContour,
+    /// Indicates that we previously closed a contour and should now start a new contour.
     AfterEndOfContour,
 }
 
@@ -59,29 +63,32 @@ impl<I: Iterator<Item = GlyphPoint>> Iterator for PathReader<I> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             // If we previously connected the end points of two contours together,
-            // we should discard any previous points
+            // then this is a new contour and we should discard the previous point
             if self.state == PathReaderState::AfterEndOfContour {
                 self.state = PathReaderState::BeforeEndOfContour;
                 self.previous_point = None;
             }
 
+            // If we're at the end of a contour we don't consume a new point, instead
+            // we connect the previous point with the first one in the contour
             let glyph_point = if self.state == PathReaderState::AtEndOfContour {
                 self.state = PathReaderState::AfterEndOfContour;
                 self.first_point_of_contour.unwrap()
             } else {
-                self.inner.next()?
-            };
+                let next_point = self.inner.next()?;
 
-            if glyph_point.is_last_point_of_contour {
-                // If the point ends a contour, we set a marker. In this call to next(),
-                // we connect the previous point to the current point and in the next call,
-                // we will connect the current point to the first point of the contour (closing it)
+                if next_point.is_last_point_of_contour {
+                    // If the point ends a contour, we set a marker. In this call to next(),
+                    // we connect the previous point to the current point and in the next call,
+                    // we will connect the current point to the first point of the contour (closing it)
 
-                // Ignore contours that only contain a single point
-                if self.first_point_of_contour.is_some() {
-                    self.state = PathReaderState::AtEndOfContour;
+                    // Ignore contours that only contain a single point
+                    if self.first_point_of_contour.is_some() {
+                        self.state = PathReaderState::AtEndOfContour;
+                    }
                 }
-            }
+                next_point
+            };
 
             match self.previous_point {
                 Some(previous_point) => {

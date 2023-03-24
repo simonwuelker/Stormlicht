@@ -370,7 +370,6 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
         match glyph {
             Glyph::Simple(simple_glyph) => {
                 let path_operations = PathReader::new(simple_glyph.into_iter());
-
                 Some(RenderedGlyph {
                     metrics: simple_glyph.metrics,
                     position: DiscretePoint {
