@@ -9,7 +9,7 @@ use crate::{
     path::{DiscretePoint, Operation, PathReader},
     ttf_tables::{
         cmap,
-        glyf::{self, Glyph, GlyphPointIterator},
+        glyf::{self, Glyph, GlyphPointIterator, Metrics},
         head, hhea, hmtx, loca, maxp, name,
         offset::OffsetTable,
     },
@@ -183,8 +183,8 @@ impl<'a> Font<'a> {
             // All the values are in font units, we need to scale them for appropriate use
             let scaled_x = self.scale(glyph.position.x, font_size) as usize;
             let scaled_y = self.scale(glyph.position.y, font_size) as usize;
-            let scaled_width = self.scale(glyph.width, font_size) as usize;
-            let scaled_height = self.scale(glyph.height, font_size) as usize;
+            let scaled_width = self.scale(glyph.metrics.width(), font_size) as usize;
+            let scaled_height = self.scale(glyph.metrics.height(), font_size) as usize;
 
             let mut rasterizer = Rasterizer::new(scaled_width, scaled_height);
             let scale_point = |glyph_point: DiscretePoint| Point {
@@ -242,36 +242,58 @@ impl<'a> Font<'a> {
         let mut min_y = 0;
         let mut max_y = 0;
 
-        let mut path = String::new();
-        for glyph in self.path_objects(text) {
-            min_x = min_x.min(glyph.position.x);
-            min_y = min_y.min(glyph.position.y);
-            max_x = max_x.max(glyph.position.x);
-            max_y = max_y.max(glyph.position.y);
+        let mut symbols = Vec::with_capacity(text.len());
+        let mut symbol_positions = Vec::with_capacity(text.len());
+        for (index, glyph) in self.path_objects(text).enumerate() {
+            min_x = min_x.min(glyph.metrics.min_x);
+            min_y = min_y.min(glyph.metrics.min_y);
+            max_x = max_x.max(glyph.metrics.max_x);
+            max_y = max_y.max(glyph.metrics.max_y);
 
-            for operation in glyph.path_operations {
-                match operation {
+            symbol_positions.push(glyph.position);
+
+            let mut glyph_path = glyph
+                .path_operations
+                .map(|operation| match operation {
                     Operation::MoveTo(DiscretePoint { x, y }) => {
-                        path.push_str(&format!("M {x} {y}"))
+                        format!("M{x} {y}")
                     },
                     Operation::LineTo(DiscretePoint { x, y }) => {
-                        path.push_str(&format!("L {x} {y}"))
+                        format!("L{x} {y}")
                     },
                     Operation::QuadBezTo(p1, p2) => {
-                        path.push_str(&format!("Q {} {} {} {}", p1.x, p1.y, p2.x, p2.y))
+                        format!("Q{} {} {} {}", p1.x, p1.y, p2.x, p2.y)
                     },
-                }
-            }
+                })
+                .collect::<Vec<String>>()
+                .join(" ");
+            glyph_path.push_str(" Z");
+            symbols.push(format!(
+                "<symbol id=\"{index}\" overflow=\"visible\"><path d=\"{glyph_path}\"></path></symbol>"
+            ));
         }
 
+        let symbol_uses = symbol_positions
+            .iter()
+            .enumerate()
+            .map(|(index, DiscretePoint { x, y })| {
+                format!("<use xlink:href=\"#{index}\" x=\"{x}\" y=\"{y}\"/>")
+            })
+            .collect::<Vec<String>>()
+            .join("");
+
+        let width = max_x - min_x;
+        let height = max_y - min_y;
         format!(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
         <svg version=\"1.1\"
             xmlns=\"http://www.w3.org/2000/svg\"
             xmlns:xlink=\"http://www.w3.org/1999/xlink\"
-            viewBox=\"{min_x} {min_y} {max_x} {max_y}\">
-          <symbol overflow=\"visible\"><path d=\"{path}\"/></symbol>
-        </svg>"
+            viewBox=\"{min_x} {min_y} {width} {height}\">
+          {} {}
+        </svg>",
+            symbols.join(""),
+            symbol_uses,
         )
     }
 }
@@ -295,8 +317,7 @@ pub fn read_i16_at(data: &[u8], offset: usize) -> i16 {
 }
 
 pub struct RenderedGlyph<'a> {
-    width: i16,
-    height: i16,
+    metrics: Metrics,
     position: DiscretePoint,
     path_operations: PathReader<GlyphPointIterator<'a>>,
 }
@@ -323,13 +344,10 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
 
         match glyph {
             Glyph::Simple(simple_glyph) => {
-                let width = simple_glyph.metrics.width();
-                let height = simple_glyph.metrics.height();
                 let path_operations = PathReader::new(simple_glyph.into_iter());
 
                 Some(RenderedGlyph {
-                    width,
-                    height,
+                    metrics: simple_glyph.metrics,
                     position: DiscretePoint {
                         x: glyph_x,
                         y: glyph_y,
