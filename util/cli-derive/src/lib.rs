@@ -169,7 +169,10 @@ pub fn derive_argumentparser_wrapper(input: proc_macro::TokenStream) -> proc_mac
         .join(",");
 
     let arguments_found = "None,".repeat(num_arguments);
-
+    let num_positional_arguments = commandline_arguments
+        .iter()
+        .filter(|arg| arg.is_positional)
+        .count();
     let argument_indices = commandline_arguments
         .iter()
         .enumerate()
@@ -193,7 +196,7 @@ pub fn derive_argumentparser_wrapper(input: proc_macro::TokenStream) -> proc_mac
                 let mut arguments: [Option<Option<String>>; {num_arguments}] = [{arguments_found}];
                 
                 // Map from the index of a positional argument to it's respective index in the argument array
-                let mut positional_argument_map = [{argument_indices}];
+                let mut positional_argument_map: [usize; {num_positional_arguments}] = [{argument_indices}];
                 
                 let mut argument_is_flag: [bool; {num_arguments}] = [{argument_is_flag}];
 
