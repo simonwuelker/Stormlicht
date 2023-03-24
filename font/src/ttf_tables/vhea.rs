@@ -8,10 +8,10 @@ pub struct VHEATable<'a>(&'a [u8]);
 
 impl<'a> VHEATable<'a> {
     pub fn new(data: &'a [u8], offset: usize) -> Self {
-        Self(&data[offset..][..288])
+        Self(&data[offset..][..36])
     }
 
     pub fn num_of_long_vertical_metrics(&self) -> usize {
-        read_u16_at(self.0, 272) as usize
+        read_u16_at(self.0, 34) as usize
     }
 }
