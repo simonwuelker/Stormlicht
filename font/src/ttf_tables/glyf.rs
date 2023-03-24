@@ -1,6 +1,6 @@
 //! [Glyph](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6glyf.html) table implementation
 
-use super::loca::LocaTable;
+use super::{cmap::GlyphID, loca::LocaTable};
 use crate::{
     path::DiscretePoint,
     ttf::{read_i16_at, read_u16_at},
@@ -28,8 +28,8 @@ impl<'a> GlyphOutlineTable<'a> {
         }
     }
 
-    pub fn get_glyph(&self, glyph_index: u16) -> Glyph<'a> {
-        let offset = self.loca_table.get_glyph_offset(glyph_index);
+    pub fn get_glyph(&self, glyph_id: GlyphID) -> Glyph<'a> {
+        let offset = self.loca_table.get_glyph_offset(glyph_id);
         let data = &self.data[offset as usize..];
         Glyph::from_data(data)
     }
@@ -79,7 +79,7 @@ pub struct CompoundGlyph<'a> {
 #[derive(Clone, Copy, Debug)]
 pub struct CompoundGlyphComponent {
     pub component_flag: CompoundGlyphFlag,
-    pub glyph_index: u16,
+    pub glyph_id: GlyphID,
     pub x_offset: i16,
     pub y_offset: i16,
 }
@@ -194,7 +194,7 @@ impl<'a> Iterator for CompoundGlyph<'a> {
         }
 
         let component_flag = CompoundGlyphFlag(self.data.read::<u16>().unwrap());
-        let referenced_glyph_index = self.data.read::<u16>().unwrap();
+        let referenced_glyph_id = GlyphID::new(self.data.read::<u16>().unwrap());
 
         if component_flag.is_last_component() {
             self.done = true;
@@ -238,7 +238,7 @@ impl<'a> Iterator for CompoundGlyph<'a> {
 
         Some(CompoundGlyphComponent {
             component_flag: component_flag,
-            glyph_index: referenced_glyph_index,
+            glyph_id: referenced_glyph_id,
             x_offset,
             y_offset,
         })

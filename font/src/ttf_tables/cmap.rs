@@ -4,6 +4,30 @@ use crate::ttf::{read_u16_at, read_u32_at};
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Zero-cost wrapper around a `u16` for extra type safety.
+pub struct GlyphID(u16);
+
+impl GlyphID {
+    pub const REPLACEMENT: Self = Self(0);
+
+    #[inline]
+    pub fn new(value: u16) -> Self {
+        Self(value)
+    }
+
+    #[inline]
+    pub fn numeric(self) -> u16 {
+        self.0
+    }
+}
+
+impl From<GlyphID> for u16 {
+    fn from(value: GlyphID) -> Self {
+        value.0
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PlatformID {
     Unicode(UnicodePlatformSpecificID),
     Mac,
@@ -219,7 +243,7 @@ impl<'a> Format4<'a> {
         read_u16_at(self.0, self.glyph_ids_start() + index * 2)
     }
 
-    pub fn get_glyph_index(&self, codepoint: u16) -> Option<u16> {
+    pub fn get_glyph_id(&self, codepoint: u16) -> Option<GlyphID> {
         // Find the segment containing the glyph index
         // using binary search
         let mut start = 0;
@@ -239,7 +263,7 @@ impl<'a> Format4<'a> {
                     let id_range_offset = self.get_id_range_offset(index);
 
                     if id_range_offset == 0 {
-                        return Some(codepoint.wrapping_add(id_delta));
+                        return Some(GlyphID(codepoint.wrapping_add(id_delta)));
                     } else {
                         let delta = (codepoint - start_code) * 2;
 
@@ -248,7 +272,7 @@ impl<'a> Format4<'a> {
                         pos = pos.wrapping_add(id_range_offset);
 
                         let glyph_id = read_u16_at(self.0, pos as usize);
-                        return Some(glyph_id.wrapping_add(id_delta));
+                        return Some(GlyphID(glyph_id.wrapping_add(id_delta)));
                     }
                 } else {
                     start = index + 1;

@@ -2,6 +2,8 @@
 
 use crate::ttf::{read_i16_at, read_u16_at};
 
+use super::cmap::GlyphID;
+
 pub struct HMTXTable<'a>(&'a [u8]);
 
 impl<'a> HMTXTable<'a> {
@@ -9,10 +11,10 @@ impl<'a> HMTXTable<'a> {
         Self(&data[offset..][..num_of_long_hor_metrics * 4])
     }
 
-    pub fn get_metric_for(&self, glyph_id: u16) -> LongHorMetric {
+    pub fn get_metric_for(&self, glyph_id: GlyphID) -> LongHorMetric {
         LongHorMetric {
-            advance_width: read_u16_at(self.0, glyph_id as usize * 4),
-            left_side_bearing: read_i16_at(self.0, glyph_id as usize * 4 + 2),
+            advance_width: read_u16_at(self.0, glyph_id.numeric() as usize * 4),
+            left_side_bearing: read_i16_at(self.0, glyph_id.numeric() as usize * 4 + 2),
         }
     }
 }

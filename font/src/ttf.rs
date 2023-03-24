@@ -8,7 +8,7 @@
 use crate::{
     path::{DiscretePoint, Operation, PathReader},
     ttf_tables::{
-        cmap,
+        cmap::{self, GlyphID},
         glyf::{self, CompoundGlyph, Glyph, GlyphPointIterator, Metrics},
         head, hhea, hmtx, loca, maxp, name,
         offset::OffsetTable,
@@ -156,11 +156,11 @@ impl<'a> Font<'a> {
     }
 
     /// Get the Glyph index for a given codepoint
-    pub fn get_glyph_index(&self, codepoint: u16) -> Option<u16> {
-        self.format4.get_glyph_index(codepoint)
+    pub fn get_glyph_id(&self, codepoint: u16) -> Option<GlyphID> {
+        self.format4.get_glyph_id(codepoint)
     }
 
-    pub fn get_glyph(&self, glyph_id: u16) -> Result<Glyph<'a>, TTFParseError> {
+    pub fn get_glyph(&self, glyph_id: GlyphID) -> Result<Glyph<'a>, TTFParseError> {
         // Any character that does not exist is mapped to index zero, which is defined to be the
         // missing character glyph
         let glyph = self.glyph_table.get_glyph(glyph_id);
@@ -245,10 +245,10 @@ impl<'a> Font<'a> {
         let mut symbols = Vec::with_capacity(text.len());
         let mut symbol_positions = Vec::with_capacity(text.len());
         for (index, glyph) in self.path_objects(text).enumerate() {
-            min_x = min_x.min(glyph.metrics.min_x);
-            min_y = min_y.min(glyph.metrics.min_y);
-            max_x = max_x.max(glyph.metrics.max_x);
-            max_y = max_y.max(glyph.metrics.max_y);
+            min_x = min_x.min(glyph.position.x + glyph.metrics.min_x);
+            min_y = min_y.min(glyph.position.y + glyph.metrics.min_y);
+            max_x = max_x.max(glyph.position.x + glyph.metrics.max_x);
+            max_y = max_y.max(glyph.position.y + glyph.metrics.max_y);
 
             symbol_positions.push(glyph.position);
 
@@ -343,7 +343,7 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
             if let Some(current_glyph) = self.current_compound_glyphs.last_mut() {
                 if let Some(component) = current_glyph.next() {
                     (
-                        component.glyph_index,
+                        component.glyph_id,
                         self.x + component.x_offset,
                         self.y + component.y_offset,
                     )
@@ -356,7 +356,10 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
                 let c = self.chars.next()?;
                 self.x += self.advance_before_next_glyph;
 
-                let glyph_id = self.font.get_glyph_index(c as u16).unwrap_or(0);
+                let glyph_id = self
+                    .font
+                    .get_glyph_id(c as u16)
+                    .unwrap_or(GlyphID::REPLACEMENT);
                 let horizontal_metrics = self.font.hmtx_table.get_metric_for(glyph_id);
                 let glyph_x = self.x + horizontal_metrics.left_side_bearing();
 
