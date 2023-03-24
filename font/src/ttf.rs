@@ -68,9 +68,9 @@ impl<'a> Font<'a> {
             .ok_or(TTFParseError::MissingTable)?;
         let cmap_table = cmap::CMAPTable::new(data, cmap_entry.offset());
 
-        let unicode_table_or_none = cmap_table.get_subtable_for_platform(cmap::PlatformID::Unicode);
-
-        let unicode_table_offset = unicode_table_or_none.ok_or(TTFParseError::MissingTable)?;
+        let unicode_table_offset = cmap_table
+            .get_unicode_table()
+            .ok_or(TTFParseError::MissingTable)?;
         let format4 = cmap::Format4::new(data, cmap_entry.offset() + unicode_table_offset);
 
         let loca_entry = offset_table
@@ -88,7 +88,6 @@ impl<'a> Font<'a> {
             glyf_entry.length(),
             loca_table,
         );
-
         let hhea_entry = offset_table
             .get_table(HHEA_TAG)
             .ok_or(TTFParseError::MissingTable)?;

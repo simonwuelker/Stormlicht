@@ -3,12 +3,79 @@
 use crate::ttf::{read_u16_at, read_u32_at};
 use std::fmt;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PlatformID {
-    Unicode,
+    Unicode(UnicodePlatformSpecificID),
     Mac,
     Reserved,
-    Microsoft,
+    Microsoft(WindowsPlatformSpecificID),
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UnicodePlatformSpecificID {
+    Version1_0,
+    Version1_1,
+    Iso10646_1993SemanticDeprecated,
+    Unicode2_0OrLaterBmpOnly,
+    Unicode2_0OrLater,
+    UnicodeVariationSequences,
+    LastResort,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WindowsPlatformSpecificID {
+    Symbol,
+    UnicodeBmpOnly,
+    ShiftJis,
+    Prc,
+    BigFive,
+    Johab,
+    UnicodeUcs4,
+    Unknown,
+}
+
+impl From<(u16, u16)> for PlatformID {
+    fn from(value: (u16, u16)) -> Self {
+        match value.0 {
+            0 => Self::Unicode(value.1.into()),
+            1 => Self::Mac,
+            2 => Self::Reserved,
+            3 => Self::Microsoft(value.1.into()),
+            _ => Self::Unknown,
+        }
+    }
+}
+
+impl From<u16> for UnicodePlatformSpecificID {
+    fn from(value: u16) -> Self {
+        match value {
+            0 => Self::Version1_0,
+            1 => Self::Version1_1,
+            2 => Self::Iso10646_1993SemanticDeprecated,
+            3 => Self::Unicode2_0OrLaterBmpOnly,
+            4 => Self::Unicode2_0OrLater,
+            5 => Self::UnicodeVariationSequences,
+            6 => Self::LastResort,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+impl From<u16> for WindowsPlatformSpecificID {
+    fn from(value: u16) -> Self {
+        match value {
+            0 => Self::Symbol,
+            1 => Self::UnicodeBmpOnly,
+            2 => Self::ShiftJis,
+            3 => Self::Prc,
+            4 => Self::BigFive,
+            5 => Self::Johab,
+            10 => Self::UnicodeUcs4,
+            _ => Self::Unknown,
+        }
+    }
 }
 
 pub struct CMAPTable<'a>(&'a [u8]);
@@ -36,21 +103,19 @@ impl<'a> CMAPTable<'a> {
         CMAPSubTable::new(self.0, 4 + n * 8)
     }
 
-    pub fn get_subtable_for_platform(&self, platform: PlatformID) -> Option<usize> {
-        let target_id = match platform {
-            PlatformID::Unicode => 0,
-            PlatformID::Mac => 1,
-            PlatformID::Reserved => 2,
-            PlatformID::Microsoft => 3,
-        };
-
+    pub fn get_unicode_table(&self) -> Option<usize> {
         // using a linear search here - there are usually only 3 tables (TODO: verify)
         // so binary search really doesn't make a lot of sense
         for i in 0..self.num_subtables() {
             let subtable = self.get_nth_subtable(i);
-            let _platform_id = read_u16_at(self.0, 4 + i * 8);
+            let platform_id = subtable.platform_id();
 
-            if subtable.platform_id() == target_id {
+            if matches!(
+                platform_id,
+                PlatformID::Unicode(_)
+                    | PlatformID::Microsoft(WindowsPlatformSpecificID::UnicodeBmpOnly)
+                    | PlatformID::Microsoft(WindowsPlatformSpecificID::UnicodeUcs4)
+            ) {
                 return Some(subtable.offset());
             }
         }
@@ -74,12 +139,10 @@ impl<'a> CMAPSubTable<'a> {
         Self(&data[offset..][..8])
     }
 
-    pub fn platform_id(&self) -> u16 {
-        read_u16_at(self.0, 0)
-    }
-
-    pub fn platform_specific_id(&self) -> u16 {
-        read_u16_at(self.0, 2)
+    pub fn platform_id(&self) -> PlatformID {
+        let platform_id = read_u16_at(self.0, 0);
+        let platform_specific_id = read_u16_at(self.0, 2);
+        (platform_id, platform_specific_id).into()
     }
 
     pub fn offset(&self) -> usize {
@@ -91,7 +154,6 @@ impl<'a> fmt::Debug for CMAPSubTable<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("CMAP Subtable")
             .field("platform_id", &self.platform_id())
-            .field("platform_specific_id", &self.platform_specific_id())
             .field("offset", &self.offset())
             .finish()
     }
