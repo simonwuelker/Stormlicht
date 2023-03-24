@@ -9,3 +9,12 @@ edition = "2021"
 canvas = { path = "../gui/canvas" }
 anyhow = "1"
 thiserror = "1"
+
+# The cli is only required by the binary.
+# Cargo doesn't support "bin-dependencies", so we need to put
+# the dependency behind a feature gate.
+cli = { path = "../util/cli", optional = true}
+
+[[bin]]         
+name = "font-unicode-test"    
+required-features = ["cli"]

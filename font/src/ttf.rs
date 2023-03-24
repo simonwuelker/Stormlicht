@@ -9,10 +9,8 @@ use crate::{
     path::{DiscretePoint, Operation, PathReader},
     ttf_tables::{
         cmap,
-        glyf::{self, Glyph},
-        head, hhea,
-        hmtx::{self, LongHorMetric},
-        loca, maxp, name,
+        glyf::{self, Glyph, GlyphPointIterator},
+        head, hhea, hmtx, loca, maxp, name,
         offset::OffsetTable,
     },
     Point, Rasterizer,
@@ -181,128 +179,101 @@ impl<'a> Font<'a> {
     }
 
     pub fn rasterize(&self, text: &str, bitmap: &mut Canvas, position: (i16, i16), font_size: f32) {
-        let (mut x, y) = position;
+        let glyphs = self.path_objects(text);
+        for glyph in glyphs {
+            // All the values are in font units, we need to scale them for appropriate use
+            let scaled_x = self.scale(glyph.position.x, font_size) as usize;
+            let scaled_y = self.scale(glyph.position.y, font_size) as usize;
+            let scaled_width = self.scale(glyph.width, font_size) as usize;
+            let scaled_height = self.scale(glyph.height, font_size) as usize;
 
-        for c in text.chars() {
-            let glyph_id = self.get_glyph_index(c as u16).unwrap_or(0);
-            let glyph = self.get_glyph(glyph_id).unwrap();
+            let mut rasterizer = Rasterizer::new(scaled_width, scaled_height);
+            let scale_point = |glyph_point: DiscretePoint| Point {
+                x: self.scale(glyph_point.x, font_size),
+                y: self.scale(glyph_point.y, font_size),
+            };
 
-            let horizontal_metrics = self.hmtx_table.get_metric_for(glyph_id);
+            // Draw the outlines of the glyph on the rasterizer buffer
+            let mut write_head = Point::default();
+            for path_op in glyph.path_operations {
+                match path_op {
+                    Operation::MoveTo(destination) => write_head = scale_point(destination),
+                    Operation::LineTo(destination) => {
+                        let scaled_destionation = scale_point(destination);
+                        rasterizer.draw_line(write_head, scaled_destionation);
+                        write_head = scaled_destionation;
+                    },
+                    Operation::QuadBezTo(p1, p2) => {
+                        let scaled_p2 = scale_point(p2);
+                        rasterizer.draw_quad_bezier(write_head, scale_point(p1), scaled_p2);
+                        write_head = scaled_p2;
+                    },
+                }
+            }
 
-            let glyph_x =
-                x + self.scale(horizontal_metrics.left_side_bearing() as f32, font_size) as i16;
-            let glyph_y = y;
-            self.rasterize_glyph(
-                glyph,
-                bitmap,
-                (glyph_x, glyph_y),
-                font_size,
-                horizontal_metrics,
-            );
-            x += self.scale(horizontal_metrics.advance_width() as f32, font_size) as i16;
+            rasterizer.for_each_pixel(|pixel_position, opacity| {
+                let translated_x = position.0 as usize + pixel_position.0 + scaled_x;
+                let translated_y =
+                    position.1 as usize + scaled_height - 1 - pixel_position.1 - scaled_y;
+
+                let color = [255 - opacity; 3];
+
+                // If the pixel is already darker, keep it as-is
+                if 255 - opacity < bitmap.pixel_at(translated_x, translated_y)[0] {
+                    bitmap
+                        .pixel_at_mut(translated_x, translated_y)
+                        .copy_from_slice(&color);
+                }
+            });
         }
     }
 
-    /// Rasterize a single glyph at a given position on a bitmap.
-    /// Note that this function does **not** care about positioning whatsoever:
-    /// The given position will contain the top left edge of the smallest bounding rectangle
-    /// for the glyph. That means that `left_side_bearing` and `top_side_bearing`
-    /// need to be taken care of by the caller.
-    fn rasterize_glyph(
-        &self,
-        glyph: Glyph,
-        bitmap: &mut Canvas,
-        position: (i16, i16),
-        font_size: f32,
-        horizontal_metric: LongHorMetric,
-    ) {
-        let left_side_bearing = self.scale(horizontal_metric.left_side_bearing(), font_size) as i16;
-        match glyph {
-            Glyph::Simple(simple_glyph) => {
-                let top_side_bearing = self.scale(
-                    self.units_per_em() as i16 - simple_glyph.metrics.max_y,
-                    font_size,
-                ) as i16;
-
-                let glyph_width = self
-                    .scale(simple_glyph.metrics.width() as f32, font_size)
-                    .ceil() as usize
-                    + 1;
-                let glyph_height = self
-                    .scale(simple_glyph.metrics.height() as f32, font_size)
-                    .ceil() as usize
-                    + 1;
-
-                let mut rasterizer = Rasterizer::new(glyph_width, glyph_height);
-                let scale_point = |glyph_point: DiscretePoint| Point {
-                    x: self.scale(
-                        (glyph_point.x - simple_glyph.metrics.min_x) as f32,
-                        font_size,
-                    ),
-                    y: self.scale(
-                        (glyph_point.y - simple_glyph.metrics.min_y) as f32,
-                        font_size,
-                    ),
-                };
-
-                // Draw the outlines of the glyph on the rasterizer buffer
-                let mut write_head = Point::default();
-                let path_operations = PathReader::new(simple_glyph.into_iter());
-                for path_op in path_operations {
-                    match path_op {
-                        Operation::MoveTo(destination) => write_head = scale_point(destination),
-                        Operation::LineTo(destination) => {
-                            let scaled_destionation = scale_point(destination);
-                            rasterizer.draw_line(write_head, scaled_destionation);
-                            write_head = scaled_destionation;
-                        },
-                        Operation::QuadBezTo(p1, p2) => {
-                            let scaled_p2 = scale_point(p2);
-                            rasterizer.draw_quad_bezier(write_head, scale_point(p1), scaled_p2);
-                            write_head = scaled_p2;
-                        },
-                    }
-                }
-
-                // Translate the rasterized glyph onto the canvas
-                rasterizer.for_each_pixel(|coords, opacity| {
-                    let translated_x = (position.0 + left_side_bearing) as usize + coords.0;
-                    let translated_y =
-                        (position.1 + top_side_bearing) as usize + glyph_height - 1 - coords.1;
-
-                    let color = [255 - opacity; 3];
-
-                    // If the pixel is already darker, keep it as-is
-                    if 255 - opacity < bitmap.pixel_at(translated_x, translated_y)[0] {
-                        bitmap
-                            .pixel_at_mut(translated_x, translated_y)
-                            .copy_from_slice(&color);
-                    }
-                });
-            },
-            Glyph::Compound(compound_glyph) => {
-                for glyph_component in compound_glyph {
-                    let glyph_x =
-                        position.0 + self.scale(glyph_component.x_offset, font_size) as i16;
-                    let glyph_y =
-                        position.1 - self.scale(glyph_component.y_offset, font_size) as i16;
-
-                    let referenced_glyph = self.get_glyph(glyph_component.glyph_index).unwrap();
-                    self.rasterize_glyph(
-                        referenced_glyph,
-                        bitmap,
-                        (glyph_x, glyph_y),
-                        font_size,
-                        LongHorMetric::default(),
-                    );
-                }
-            },
-        }
+    fn path_objects<'b>(&'a self, text: &'b str) -> RenderedGlyphIterator<'a, 'b> {
+        RenderedGlyphIterator::new(self, text)
     }
 
     /// Converts a value from font units to pixel size
     fn scale<V: Into<f32>>(&self, value: V, font_size: f32) -> f32 {
         (value.into() * font_size) / self.units_per_em() as f32
+    }
+
+    pub fn render_as_svg(&self, text: &str) -> String {
+        let mut min_x = 0;
+        let mut max_x = 0;
+        let mut min_y = 0;
+        let mut max_y = 0;
+
+        let mut path = String::new();
+        for glyph in self.path_objects(text) {
+            min_x = min_x.min(glyph.position.x);
+            min_y = min_y.min(glyph.position.y);
+            max_x = max_x.max(glyph.position.x);
+            max_y = max_y.max(glyph.position.y);
+
+            for operation in glyph.path_operations {
+                match operation {
+                    Operation::MoveTo(DiscretePoint { x, y }) => {
+                        path.push_str(&format!("M {x} {y}"))
+                    },
+                    Operation::LineTo(DiscretePoint { x, y }) => {
+                        path.push_str(&format!("L {x} {y}"))
+                    },
+                    Operation::QuadBezTo(p1, p2) => {
+                        path.push_str(&format!("Q {} {} {} {}", p1.x, p1.y, p2.x, p2.y))
+                    },
+                }
+            }
+        }
+
+        format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+        <svg version=\"1.1\"
+            xmlns=\"http://www.w3.org/2000/svg\"
+            xmlns:xlink=\"http://www.w3.org/1999/xlink\"
+            viewBox=\"{min_x} {min_y} {max_x} {max_y}\">
+          <symbol overflow=\"visible\"><path d=\"{path}\"/></symbol>
+        </svg>"
+        )
     }
 }
 
@@ -322,4 +293,65 @@ pub fn read_u32_at(data: &[u8], offset: usize) -> u32 {
 
 pub fn read_i16_at(data: &[u8], offset: usize) -> i16 {
     i16::from_be_bytes(data[offset..offset + 2].try_into().unwrap())
+}
+
+pub struct RenderedGlyph<'a> {
+    width: i16,
+    height: i16,
+    position: DiscretePoint,
+    path_operations: PathReader<GlyphPointIterator<'a>>,
+}
+
+pub struct RenderedGlyphIterator<'a, 'b> {
+    font: &'a Font<'a>,
+    x: i16,
+    y: i16,
+    chars: std::str::Chars<'b>,
+}
+
+impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
+    type Item = RenderedGlyph<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let c = self.chars.next()?;
+        let glyph_id = self.font.get_glyph_index(c as u16).unwrap_or(0);
+        let glyph = self.font.get_glyph(glyph_id).unwrap();
+
+        let horizontal_metrics = self.font.hmtx_table.get_metric_for(glyph_id);
+
+        let glyph_x = self.x + horizontal_metrics.left_side_bearing();
+        let glyph_y = self.y;
+
+        match glyph {
+            Glyph::Simple(simple_glyph) => {
+                let width = simple_glyph.metrics.width();
+                let height = simple_glyph.metrics.height();
+                let path_operations = PathReader::new(simple_glyph.into_iter());
+
+                Some(RenderedGlyph {
+                    width,
+                    height,
+                    position: DiscretePoint {
+                        x: glyph_x,
+                        y: glyph_y,
+                    },
+                    path_operations,
+                })
+            },
+            _ => {
+                todo!()
+            },
+        }
+    }
+}
+
+impl<'a, 'b> RenderedGlyphIterator<'a, 'b> {
+    pub fn new(font: &'a Font, text: &'b str) -> Self {
+        Self {
+            font: font,
+            x: 0,
+            y: 0,
+            chars: text.chars(),
+        }
+    }
 }
