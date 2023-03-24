@@ -84,6 +84,12 @@ pub fn derive_argumentparser_wrapper(input: proc_macro::TokenStream) -> proc_mac
                         }
                     }
 
+                    if is_flag && may_be_omitted {
+                        panic!("Redundant parameter: Flags may always be omitted.");
+                    } else if is_flag && is_positional {
+                        panic!("Flags cannot be positional");
+                    }
+
                     let argument = Argument {
                         destination: field.ident.expect("Expected field identifier").to_string(),
                         short_name: short_name.expect("Missing argument short name"),
@@ -134,10 +140,10 @@ pub fn derive_argumentparser_wrapper(input: proc_macro::TokenStream) -> proc_mac
                         None => {{ {handle_param_not_passed} }},
                 }}",
                 arg.destination,
-                handle_param_passed_with_value = if arg.may_be_omitted {
-                    "Some(val.parse().map_err(|_| ::cli::CommandLineParseError::InvalidArguments)?)"
-                } else if arg.is_flag {
+                handle_param_passed_with_value = if arg.is_flag {
                     "true"
+                } else if arg.may_be_omitted {
+                    "Some(val.parse().map_err(|_| ::cli::CommandLineParseError::InvalidArguments)?)"
                 } else {
                     "val.parse().map_err(|_| ::cli::CommandLineParseError::InvalidArguments)?"
                 },
