@@ -5,6 +5,7 @@ members = [
     "web/url",
     "web/dns",
     "web/dom-derive",
+    "graphics",
     "compression",
     "util/random",
     "util/cli",
