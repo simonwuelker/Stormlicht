@@ -4,6 +4,7 @@ use crate::Vec2D;
 ///
 /// Each [AffineTransform] is a `3x3` matrix that transforms a 2 dimensional vector `x`, `y`.
 /// See [Wikipedia](https://en.wikipedia.org/wiki/Affine_transformation) for more information.
+#[derive(Clone, Copy, Debug)]
 pub struct AffineTransform([[f32; 3]; 2]);
 
 impl AffineTransform {
@@ -45,6 +46,12 @@ impl AffineTransform {
                 .x
                 .mul_add(self.0[1][0], point.y.mul_add(self.0[1][1], self.0[1][2])),
         }
+    }
+}
+
+impl Default for AffineTransform {
+    fn default() -> Self {
+        Self::identity()
     }
 }
 

@@ -31,7 +31,15 @@ impl Path {
         }
     }
 
-    /// Move the write head to a new point without creating a connecting [Spline].
+    // Close the current contour
+    pub fn close_contour(mut self) -> Self {
+        if !self.commands.is_empty() {
+            self.commands.push(PathCommand::LineTo(self.start));
+        }
+        self
+    }
+
+    /// Move the write head to a new point without connecting the two.
     pub fn move_to(mut self, to: Vec2D) -> Self {
         match self.commands.last_mut() {
             Some(PathCommand::MoveTo(point)) => {
@@ -44,8 +52,8 @@ impl Path {
         self
     }
 
-    /// Create a straight [Spline] from the current position to the point.
-    pub fn line(mut self, point: Vec2D) -> Self {
+    /// Create a straight Line from the current position to the point.
+    pub fn line_to(mut self, point: Vec2D) -> Self {
         self.commands.push(PathCommand::LineTo(point));
         self
     }
