@@ -21,6 +21,9 @@
 //!             .line_to(Vec2D::new(0., 1.))
 //!             .close_contour()
 //!     );
+//!
+//! let mut renderer = Renderer::new();
+//! renderer.render(compositor);
 //! ```
 //!
 //! ## Related
@@ -33,12 +36,14 @@ mod color;
 mod composition;
 mod path;
 mod range;
+mod renderer;
 mod transform;
 mod vec2d;
 
 pub use composition::{Compositor, Layer};
-pub use path::{FlattenedPath, Path};
+pub use path::{FlattenedPathPoint, Path};
 pub use range::{Range, RangeBound};
+pub use renderer::Renderer;
 pub use transform::AffineTransform;
 pub use vec2d::Vec2D;
 

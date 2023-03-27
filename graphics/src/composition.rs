@@ -2,8 +2,10 @@
 
 use std::collections::HashMap;
 
-use crate::{AffineTransform, Color, Path};
+use crate::{AffineTransform, Color, FlattenedPathPoint, Path};
 
+/// The maximum distance from the bezier curve to its flattened counterpart
+const FLATTEN_TOLERANCE: f32 = 0.01;
 /// Manages all the different [Layers](Layer) that should be rendered.
 ///
 /// Generally, there should never be a need to create more than one [Compositor].
@@ -19,6 +21,14 @@ impl Compositor {
     /// returned.
     pub fn get_or_insert_layer(&mut self, at_index: usize) -> &mut Layer {
         self.layers.entry(at_index).or_insert_with(Layer::default)
+    }
+
+    /// Update the internal list of flattened curves if the scale of the layer changed.
+    /// If only translation/rotation changed, that is not necessary.
+    pub fn flatten_layers_if_necessary(&mut self) {
+        for layer in self.layers.values_mut() {
+            layer.flatten_if_necessary();
+        }
     }
 }
 
@@ -38,6 +48,8 @@ pub struct Layer {
 
     /// A common transformation applied to all elements in the layer
     transform: AffineTransform,
+    needs_flattening: bool,
+    flattened_path: Vec<FlattenedPathPoint>,
 }
 
 impl Layer {
@@ -74,5 +86,14 @@ impl Layer {
     pub fn add_path(&mut self, path: Path) -> &mut Self {
         self.paths.push(path);
         self
+    }
+
+    fn flatten_if_necessary(&mut self) {
+        if self.needs_flattening {
+            self.flattened_path.clear();
+            for path in &mut self.paths {
+                path.flatten(FLATTEN_TOLERANCE, &mut self.flattened_path)
+            }
+        }
     }
 }

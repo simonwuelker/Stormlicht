@@ -64,8 +64,7 @@ impl Path {
     }
 
     /// Flatten quadratic bezier curves as described by [Raph Levien on his blog](https://raphlinus.github.io/graphics/curves/2019/12/23/flatten-quadbez.html)
-    pub fn flatten(&self, tolerance: f32) -> FlattenedPath {
-        let mut flattened_path = FlattenedPath { lines: vec![] };
+    pub fn flatten(&self, tolerance: f32, flattened_path: &mut Vec<FlattenedPathPoint>) {
         let sqrt_tolerance = tolerance.sqrt();
 
         let mut current_point = self.start;
@@ -77,7 +76,7 @@ impl Path {
                     start_new_contour = true;
                 },
                 PathCommand::LineTo(point) => {
-                    flattened_path.lines.push((point, start_new_contour));
+                    flattened_path.push(FlattenedPathPoint::new(point, start_new_contour));
                     start_new_contour = false;
                 },
                 PathCommand::QuadTo(p1, p2) => {
@@ -95,18 +94,16 @@ impl Path {
                         let progress = i as f32 * step_size;
                         let t = segment_parameters.determine_subdiv_t(progress);
                         let curve_value_at_t = curve.evaluate_at(t);
-                        flattened_path.lines.push((curve_value_at_t, false));
+                        flattened_path.push(FlattenedPathPoint::new(curve_value_at_t, false));
                     }
 
                     // Connect to the end of the contour
-                    flattened_path.lines.push((p2, false));
+                    flattened_path.push(FlattenedPathPoint::new(p2, false));
 
                     start_new_contour = false;
                 },
             }
         }
-
-        flattened_path
     }
 }
 
@@ -195,13 +192,18 @@ impl CurveFlattenParameters {
     }
 }
 
-/// Similar to [Path], except all the curves have been flattened to straight lines.
-/// Obtained by calling [Path::flatten].
-#[derive(Clone, Debug)]
-pub struct FlattenedPath {
-    /// The lines that make up the [Path]
-    ///
-    /// Each point is associated with a boolean describing whether or not this point starts
-    /// a new contour
-    lines: Vec<(Vec2D, bool)>,
+#[derive(Clone, Copy, Debug)]
+pub struct FlattenedPathPoint {
+    pub coordinates: Vec2D,
+    pub connected: bool,
+}
+
+impl FlattenedPathPoint {
+    #[inline]
+    pub fn new(coordinates: Vec2D, connected: bool) -> Self {
+        Self {
+            coordinates,
+            connected,
+        }
+    }
 }
