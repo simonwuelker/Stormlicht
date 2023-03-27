@@ -1,10 +1,10 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Point {
+pub struct Vec2D {
     pub x: f32,
     pub y: f32,
 }
 
-impl Point {
+impl Vec2D {
     #[inline]
     pub const fn new(x: f32, y: f32) -> Self {
         Self { x, y }
@@ -12,7 +12,7 @@ impl Point {
 
     #[inline]
     pub fn magnitude(&self) -> f32 {
-        (self.x.powi(2) + self.y.powi(2)).sqrt()
+        self.x.hypot(self.y)
     }
 
     #[inline]
@@ -23,6 +23,29 @@ impl Point {
     #[inline]
     pub fn angle(&self) -> Angle {
         Angle::from_radians(self.y.atan2(self.x))
+    }
+
+    #[inline]
+    pub fn lerp(&self, other: Self, t: f32) -> Self {
+        debug_assert!(0. <= t);
+        debug_assert!(t <= 1.);
+
+        Self {
+            x: (other.x - self.x).mul_add(t, self.x),
+            y: (other.y - self.y).mul_add(t, self.y),
+        }
+    }
+
+    // Compute the dot product of two vectors
+    #[inline]
+    pub fn dot(&self, other: Self) -> f32 {
+        self.x.mul_add(other.x, self.y * other.y)
+    }
+
+    // Compute the cross product of two vectors
+    #[inline]
+    pub fn cross_product(&self, other: Self) -> f32 {
+        self.x.mul_add(other.y, -self.y * other.x)
     }
 }
 
@@ -56,7 +79,7 @@ impl PartialEq for Angle {
     }
 }
 
-impl std::ops::Add for Point {
+impl std::ops::Add for Vec2D {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -67,7 +90,7 @@ impl std::ops::Add for Point {
     }
 }
 
-impl std::ops::Sub for Point {
+impl std::ops::Sub for Vec2D {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -78,25 +101,36 @@ impl std::ops::Sub for Point {
     }
 }
 
+impl std::ops::Mul<f32> for Vec2D {
+    type Output = Vec2D;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Angle, Point};
+    use super::{Angle, Vec2D};
 
     #[test]
     fn magnitude() {
-        let point = Point::new(1., 1.);
-        assert_eq!(point.magnitude(), std::f32::consts::SQRT_2);
+        let vec = Vec2D::new(1., 1.);
+        assert_eq!(vec.magnitude(), std::f32::consts::SQRT_2);
     }
 
     #[test]
     fn compute_angle() {
-        assert_eq!(Point::new(1., 0.).angle(), Angle::from_radians(0.));
+        assert_eq!(Vec2D::new(1., 0.).angle(), Angle::from_radians(0.));
         assert_eq!(
-            Point::new(-1., 1.).angle(),
+            Vec2D::new(-1., 1.).angle(),
             Angle::from_radians(3. * std::f32::consts::FRAC_PI_4)
         );
         assert_eq!(
-            Point::new(0., -1.).angle(),
+            Vec2D::new(0., -1.).angle(),
             Angle::from_radians(-std::f32::consts::FRAC_PI_2)
         );
     }

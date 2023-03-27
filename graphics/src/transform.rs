@@ -1,8 +1,9 @@
-use crate::Point;
+use crate::Vec2D;
 
 /// A 2-dimensional transformation.
-/// Each [AffineTransform] is a `3x3` matrix that transforms a 2 dimensional vector `x`, `y`
-/// See [wikipedia](https://en.wikipedia.org/wiki/Affine_transformation) for more information.
+///
+/// Each [AffineTransform] is a `3x3` matrix that transforms a 2 dimensional vector `x`, `y`.
+/// See [Wikipedia](https://en.wikipedia.org/wiki/Affine_transformation) for more information.
 pub struct AffineTransform([[f32; 3]; 2]);
 
 impl AffineTransform {
@@ -13,7 +14,7 @@ impl AffineTransform {
 
     /// Create transformation that shifts every point by a fixed offset
     #[inline]
-    pub const fn translate(translate_by: Point) -> Self {
+    pub const fn translate(translate_by: Vec2D) -> Self {
         Self([[1., 0., translate_by.x], [0., 1., translate_by.y]])
     }
 
@@ -33,10 +34,10 @@ impl AffineTransform {
         ])
     }
 
-    /// Apply this transform to a provided point
+    /// Apply this transform to a provided vector
     #[inline]
-    pub fn apply_to(self, point: Point) -> Point {
-        Point {
+    pub fn apply_to(self, point: Vec2D) -> Vec2D {
+        Vec2D {
             x: point
                 .x
                 .mul_add(self.0[0][0], point.y.mul_add(self.0[0][1], self.0[0][2])),
@@ -50,26 +51,26 @@ impl AffineTransform {
 #[cfg(test)]
 mod tests {
     use super::AffineTransform;
-    use crate::Point;
+    use crate::Vec2D;
 
     #[test]
     fn test_identity() {
         let transform = AffineTransform::identity();
-        let point = Point::new(2., 3.);
+        let point = Vec2D::new(2., 3.);
         assert_eq!(transform.apply_to(point), point);
     }
 
     #[test]
     fn test_translate() {
-        let transform = AffineTransform::translate(Point::new(1., 2.));
-        let point = Point::new(4., -3.);
-        assert_eq!(transform.apply_to(point), Point::new(5., -1.));
+        let transform = AffineTransform::translate(Vec2D::new(1., 2.));
+        let point = Vec2D::new(4., -3.);
+        assert_eq!(transform.apply_to(point), Vec2D::new(5., -1.));
     }
 
     #[test]
     fn test_scale() {
         let transform = AffineTransform::scale(2., -1.);
-        let point = Point::new(2., 2.);
-        assert_eq!(transform.apply_to(point), Point::new(4., -2.));
+        let point = Vec2D::new(2., 2.);
+        assert_eq!(transform.apply_to(point), Vec2D::new(4., -2.));
     }
 }
