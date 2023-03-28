@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::{AffineTransform, Color, FlattenedPathPoint, Path};
+use crate::{vec2d::Angle, AffineTransform, Color, FlattenedPathPoint, Path, Vec2D};
 
 /// The maximum distance from the bezier curve to its flattened counterpart
 const FLATTEN_TOLERANCE: f32 = 0.01;
@@ -74,10 +74,37 @@ impl Layer {
         self
     }
 
-    /// Set a common transformation that should be applied to all elements in the layer
+    /// Rotate the layer by a fixed angle
+    ///
+    /// This operation does not cause the Bézier curves to be re-flattened
     #[inline]
-    pub fn set_transform(&mut self, transform: AffineTransform) -> &mut Self {
-        self.transform = transform;
+    pub fn rotate(&mut self, angle: Angle) -> &mut Self {
+        self.transform.chain(AffineTransform::rotate(angle));
+        self
+    }
+
+    /// Move the layer by a fixed amount
+    ///
+    /// This operation does not cause the Bézier curves to be re-flattened
+    #[inline]
+    pub fn translate(&mut self, translate_by: Vec2D) -> &mut Self {
+        self.transform
+            .chain(AffineTransform::translate(translate_by));
+        self
+    }
+
+    /// Scale the layer by a fixed amount along both axis
+    ///
+    /// This operation causes the Bézier curves to be re-flattened
+    #[inline]
+    pub fn scale(&mut self, x_scale: f32, y_scale: f32) -> &mut Self {
+        if x_scale == 1. && y_scale == 1. {
+            return self;
+        }
+
+        self.transform
+            .chain(AffineTransform::scale(x_scale, y_scale));
+        self.needs_flattening = true;
         self
     }
 

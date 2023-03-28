@@ -49,6 +49,11 @@ impl Vec2D {
     }
 }
 
+/// Zero cost wrapper type for an `f32`.
+///
+/// This type exists since coordinates are also `f32`'s.
+/// It should enforce type safety to prevent coordinates from accidentally being
+/// used as angles.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Angle(f32);
 
@@ -70,6 +75,16 @@ impl Angle {
         }
 
         Self(difference_in_radians)
+    }
+
+    #[inline]
+    pub fn sin(&self) -> f32 {
+        self.0.sin()
+    }
+
+    #[inline]
+    pub fn cos(&self) -> f32 {
+        self.0.cos()
     }
 }
 

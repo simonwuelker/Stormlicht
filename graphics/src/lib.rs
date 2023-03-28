@@ -7,13 +7,13 @@
 //! ## Example Code
 //! The general rendering pipeline looks like this (incomplete):
 //! ```rust
-//! # use graphics::{Compositor, Color, AffineTransform, Vec2D, Path};
+//! # use graphics::{Renderer, Compositor, Color, Vec2D, Path};
 //!
 //! // The compositor manages the layers that should be rendered
 //! let mut compositor = Compositor::default();
 //! compositor.get_or_insert_layer(0)
 //!     .set_color(Color::rgb(255, 111, 200))
-//!     .set_transform(AffineTransform::scale(2., 1.))
+//!     .scale(2., 1.)
 //!     .add_path(
 //!         Path::new(Vec2D::new(0., 0.))
 //!             .line_to(Vec2D::new(1., 0.))
@@ -22,8 +22,7 @@
 //!             .close_contour()
 //!     );
 //!
-//! let mut renderer = Renderer::new();
-//! renderer.render(compositor);
+//! Renderer::render(&mut compositor);
 //! ```
 //!
 //! ## Related
@@ -44,7 +43,7 @@ pub use composition::{Compositor, Layer};
 pub use path::{FlattenedPathPoint, Path};
 pub use rect::Rectangle;
 pub use renderer::Renderer;
-pub use transform::AffineTransform;
+pub(crate) use transform::AffineTransform;
 pub use vec2d::Vec2D;
 
 pub use color::*;
