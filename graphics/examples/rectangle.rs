@@ -14,5 +14,5 @@ fn main() {
                 .close_contour(),
         );
 
-    Renderer::render(&mut compositor);
+    Renderer::render(&mut compositor, 10, 10);
 }

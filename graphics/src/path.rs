@@ -169,6 +169,8 @@ impl QuadraticBezier {
         }
     }
 
+    /// Compute a point along the curve.
+    /// `t` should be between `0.0` and `1.0`.
     fn evaluate_at(&self, t: f32) -> Vec2D {
         let mt = 1.0 - t;
         self.p0 * (mt * mt) + (self.p1 * (mt * 2.0) + self.p2 * t) * t

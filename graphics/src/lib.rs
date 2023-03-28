@@ -31,8 +31,11 @@
 //! * [Pathfinder](https://github.com/servo/pathfinder) (Developed for [Servo](https://servo.org/), Rust)
 //! * [Skia](https://skia.org/) (Used in Chrome, C++)
 
+#![feature(array_windows)]
+
 mod color;
 mod composition;
+mod line_segment;
 mod path;
 mod rect;
 mod renderer;

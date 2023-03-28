@@ -1,6 +1,6 @@
 //! [Layer] management
 
-use std::collections::HashMap;
+use std::collections::{hash_map::Values, HashMap};
 
 use crate::{vec2d::Angle, AffineTransform, Color, FlattenedPathPoint, Path, Vec2D};
 
@@ -23,11 +23,17 @@ impl Compositor {
         self.layers.entry(at_index).or_insert_with(Layer::default)
     }
 
+    pub fn layers(&self) -> Values<usize, Layer> {
+        self.layers.values()
+    }
+
     /// Update the internal list of flattened curves if the scale of the layer changed.
     /// If only translation/rotation changed, that is not necessary.
     pub fn flatten_layers_if_necessary(&mut self) {
         for layer in self.layers.values_mut() {
-            layer.flatten_if_necessary();
+            if layer.is_enabled {
+                layer.flatten_if_necessary();
+            }
         }
     }
 }
@@ -112,6 +118,7 @@ impl Layer {
     #[inline]
     pub fn add_path(&mut self, path: Path) -> &mut Self {
         self.paths.push(path);
+        self.needs_flattening = true;
         self
     }
 
@@ -122,5 +129,20 @@ impl Layer {
                 path.flatten(FLATTEN_TOLERANCE, &mut self.flattened_path)
             }
         }
+    }
+
+    /// Get the layers transform
+    ///
+    /// Modifying the transform directly on the layer causes bugs because `self.needs_reflattening`
+    /// wouldn't be updated. That's even other modules within this crate don't ever get mutable access
+    /// to the transfor. The transform should **only** be updated by the compositor.
+    #[inline]
+    pub(crate) fn get_transform(&self) -> AffineTransform {
+        self.transform
+    }
+
+    #[inline]
+    pub(crate) fn flattened_path(&self) -> &[FlattenedPathPoint] {
+        &self.flattened_path
     }
 }
