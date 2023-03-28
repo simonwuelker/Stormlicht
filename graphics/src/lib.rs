@@ -35,14 +35,14 @@
 mod color;
 mod composition;
 mod path;
-mod range;
+mod rect;
 mod renderer;
 mod transform;
 mod vec2d;
 
 pub use composition::{Compositor, Layer};
 pub use path::{FlattenedPathPoint, Path};
-pub use range::{Range, RangeBound};
+pub use rect::Rectangle;
 pub use renderer::Renderer;
 pub use transform::AffineTransform;
 pub use vec2d::Vec2D;
