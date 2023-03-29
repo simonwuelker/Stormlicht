@@ -9,13 +9,24 @@ pub(crate) struct LineSegment {
     pub x_t: LinearRelation,
     /// y expressed with respect to a parameter t
     pub y_t: LinearRelation,
+    pub pixel_segments_touched: u32,
 }
 
 /// Describes a linear relation between two values.
+///
+/// `y = at * t + b`
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct LinearRelation {
     pub slope: f32,
+    /// The value of `y` at `t = 0`
     pub y_offset: f32,
+}
+
+impl LinearRelation {
+    #[inline]
+    pub(crate) fn evaluate_at(&self, t: f32) -> f32 {
+        self.slope.mul_add(t, self.y_offset)
+    }
 }
 
 pub(crate) fn compute_line_segments(
@@ -63,6 +74,11 @@ pub(crate) fn compute_line_segments(
             let start_x = (p0.x.round() - p0.x) / delta_x;
             let start_y = (p0.y.round() - p0.y) / delta_y;
 
+            // Compute the number of pixel segments that are touched by the line
+            // (note that we assume a line will never be *perfectly* diagonal on a pixel segment)
+            let pixel_segments_touched =
+                number_of_integers_between(p0.x, p1.x) + number_of_integers_between(p0.y, p1.y) + 1;
+
             line_segments.push(LineSegment {
                 p0,
                 delta_x,
@@ -75,6 +91,7 @@ pub(crate) fn compute_line_segments(
                     slope: delta_y.recip(),
                     y_offset: start_y,
                 },
+                pixel_segments_touched,
             })
         }
     }
@@ -100,4 +117,21 @@ fn line_is_outside_viewport(p0: Vec2D, p1: Vec2D, width: f32, height: f32) -> bo
     p0.y.is_sign_negative() && p1.y.is_sign_negative()  // Line is above the viewport
         || width < p0.x && width < p1.x  // Line is to the right of the viewport
         || height < p0.y && height < p1.y // Line is below the viewport
+}
+
+fn number_of_integers_between(a: f32, b: f32) -> u32 {
+    let min = a.min(b);
+    let max = a.max(b);
+    ((max.ceil() - min.floor()) as u32).max(1) - 1
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn number_of_integers_between() {
+        assert_eq!(super::number_of_integers_between(-0.5, 0.99), 1);
+        assert_eq!(super::number_of_integers_between(0.5, 0.99), 0);
+        assert_eq!(super::number_of_integers_between(3.4, 1.1), 2);
+        assert_eq!(super::number_of_integers_between(1.0, 1.0), 0);
+    }
 }

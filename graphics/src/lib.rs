@@ -37,6 +37,7 @@ mod color;
 mod composition;
 mod line_segment;
 mod path;
+mod pixel_segment;
 mod rect;
 mod renderer;
 mod transform;

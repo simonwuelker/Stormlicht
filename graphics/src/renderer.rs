@@ -1,4 +1,6 @@
-use crate::{line_segment::compute_line_segments, Compositor};
+use crate::{
+    line_segment::compute_line_segments, pixel_segment::rasterize_line_segments, Compositor,
+};
 
 /// Manages the rendering pipeline
 #[derive(Clone, Copy, Debug)]
@@ -12,6 +14,9 @@ impl Renderer {
 
         // Convert the flattened path into pixel-aligned line segments
         // This also removes any lines that are not relevant for the render
-        let _line_segments = compute_line_segments(compositor, width, height);
+        let line_segments = compute_line_segments(compositor, width, height);
+
+        // Convert the line segments into tiles of 16x16 pixels
+        let _pixel_segments = rasterize_line_segments(line_segments);
     }
 }
