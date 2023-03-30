@@ -120,6 +120,13 @@ pub struct CompoundSelectorPart<'a> {
     pub subclass_selectors: Vec<SubClassSelector<'a>>,
 }
 
+/// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-compound-selector>
+#[derive(Clone, Debug)]
+pub struct PseudoCompoundSelector<'a> {
+    pub pseudo_element_selector: PseudoElementSelector<'a>,
+    pub pseudo_class_selectors: Vec<PseudoClassSelector<'a>>,
+}
+
 /// <https://drafts.csswg.org/selectors-4/#typedef-combinator>
 #[derive(Clone, Copy, Debug, Default)]
 pub enum Combinator {
@@ -172,6 +179,20 @@ pub enum LegacyPseudoElementSelector {
     FirstLine,
     /// `:first-letter`
     FirstLetter,
+}
+
+/// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-element-selector>
+#[derive(Clone, Debug)]
+pub enum PseudoElementSelector<'a> {
+    PseudoClass(PseudoClassSelector<'a>),
+    Legacy(LegacyPseudoElementSelector),
+}
+
+/// <https://drafts.csswg.org/selectors-4/#typedef-simple-selector>
+#[derive(Clone, Debug)]
+pub enum SimpleSelector<'a> {
+    Type(TypeSelector<'a>),
+    SubClass(SubClassSelector<'a>),
 }
 
 impl<'a> CSSParse<'a> for NSPrefix<'a> {
@@ -439,6 +460,19 @@ impl<'a> CSSParse<'a> for CompoundSelector<'a> {
     }
 }
 
+impl<'a> CSSParse<'a> for PseudoCompoundSelector<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-pseudo-compound-selector>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        let pseudo_element_selector = PseudoElementSelector::parse(parser)?;
+
+        let pseudo_class_selectors = parser.parse_any_number_of(PseudoClassSelector::parse);
+        Ok(PseudoCompoundSelector {
+            pseudo_element_selector,
+            pseudo_class_selectors,
+        })
+    }
+}
+
 impl<'a> CSSParse<'a> for Combinator {
     // <https://drafts.csswg.org/selectors-4/#typedef-combinator>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
@@ -481,4 +515,61 @@ fn parse_selector_with_combinator<'a>(
     let selector = CompoundSelector::parse(parser)?;
 
     Ok((combinator, selector))
+}
+
+impl<'a> CSSParse<'a> for LegacyPseudoElementSelector {
+    // <https://drafts.csswg.org/selectors-4/#typedef-legacy-pseudo-element-selector>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        if !matches!(parser.next_token(), Some(Token::Colon)) {
+            return Err(ParseError);
+        }
+
+        if let Some(Token::Ident(ident)) = parser.next_token() {
+            match ident.as_ref() {
+                "before" => Ok(LegacyPseudoElementSelector::Before),
+                "after" => Ok(LegacyPseudoElementSelector::After),
+                "first-line" => Ok(LegacyPseudoElementSelector::FirstLine),
+                "first-letter" => Ok(LegacyPseudoElementSelector::FirstLetter),
+                _ => Err(ParseError),
+            }
+        } else {
+            Err(ParseError)
+        }
+    }
+}
+
+impl<'a> CSSParse<'a> for PseudoElementSelector<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-pseudo-element-selector>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        let start_state = parser.state();
+        if let Ok(pseudo_class_selector) = PseudoClassSelector::parse(parser) {
+            return Ok(PseudoElementSelector::PseudoClass(pseudo_class_selector));
+        }
+
+        parser.set_state(start_state);
+        if let Ok(legacy_pseudo_element_selector) = LegacyPseudoElementSelector::parse(parser) {
+            return Ok(PseudoElementSelector::Legacy(
+                legacy_pseudo_element_selector,
+            ));
+        }
+
+        Err(ParseError)
+    }
+}
+
+impl<'a> CSSParse<'a> for SimpleSelector<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-simple-selector>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        let start_state = parser.state();
+        if let Ok(type_selector) = TypeSelector::parse(parser) {
+            return Ok(SimpleSelector::Type(type_selector));
+        }
+
+        parser.set_state(start_state);
+        if let Ok(subclass_selector) = SubClassSelector::parse(parser) {
+            return Ok(SimpleSelector::SubClass(subclass_selector));
+        }
+
+        Err(ParseError)
+    }
 }
