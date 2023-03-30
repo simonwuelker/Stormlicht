@@ -63,6 +63,23 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    /// Get the current state of the [Tokenizer].
+    ///
+    /// This can later be used to "reset" it using [set_state](Tokenizer::set_state).
+    /// Note that this causes the same source string to be retokenizer a second time.
+    /// Since this method is mostly used by the [Parser](crate::parser::Parser) to parse **small** optional tokens,
+    /// this is not expected to be a problem, but should be kept in mind anyways.
+    pub fn state(&self) -> usize {
+        self.position
+    }
+
+    /// Set the state of the [Tokenizer]
+    ///
+    /// Valid states should be obtained from [state](Tokenizer::state).
+    pub fn set_state(&mut self, position: usize) {
+        self.position = position;
+    }
+
     fn reconsume(&mut self) {
         self.position -= 1;
     }
@@ -631,13 +648,12 @@ impl<'a> Tokenizer<'a> {
     fn advance(&mut self, n: usize) {
         self.position += n;
     }
-}
 
-impl<'a> Iterator for Tokenizer<'a> {
-    type Item = Token<'a>;
-
-    // <https://drafts.csswg.org/css-syntax/#consume-token>
-    fn next(&mut self) -> Option<Self::Item> {
+    /// Read the next token from the input stream
+    ///
+    /// # Specification
+    /// <https://drafts.csswg.org/css-syntax/#consume-token>
+    pub fn next_token(&mut self) -> Option<Token<'a>> {
         // Consume comments.
         self.consume_comments();
 
@@ -874,6 +890,14 @@ impl<'a> Iterator for Tokenizer<'a> {
 
             None => None,
         }
+    }
+}
+
+impl<'a> Iterator for Tokenizer<'a> {
+    type Item = Token<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_token()
     }
 }
 
