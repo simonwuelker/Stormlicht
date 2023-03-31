@@ -9,7 +9,7 @@ const APOSTROPHE: char = '\'';
 const BACKSLASH: char = '\\';
 const REPLACEMENT: char = '\u{FFFD}';
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum HashFlag {
     Unrestricted,
     Id,

@@ -6,8 +6,9 @@ use crate::{
     parser::{CSSParse, ParseError, Parser},
     tokenizer::{HashFlag, Token},
 };
+
 /// <https://drafts.csswg.org/selectors-4/#typedef-ns-prefix>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum NSPrefix<'a> {
     Ident(Cow<'a, str>),
     Asterisk,
@@ -15,33 +16,33 @@ pub enum NSPrefix<'a> {
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-wq-name>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct WQName<'a> {
     pub prefix: NSPrefix<'a>,
     pub ident: Cow<'a, str>,
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-type-selector>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TypeSelector<'a> {
     NSPrefix(NSPrefix<'a>),
     WQName(WQName<'a>),
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-id-selector>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IDSelector<'a> {
     pub ident: Cow<'a, str>,
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-class-selector>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ClassSelector<'a> {
     pub ident: Cow<'a, str>,
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-attr-matcher>
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AttributeMatcher {
     /// `~=`
     WhiteSpaceSeperatedListContaining,
@@ -63,7 +64,9 @@ pub enum AttributeMatcher {
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-attr-modifier>
-#[derive(Clone, Copy, Debug, Default)]
+///
+/// See also: [Case Sensitivity](https://drafts.csswg.org/selectors-4/#attribute-case)
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum AttributeModifier {
     /// `i`
     CaseInsensitive,
@@ -74,7 +77,7 @@ pub enum AttributeModifier {
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-attribute-selector>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum AttributeSelector<'a> {
     Exists {
         attribute_name: WQName<'a>,
@@ -88,11 +91,11 @@ pub enum AttributeSelector<'a> {
 }
 
 /// <https://w3c.github.io/csswg-drafts/css-syntax-3/#typedef-any-value>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AnyValue<'a>(Vec<Token<'a>>);
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-class-selector>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PseudoClassSelector<'a> {
     Ident(Cow<'a, str>),
     Function {
@@ -102,7 +105,7 @@ pub enum PseudoClassSelector<'a> {
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-subclass-selector>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SubClassSelector<'a> {
     ID(IDSelector<'a>),
     Class(ClassSelector<'a>),
@@ -111,24 +114,24 @@ pub enum SubClassSelector<'a> {
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-compound-selector>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CompoundSelector<'a>(Vec<CompoundSelectorPart<'a>>);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CompoundSelectorPart<'a> {
     pub type_selector: Option<TypeSelector<'a>>,
     pub subclass_selectors: Vec<SubClassSelector<'a>>,
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-compound-selector>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PseudoCompoundSelector<'a> {
     pub pseudo_element_selector: PseudoElementSelector<'a>,
     pub pseudo_class_selectors: Vec<PseudoClassSelector<'a>>,
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-combinator>
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum Combinator {
     /// ` `
     ///
@@ -162,14 +165,32 @@ pub enum Combinator {
     Column,
 }
 
+/// <https://drafts.csswg.org/selectors-4/#typedef-complex-selector>
+#[derive(Clone, Debug, PartialEq)]
+pub struct ComplexSelector<'a> {
+    pub first_unit: ComplexSelectorUnit<'a>,
+    pub subsequent_units: Vec<(Combinator, ComplexSelectorUnit<'a>)>,
+}
+
+/// <https://drafts.csswg.org/selectors-4/#typedef-complex-selector-unit>
+#[derive(Clone, Debug, PartialEq)]
+pub struct ComplexSelectorUnit<'a>(pub Vec<ComplexSelectorUnitPart<'a>>);
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ComplexSelectorUnitPart<'a> {
+    pub compound_selector: Option<CompoundSelector<'a>>,
+    pub pseudo_compound_selectors: Vec<PseudoCompoundSelector<'a>>,
+}
+
 /// <https://drafts.csswg.org/selectors-4/#typedef-complex-real-selector>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ComplexRealSelector<'a> {
     pub first_selector: CompoundSelector<'a>,
     pub subsequent_selectors: Vec<(Combinator, CompoundSelector<'a>)>,
 }
+
 /// <https://drafts.csswg.org/selectors/#typedef-legacy-pseudo-element-selector>
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LegacyPseudoElementSelector {
     /// `:before`
     Before,
@@ -182,14 +203,14 @@ pub enum LegacyPseudoElementSelector {
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-element-selector>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PseudoElementSelector<'a> {
     PseudoClass(PseudoClassSelector<'a>),
     Legacy(LegacyPseudoElementSelector),
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-simple-selector>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SimpleSelector<'a> {
     Type(TypeSelector<'a>),
     SubClass(SubClassSelector<'a>),
@@ -352,8 +373,8 @@ impl<'a> CSSParse<'a> for AnyValue<'a> {
         let mut parenthesis_balance = 0;
         let mut bracket_balance = 0;
         let mut curly_brace_balance = 0;
-
         let mut state_before_ending_token;
+
         loop {
             state_before_ending_token = parser.state();
 
@@ -407,10 +428,14 @@ impl<'a> CSSParse<'a> for PseudoClassSelector<'a> {
             Some(Token::Ident(ident)) => Ok(PseudoClassSelector::Ident(ident)),
             Some(Token::Function(function_name)) => {
                 let content = AnyValue::parse(parser)?;
-                Ok(PseudoClassSelector::Function {
-                    function_name,
-                    content,
-                })
+                if matches!(parser.next_token(), Some(Token::ParenthesisClose)) {
+                    Ok(PseudoClassSelector::Function {
+                        function_name,
+                        content,
+                    })
+                } else {
+                    Err(ParseError)
+                }
             },
             _ => Err(ParseError),
         }
@@ -477,7 +502,7 @@ impl<'a> CSSParse<'a> for Combinator {
     // <https://drafts.csswg.org/selectors-4/#typedef-combinator>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         match parser.next_token() {
-            Some(Token::Delim('>')) => Ok(Combinator::Descendant),
+            Some(Token::Delim('>')) => Ok(Combinator::Child),
             Some(Token::Delim('+')) => Ok(Combinator::NextSibling),
             Some(Token::Delim('~')) => Ok(Combinator::SubsequentSibling),
             Some(Token::Delim('|')) => {
@@ -490,6 +515,52 @@ impl<'a> CSSParse<'a> for Combinator {
             _ => Err(ParseError),
         }
     }
+}
+
+impl<'a> CSSParse<'a> for ComplexSelector<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-complex-selector>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        let first_unit = ComplexSelectorUnit::parse(parser)?;
+
+        let subsequent_units =
+            parser.parse_any_number_of(parse_complex_selector_unit_with_combinator);
+
+        Ok(ComplexSelector {
+            first_unit,
+            subsequent_units,
+        })
+    }
+}
+
+fn parse_complex_selector_unit_with_combinator<'a>(
+    parser: &mut Parser<'a>,
+) -> Result<(Combinator, ComplexSelectorUnit<'a>), ParseError> {
+    let combinator = parser
+        .parse_optional_value(Combinator::parse)
+        .unwrap_or_default();
+    let complex_selector_unit = ComplexSelectorUnit::parse(parser)?;
+
+    Ok((combinator, complex_selector_unit))
+}
+
+impl<'a> CSSParse<'a> for ComplexSelectorUnit<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-complex-selector-unit>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        let complex_selector_unit_parts =
+            parser.parse_nonempty_comma_seperated_list(parse_complex_selector_unit_part)?;
+        Ok(ComplexSelectorUnit(complex_selector_unit_parts))
+    }
+}
+
+fn parse_complex_selector_unit_part<'a>(
+    parser: &mut Parser<'a>,
+) -> Result<ComplexSelectorUnitPart<'a>, ParseError> {
+    let compound_selector = parser.parse_optional_value(CompoundSelector::parse);
+    let pseudo_compound_selectors = parser.parse_any_number_of(PseudoCompoundSelector::parse);
+    Ok(ComplexSelectorUnitPart {
+        compound_selector,
+        pseudo_compound_selectors,
+    })
 }
 
 impl<'a> CSSParse<'a> for ComplexRealSelector<'a> {
@@ -571,5 +642,84 @@ impl<'a> CSSParse<'a> for SimpleSelector<'a> {
         }
 
         Err(ParseError)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_combinator() {
+        assert_eq!(Combinator::parse_from_str(">"), Ok(Combinator::Child));
+        assert_eq!(Combinator::parse_from_str("+"), Ok(Combinator::NextSibling));
+        assert_eq!(
+            Combinator::parse_from_str("~"),
+            Ok(Combinator::SubsequentSibling)
+        );
+        assert_eq!(Combinator::parse_from_str("||"), Ok(Combinator::Column));
+    }
+
+    #[test]
+    fn parse_attribute_matcher() {
+        assert_eq!(
+            AttributeMatcher::parse_from_str("="),
+            Ok(AttributeMatcher::EqualTo)
+        );
+        assert_eq!(
+            AttributeMatcher::parse_from_str("|="),
+            Ok(AttributeMatcher::HyphenSeperatedListBeginningWith)
+        );
+        assert_eq!(
+            AttributeMatcher::parse_from_str("~="),
+            Ok(AttributeMatcher::WhiteSpaceSeperatedListContaining)
+        );
+        assert_eq!(
+            AttributeMatcher::parse_from_str("^="),
+            Ok(AttributeMatcher::StartsWith)
+        );
+        assert_eq!(
+            AttributeMatcher::parse_from_str("$="),
+            Ok(AttributeMatcher::EndsWith)
+        );
+        assert_eq!(
+            AttributeMatcher::parse_from_str("*="),
+            Ok(AttributeMatcher::ContainsSubstring)
+        );
+    }
+
+    #[test]
+    fn parse_legacy_pseudo_element_selector() {
+        assert_eq!(
+            LegacyPseudoElementSelector::parse_from_str(":before"),
+            Ok(LegacyPseudoElementSelector::Before)
+        );
+        assert_eq!(
+            LegacyPseudoElementSelector::parse_from_str(":after"),
+            Ok(LegacyPseudoElementSelector::After)
+        );
+        assert_eq!(
+            LegacyPseudoElementSelector::parse_from_str(":first-line"),
+            Ok(LegacyPseudoElementSelector::FirstLine)
+        );
+        assert_eq!(
+            LegacyPseudoElementSelector::parse_from_str(":first-letter"),
+            Ok(LegacyPseudoElementSelector::FirstLetter)
+        );
+    }
+
+    #[test]
+    fn parse_pseudo_class_selector() {
+        assert_eq!(
+            PseudoClassSelector::parse_from_str(":foo"),
+            Ok(PseudoClassSelector::Ident(Cow::Borrowed("foo")))
+        );
+        assert_eq!(
+            PseudoClassSelector::parse_from_str(":foo(bar)"),
+            Ok(PseudoClassSelector::Function {
+                function_name: Cow::Borrowed("foo"),
+                content: AnyValue(vec![Token::Ident("bar".into())])
+            })
+        );
     }
 }

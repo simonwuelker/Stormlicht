@@ -134,7 +134,7 @@ pub struct Parser<'a> {
     tokenizer: Tokenizer<'a>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ParseError;
 
 impl<'a> Parser<'a> {
@@ -530,10 +530,32 @@ impl<'a> Parser<'a> {
     pub fn set_state(&mut self, state: usize) {
         self.tokenizer.set_state(state);
     }
+
+    /// Return an error if any tokens are left in the token stream.
+    ///
+    /// If `Err` is returned, the state of the parser is unspecified.
+    pub fn expect_exhausted(&mut self) -> Result<(), ParseError> {
+        if self.next_token().is_none() {
+            Ok(())
+        } else {
+            Err(ParseError)
+        }
+    }
 }
 
 /// Types that can be parsed from a [Parser]
 pub trait CSSParse<'a>: Sized {
+    /// Try to parse an instance of the type from CSS source code.
+    ///
+    /// If any tokens remain in the source after the instance is parsed, an
+    /// error is returned.
+    fn parse_from_str(source: &'a str) -> Result<Self, ParseError> {
+        let mut parser = Parser::new(source);
+        let parsed_value = Self::parse(&mut parser)?;
+        parser.expect_exhausted()?;
+        Ok(parsed_value)
+    }
+
     /// Try to parse an instance of the type from the parse source.
     ///
     /// If `Ok` is returned, the parser will have consumed all the tokens that belonged to the instance (but not more).
