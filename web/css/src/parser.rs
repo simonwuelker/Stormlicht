@@ -443,7 +443,9 @@ impl<'a> Parser<'a> {
         while let Ok(parsed_value) = closure(self) {
             parsed_tokens.push(parsed_value);
 
-            // FIXME: read whitespace, comments
+            // FIXME: skip comments
+            self.skip_whitespace();
+
             state_before_last_token = self.state();
         }
 
@@ -540,6 +542,32 @@ impl<'a> Parser<'a> {
         } else {
             Err(ParseError)
         }
+    }
+
+    /// Return an error if the next token is not a whitespace
+    /// The whitespace is consumed.
+    ///
+    /// If `Err` is returned, the state of the parser is unspecified.
+    pub fn expect_whitespace(&mut self) -> Result<(), ParseError> {
+        if matches!(self.next_token(), Some(Token::Whitespace)) {
+            Ok(())
+        } else {
+            Err(ParseError)
+        }
+    }
+
+    /// Skip any potential whitespaces, possibly none.
+    ///
+    /// If you want to ensure that at least one whitespace exists, call
+    /// [expect_whitespace](Parser::expect_whitespace) beforehand.
+    pub fn skip_whitespace(&mut self) {
+        let mut state_before_non_whitespace = self.state();
+
+        while let Some(Token::Whitespace) = self.next_token() {
+            state_before_non_whitespace = self.state();
+        }
+
+        self.set_state(state_before_non_whitespace);
     }
 }
 

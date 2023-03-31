@@ -18,7 +18,7 @@ pub enum NSPrefix<'a> {
 /// <https://drafts.csswg.org/selectors-4/#typedef-wq-name>
 #[derive(Clone, Debug, PartialEq)]
 pub struct WQName<'a> {
-    pub prefix: NSPrefix<'a>,
+    pub prefix: Option<NSPrefix<'a>>,
     pub ident: Cow<'a, str>,
 }
 
@@ -227,6 +227,8 @@ impl<'a> CSSParse<'a> for NSPrefix<'a> {
             })
             .unwrap_or(NSPrefix::Empty);
 
+        parser.skip_whitespace();
+
         if let Some(Token::Delim('|')) = parser.next_token() {
             Ok(prefix)
         } else {
@@ -238,7 +240,9 @@ impl<'a> CSSParse<'a> for NSPrefix<'a> {
 impl<'a> CSSParse<'a> for WQName<'a> {
     // <https://drafts.csswg.org/selectors-4/#typedef-wq-name>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let prefix = NSPrefix::parse(parser)?;
+        let prefix = parser.parse_optional_value(NSPrefix::parse);
+
+        parser.skip_whitespace();
 
         if let Some(Token::Ident(ident)) = parser.next_token() {
             Ok(WQName { prefix, ident })
@@ -315,8 +319,11 @@ impl<'a> CSSParse<'a> for AttributeModifier {
     // <https://drafts.csswg.org/selectors-4/#typedef-attr-modifier>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         match parser.next_token() {
-            Some(Token::Delim('i')) => Ok(AttributeModifier::CaseInsensitive),
-            Some(Token::Delim('s')) => Ok(AttributeModifier::CaseSensitive),
+            Some(Token::Ident(ident)) => match ident.as_ref() {
+                "i" => Ok(AttributeModifier::CaseInsensitive),
+                "s" => Ok(AttributeModifier::CaseSensitive),
+                _ => Err(ParseError),
+            },
             _ => Err(ParseError),
         }
     }
@@ -329,10 +336,16 @@ impl<'a> CSSParse<'a> for AttributeSelector<'a> {
             return Err(ParseError);
         }
 
+        parser.skip_whitespace();
+
         // Both variants start with a wqname
         let attribute_name = WQName::parse(parser)?;
 
+        parser.skip_whitespace();
+
         let value_matching_part = parser.parse_optional_value(parse_attribute_value_matcher);
+
+        parser.skip_whitespace();
 
         if !matches!(parser.next_token(), Some(Token::BracketClose)) {
             return Err(ParseError);
@@ -354,10 +367,12 @@ fn parse_attribute_value_matcher<'a>(
     parser: &mut Parser<'a>,
 ) -> Result<(AttributeMatcher, Cow<'a, str>, AttributeModifier), ParseError> {
     let attribute_matcher = AttributeMatcher::parse(parser)?;
+    parser.skip_whitespace();
     let attribute_value = match parser.next_token() {
         Some(Token::String(value) | Token::Ident(value)) => value,
         _ => return Err(ParseError),
     };
+    parser.skip_whitespace();
     let attribute_modifier = parser
         .parse_optional_value(AttributeModifier::parse)
         .unwrap_or_default();
@@ -535,9 +550,11 @@ impl<'a> CSSParse<'a> for ComplexSelector<'a> {
 fn parse_complex_selector_unit_with_combinator<'a>(
     parser: &mut Parser<'a>,
 ) -> Result<(Combinator, ComplexSelectorUnit<'a>), ParseError> {
+    parser.skip_whitespace();
     let combinator = parser
         .parse_optional_value(Combinator::parse)
         .unwrap_or_default();
+    parser.skip_whitespace();
     let complex_selector_unit = ComplexSelectorUnit::parse(parser)?;
 
     Ok((combinator, complex_selector_unit))
@@ -580,9 +597,11 @@ impl<'a> CSSParse<'a> for ComplexRealSelector<'a> {
 fn parse_selector_with_combinator<'a>(
     parser: &mut Parser<'a>,
 ) -> Result<(Combinator, CompoundSelector<'a>), ParseError> {
+    parser.skip_whitespace();
     let combinator = parser
         .parse_optional_value(Combinator::parse)
         .unwrap_or_default();
+    parser.skip_whitespace();
     let selector = CompoundSelector::parse(parser)?;
 
     Ok((combinator, selector))
@@ -613,8 +632,10 @@ impl<'a> CSSParse<'a> for PseudoElementSelector<'a> {
     // <https://drafts.csswg.org/selectors-4/#typedef-pseudo-element-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let start_state = parser.state();
-        if let Ok(pseudo_class_selector) = PseudoClassSelector::parse(parser) {
-            return Ok(PseudoElementSelector::PseudoClass(pseudo_class_selector));
+        if matches!(parser.next_token(), Some(Token::Colon)) {
+            if let Ok(pseudo_class_selector) = PseudoClassSelector::parse(parser) {
+                return Ok(PseudoElementSelector::PseudoClass(pseudo_class_selector));
+            }
         }
 
         parser.set_state(start_state);
@@ -661,6 +682,45 @@ mod tests {
     }
 
     #[test]
+    fn parse_attribute_selector() {
+        assert_eq!(
+            AttributeSelector::parse_from_str("[foo]"),
+            Ok(AttributeSelector::Exists {
+                attribute_name: WQName {
+                    prefix: None,
+                    ident: Cow::Borrowed("foo"),
+                }
+            })
+        );
+
+        assert_eq!(
+            AttributeSelector::parse_from_str("[foo ^= bar i]"),
+            Ok(AttributeSelector::Matches {
+                attribute_name: WQName {
+                    prefix: None,
+                    ident: Cow::Borrowed("foo"),
+                },
+                matcher: AttributeMatcher::StartsWith,
+                value: Cow::Borrowed("bar"),
+                modifier: AttributeModifier::CaseInsensitive
+            })
+        );
+
+        assert_eq!(
+            AttributeSelector::parse_from_str("[foo $= bar]"),
+            Ok(AttributeSelector::Matches {
+                attribute_name: WQName {
+                    prefix: None,
+                    ident: Cow::Borrowed("foo"),
+                },
+                matcher: AttributeMatcher::EndsWith,
+                value: Cow::Borrowed("bar"),
+                modifier: AttributeModifier::CaseSensitive
+            })
+        );
+    }
+
+    #[test]
     fn parse_attribute_matcher() {
         assert_eq!(
             AttributeMatcher::parse_from_str("="),
@@ -689,6 +749,58 @@ mod tests {
     }
 
     #[test]
+    fn parse_attribute_modifier() {
+        assert_eq!(
+            AttributeModifier::parse_from_str("i"),
+            Ok(AttributeModifier::CaseInsensitive)
+        );
+        assert_eq!(
+            AttributeModifier::parse_from_str("s"),
+            Ok(AttributeModifier::CaseSensitive)
+        );
+    }
+
+    #[test]
+    fn parse_pseudo_class_selector() {
+        assert_eq!(
+            PseudoClassSelector::parse_from_str(":foo"),
+            Ok(PseudoClassSelector::Ident(Cow::Borrowed("foo")))
+        );
+        assert_eq!(
+            PseudoClassSelector::parse_from_str(":foo(bar)"),
+            Ok(PseudoClassSelector::Function {
+                function_name: Cow::Borrowed("foo"),
+                content: AnyValue(vec![Token::Ident("bar".into())])
+            })
+        );
+    }
+
+    #[test]
+    fn parse_pseudo_element_selector() {
+        assert_eq!(
+            PseudoElementSelector::parse_from_str("::foo"),
+            Ok(PseudoElementSelector::PseudoClass(
+                PseudoClassSelector::Ident(Cow::Borrowed("foo"))
+            ))
+        );
+        assert_eq!(
+            PseudoElementSelector::parse_from_str("::foo(bar)"),
+            Ok(PseudoElementSelector::PseudoClass(
+                PseudoClassSelector::Function {
+                    function_name: Cow::Borrowed("foo"),
+                    content: AnyValue(vec![Token::Ident("bar".into())])
+                }
+            ))
+        );
+        assert_eq!(
+            PseudoElementSelector::parse_from_str(":before"),
+            Ok(PseudoElementSelector::Legacy(
+                LegacyPseudoElementSelector::Before
+            ))
+        );
+    }
+
+    #[test]
     fn parse_legacy_pseudo_element_selector() {
         assert_eq!(
             LegacyPseudoElementSelector::parse_from_str(":before"),
@@ -705,21 +817,6 @@ mod tests {
         assert_eq!(
             LegacyPseudoElementSelector::parse_from_str(":first-letter"),
             Ok(LegacyPseudoElementSelector::FirstLetter)
-        );
-    }
-
-    #[test]
-    fn parse_pseudo_class_selector() {
-        assert_eq!(
-            PseudoClassSelector::parse_from_str(":foo"),
-            Ok(PseudoClassSelector::Ident(Cow::Borrowed("foo")))
-        );
-        assert_eq!(
-            PseudoClassSelector::parse_from_str(":foo(bar)"),
-            Ok(PseudoClassSelector::Function {
-                function_name: Cow::Borrowed("foo"),
-                content: AnyValue(vec![Token::Ident("bar".into())])
-            })
         );
     }
 }
