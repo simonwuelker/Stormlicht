@@ -7,6 +7,27 @@ use crate::{
     tokenizer::{HashFlag, Token},
 };
 
+/// <https://drafts.csswg.org/selectors-4/#typedef-selector-list>
+pub type SelectorList<'a> = ComplexSelectorList<'a>;
+
+/// <https://drafts.csswg.org/selectors-4/#typedef-complex-selector-list>
+pub type ComplexSelectorList<'a> = Vec<ComplexSelector<'a>>;
+
+/// <https://drafts.csswg.org/selectors-4/#typedef-complex-real-selector-list>
+pub type ComplexRealSelectorList<'a> = Vec<ComplexRealSelector<'a>>;
+
+/// <https://drafts.csswg.org/selectors-4/#typedef-compound-selector-list>
+pub type CompoundSelectorList<'a> = Vec<CompoundSelector<'a>>;
+
+/// <https://drafts.csswg.org/selectors-4/#typedef-simple-selector-list>
+pub type SimpleSelectorList<'a> = Vec<SimpleSelector<'a>>;
+
+/// <https://drafts.csswg.org/selectors-4/#typedef-relative-selector-list>
+pub type RelativeSelectorList<'a> = Vec<RelativeSelector<'a>>;
+
+/// <https://drafts.csswg.org/selectors-4/#typedef-relative-real-selector-list>
+pub type RelativeRealSelectorList<'a> = Vec<RelativeRealSelector<'a>>;
+
 /// <https://drafts.csswg.org/selectors-4/#typedef-complex-selector>
 #[derive(Clone, Debug, PartialEq)]
 pub struct ComplexSelector<'a> {
@@ -29,6 +50,20 @@ pub struct ComplexSelectorUnitPart<'a> {
 pub struct ComplexRealSelector<'a> {
     pub first_selector: CompoundSelector<'a>,
     pub subsequent_selectors: Vec<(Combinator, CompoundSelector<'a>)>,
+}
+
+/// <https://drafts.csswg.org/selectors-4/#typedef-relative-selector>
+#[derive(Clone, Debug, PartialEq)]
+pub struct RelativeSelector<'a> {
+    pub combinator: Option<Combinator>,
+    pub complex_selector: ComplexSelector<'a>,
+}
+
+/// <https://drafts.csswg.org/selectors-4/#typedef-relative-real-selector>
+#[derive(Clone, Debug, PartialEq)]
+pub struct RelativeRealSelector<'a> {
+    pub combinator: Option<Combinator>,
+    pub complex_real_selector: ComplexRealSelector<'a>,
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-compound-selector>
@@ -214,6 +249,44 @@ pub enum LegacyPseudoElementSelector {
 #[derive(Clone, Debug, PartialEq)]
 pub struct AnyValue<'a>(Vec<Token<'a>>);
 
+impl<'a> CSSParse<'a> for ComplexSelectorList<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-complex-selector-list>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        Ok(parser.parse_comma_seperated_list(ComplexSelector::parse))
+    }
+}
+impl<'a> CSSParse<'a> for ComplexRealSelectorList<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-complex-real-selector-list>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        Ok(parser.parse_comma_seperated_list(ComplexRealSelector::parse))
+    }
+}
+impl<'a> CSSParse<'a> for CompoundSelectorList<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-compound-selector-list>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        Ok(parser.parse_comma_seperated_list(CompoundSelector::parse))
+    }
+}
+impl<'a> CSSParse<'a> for SimpleSelectorList<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-simple-selector-list>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        Ok(parser.parse_comma_seperated_list(SimpleSelector::parse))
+    }
+}
+impl<'a> CSSParse<'a> for RelativeSelectorList<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-relative-selector-list>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        Ok(parser.parse_comma_seperated_list(RelativeSelector::parse))
+    }
+}
+
+impl<'a> CSSParse<'a> for RelativeRealSelectorList<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-relative-real-selector-list>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        Ok(parser.parse_comma_seperated_list(RelativeRealSelector::parse))
+    }
+}
+
 impl<'a> CSSParse<'a> for ComplexSelector<'a> {
     // <https://drafts.csswg.org/selectors-4/#typedef-complex-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
@@ -287,6 +360,32 @@ fn parse_selector_with_combinator<'a>(
     let selector = CompoundSelector::parse(parser)?;
 
     Ok((combinator, selector))
+}
+
+impl<'a> CSSParse<'a> for RelativeSelector<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-relative-selector>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        let combinator = parser.parse_optional_value(Combinator::parse);
+        let complex_selector = ComplexSelector::parse(parser)?;
+
+        Ok(RelativeSelector {
+            combinator,
+            complex_selector,
+        })
+    }
+}
+
+impl<'a> CSSParse<'a> for RelativeRealSelector<'a> {
+    // <https://drafts.csswg.org/selectors-4/#typedef-relative-real-selector>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        let combinator = parser.parse_optional_value(Combinator::parse);
+        let complex_real_selector = ComplexRealSelector::parse(parser)?;
+
+        Ok(RelativeRealSelector {
+            combinator,
+            complex_real_selector,
+        })
+    }
 }
 
 impl<'a> CSSParse<'a> for CompoundSelector<'a> {
