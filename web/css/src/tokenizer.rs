@@ -55,6 +55,24 @@ pub struct Tokenizer<'a> {
     position: usize,
 }
 
+/// When reading an identifier from source code, there is generally no need to
+/// clone the data, unless escape sequences are involved. This is a utility enum
+/// to avoid unnecessary clones. See [Parser::consume_ident_sequence] for a usage example.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Ident {
+    Borrowing(usize),
+    Owned(String),
+}
+
+impl Ident {
+    fn resolve(self, to: usize, source: &str) -> Cow<'_, str> {
+        match self {
+            Self::Borrowing(from) => Cow::Borrowed(&source[from..=to]),
+            Self::Owned(ident_string) => Cow::Owned(ident_string),
+        }
+    }
+}
+
 impl<'a> Tokenizer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
@@ -180,9 +198,10 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// <https://drafts.csswg.org/css-syntax/#consume-an-ident-sequence>
-    fn consume_ident_sequence(&mut self) -> String {
+    fn consume_ident_sequence(&mut self) -> Cow<'a, str> {
         // Let result initially be an empty string.
-        let mut result = String::new();
+        let start_index = self.current_position();
+        let mut result = Ident::Borrowing(start_index);
 
         // Repeatedly consume the next input code point from the stream:
         loop {
@@ -193,15 +212,29 @@ impl<'a> Tokenizer<'a> {
                     // ident code point:
                     if is_ident_code_point(c) {
                         // Append the code point to result.
-                        result.push(c);
+                        if let Ident::Owned(ref mut ident) = result {
+                            ident.push(c);
+                        }
                     }
                     // the stream starts with a valid escape:
                     else if self.is_valid_escape_start() {
+                        let end_index = self.current_position();
+
                         // Consume an escaped code point.
                         let c = self.consume_escaped_codepoint();
 
                         // Append the returned code point to result.
-                        result.push(c);
+                        match result {
+                            Ident::Owned(ref mut ident) => ident.push(c),
+                            Ident::Borrowing(start_index) => {
+                                // At this point we can no longer return a reference to the source code and must
+                                // clone our own String
+                                let mut owned_ident =
+                                    self.source[start_index..end_index].to_owned();
+                                owned_ident.push(c);
+                                result = Ident::Owned(owned_ident)
+                            },
+                        }
                     }
                     // anything else
                     else {
@@ -209,7 +242,7 @@ impl<'a> Tokenizer<'a> {
                         self.reconsume();
 
                         // Return result.
-                        return result;
+                        return result.resolve(self.current_position() - 1, self.source);
                     }
                 },
                 None => {
@@ -217,7 +250,7 @@ impl<'a> Tokenizer<'a> {
                     self.reconsume();
 
                     // Return result.
-                    return result;
+                    return result.resolve(self.current_position() - 1, self.source);
                 },
             }
         }
@@ -364,7 +397,7 @@ impl<'a> Tokenizer<'a> {
             let unit = self.consume_ident_sequence();
 
             // Return the <dimension-token>.
-            Token::Dimension(number, Cow::Owned(unit))
+            Token::Dimension(number, unit)
         }
         // Otherwise, if the next input code point is U+0025 PERCENTAGE SIGN (%)
         else if self.peek_codepoint(0) == Some('%') {
@@ -498,10 +531,10 @@ impl<'a> Tokenizer<'a> {
     /// <https://drafts.csswg.org/css-syntax/#consume-an-ident-like-token>
     fn consume_ident_like_token(&mut self) -> Token<'a> {
         // Consume an ident sequence, and let string be the result.
-        let string = self.consume_ident_sequence();
+        let ident = self.consume_ident_sequence();
 
         // If string’s value is an ASCII case-insensitive match for "url", and the next input code point is U+0028 LEFT PARENTHESIS (()
-        if string.eq_ignore_ascii_case("url") && self.peek_codepoint(0) == Some('(') {
+        if ident.as_ref().eq_ignore_ascii_case("url") && self.peek_codepoint(0) == Some('(') {
             // consume it
             self.advance(1);
 
@@ -531,7 +564,7 @@ impl<'a> Tokenizer<'a> {
                     && (n2 == Some('"') || n2 == Some(APOSTROPHE)))
             {
                 // then create a <function-token> with its value set to string and return it
-                Token::Function(Cow::Owned(string))
+                Token::Function(ident)
             }
             // Otherwise
             else {
@@ -545,12 +578,12 @@ impl<'a> Tokenizer<'a> {
             self.advance(1);
 
             // 	Create a <function-token> with its value set to string and return it.
-            Token::Function(Cow::Owned(string))
+            Token::Function(ident)
         }
         // Otherwise
         else {
             // create an <ident-token> with its value set to string and return it.
-            Token::Ident(Cow::Owned(string))
+            Token::Ident(ident)
         }
     }
 
@@ -688,7 +721,7 @@ impl<'a> Tokenizer<'a> {
                         let value = self.consume_ident_sequence();
 
                         // Return the <hash-token>.
-                        Some(Token::Hash(Cow::Owned(value), hash_flag))
+                        Some(Token::Hash(value, hash_flag))
                     },
                     // Otherwise
                     _ => {
@@ -819,7 +852,7 @@ impl<'a> Tokenizer<'a> {
                     let value = self.consume_ident_sequence();
 
                     // create an <at-keyword-token> with its value set to the returned value, and return it.
-                    Some(Token::AtKeyword(Cow::Owned(value)))
+                    Some(Token::AtKeyword(value))
                 }
                 // Otherwise,
                 else {
