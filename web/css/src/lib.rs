@@ -3,6 +3,9 @@
 #![feature(exclusive_range_pattern, associated_type_defaults, let_chains)]
 
 pub mod parser;
+pub mod rule_parser;
 pub mod selectors;
 pub mod tokenizer;
 pub mod tree;
+
+pub use parser::Parser;

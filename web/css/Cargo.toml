@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 url = { path = "../url" }
 log = "0.4"
+bitflags = "2"

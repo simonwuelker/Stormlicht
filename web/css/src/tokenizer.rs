@@ -81,20 +81,20 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    /// Get the current state of the [Tokenizer].
+    /// Get the current position of the [Tokenizer].
     ///
-    /// This can later be used to "reset" it using [set_state](Tokenizer::set_state).
+    /// This can later be used to "reset" it using [set_position](Tokenizer::set_position).
     /// Note that this causes the same source string to be retokenizer a second time.
     /// Since this method is mostly used by the [Parser](crate::parser::Parser) to parse **small** optional tokens,
     /// this is not expected to be a problem, but should be kept in mind anyways.
-    pub fn state(&self) -> usize {
+    pub fn position(&self) -> usize {
         self.position
     }
 
-    /// Set the state of the [Tokenizer]
+    /// Set the position of the [Tokenizer]
     ///
-    /// Valid states should be obtained from [state](Tokenizer::state).
-    pub fn set_state(&mut self, position: usize) {
+    /// Valid positions should be obtained from [position](Tokenizer::position).
+    pub fn set_position(&mut self, position: usize) {
         self.position = position;
     }
 

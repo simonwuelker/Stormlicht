@@ -291,7 +291,6 @@ impl<'a> CSSParse<'a> for ComplexSelector<'a> {
     // <https://drafts.csswg.org/selectors-4/#typedef-complex-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let first_unit = ComplexSelectorUnit::parse(parser)?;
-
         let subsequent_units =
             parser.parse_any_number_of(parse_complex_selector_unit_with_combinator);
 
@@ -516,12 +515,12 @@ impl<'a> CSSParse<'a> for SubClassSelector<'a> {
             return Ok(SubClassSelector::ID(id_selector));
         }
 
-        parser.set_state(start_state);
+        parser.set_state(start_state.clone());
         if let Ok(class_selector) = ClassSelector::parse(parser) {
             return Ok(SubClassSelector::Class(class_selector));
         }
 
-        parser.set_state(start_state);
+        parser.set_state(start_state.clone());
         if let Ok(attribute_selector) = AttributeSelector::parse(parser) {
             return Ok(SubClassSelector::Attribute(attribute_selector));
         }
