@@ -1,5 +1,5 @@
 use crate::ttf::{read_u16_at, read_u32_at};
-use std::{cmp::Ordering, fmt};
+use std::fmt;
 
 pub struct OffsetTable<'a>(&'a [u8]);
 
@@ -31,8 +31,10 @@ impl<'a> OffsetTable<'a> {
     }
 
     pub fn get_table(&self, target_tag: u32) -> Option<TableEntry> {
-        // Remove offset table header
-        Self::get_table_inner(&self.0[12..], target_tag, self.search_range())
+        // Binary search might be more performant here but is likely not worth
+        // the complexity as tables are only parsed once and fonts only have a small number of
+        // tables (< 10-20)
+        self.tables().find(|table| table.tag() == target_tag)
     }
 
     pub fn tables(&self) -> TableIterator<'a> {
@@ -40,24 +42,6 @@ impl<'a> OffsetTable<'a> {
             tables: &self.0[12..],
             n_tables: self.num_tables(),
             count: 0,
-        }
-    }
-
-    fn get_table_inner(data: &[u8], target_tag: u32, search_range: usize) -> Option<TableEntry> {
-        assert_eq!(data.len() % 16, 0);
-        assert_eq!(search_range % 16, 0);
-
-        if data.is_empty() {
-            None
-        } else {
-            let index = (search_range / 2) & !0b1111;
-            let tag = read_u32_at(data, index);
-
-            match tag.cmp(&target_tag) {
-                Ordering::Less => Self::get_table_inner(&data[index..], target_tag, index),
-                Ordering::Equal => Some(TableEntry::new(data, index)),
-                Ordering::Greater => Self::get_table_inner(&data[..index], target_tag, index),
-            }
         }
     }
 }

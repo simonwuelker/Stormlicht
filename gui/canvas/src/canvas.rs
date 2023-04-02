@@ -122,7 +122,12 @@ impl Drawable for Canvas {
     }
 
     fn pixel_at_mut(&mut self, x: usize, y: usize) -> &mut [u8] {
-        assert!(self.contains_point(x, y));
+        assert!(
+            self.contains_point(x, y),
+            "Requested ({x}, {y}) but canvas dimensions are {}px * {}px",
+            self.width,
+            self.height
+        );
 
         let pixel_is_at = self.pitch() * y + x * self.format.pixel_size();
         &mut self.data[pixel_is_at..][..self.format.pixel_size()]

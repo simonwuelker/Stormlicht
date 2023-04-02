@@ -1,10 +1,11 @@
 [workspace]
 members = [
-    # "web/html", 
     "web/css",
+    "web/html", 
     "web/http", 
     "web/url",
     "web/dns",
+    "web/dom-derive",
     "compression",
     "util/random",
     "util/cli",
@@ -20,6 +21,12 @@ members = [
     "crypto/hash",
     "crypto/tls",
 ]
+
+[workspace.package]
+authors = ["Simon Wülker"]
+edition = "2021"
+repository = "https://github.com/wuelle/browser"
+license = "MIT"
 
 [profile.bench]
 debug = true

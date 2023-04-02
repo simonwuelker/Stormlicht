@@ -1,0 +1,23 @@
+mod character_data;
+mod document;
+mod document_type;
+mod element;
+mod html_element;
+mod html_head_element;
+mod html_html_element;
+mod html_noscript_element;
+mod html_template_element;
+mod node;
+mod text;
+
+pub use character_data::{CharacterData, Comment};
+pub use document::Document;
+pub use document_type::DocumentType;
+pub use element::Element;
+pub use html_element::HTMLElement;
+pub use html_head_element::HTMLHeadElement;
+pub use html_html_element::HTMLHtmlElement;
+pub use html_noscript_element::HTMLNoscriptElement;
+pub use html_template_element::HTMLTemplateElement;
+pub use node::Node;
+pub use text::Text;

@@ -39,12 +39,12 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>> {
         return Err(ZLibError::UnexpectedEOF.into());
     }
 
-    // parse CMF
+    // parse Compression method and flags (CMF)
     let compression_method_and_flags = bytes[0];
     let compression_method = compression_method_and_flags & 0b1111;
     let compression_info = compression_method_and_flags >> 4;
 
-    // Parse FLG
+    // Parse compression flags (FLG)
     let flags = bytes[2];
     let flag_dict = ((flags & 1) << 5) != 0;
     let _flag_level = flags >> 6; // compression level, not needed for decompression
@@ -70,8 +70,10 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>> {
             let (decompressed, num_consumed_bytes) =
                 deflate::decode(&bytes[2..]).context("Failed to decompress zlib body")?;
 
+            // Verify the checksum provided after the compressed data
             let expected_checksum =
                 u32::from_be_bytes(bytes[2 + num_consumed_bytes..][..4].try_into().unwrap());
+
             let mut hasher = Adler32::default();
             hasher.write(&decompressed);
             let computed_checksum = hasher.finish();

@@ -10,7 +10,13 @@ use widgets::application::Application;
 
 #[derive(Debug, Default, CommandLineArgumentParser)]
 struct ArgumentParser {
-    #[argument(optional, positional, long_name = "URL")]
+    #[argument(
+        may_be_omitted,
+        positional,
+        short_name = 'u',
+        long_name = "URL",
+        description = "URL to load"
+    )]
     _url: Option<String>,
 
     #[argument(
@@ -42,6 +48,10 @@ pub fn main() -> Result<()> {
         println!("The browser has panicked. This is a bug. Please open an issue at {}, including the debug information below. Thanks!\n", env!("CARGO_PKG_REPOSITORY"));
         prev(info);
     });
+
+    env_logger::Builder::from_default_env()
+        .filter_level(log::LevelFilter::Debug)
+        .init();
 
     #[cfg(target_os = "linux")]
     if unsafe { geteuid() } == 0 {
