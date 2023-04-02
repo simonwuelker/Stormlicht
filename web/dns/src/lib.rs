@@ -1,11 +1,15 @@
 //! Implements <https://datatracker.ietf.org/doc/rfc1035/>
 
+#![feature(lazy_cell)]
+
+mod dns_cache;
 mod domain;
 pub mod message;
 pub mod punycode;
 mod resource_type;
 
 use crate::resource_type::{ResourceRecordClass, ResourceRecordType};
+pub use dns_cache::DNS_CACHE;
 pub use domain::Domain;
 
 use message::Consume;
@@ -35,7 +39,21 @@ pub enum DNSError {
     IO(io::Error),
 }
 
-pub fn resolve(domain: &Domain) -> Result<IpAddr, DNSError> {
+/// Resolve a domain name.
+///
+/// If the domain name is inside the DNS cache, no actual resolution
+/// is performed.
+pub fn lookup(domain: &Domain) -> Result<IpAddr, DNSError> {
+    DNS_CACHE.get(domain)
+}
+
+/// Resolve a domain name by contacting the DNS server.
+///
+/// Returns a tuple of `(resolved IP, TTL in seconds)`.
+///
+/// This function **does not** make use of a cache.
+/// You should prefer [lookup] instead.
+fn resolve(domain: &Domain) -> Result<(IpAddr, u32), DNSError> {
     let mut nameserver = ROOT_SERVER;
 
     // incrementally resolve segments
@@ -47,15 +65,15 @@ pub fn resolve(domain: &Domain) -> Result<IpAddr, DNSError> {
         let message = try_resolve_from(nameserver, domain)?;
 
         // Check if the response contains our answer
-        if let Some(ip) = message.get_answer(domain) {
-            return Ok(ip);
+        if let Some((ip, ttl)) = message.get_answer(domain) {
+            return Ok((ip, ttl));
         }
 
         // Check if the response contains the domain name of an authoritative nameserver
         if let Some(ns_domain) = message.get_authority(domain) {
             // resolve that nameserver's domain and then
             // continue trying to resolve from that ns
-            nameserver = resolve(&ns_domain)?;
+            nameserver = DNS_CACHE.get(&ns_domain)?;
             continue;
         }
 

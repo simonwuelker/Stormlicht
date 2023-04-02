@@ -46,7 +46,7 @@ pub struct Resource {
     domain: Domain,
     resource_type: ResourceRecordType,
     _class: ResourceRecordClass,
-    _time_to_live: u32,
+    time_to_live: u32,
 }
 
 #[derive(Debug)]
@@ -185,11 +185,14 @@ impl Message {
         ptr
     }
 
-    pub fn get_answer(&self, domain: &Domain) -> Option<IpAddr> {
+    /// Returns a tuple `(resolved IP, TTL)`
+    pub fn get_answer(&self, domain: &Domain) -> Option<(IpAddr, u32)> {
         for answer in self.answer.iter().chain(&self.additional) {
             if answer.domain == *domain {
                 match answer.resource_type {
-                    ResourceRecordType::A { ipv4 } => return Some(IpAddr::V4(ipv4)),
+                    ResourceRecordType::A { ipv4 } => {
+                        return Some((IpAddr::V4(ipv4), answer.time_to_live))
+                    },
                     ResourceRecordType::CNAME { ref alias } => {
                         return self.get_answer(alias);
                     },
@@ -357,7 +360,7 @@ impl Consume for Resource {
                 domain: domain,
                 resource_type: rtype,
                 _class: class,
-                _time_to_live: ttl,
+                time_to_live: ttl,
             },
             domain_length + 10 + rdlength,
         ))

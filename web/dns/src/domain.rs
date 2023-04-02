@@ -4,7 +4,7 @@ use std::fmt;
 
 const DOMAIN_MAX_SEGMENTS: u8 = 10;
 
-#[derive(PartialEq, Clone)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Domain(Vec<String>);
 
 impl fmt::Debug for Domain {
