@@ -1199,7 +1199,11 @@ impl<'source> Tokenizer<'source> {
                 match self.read_next() {
                     Some(c @ ('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}' | '/' | '>')) => {
                         // If the temporary buffer is the string "script",
-                        if self.buffer.contains(&"script") {
+                        if self
+                            .buffer
+                            .as_ref()
+                            .is_some_and(|buffer| buffer == "script")
+                        {
                             // then switch to the script data double escaped state.
                             self.switch_to(TokenizerState::ScriptDataDoubleEscapedState);
                         } else {
@@ -1375,7 +1379,11 @@ impl<'source> Tokenizer<'source> {
                 match self.read_next() {
                     Some(c @ ('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}' | '/' | '>')) => {
                         // If the temporary buffer is the string "script",
-                        if self.buffer.contains(&"script") {
+                        if self
+                            .buffer
+                            .as_ref()
+                            .is_some_and(|buffer| buffer == "script")
+                        {
                             // then switch to the script data escaped state.
                             self.switch_to(TokenizerState::ScriptDataEscapedState);
                         } else {
