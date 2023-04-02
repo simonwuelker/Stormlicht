@@ -119,7 +119,7 @@ impl Request {
         // resolve the hostname
         let ip = match &self.host {
             Host::Domain(host_str) | Host::OpaqueHost(host_str) => {
-                dns::resolve(&dns::Domain::new(host_str)).map_err(HTTPError::DNS)?
+                dns::lookup(&dns::Domain::new(host_str)).map_err(HTTPError::DNS)?
             },
             Host::IP(_ip) => todo!(),
             Host::EmptyHost => todo!(),
