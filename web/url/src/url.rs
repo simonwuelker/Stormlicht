@@ -26,7 +26,7 @@ pub type Path = Vec<String>;
 /// A **U**niform **R**esource **L**ocator
 ///
 /// [Specification](https://url.spec.whatwg.org/#concept-url)
-#[derive(Default, Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct URL {
     /// A [URL]’s scheme is an ASCII string that identifies the type of URL
     /// and can be used to dispatch a URL for further processing after parsing.
