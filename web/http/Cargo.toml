@@ -10,5 +10,4 @@ parser_combinators = { path = "../../parser_combinators" }
 url = { path = "../url" }
 dns = { path = "../dns" }
 compression = { path = "../../compression" }
-anyhow = "1"
-thiserror = "1"
+log = "0.4"

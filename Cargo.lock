@@ -391,11 +391,10 @@ dependencies = [
 name = "http"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "compression",
  "dns",
+ "log",
  "parser_combinators",
- "thiserror",
  "url",
 ]
 
