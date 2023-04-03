@@ -1,4 +1,4 @@
-use graphics::{Color, Compositor, Path, Renderer, Vec2D};
+use graphics::{math::Vec2D, Color, Compositor, Path, Renderer};
 
 fn main() {
     let mut compositor = Compositor::default();

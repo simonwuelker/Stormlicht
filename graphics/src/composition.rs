@@ -1,8 +1,11 @@
 //! [Layer] management
 
-use std::collections::{hash_map::Values, HashMap};
+use std::collections::{hash_map::Iter, HashMap};
 
-use crate::{vec2d::Angle, AffineTransform, Color, FlattenedPathPoint, Path, Vec2D};
+use crate::{
+    math::{AffineTransform, Angle, Vec2D},
+    Color, FlattenedPathPoint, Path,
+};
 
 /// The maximum distance from the bezier curve to its flattened counterpart
 const FLATTEN_TOLERANCE: f32 = 0.01;
@@ -11,7 +14,7 @@ const FLATTEN_TOLERANCE: f32 = 0.01;
 /// Generally, there should never be a need to create more than one [Compositor].
 #[derive(Debug, Clone, Default)]
 pub struct Compositor {
-    layers: HashMap<usize, Layer>,
+    layers: HashMap<u32, Layer>,
 }
 
 impl Compositor {
@@ -19,12 +22,12 @@ impl Compositor {
     ///
     /// If there is no layer at the current index, a default layer is created and
     /// returned.
-    pub fn get_or_insert_layer(&mut self, at_index: usize) -> &mut Layer {
+    pub fn get_or_insert_layer(&mut self, at_index: u32) -> &mut Layer {
         self.layers.entry(at_index).or_insert_with(Layer::default)
     }
 
-    pub fn layers(&self) -> Values<usize, Layer> {
-        self.layers.values()
+    pub fn layers(&self) -> Iter<'_, u32, Layer> {
+        self.layers.iter()
     }
 
     /// Update the internal list of flattened curves if the scale of the layer changed.

@@ -1,13 +1,4 @@
-use crate::{vec2d::Angle, Vec2D};
-
-#[derive(Clone, Copy, Debug)]
-pub struct Spline {
-    pub curvature: Angle,
-    /// Start point
-    pub p0: Vec2D,
-    /// End point
-    pub p2: Vec2D,
-}
+use crate::math::Vec2D;
 
 #[derive(Clone, Copy, Debug)]
 pub enum PathCommand {

@@ -1,11 +1,11 @@
-use crate::{vec2d::Angle, Vec2D};
+use super::{Angle, Vec2D};
 
 /// A 2-dimensional transformation.
 ///
 /// Each [AffineTransform] is a `3x3` matrix that transforms a 2 dimensional vector `x`, `y`.
 /// See [Wikipedia](https://en.wikipedia.org/wiki/Affine_transformation) for more information.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct AffineTransform([[f32; 3]; 2]);
+pub struct AffineTransform([[f32; 3]; 2]);
 
 impl AffineTransform {
     #[inline]
@@ -82,7 +82,7 @@ impl Default for AffineTransform {
 #[cfg(test)]
 mod tests {
     use super::AffineTransform;
-    use crate::Vec2D;
+    use crate::math::Vec2D;
 
     #[test]
     fn test_identity() {

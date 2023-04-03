@@ -2,7 +2,8 @@ use std::ops::{
     Bound, Range as StdRange, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
 };
 
-use crate::Vec2D;
+use super::Vec2D;
+
 /// Thin abstraction over [std::ops::Range] with the aim of being easier to use.
 #[derive(Clone, Copy, Debug)]
 pub struct Range<T> {

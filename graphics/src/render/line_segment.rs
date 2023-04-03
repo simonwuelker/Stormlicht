@@ -1,4 +1,4 @@
-use crate::{Compositor, Vec2D};
+use crate::{math::Vec2D, Compositor};
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct LineSegment {
@@ -9,7 +9,9 @@ pub(crate) struct LineSegment {
     pub x_t: LinearRelation,
     /// y expressed with respect to a parameter t
     pub y_t: LinearRelation,
-    pub pixel_segments_touched: u32,
+    /// The exact number of pixels touched by this line
+    pub number_of_pixels: u32,
+    layer_index: u32,
 }
 
 /// Describes a linear relation between two values.
@@ -27,6 +29,11 @@ impl LinearRelation {
     pub(crate) fn evaluate_at(&self, t: f32) -> f32 {
         self.slope.mul_add(t, self.y_offset)
     }
+
+    #[inline]
+    pub(crate) fn solve_for(&self, y: f32) -> f32 {
+        (y - self.y_offset) / self.slope
+    }
 }
 
 pub(crate) fn compute_line_segments(
@@ -38,7 +45,7 @@ pub(crate) fn compute_line_segments(
     let height = viewport_height as f32;
 
     let mut line_segments = vec![];
-    for layer in compositor.layers() {
+    for (&layer_index, layer) in compositor.layers() {
         for line in layer.flattened_path().array_windows::<2>() {
             // Skip lines between two contours
             if !line[1].connected {
@@ -74,9 +81,7 @@ pub(crate) fn compute_line_segments(
             let start_x = (p0.x.round() - p0.x) / delta_x;
             let start_y = (p0.y.round() - p0.y) / delta_y;
 
-            // Compute the number of pixel segments that are touched by the line
-            // (note that we assume a line will never be *perfectly* diagonal on a pixel segment)
-            let pixel_segments_touched =
+            let number_of_pixels =
                 number_of_integers_between(p0.x, p1.x) + number_of_integers_between(p0.y, p1.y) + 1;
 
             line_segments.push(LineSegment {
@@ -91,7 +96,8 @@ pub(crate) fn compute_line_segments(
                     slope: delta_y.recip(),
                     y_offset: start_y,
                 },
-                pixel_segments_touched,
+                number_of_pixels,
+                layer_index,
             })
         }
     }
@@ -119,6 +125,7 @@ fn line_is_outside_viewport(p0: Vec2D, p1: Vec2D, width: f32, height: f32) -> bo
         || height < p0.y && height < p1.y // Line is below the viewport
 }
 
+#[inline]
 fn number_of_integers_between(a: f32, b: f32) -> u32 {
     let min = a.min(b);
     let max = a.max(b);
@@ -127,6 +134,7 @@ fn number_of_integers_between(a: f32, b: f32) -> u32 {
 
 #[cfg(test)]
 mod tests {
+
     #[test]
     fn number_of_integers_between() {
         assert_eq!(super::number_of_integers_between(-0.5, 0.99), 1);

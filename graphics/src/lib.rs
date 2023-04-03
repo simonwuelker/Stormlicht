@@ -33,21 +33,17 @@
 
 #![feature(array_windows)]
 
+mod buffer;
 mod color;
 mod composition;
-mod line_segment;
+mod consts;
+pub mod math;
 mod path;
-mod pixel_segment;
-mod rect;
-mod renderer;
-mod transform;
-mod vec2d;
+mod render;
 
+pub use buffer::{Buffer, BufferLayout};
 pub use composition::{Compositor, Layer};
 pub use path::{FlattenedPathPoint, Path};
-pub use rect::Rectangle;
-pub use renderer::Renderer;
-pub(crate) use transform::AffineTransform;
-pub use vec2d::Vec2D;
+pub use render::Renderer;
 
 pub use color::*;

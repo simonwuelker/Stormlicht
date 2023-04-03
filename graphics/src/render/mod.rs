@@ -1,5 +1,11 @@
+//! The rasterization pipeline
+
+pub mod line_segment;
+pub mod pixel_segment;
+
 use crate::{
-    line_segment::compute_line_segments, pixel_segment::rasterize_line_segments, Compositor,
+    render::line_segment::compute_line_segments, render::pixel_segment::rasterize_line_segments,
+    Compositor,
 };
 
 /// Manages the rendering pipeline
