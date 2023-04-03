@@ -44,7 +44,7 @@ impl Compositor {
 /// A collection of [Path]'s which share common properties like a [Color] and [AffineTransform].
 ///
 /// A [Layer] is constructed using [Compositor::get_or_insert_layer]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Layer {
     /// Controls whether or not a [Layer]'s contents should be rendered to the screen
     is_enabled: bool,
@@ -59,6 +59,19 @@ pub struct Layer {
     transform: AffineTransform,
     needs_flattening: bool,
     flattened_path: Vec<FlattenedPathPoint>,
+}
+
+impl Default for Layer {
+    fn default() -> Self {
+        Self {
+            is_enabled: true,
+            paths: vec![],
+            color: Color::default(),
+            transform: AffineTransform::identity(),
+            needs_flattening: false,
+            flattened_path: vec![],
+        }
+    }
 }
 
 impl Layer {
