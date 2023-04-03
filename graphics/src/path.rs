@@ -118,7 +118,7 @@ impl Path {
                     start_new_contour = true;
                 },
                 PathCommand::LineTo(point) => {
-                    flattened_path.push(FlattenedPathPoint::new(point, start_new_contour));
+                    flattened_path.push(FlattenedPathPoint::new(point, !start_new_contour));
                     start_new_contour = false;
                 },
                 PathCommand::QuadTo(p1, p2) => {
@@ -136,11 +136,15 @@ impl Path {
                         let progress = i as f32 * step_size;
                         let t = segment_parameters.determine_subdiv_t(progress);
                         let curve_value_at_t = curve.evaluate_at(t);
-                        flattened_path.push(FlattenedPathPoint::new(curve_value_at_t, false));
+                        flattened_path.push(FlattenedPathPoint::new(
+                            curve_value_at_t,
+                            !start_new_contour,
+                        ));
+                        start_new_contour = false;
                     }
 
                     // Connect to the end of the contour
-                    flattened_path.push(FlattenedPathPoint::new(p2, false));
+                    flattened_path.push(FlattenedPathPoint::new(p2, !start_new_contour));
 
                     start_new_contour = false;
                 },
