@@ -14,7 +14,7 @@ const FLATTEN_TOLERANCE: f32 = 0.01;
 /// Generally, there should never be a need to create more than one [Compositor].
 #[derive(Debug, Clone, Default)]
 pub struct Compositor {
-    layers: HashMap<u32, Layer>,
+    layers: HashMap<u16, Layer>,
 }
 
 impl Compositor {
@@ -22,11 +22,11 @@ impl Compositor {
     ///
     /// If there is no layer at the current index, a default layer is created and
     /// returned.
-    pub fn get_or_insert_layer(&mut self, at_index: u32) -> &mut Layer {
+    pub fn get_or_insert_layer(&mut self, at_index: u16) -> &mut Layer {
         self.layers.entry(at_index).or_insert_with(Layer::default)
     }
 
-    pub fn layers(&self) -> Iter<'_, u32, Layer> {
+    pub fn layers(&self) -> Iter<'_, u16, Layer> {
         self.layers.iter()
     }
 

@@ -8,9 +8,9 @@ fn main() {
         .scale(2., 1.)
         .add_path(
             Path::new(Vec2D::new(0., 0.))
-                .line_to(Vec2D::new(1., 0.))
-                .line_to(Vec2D::new(1., 1.))
-                .line_to(Vec2D::new(0., 1.))
+                .line_to(Vec2D::new(5., 0.))
+                .line_to(Vec2D::new(5., 5.))
+                .line_to(Vec2D::new(0., 5.))
                 .close_contour(),
         );
 

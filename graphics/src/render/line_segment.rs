@@ -1,17 +1,18 @@
-use crate::{math::Vec2D, Compositor};
+use crate::{consts, math::Vec2D, Compositor};
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct LineSegment {
-    pub p0: Vec2D,
-    pub delta_x: f32,
-    pub delta_y: f32,
     /// x expressed with respect to a parameter t
     pub x_t: LinearRelation,
     /// y expressed with respect to a parameter t
     pub y_t: LinearRelation,
+    /// t expressed with respect to x
+    pub t_x: LinearRelation,
+    /// t expressed with respect to y
+    pub t_y: LinearRelation,
     /// The exact number of pixels touched by this line
     pub number_of_pixels: u32,
-    layer_index: u32,
+    pub layer_index: u16,
 }
 
 /// Describes a linear relation between two values.
@@ -21,18 +22,18 @@ pub(crate) struct LineSegment {
 pub(crate) struct LinearRelation {
     pub slope: f32,
     /// The value of `y` at `t = 0`
-    pub y_offset: f32,
+    pub offset: f32,
 }
 
 impl LinearRelation {
     #[inline]
     pub(crate) fn evaluate_at(&self, t: f32) -> f32 {
-        self.slope.mul_add(t, self.y_offset)
+        self.slope.mul_add(t, self.offset)
     }
 
     #[inline]
     pub(crate) fn solve_for(&self, y: f32) -> f32 {
-        (y - self.y_offset) / self.slope
+        (y - self.offset) / self.slope
     }
 }
 
@@ -76,25 +77,30 @@ pub(crate) fn compute_line_segments(
             let delta_x = p1.x - p0.x;
             let delta_y = p1.y - p0.y;
 
-            // Compute start_x, start_y such that x(t_x) and y(t_y) are pixel aligned
+            // Compute start_x, start_y such that x(t_x) and y(t_y) are on a pixel boundary
             // while changing the line as little as possible
-            let start_x = (p0.x.round() - p0.x) / delta_x;
-            let start_y = (p0.y.round() - p0.y) / delta_y;
+            let start_x = (p0.x.floor() - p0.x).max(p0.x.ceil() - p0.x) / delta_x;
+            let start_y = (p0.y.floor() - p0.y).max(p0.y.ceil() - p0.y) / delta_y;
 
             let number_of_pixels =
                 number_of_integers_between(p0.x, p1.x) + number_of_integers_between(p0.y, p1.y) + 1;
 
             line_segments.push(LineSegment {
-                p0,
-                delta_x,
-                delta_y,
                 x_t: LinearRelation {
-                    slope: delta_x.recip(),
-                    y_offset: start_x,
+                    slope: delta_x,
+                    offset: p0.x * consts::PIXEL_SIZE as f32,
                 },
                 y_t: LinearRelation {
+                    slope: delta_y,
+                    offset: p0.y * consts::PIXEL_SIZE as f32,
+                },
+                t_x: LinearRelation {
+                    slope: delta_x.recip(),
+                    offset: start_x,
+                },
+                t_y: LinearRelation {
                     slope: delta_y.recip(),
-                    y_offset: start_y,
+                    offset: start_y,
                 },
                 number_of_pixels,
                 layer_index,
@@ -134,7 +140,6 @@ fn number_of_integers_between(a: f32, b: f32) -> u32 {
 
 #[cfg(test)]
 mod tests {
-
     #[test]
     fn number_of_integers_between() {
         assert_eq!(super::number_of_integers_between(-0.5, 0.99), 1);
