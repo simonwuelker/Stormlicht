@@ -1,23 +1,25 @@
 //! Implements a [circular buffer](https://en.wikipedia.org/wiki/Circular_buffer) which can hold a fixed number of items.
 
 #[derive(Clone, Debug)]
-pub struct RingBuffer<T> {
-    elements: Vec<T>,
+pub struct RingBuffer<T, const N: usize> {
+    elements: [T; N],
     ptr: usize,
 }
 
-impl<T> RingBuffer<T> {
-    pub fn new(elements: Vec<T>) -> Self {
+impl<T, const N: usize> RingBuffer<T, N> {
+    pub fn new(elements: [T; N]) -> Self {
         Self {
             elements: elements,
             ptr: 0,
         }
     }
 
+    #[inline]
     pub fn size(&self) -> usize {
-        self.elements.len()
+        N
     }
 
+    #[inline]
     pub fn push(&mut self, element: T) {
         self.elements[self.ptr] = element;
         self.ptr += 1;
@@ -31,17 +33,10 @@ impl<T> RingBuffer<T> {
     ///
     /// # Panics
     /// This function panics if `index >=  buffer size`
+    #[inline]
     pub fn nth_last(&self, index: usize) -> &T {
         assert!(index < self.size());
         &self.elements[(self.ptr + self.size() - index - 1) % self.size()]
-        // let unwrapped_index = (index + 1) % self.size();
-
-        // if self.ptr < unwrapped_index {
-        //     // wrap back around
-        //     &self.elements[self.ptr + self.size() - unwrapped_index]
-        // } else {
-        //     &self.elements[self.ptr - unwrapped_index]
-        // }
     }
 }
 
@@ -51,7 +46,7 @@ mod tests {
 
     #[test]
     fn test_ringbuffer() {
-        let mut buffer = RingBuffer::new(vec![3, 2, 1]);
+        let mut buffer = RingBuffer::new([3, 2, 1]);
 
         assert_eq!(*buffer.nth_last(0), 1);
         assert_eq!(*buffer.nth_last(1), 2);

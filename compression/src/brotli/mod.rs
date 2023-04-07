@@ -145,7 +145,7 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
     };
 
     let window_size = (1 << wbits) - 16;
-    let mut past_distances = RingBuffer::new(vec![16, 15, 11, 4]);
+    let mut past_distances = RingBuffer::new([16, 15, 11, 4]);
 
     let mut is_last = false;
     while !is_last {
@@ -916,7 +916,7 @@ fn decode_distance_context_id(copy_length: usize) -> usize {
 
 fn distance_short_code_substitution(
     distance_code: usize,
-    past_distances: &RingBuffer<usize>,
+    past_distances: &RingBuffer<usize, 4>,
     npostfix: usize,
     ndirect: usize,
     reader: &mut BitReader,
