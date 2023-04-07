@@ -3,8 +3,7 @@
 //! For the purposes of this module, "Symbol" shall refer to an unencoded
 //! codepoint and "Code" shall refer to an encoded codepoint.
 
-use crate::bit_reader::BitReader;
-use anyhow::Result;
+use crate::bit_reader::{BitReader, BitReaderError};
 use std::fmt;
 
 /// Tuple of (data, nbits) for representing an arbitrary number of bits
@@ -89,7 +88,10 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
         self.num_nodes += 1;
     }
 
-    pub fn lookup_incrementally(&self, reader: &mut BitReader) -> Result<Option<&T>> {
+    pub fn lookup_incrementally(
+        &self,
+        reader: &mut BitReader,
+    ) -> Result<Option<&T>, BitReaderError> {
         // Special case: if the tree only consists of a single symbol, we don't
         // consume any input bits
         if self.num_nodes == 1 {

@@ -1,6 +1,6 @@
 //! Implements a [circular buffer](https://en.wikipedia.org/wiki/Circular_buffer) which can hold a fixed number of items.
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RingBuffer<T> {
     elements: Vec<T>,
     ptr: usize,

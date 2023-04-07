@@ -170,10 +170,9 @@ dependencies = [
 name = "compression"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "criterion",
  "hash",
- "thiserror",
+ "log",
 ]
 
 [[package]]
