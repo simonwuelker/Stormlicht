@@ -55,7 +55,7 @@ pub fn decode(source: &[u8]) -> Result<(Vec<u8>, usize), DeflateError> {
                     .map_err(DeflateError::BitReader)?;
 
                 if len ^ 0xFFFF != nlen {
-                    return Err(DeflateError::InvalidUncompressedBlockLength.into());
+                    return Err(DeflateError::InvalidUncompressedBlockLength);
                 }
 
                 output_stream.reserve(len as usize);
@@ -189,7 +189,7 @@ fn read_literal_and_distance_tree(
                     + 3;
 
                 if total_number_of_codes < codes.len() + repeat_for {
-                    return Err(DeflateError::RLEExceedsExpectedLength.into());
+                    return Err(DeflateError::RLEExceedsExpectedLength);
                 }
 
                 codes.resize(codes.len() + repeat_for, to_repeat);
@@ -201,7 +201,7 @@ fn read_literal_and_distance_tree(
                     + 3;
 
                 if total_number_of_codes < codes.len() + repeat_for {
-                    return Err(DeflateError::RLEExceedsExpectedLength.into());
+                    return Err(DeflateError::RLEExceedsExpectedLength);
                 }
 
                 codes.resize(codes.len() + repeat_for, 0);
@@ -213,7 +213,7 @@ fn read_literal_and_distance_tree(
                     + 11;
 
                 if total_number_of_codes < codes.len() + repeat_for {
-                    return Err(DeflateError::RLEExceedsExpectedLength.into());
+                    return Err(DeflateError::RLEExceedsExpectedLength);
                 }
 
                 codes.resize(codes.len() + repeat_for, 0);
