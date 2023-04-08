@@ -5,7 +5,7 @@ use crate::{
     layout::{Sizing, Widget},
     GuiError,
 };
-use anyhow::Result;
+
 use canvas::{Canvas, PixelFormat};
 use font::Font;
 use sdl2::{
@@ -51,7 +51,7 @@ impl<M> Widget for Input<M> {
         self.height
     }
 
-    fn render_to(&mut self, surface: &mut SDLCanvas<Window>, into: Rect) -> Result<()> {
+    fn render_to(&mut self, surface: &mut SDLCanvas<Window>, into: Rect) -> Result<(), GuiError> {
         // White Background
         // Black text, default font
 
@@ -64,7 +64,7 @@ impl<M> Widget for Input<M> {
             Some(PixelFormatEnum::RGB24),
             into.width(),
             into.height(),
-        )?;
+        ).unwrap();
         let mut canvas = Canvas::new(
             vec![
                 255;
@@ -80,10 +80,11 @@ impl<M> Widget for Input<M> {
             None,
             canvas.data(),
             into.width() as usize * canvas.format().pixel_size(),
-        )?;
+        ).unwrap();
+
         surface
             .copy(&texture, None, into)
-            .map_err(GuiError::from_sdl)?;
+            .map_err(GuiError::SDL)?;
         Ok(())
     }
 

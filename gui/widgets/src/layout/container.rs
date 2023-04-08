@@ -1,7 +1,7 @@
-use super::{Orientation, Widget};
-use crate::Alignment;
-use crate::{application::RepaintState, layout::Sizing};
-use anyhow::Result;
+use crate::{
+    Alignment, application::RepaintState, layout::{Orientation, Widget, Sizing}, GuiError
+};
+
 use sdl2::{
     keyboard::{Keycode, Mod},
     mouse::MouseButton,
@@ -170,7 +170,7 @@ impl<M> Widget for Container<M> {
         }
     }
 
-    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<()> {
+    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<(), GuiError> {
         if self.cached_layout.is_none() {
             self.compute_layout(into);
         }

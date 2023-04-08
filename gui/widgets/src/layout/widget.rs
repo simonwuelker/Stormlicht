@@ -1,4 +1,3 @@
-use anyhow::Result;
 use sdl2::{
     keyboard::{Keycode, Mod},
     mouse::MouseButton,
@@ -10,6 +9,7 @@ use sdl2::{
 use crate::{
     application::{AppendOnlyQueue, RepaintState},
     layout::Sizing,
+    GuiError,
 };
 
 pub trait Widget {
@@ -20,7 +20,7 @@ pub trait Widget {
 
     fn bounding_box(&self) -> Option<Rect>;
 
-    fn render(&mut self, surface: &mut Canvas<Window>) -> Result<()> {
+    fn render(&mut self, surface: &mut Canvas<Window>) -> Result<(), GuiError> {
         let viewport = surface.viewport();
         self.render_to(surface, viewport)?;
         Ok(())
@@ -29,7 +29,7 @@ pub trait Widget {
     fn width(&self) -> Sizing;
     fn height(&self) -> Sizing;
 
-    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<()>;
+    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<(), GuiError>;
 
     fn compute_layout(&mut self, into: Rect);
 

@@ -1,9 +1,9 @@
 use crate::{
     application::{AppendOnlyQueue, RepaintState},
     layout::{Sizing, Widget},
+    GuiError,
 };
 
-use anyhow::Result;
 use sdl2::{mouse::MouseButton, rect::Rect, render::Canvas, video::Window};
 
 pub struct Button<M> {
@@ -57,7 +57,7 @@ impl<M: Copy> Widget for Button<M> {
         self.height
     }
 
-    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<()> {
+    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<(), GuiError> {
         self.inner.render_to(surface, into)
     }
 

@@ -1,5 +1,4 @@
 use crate::{layout::Widget, GuiError};
-use anyhow::Result;
 use sdl2::{
     event::{Event, WindowEvent},
     keyboard::Keycode,
@@ -48,10 +47,10 @@ pub trait Application {
 
     // TODO this should be generic to support non-browser applications.
     // Currently, window dimensions, title and other attributes are hardcoded
-    fn run(&mut self) -> Result<()> {
+    fn run(&mut self) -> Result<(), GuiError> {
         // Create the application window
-        let sdl_context = sdl2::init().map_err(GuiError::from_sdl)?;
-        let video_subsystem = sdl_context.video().map_err(GuiError::from_sdl)?;
+        let sdl_context = sdl2::init().map_err(GuiError::SDL)?;
+        let video_subsystem = sdl_context.video().map_err(GuiError::SDL)?;
 
         let window = video_subsystem
             .window("Browser", 800, 600)

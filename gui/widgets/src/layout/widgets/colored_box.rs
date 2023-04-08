@@ -3,7 +3,6 @@ use crate::{
     GuiError,
 };
 
-use anyhow::Result;
 use sdl2::{pixels::Color, rect::Rect, render::Canvas, video::Window};
 use std::marker::PhantomData;
 
@@ -42,9 +41,9 @@ impl<M> Widget for ColoredBox<M> {
         self.height
     }
 
-    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<()> {
+    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<(), GuiError> {
         surface.set_draw_color(self.color);
-        surface.fill_rect(into).map_err(GuiError::from_sdl)?;
+        surface.fill_rect(into).map_err(GuiError::SDL)?;
         Ok(())
     }
 
