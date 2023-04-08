@@ -60,12 +60,8 @@ checksum = "487f1e0fcbe47deb8b0574e646def1c903389d95241dd1bbcc6ce4a715dfc0c1"
 name = "browser"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "canvas",
  "cli",
  "env_logger",
- "font",
- "image",
  "log",
  "widgets",
 ]
