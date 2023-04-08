@@ -328,10 +328,9 @@ version = "0.1.0"
 name = "font"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "canvas",
  "cli",
- "thiserror",
+ "log",
 ]
 
 [[package]]

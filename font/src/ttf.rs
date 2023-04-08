@@ -31,13 +31,10 @@ const MAXP_TAG: u32 = u32::from_be_bytes(*b"maxp");
 const NAME_TAG: u32 = u32::from_be_bytes(*b"name");
 const _VHEA_TAG: u32 = u32::from_be_bytes(*b"vhea");
 
-#[derive(Debug, Error)]
+#[derive(Clone, Copy, Debug)]
 pub enum TTFParseError {
-    #[error("Unexpected end of file")]
     UnexpectedEOF,
-    #[error("Unsupported ttf format")]
     UnsupportedFormat,
-    #[error("Missing required table")]
     MissingTable,
 }
 
