@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{
-    application::RepaintState,
+    application::RepaintRequired,
     layout::{Sizing, Widget},
     GuiError,
 };
@@ -60,11 +60,9 @@ impl<M> Widget for Input<M> {
         // figure out the general architecture first.
         let font = Font::default();
         let texture_creator = surface.texture_creator();
-        let mut texture = texture_creator.create_texture_target(
-            Some(PixelFormatEnum::RGB24),
-            into.width(),
-            into.height(),
-        ).unwrap();
+        let mut texture = texture_creator
+            .create_texture_target(Some(PixelFormatEnum::RGB24), into.width(), into.height())
+            .unwrap();
         let mut canvas = Canvas::new(
             vec![
                 255;
@@ -76,15 +74,15 @@ impl<M> Widget for Input<M> {
         );
         font.rasterize(&self.text, &mut canvas, (0, 0), 30.);
 
-        texture.update(
-            None,
-            canvas.data(),
-            into.width() as usize * canvas.format().pixel_size(),
-        ).unwrap();
+        texture
+            .update(
+                None,
+                canvas.data(),
+                into.width() as usize * canvas.format().pixel_size(),
+            )
+            .unwrap();
 
-        surface
-            .copy(&texture, None, into)
-            .map_err(GuiError::SDL)?;
+        surface.copy(&texture, None, into).map_err(GuiError::SDL)?;
         Ok(())
     }
 
@@ -101,7 +99,7 @@ impl<M> Widget for Input<M> {
         keycode: Keycode,
         keymod: Mod,
         message_queue: crate::application::AppendOnlyQueue<Self::Message>,
-    ) -> RepaintState {
+    ) -> RepaintRequired {
         _ = message_queue;
         let c = match keycode {
             Keycode::A => 'a',
@@ -134,12 +132,12 @@ impl<M> Widget for Input<M> {
             Keycode::Slash => '/',
             Keycode::Backspace => {
                 self.text.pop();
-                return RepaintState::RepaintRequired;
+                return RepaintRequired::Yes;
             },
             Keycode::KpEnter => {
-                return RepaintState::NoRepaintRequired;
+                return RepaintRequired::No;
             },
-            _ => return RepaintState::NoRepaintRequired,
+            _ => return RepaintRequired::No,
         };
 
         if keymod.intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD) {
@@ -147,6 +145,6 @@ impl<M> Widget for Input<M> {
         } else {
             self.text.push(c);
         }
-        RepaintState::RepaintRequired
+        RepaintRequired::Yes
     }
 }

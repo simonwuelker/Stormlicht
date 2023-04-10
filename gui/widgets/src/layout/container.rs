@@ -1,5 +1,7 @@
 use crate::{
-    Alignment, application::RepaintState, layout::{Orientation, Widget, Sizing}, GuiError
+    application::RepaintRequired,
+    layout::{Orientation, Sizing, Widget},
+    Alignment, GuiError,
 };
 
 use sdl2::{
@@ -239,7 +241,7 @@ impl<M> Widget for Container<M> {
         x: i32,
         y: i32,
         message_queue: crate::application::AppendOnlyQueue<Self::Message>,
-    ) -> RepaintState {
+    ) -> RepaintRequired {
         // Forward the event to the child that contains the given location
         if let Some(child_index) = self.widget_containing(Point::new(x, y)) {
             // The clicked widget gains focus
@@ -247,7 +249,7 @@ impl<M> Widget for Container<M> {
 
             self.children[child_index].on_mouse_down(mouse_btn, x, y, message_queue)
         } else {
-            RepaintState::NoRepaintRequired
+            RepaintRequired::No
         }
     }
 
@@ -256,12 +258,12 @@ impl<M> Widget for Container<M> {
         keycode: Keycode,
         keymod: Mod,
         message_queue: crate::application::AppendOnlyQueue<Self::Message>,
-    ) -> RepaintState {
+    ) -> RepaintRequired {
         // Forward the event to the focused widget, if any
         if let Some(child_index) = self.focused_child {
             self.children[child_index].on_key_down(keycode, keymod, message_queue)
         } else {
-            RepaintState::NoRepaintRequired
+            RepaintRequired::No
         }
     }
 }

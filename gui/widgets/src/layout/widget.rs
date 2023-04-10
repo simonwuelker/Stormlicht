@@ -7,7 +7,7 @@ use sdl2::{
 };
 
 use crate::{
-    application::{AppendOnlyQueue, RepaintState},
+    application::{AppendOnlyQueue, RepaintRequired},
     layout::Sizing,
     GuiError,
 };
@@ -42,12 +42,12 @@ pub trait Widget {
         x: i32,
         y: i32,
         message_queue: AppendOnlyQueue<Self::Message>,
-    ) -> RepaintState {
+    ) -> RepaintRequired {
         _ = mouse_btn;
         _ = x;
         _ = y;
         _ = message_queue;
-        RepaintState::NoRepaintRequired
+        RepaintRequired::No
     }
 
     fn on_key_down(
@@ -55,11 +55,11 @@ pub trait Widget {
         keycode: Keycode,
         keymod: Mod,
         message_queue: AppendOnlyQueue<Self::Message>,
-    ) -> RepaintState {
+    ) -> RepaintRequired {
         _ = keycode;
         _ = keymod;
         _ = message_queue;
-        RepaintState::NoRepaintRequired
+        RepaintRequired::No
     }
 
     fn into_widget(self) -> Box<dyn Widget<Message = Self::Message>>
