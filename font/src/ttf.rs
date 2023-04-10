@@ -16,7 +16,6 @@ use crate::{
     Point, Rasterizer,
 };
 use canvas::{Canvas, Drawable};
-use thiserror::Error;
 
 const DEFAULT_FONT: &[u8; 168644] =
     include_bytes!("../../downloads/fonts/roboto/Roboto-Medium.ttf");
