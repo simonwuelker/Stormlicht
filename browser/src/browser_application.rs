@@ -1,5 +1,5 @@
 use widgets::{
-    application::{Application, RepaintState},
+    application::{Application, RepaintRequired},
     colorscheme,
     layout::{
         widgets::{Button, ColoredBox, Input},
@@ -7,9 +7,16 @@ use widgets::{
     },
 };
 
-#[derive(Clone, Copy, Debug)]
+const INITIAL_WIDTH: u16 = 800;
+const INITIAL_HEIGHT: u16 = 600;
+
 pub struct BrowserApplication {
     should_run: bool,
+    view_buffer: Vec<u32>,
+    graphics_context: Option<softbuffer::GraphicsContext>,
+    size: (u16, u16),
+    repaint_required: RepaintRequired,
+    window_handle: glazier::WindowHandle,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -19,7 +26,14 @@ pub enum Message {
 
 impl Default for BrowserApplication {
     fn default() -> Self {
-        Self { should_run: true }
+        Self {
+            should_run: true,
+            view_buffer: vec![],
+            graphics_context: None,
+            size: (INITIAL_WIDTH, INITIAL_HEIGHT),
+            repaint_required: RepaintRequired::Yes,
+            window_handle: glazier::WindowHandle::default(),
+        }
     }
 }
 
@@ -57,13 +71,77 @@ impl Application for BrowserApplication {
         window: &mut widgets::sdl2::video::Window,
         message: Self::Message,
         message_queue: widgets::application::AppendOnlyQueue<Self::Message>,
-    ) -> RepaintState {
+    ) -> RepaintRequired {
         _ = window;
         _ = message_queue;
         dbg!(message);
         match message {
             Message::Close => self.should_run = false,
         }
-        RepaintState::NoRepaintRequired
+        RepaintRequired::No
+    }
+}
+
+impl glazier::WinHandler for BrowserApplication {
+    fn connect(&mut self, handle: &glazier::WindowHandle) {
+        let graphics_context = unsafe { softbuffer::GraphicsContext::new(handle, handle) }.unwrap();
+        self.window_handle = handle.clone();
+        self.graphics_context = Some(graphics_context);
+    }
+
+    fn prepare_paint(&mut self) {
+        if self.repaint_required == RepaintRequired::Yes {
+            self.window_handle.invalidate();
+        }
+    }
+
+    fn paint(&mut self, _invalid: &glazier::Region) {
+        self.view_buffer = (0..(self.size.0 as usize * self.size.1 as usize))
+            .map(|index| {
+                let y = index / (self.size.0 as usize);
+                let x = index % (self.size.0 as usize);
+                let red = x % 255;
+                let green = y % 255;
+                let blue = (x * y) % 255;
+
+                let color = blue | (green << 8) | (red << 16);
+
+                color as u32
+            })
+            .collect::<Vec<_>>();
+
+        if let Some(graphics_context) = &mut self.graphics_context {
+            graphics_context.set_buffer(&self.view_buffer, self.size.0, self.size.1);
+        }
+    }
+
+    fn as_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn size(&mut self, size: glazier::kurbo::Size) {
+        dbg!(size);
+        self.size = (size.width.ceil() as u16 * 2, size.height.ceil() as u16 * 2);
+        self.repaint_required = RepaintRequired::Yes;
+    }
+
+    fn request_close(&mut self) {
+        self.window_handle.close();
+        glazier::Application::global().quit();
+    }
+}
+
+impl BrowserApplication {
+    pub fn run(self) {
+        let app = glazier::Application::new().unwrap();
+        let window = glazier::WindowBuilder::new(app.clone())
+            .resizable(true)
+            .size(((INITIAL_WIDTH / 2) as f64, (INITIAL_HEIGHT / 2) as f64).into())
+            .handler(Box::new(self))
+            .title("Browser")
+            .build()
+            .unwrap();
+        window.show();
+        app.run(None);
     }
 }

@@ -11,3 +11,5 @@ widgets = { path = "../gui/widgets" }
 cli = { path = "../util/cli" }
 env_logger = "0.10"
 log = "0.4"
+glazier = { git = "https://github.com/linebender/glazier" }
+softbuffer = "0.2"

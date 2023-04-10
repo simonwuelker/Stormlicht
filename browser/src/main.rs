@@ -5,7 +5,6 @@ mod browser_application;
 use browser_application::BrowserApplication;
 
 use cli::CommandLineArgumentParser;
-use widgets::application::Application;
 
 #[derive(Debug, Default, CommandLineArgumentParser)]
 struct ArgumentParser {
@@ -75,6 +74,5 @@ pub fn main() {
         return;
     }
 
-    let mut application = BrowserApplication::default();
-    application.run().unwrap();
+    BrowserApplication::default().run();
 }
