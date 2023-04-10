@@ -1,5 +1,3 @@
-#![feature(is_some_and)]
-
 pub mod character_reference;
 pub mod dom;
 pub mod infra;
