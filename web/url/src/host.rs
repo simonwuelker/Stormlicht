@@ -54,6 +54,30 @@ pub enum HostParseError {
     IP(IPParseError),
 }
 
+impl ToString for Host {
+    // <https://url.spec.whatwg.org/#host-serializing>
+    fn to_string(&self) -> String {
+        match self {
+            Self::IPv4(ipv4) => {
+                // 1. If host is an IPv4 address, return the result of running the IPv4 serializer on host.
+                ipv4.to_string()
+            },
+            Self::IPv6(ipv6) => {
+                // 2. Otherwise, if host is an IPv6 address, return U+005B ([), followed by the result of running the IPv6 serializer on host, followed by U+005D (]).
+                format!("[{}]", ipv6.to_string())
+            },
+            Self::Domain(host) | Self::OpaqueHost(host) => {
+                // 3. Otherwise, host is a domain, opaque host, or empty host, return host.
+                host.clone()
+            },
+            Self::EmptyHost => {
+                // 3. Otherwise, host is a domain, opaque host, or empty host, return host.
+                String::new()
+            },
+        }
+    }
+}
+
 /// <https://url.spec.whatwg.org/#concept-host-parser>
 pub(crate) fn host_parse_with_special(
     input: &str,

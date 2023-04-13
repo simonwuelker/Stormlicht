@@ -36,6 +36,102 @@ impl FromStr for Ipv6Address {
     }
 }
 
+impl ToString for Ipv4Address {
+    fn to_string(&self) -> String {
+        // 1. Let output be the empty string.
+        let mut octets = [0; 4];
+
+        // 2. Let n be the value of address.
+        let mut n = self.0;
+
+        // 3. For each i in the range 1 to 4, inclusive:
+        for i in 0..4 {
+            // 1. Prepend n % 256, serialized, to output.
+            octets[i] = n % 256;
+            // 2. If i is not 4, then prepend U+002E (.) to output.
+            // NOTE: the actual serialization happens later in the code
+
+            // 3. Set n to floor(n / 256).
+            n /= 256;
+        }
+
+        // 4 Return output.
+        format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3])
+    }
+}
+
+impl ToString for Ipv6Address {
+    fn to_string(&self) -> String {
+        // 1. Let output be the empty string.
+        let mut output = String::new();
+
+        // 2. Let compress be an index to the first IPv6 piece in the first longest sequences of address’s IPv6 pieces that are 0.
+        let mut longest_sequence_length = 0;
+        let mut longest_sequence_start = 0;
+        let mut current_sequence_length = 0;
+        let mut current_sequence_start = 0;
+
+        for (index, &piece) in self.0.iter().enumerate() {
+            if piece == 0 {
+                if current_sequence_length == 0 {
+                    current_sequence_start = index;
+                }
+
+                current_sequence_length += 1;
+                if current_sequence_length > longest_sequence_length {
+                    longest_sequence_length = current_sequence_length;
+                    longest_sequence_start = current_sequence_start;
+                }
+            } else {
+                current_sequence_length = 0;
+            }
+        }
+
+        // 3. If there is no sequence of address’s IPv6 pieces that are 0 that is longer than 1, then set compress to null.
+        let compress = if longest_sequence_length == 1 {
+            0
+        } else {
+            longest_sequence_start
+        };
+
+        // 4. Let ignore0 be false.
+        let mut ignore0 = false;
+
+        // 5. For each pieceIndex in the range 0 to 7, inclusive:
+        for piece_index in 0..8 {
+            // 1. If ignore0 is true and address[pieceIndex] is 0, then continue.
+            if ignore0 && self.0[piece_index] == 0 {
+                continue;
+            }
+
+            // 2. Otherwise, if ignore0 is true, set ignore0 to false.
+            ignore0 = false;
+
+            // 3. If compress is pieceIndex, then:
+            if compress == piece_index {
+                // 1. Let separator be "::" if pieceIndex is 0, and U+003A (:) otherwise.
+                let seperator = if piece_index == 0 { "::" } else { ":" };
+
+                // 2. Append separator to output.
+                output.push_str(seperator);
+
+                // 3. Set ignore0 to true and continue.
+                ignore0 = true;
+                continue;
+            }
+
+            // 4. Append address[pieceIndex], represented as the shortest possible lowercase hexadecimal number, to output.
+            output.push_str(&format!("{:x}", self.0[piece_index]));
+
+            // If pieceIndex is not 7, then append U+003A (:) to output.
+            output.push(':')
+        }
+
+        // 6. Return output.
+        output
+    }
+}
+
 /// <https://url.spec.whatwg.org/#ipv4-number-parser>
 fn ipv4_number_parse(mut input: &str) -> Result<(u32, bool), IPParseError> {
     // If input is the empty string,
