@@ -1,9 +1,12 @@
+use std::str::FromStr;
+
 /// <https://url.spec.whatwg.org/#ip-address>
 #[derive(PartialEq, Clone, Copy, Debug)]
-pub enum IP {
-    IPv4(u32),
-    IPv6([u16; 8]),
-}
+pub struct Ipv4Address(u32);
+
+/// <https://url.spec.whatwg.org/#ip-address>
+#[derive(PartialEq, Clone, Copy, Debug)]
+pub struct Ipv6Address([u16; 8]);
 
 #[derive(Clone, Copy, Debug)]
 pub enum IPParseError {
@@ -18,13 +21,18 @@ pub enum IPParseError {
     Generic,
 }
 
-impl IP {
-    pub fn parse_ipv4(input: &str) -> Result<Self, IPParseError> {
-        Ok(Self::IPv4(ipv4_parse(input)?))
+impl FromStr for Ipv4Address {
+    type Err = IPParseError;
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        Ok(Self(ipv4_parse(input)?))
     }
+}
 
-    pub fn parse_ipv6(input: &str) -> Result<Self, IPParseError> {
-        Ok(Self::IPv6(ipv6_parse(input)?))
+impl FromStr for Ipv6Address {
+    type Err = IPParseError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        Ok(Self(ipv6_parse(input)?))
     }
 }
 

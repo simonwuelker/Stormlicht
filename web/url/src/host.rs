@@ -1,6 +1,11 @@
-use crate::{urlencode::percent_encode, urlparser::is_c0_control, util, IPParseError, IP};
+use std::str::FromStr;
 
-// https://url.spec.whatwg.org/#forbidden-host-code-point
+use crate::{
+    urlencode::percent_encode, urlparser::is_c0_control, util, IPParseError, Ipv4Address,
+    Ipv6Address,
+};
+
+/// <https://url.spec.whatwg.org/#forbidden-host-code-point>
 fn is_forbidden_host_code_point(c: char) -> bool {
     matches!(
         c,
@@ -24,7 +29,7 @@ fn is_forbidden_host_code_point(c: char) -> bool {
     )
 }
 
-// https://url.spec.whatwg.org/#forbidden-domain-code-point
+/// <https://url.spec.whatwg.org/#forbidden-domain-code-point>
 fn is_forbidden_domain_code_point(c: char) -> bool {
     is_forbidden_host_code_point(c) | is_c0_control(c) | matches!(c, '%' | '\u{007F}')
 }
@@ -36,7 +41,8 @@ fn is_forbidden_domain_code_point(c: char) -> bool {
 #[derive(PartialEq, Clone, Debug)]
 pub enum Host {
     Domain(String),
-    IP(IP),
+    IPv4(Ipv4Address),
+    IPv6(Ipv6Address),
     OpaqueHost(String),
     EmptyHost,
 }
@@ -48,7 +54,7 @@ pub enum HostParseError {
     IP(IPParseError),
 }
 
-// https://url.spec.whatwg.org/#concept-host-parser
+/// <https://url.spec.whatwg.org/#concept-host-parser>
 pub(crate) fn host_parse_with_special(
     input: &str,
     is_not_special: bool,
@@ -64,7 +70,7 @@ pub(crate) fn host_parse_with_special(
 
         // Return the result of IPv6 parsing input with its leading U+005B ([) and trailing U+005D (]) removed.
         let ipv6_text = &input[1..input.len() - 1];
-        let parsed_ip = Host::IP(IP::parse_ipv6(ipv6_text).map_err(HostParseError::IP)?);
+        let parsed_ip = Host::IPv6(Ipv6Address::from_str(ipv6_text).map_err(HostParseError::IP)?);
         return Ok(parsed_ip);
     }
 
@@ -100,14 +106,16 @@ pub(crate) fn host_parse_with_special(
     // If asciiDomain ends in a number
     if ascii_domain.ends_with(|c: char| c.is_ascii_digit()) {
         // then return the result of IPv4 parsing asciiDomain.
-        return Ok(Host::IP(IP::parse_ipv4(input).map_err(HostParseError::IP)?));
+        return Ok(Host::IPv4(
+            Ipv4Address::from_str(input).map_err(HostParseError::IP)?,
+        ));
     }
 
     // Return asciiDomain.
     Ok(Host::Domain(ascii_domain.to_string()))
 }
 
-// https://url.spec.whatwg.org/#concept-opaque-host-parser
+/// <https://url.spec.whatwg.org/#concept-opaque-host-parser>
 fn opaque_host_parse(input: &str) -> Result<String, HostParseError> {
     // If input contains a forbidden host code point
     if input.contains(is_forbidden_host_code_point) {
