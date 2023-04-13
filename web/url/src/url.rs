@@ -61,14 +61,17 @@ pub struct URL {
     pub fragment: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct URLParseError;
+
 impl URL {
-    // https://url.spec.whatwg.org/#concept-basic-url-parser
+    /// [Specification](https://url.spec.whatwg.org/#concept-basic-url-parser)
     pub fn parse_with_base(
         mut input: &str,
         base: Option<URL>,
         given_url: Option<URL>,
         state_override: Option<URLParserState>,
-    ) -> Self {
+    ) -> Result<Self, URLParseError> {
         let url = match given_url {
             Some(url) => url,
             None => {
@@ -111,7 +114,7 @@ impl URL {
 
         let ptr = 0;
 
-        let mut state_machine = URLParser {
+        let state_machine = URLParser {
             url: url,
             state: state,
             buffer: buffer,
@@ -123,12 +126,16 @@ impl URL {
             inside_brackets: inside_brackets,
             password_token_seen: password_token_seen,
         };
-        _ = state_machine.run();
-        state_machine.url
+
+        let parsed_url = state_machine
+            .run_to_completion()
+            .map_err(|_| URLParseError)?
+            .url;
+        Ok(parsed_url)
     }
 
     /// [Specification](https://url.spec.whatwg.org/#concept-basic-url-parser)
-    pub fn parse(input: &str) -> Self {
+    pub fn parse(input: &str) -> Result<Self, URLParseError> {
         Self::parse_with_base(input, None, None, None)
     }
 
@@ -175,8 +182,10 @@ impl URL {
     }
 }
 
-impl From<&str> for URL {
-    fn from(from: &str) -> Self {
+impl TryFrom<&str> for URL {
+    type Error = URLParseError;
+
+    fn try_from(from: &str) -> Result<Self, Self::Error> {
         Self::parse(from)
     }
 }
@@ -187,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_simple_url() {
-        let url = URL::parse("https://google.com");
+        let url = URL::parse("https://google.com").unwrap();
 
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "");
@@ -200,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_with_query() {
-        let url = URL::parse("https://google.com?a=b");
+        let url = URL::parse("https://google.com?a=b").unwrap();
 
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "");
@@ -213,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_with_fragment() {
-        let url = URL::parse("https://google.com#foo");
+        let url = URL::parse("https://google.com#foo").unwrap();
 
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "");
@@ -226,7 +235,7 @@ mod tests {
 
     #[test]
     fn test_with_credentials() {
-        let url = URL::parse("https://user:password@google.com");
+        let url = URL::parse("https://user:password@google.com").unwrap();
 
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "user");

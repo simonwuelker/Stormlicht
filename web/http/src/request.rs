@@ -195,7 +195,8 @@ mod tests {
     fn basic_get_request() {
         let mut tcpstream: Vec<u8> = vec![];
 
-        let mut request = super::Request::get(url::URL::from("http://www.example.com")).unwrap();
+        let mut request =
+            super::Request::get(url::URL::try_from("http://www.example.com").unwrap()).unwrap();
         request.headers.clear();
 
         request.set_header(super::Header::UserAgent, "test");
