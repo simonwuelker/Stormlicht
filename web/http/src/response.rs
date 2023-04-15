@@ -1,5 +1,7 @@
 //! HTTP/1.1 response parser
 
+use std::collections::HashMap;
+
 use parser_combinators::{
     literal, many, optional, predicate, some, ParseResult, Parser, ParserCombinator,
 };
@@ -9,7 +11,7 @@ use crate::status_code::StatusCode;
 #[derive(Debug)]
 pub struct Response {
     pub status: StatusCode,
-    pub headers: Vec<(String, String)>,
+    pub headers: HashMap<String, String>,
     pub body: Vec<u8>,
 }
 
@@ -88,8 +90,8 @@ pub(crate) fn parse_response(input: &[u8]) -> ParseResult<&[u8], Response> {
         }
     });
     let linebreak = literal(b"\r\n");
-    let to_string = |chars: Vec<u8>| {
-        chars
+    let to_string = |bytes: Vec<u8>| {
+        bytes
             .iter()
             .map(|byte| char::from_u32(*byte as u32).unwrap())
             .collect::<String>()
@@ -109,7 +111,14 @@ pub(crate) fn parse_response(input: &[u8]) -> ParseResult<&[u8], Response> {
             .map(|(field, value_bytes)| (field, to_string(value_bytes)))
             .then(linebreak)
             .map(|res| res.0),
-    );
+    )
+    .map(|header_list| {
+        let mut headers = HashMap::with_capacity(header_list.len());
+        for (key, value) in header_list {
+            headers.insert(key, value);
+        }
+        headers
+    });
 
     status_line
         .then(headers)

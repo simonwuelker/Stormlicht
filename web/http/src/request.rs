@@ -73,20 +73,24 @@ fn read_until<R: Read>(reader: &mut BufReader<R>, needle: &[u8]) -> Result<Vec<u
 }
 
 impl Request {
-    pub fn get(url: URL) -> Result<Self, CreateRequestError> {
-        if url.scheme != "http" {
-            return Err(CreateRequestError::NotHTTP);
-        }
+    /// Send a `GET` request to the specified URL
+    ///
+    /// # Panics
+    /// This function panics if the url scheme is not `http`
+    /// or the url does not have a `host`.
+    pub fn get(url: URL) -> Self {
+        assert_eq!(url.scheme, "http", "URL is not http");
 
-        Ok(Self {
+        Self {
             method: Method::GET,
             path: "/".to_string(),
             headers: HashMap::new(),
-            host: url.host.ok_or(CreateRequestError::MissingHost)?,
-        })
+            host: url.host.expect("URL does not have a host"),
+        }
     }
 
-    pub fn write_to<W>(self, mut writer: W) -> Result<(), io::Error>
+    /// Serialize the request to the given [Writer](std::io::Write)
+    fn write_to<W>(self, mut writer: W) -> Result<(), io::Error>
     where
         W: std::io::Write,
     {
@@ -197,7 +201,7 @@ mod tests {
         let mut tcpstream: Vec<u8> = vec![];
 
         let mut request =
-            super::Request::get(url::URL::try_from("http://www.example.com").unwrap()).unwrap();
+            super::Request::get(url::URL::try_from("http://www.example.com").unwrap());
         request.headers.clear();
 
         request.set_header(super::Header::UserAgent, "test");
