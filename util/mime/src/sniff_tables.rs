@@ -5,7 +5,7 @@ use std::str::FromStr;
 use crate::MIMEType;
 
 /// <https://mimesniff.spec.whatwg.org/#whitespace-byte>
-const WHITESPACE: &[u8] = &[0x09, 0x0A, 0x0C, 0x0D, 0x20];
+pub const WHITESPACE: &[u8] = &[0x09, 0x0A, 0x0C, 0x0D, 0x20];
 
 pub const SCRIPTABLE_MIME_TYPES_TABLE: MIMESniffTable<36> = MIMESniffTable([
     // The case-insensitive string "<!DOCTYPE HTML" followed by a tag-terminating byte.

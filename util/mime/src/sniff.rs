@@ -45,7 +45,7 @@ pub fn identify_unknown_mime_type(
     // 9. If resource’s resource header contains no binary data bytes, return "text/plain".
     if resource_header
         .iter()
-        .all(|byte| !matches!(byte, 0x00..=0x08 | 0x0B | 0x0E..=0x1A | 0x1C..=0x1F))
+        .all(|&byte| !is_binary_data_byte(byte))
     {
         return MIMEType::new("text", "plain");
     }
@@ -366,4 +366,10 @@ fn compute_mp3_frame_size(version: u8, bitrate: u32, freq: u32, pad: bool) -> us
 
     // 4. Return size.
     size as usize
+}
+
+/// <https://mimesniff.spec.whatwg.org/#binary-data-byte>
+#[inline]
+pub(crate) fn is_binary_data_byte(byte: u8) -> bool {
+    matches!(byte, 0x00..=0x08 | 0x0B | 0x0E..=0x1A | 0x1C..=0x1F)
 }
