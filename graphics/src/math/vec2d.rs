@@ -1,15 +1,17 @@
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Vec2D {
-    pub x: f32,
-    pub y: f32,
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Vec2D<T = f32> {
+    pub x: T,
+    pub y: T,
 }
 
-impl Vec2D {
+impl<T> Vec2D<T> {
     #[inline]
-    pub const fn new(x: f32, y: f32) -> Self {
+    pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
     }
+}
 
+impl Vec2D<f32> {
     #[inline]
     pub fn magnitude(&self) -> f32 {
         self.x.hypot(self.y)

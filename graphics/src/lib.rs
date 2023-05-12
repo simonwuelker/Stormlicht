@@ -30,20 +30,20 @@
 //! * [Forma](https://github.com/google/forma)(GPU/CPU, Rust)
 //! * [Pathfinder](https://github.com/servo/pathfinder) (Developed for [Servo](https://servo.org/), Rust)
 //! * [Skia](https://skia.org/) (Used in Chrome, C++)
+//! * [raquote](https://github.com/jrmuizel/raqote)
 
 #![feature(array_windows)]
+#![feature(portable_simd)]
 
 mod buffer;
 mod color;
 mod composition;
-mod consts;
+mod layer;
 pub mod math;
 mod path;
-mod render;
 
-pub use buffer::{Buffer, BufferLayout};
-pub use composition::{Compositor, Layer};
+pub use buffer::Buffer;
+pub use color::Color;
+pub use composition::Composition;
+pub use layer::Layer;
 pub use path::{FlattenedPathPoint, Path};
-pub use render::Renderer;
-
-pub use color::*;

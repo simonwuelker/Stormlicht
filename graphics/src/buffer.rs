@@ -1,44 +1,35 @@
-use crate::consts;
+//! Used to describe the memory layout that should be painted into
 
+use crate::Color;
+
+type Pixel = u32;
+
+/// The target surface that content should be drawn to
 #[derive(Clone, Debug)]
-pub struct Buffer<'a, M: BufferLayout> {
-    /// The raw bytes contained by the buffer
-    data: &'a [u8],
-
-    /// Describes how to interpret [Self::data]
-    layout: M,
-}
-
-pub trait BufferLayout {
-    /// Buffer width in pixels
-    fn width(&self) -> usize;
-
-    /// Buffer height in pixels
-    fn height(&self) -> usize;
-
-    /// Buffer width in tiles
-    fn tile_width(&self) -> usize {
-        (self.width() + consts::TILE_SIZE - 1) / consts::TILE_SIZE
-    }
-
-    /// Buffer height in teils
-    fn tile_height(&self) -> usize {
-        (self.height() + consts::TILE_SIZE - 1) / consts::TILE_SIZE
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct LinearLayout {
+pub struct Buffer {
     width: usize,
     height: usize,
+    data: Vec<Pixel>,
 }
 
-impl BufferLayout for LinearLayout {
-    fn width(&self) -> usize {
-        self.width
+impl Buffer {
+    pub fn new(width: usize, height: usize) -> Self {
+        Self {
+            width,
+            height,
+            data: vec![0; width * height],
+        }
     }
 
-    fn height(&self) -> usize {
-        self.height
+    pub fn set_pixel(&mut self, x: usize, y: usize, pixel: Pixel) {
+        debug_assert!(x < self.width);
+        debug_assert!(y < self.height);
+
+        let index = y * self.width + x;
+        self.data[index] = pixel;
+    }
+
+    pub fn clear(&mut self, clear_color: Color) {
+        self.data.fill(clear_color.into());
     }
 }
