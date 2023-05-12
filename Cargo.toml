@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "web/css",
     "web/html", 
     "web/http", 
     "web/url",
@@ -7,10 +8,11 @@ members = [
     "web/dom-derive",
     "graphics",
     "compression",
-    "util/random",
     "util/cli",
     "util/cli-derive",
     "util/bignum",
+    "util/mime",
+    "util/random",
     "gui/widgets", 
     "gui/canvas", 
     "font", 

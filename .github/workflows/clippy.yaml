@@ -18,6 +18,8 @@ jobs:
             toolchain: nightly
             override: true
             components: rustfmt, clippy
+      - name: Install required libraries
+        run: sudo apt install libxkbcommon-x11-dev
       - name: Download required files
         run: ./download.sh
       - name: Run Clippy

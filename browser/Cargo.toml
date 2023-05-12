@@ -8,10 +8,8 @@ default-run = "browser"
 
 [dependencies]
 widgets = { path = "../gui/widgets" }
-canvas = { path = "../gui/canvas" }
-image = { path = "../image" }
-font = { path = "../font" }
 cli = { path = "../util/cli" }
 env_logger = "0.10"
 log = "0.4"
-anyhow = "1"
+glazier = { git = "https://github.com/linebender/glazier" }
+softbuffer = "0.2"

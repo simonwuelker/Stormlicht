@@ -1,11 +1,10 @@
-use crate::{message::Consume, punycode::idna_encode};
+use crate::{message::Consume, punycode::idna_encode, DNSError};
 
-use anyhow::Result;
 use std::fmt;
 
 const DOMAIN_MAX_SEGMENTS: u8 = 10;
 
-#[derive(PartialEq, Clone)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Domain(Vec<String>);
 
 impl fmt::Debug for Domain {
@@ -68,36 +67,35 @@ impl Domain {
     /// ```
     /// # use dns::Domain;
     /// let encoded_name = b"\x03www\x07example\x03com\x00";
-    /// let domain_name = Domain::decode(encoded_name);
+    /// let domain_name = Domain::decode(encoded_name).unwrap();
     ///
-    /// assert_eq!(domain_name, Ok(Domain::new("www.example.com")));
+    /// assert_eq!(domain_name, Domain::new("www.example.com"));
     /// ```
     ///
     /// # Panics
     /// This function panics if the given byte buffer is not a valid encoded domain name,
     /// for example `\x03www\x07example\x04com`.
-    pub fn decode(source: &[u8]) -> Result<Self> {
+    pub fn decode(source: &[u8]) -> Result<Self, DNSError> {
         let mut domain = Self(vec![]);
 
-        let mut block_size = source[0] as usize;
-        let mut ptr = 1;
-
+        let mut ptr = 0;
         loop {
-            assert!(
-                ptr + block_size < source.len(),
-                "domain block reaches out of bounds"
-            );
+            let block_size = source[ptr] as usize;
 
-            domain.add_segment(std::str::from_utf8(&source[ptr..ptr + block_size])?.to_string());
-
-            ptr += block_size;
-
-            block_size = source[ptr] as usize;
             if block_size == 0x00 {
                 break;
-            } else {
-                ptr += 1;
             }
+
+            ptr += 1;
+
+            if source.len() <= ptr + block_size {
+                // Domain block reaches out of bounds
+                return Err(DNSError::InvalidResponse);
+            }
+
+            domain.add_segment(String::from_utf8_lossy(&source[ptr..ptr + block_size]).to_string());
+
+            ptr += block_size;
         }
 
         Ok(domain)

@@ -3,8 +3,6 @@
 //! Note that this implementation includes *some* features from the [OpenType Name Table](https://learn.microsoft.com/en-us/typography/opentype/spec/name)
 
 use crate::ttf::read_u16_at;
-use anyhow::Result;
-use thiserror::Error;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NameID {
@@ -72,18 +70,19 @@ impl From<u16> for NameID {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Clone, Copy, Debug)]
 pub enum NameTableError {
-    #[error("Expected format selector 0, found {}", .0)]
-    NonZeroFormatSelector(u16),
+    NonZeroFormatSelector,
 }
+
 pub struct NameTable<'a>(&'a [u8]);
 
 impl<'a> NameTable<'a> {
-    pub fn new(data: &'a [u8], offset: usize) -> Result<Self> {
+    pub fn new(data: &'a [u8], offset: usize) -> Result<Self, NameTableError> {
         let format_selector = read_u16_at(data, offset);
         if format_selector != 0 {
-            return Err(NameTableError::NonZeroFormatSelector(format_selector).into());
+            log::warn!("Expected format selector to be 0, fonud {format_selector}");
+            return Err(NameTableError::NonZeroFormatSelector);
         }
         Ok(Self(&data[offset..]))
     }

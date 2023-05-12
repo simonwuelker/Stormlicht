@@ -2,15 +2,13 @@
 //!
 //! Also [IDNA](https://de.wikipedia.org/wiki/Internationalizing_Domain_Names_in_Applications)
 
-use anyhow::Result;
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum PunyCodeError {
-    #[error("Integer overflow")]
+    /// Integer overflows are explicitly forbidden in punycode
     IntegerOverflow,
-    #[error("Punycode-encoded strings must be pure ascii, found {:?}", .0)]
-    NotAscii(String),
+    /// Trying to decode invalid (i.e non-ascii) punycode
+    InvalidPunycode,
+    InvalidCharacterCode,
 }
 const BASE: u32 = 36;
 const TMIN: u32 = 1;
@@ -55,7 +53,7 @@ fn adapt(mut delta: u32, num_points: u32, is_first: bool) -> u32 {
     k + (((BASE - TMIN + 1) * delta) / (delta + SKEW))
 }
 
-pub fn punycode_encode(input: &str) -> Result<String> {
+pub fn punycode_encode(input: &str) -> Result<String, PunyCodeError> {
     let mut n = INITIAL_N;
     let mut delta: u32 = 0;
     let mut bias = INITIAL_BIAS;
@@ -118,9 +116,9 @@ pub fn punycode_encode(input: &str) -> Result<String> {
     Ok(output)
 }
 
-pub fn punycode_decode(input: &str) -> Result<String> {
+pub fn punycode_decode(input: &str) -> Result<String, PunyCodeError> {
     if !input.is_ascii() {
-        return Err(PunyCodeError::NotAscii(input.to_string()).into());
+        return Err(PunyCodeError::InvalidPunycode);
     }
 
     let (mut output, extended) = match input.rfind('-') {
@@ -181,14 +179,17 @@ pub fn punycode_decode(input: &str) -> Result<String> {
             .ok_or(PunyCodeError::IntegerOverflow)?;
         i %= num_points;
 
-        output.insert(i as usize, char::try_from(n)?);
+        output.insert(
+            i as usize,
+            char::try_from(n).map_err(|_| PunyCodeError::InvalidCharacterCode)?,
+        );
         i += 1;
     }
     Ok(output.iter().collect())
 }
 
 /// The returned value is guaranteed to be pure ascii
-pub fn idna_encode(input: &str) -> Result<String> {
+pub fn idna_encode(input: &str) -> Result<String, PunyCodeError> {
     // Don't encode strings that are already pure ascii
     if input.is_ascii() {
         Ok(input.to_string())

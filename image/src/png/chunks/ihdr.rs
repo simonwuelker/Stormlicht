@@ -1,25 +1,16 @@
 //! [IHDR](https://www.w3.org/TR/png/#11IHDR) chunk
 
-use anyhow::Result;
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Clone, Copy, Debug)]
 pub enum ImageHeaderError {
     // NOTE: A value is considered to be "unknown" if the specification reserves it for future use.
     // Otherwise, it is "invalid".
-    #[error("Invalid image type value: {} (allowed values are: 0, 2, 3, 4, 6)", .0)]
-    InvalidImageType(u8),
-    #[error("Unknown compression method: {}", .0)]
-    UnknownCompressionMethod(u8),
-    #[error("Unknown filter method: {}", .0)]
-    UnknownFilterMethod(u8),
-    #[error("Unknown interlace method: {}", .0)]
-    UnknownInterlaceMethod(u8),
-    #[error("Bit depth {bit_depth} is not allowed for image type {image_type:?}")]
-    DisallowedBitDepth {
-        image_type: ImageType,
-        bit_depth: u8,
-    },
+    InvalidImageType,
+    UnknownCompressionMethod,
+    UnknownFilterMethod,
+    UnknownInterlaceMethod,
+    // NOTE: not all image-type/bit depth combinations are allowed
+    DisallowedBitDepth,
+    IncorrectNumberOfBytes,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -34,29 +25,33 @@ pub struct ImageHeader {
 }
 
 impl ImageHeader {
-    pub fn new(
-        width: u32,
-        height: u32,
-        bit_depth: u8,
-        image_type: ImageType,
-        compression_method: u8,
-        filter_method: u8,
-        interlace_method: InterlaceMethod,
-    ) -> Result<Self> {
+    pub fn new(data: &[u8]) -> Result<Self, ImageHeaderError> {
+        if data.len() != 13 {
+            log::warn!("IHDR length must be exactly 13 bytes, found {}", data.len());
+            return Err(ImageHeaderError::IncorrectNumberOfBytes);
+        }
+
+        let width = u32::from_be_bytes(data[0..4].try_into().unwrap());
+        let height = u32::from_be_bytes(data[4..8].try_into().unwrap());
+        let bit_depth = data[8];
+        let image_type: ImageType = data[9].try_into()?;
+        let compression_method = data[10];
+        let filter_method = data[11];
+        let interlace_method = data[12].try_into()?;
+
         if !image_type.is_allowed_bit_depth(bit_depth) {
-            return Err(ImageHeaderError::DisallowedBitDepth {
-                image_type: image_type,
-                bit_depth: bit_depth,
-            }
-            .into());
+            log::warn!("Bit depth {bit_depth} is not allowed for image type {image_type:?}");
+            return Err(ImageHeaderError::DisallowedBitDepth);
         }
 
         if compression_method != 0 {
-            return Err(ImageHeaderError::UnknownCompressionMethod(compression_method).into());
+            log::warn!("Unknown compression method: {compression_method}");
+            return Err(ImageHeaderError::UnknownCompressionMethod);
         }
 
         if filter_method != 0 {
-            return Err(ImageHeaderError::UnknownFilterMethod(filter_method).into());
+            log::warn!("Unknown filter method: {filter_method}");
+            return Err(ImageHeaderError::UnknownFilterMethod);
         }
 
         Ok(Self {
@@ -130,7 +125,10 @@ impl TryFrom<u8> for ImageType {
             3 => Ok(Self::IndexedColor),
             4 => Ok(Self::GrayScaleWithAlpha),
             6 => Ok(Self::TrueColorWithAlpha),
-            _ => Err(ImageHeaderError::InvalidImageType(value)),
+            _ => {
+                log::warn!("Unknown image type: {value}");
+                Err(ImageHeaderError::InvalidImageType)
+            }
         }
     }
 }
@@ -148,7 +146,10 @@ impl TryFrom<u8> for InterlaceMethod {
         match value {
             0 => Ok(Self::None),
             1 => Ok(Self::Adam7),
-            _ => Err(ImageHeaderError::UnknownInterlaceMethod(value)),
+            _ => {
+                log::warn!("Unknown interlace method: {value}");
+                Err(ImageHeaderError::UnknownInterlaceMethod)
+            }
         }
     }
 }

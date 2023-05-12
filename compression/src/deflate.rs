@@ -1,26 +1,20 @@
-use crate::{bit_reader::BitReader, huffman::HuffmanTree};
+use crate::{
+    bit_reader::{BitReader, BitReaderError},
+    huffman::HuffmanTree,
+};
 
 use std::cmp::{min, Ordering};
 
-use anyhow::Result;
-use thiserror::Error;
-
-#[derive(Error, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum DeflateError {
-    #[error("Invalid value for block compression scheme: {:0>2} ", .0)]
-    InvalidCompressionScheme(u8),
-    #[error("Encountered a block using a encoding that is reserved for future use")]
+    InvalidCompressionScheme,
     ReservedCompressionScheme,
-    #[error("Unexpected end-of-file")]
     UnexpectedEOF,
-    #[error("Symbol not found")]
     SymbolNotFound,
-    #[error("Leading repeat code encountered in run length encoding")]
     RLELeadingRepeatValue,
-    #[error("Run length encoding exceeds expected size")]
     RLEExceedsExpectedLength,
-    #[error("Invalid uncompressed block length")]
     InvalidUncompressedBlockLength,
+    BitReader(BitReaderError),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -31,8 +25,8 @@ enum CompressionScheme {
     Reserved,
 }
 
-/// Returns a tuple of `(decompressed_bytes, num_consumed_compressed_bytes)` on succeess
-pub fn decode(source: &[u8]) -> Result<(Vec<u8>, usize)> {
+/// Returns a tuple of `(decompressed_bytes, num_consumed_compressed_bytes)` on success
+pub fn decode(source: &[u8]) -> Result<(Vec<u8>, usize), DeflateError> {
     let mut reader = BitReader::new(source);
     let mut output_stream = vec![];
 
@@ -40,33 +34,50 @@ pub fn decode(source: &[u8]) -> Result<(Vec<u8>, usize)> {
     default_lit_lenghts.extend(vec![9; 112]);
     default_lit_lenghts.extend(vec![7; 24]);
     default_lit_lenghts.extend(vec![8; 8]);
+
     let default_lit_tree = HuffmanTree::new_infer_codes_without_symbols(&default_lit_lenghts);
     let default_dist_tree = HuffmanTree::new_infer_codes_without_symbols(&[5; 32]);
 
     loop {
-        let is_final = reader.read_single_bit()?;
-        let btype = reader.read_bits::<u8>(2)?.try_into()?;
+        let is_final = reader.read_single_bit().map_err(DeflateError::BitReader)?;
+        let btype = reader
+            .read_bits::<u8>(2)
+            .map_err(DeflateError::BitReader)?
+            .try_into()?;
         match btype {
             CompressionScheme::Uncompressed => {
                 reader.align_to_byte_boundary();
-                let len = reader.read_bits::<u16>(16)?;
-                let nlen = reader.read_bits::<u16>(16)?;
+                let len = reader
+                    .read_bits::<u16>(16)
+                    .map_err(DeflateError::BitReader)?;
+                let nlen = reader
+                    .read_bits::<u16>(16)
+                    .map_err(DeflateError::BitReader)?;
 
                 if len ^ 0xFFFF != nlen {
-                    return Err(DeflateError::InvalidUncompressedBlockLength.into());
+                    return Err(DeflateError::InvalidUncompressedBlockLength);
                 }
 
                 output_stream.reserve(len as usize);
 
                 for _ in 0..len {
-                    output_stream.push(reader.read_bits::<u8>(8)?);
+                    output_stream.push(reader.read_bits::<u8>(8).map_err(DeflateError::BitReader)?);
                 }
             },
             CompressionScheme::DynamicHuffmanCodes => {
                 // Read the huffman codes from the start of the block
-                let hlit = reader.read_bits::<usize>(5)? + 257;
-                let hdist = reader.read_bits::<usize>(5)? + 1;
-                let hclen = reader.read_bits::<usize>(4)? + 4;
+                let hlit = reader
+                    .read_bits::<usize>(5)
+                    .map_err(DeflateError::BitReader)?
+                    + 257;
+                let hdist = reader
+                    .read_bits::<usize>(5)
+                    .map_err(DeflateError::BitReader)?
+                    + 1;
+                let hclen = reader
+                    .read_bits::<usize>(4)
+                    .map_err(DeflateError::BitReader)?
+                    + 4;
 
                 let (literal_tree, distance_tree) =
                     read_literal_and_distance_tree(hlit, hdist, hclen, &mut reader)?;
@@ -86,7 +97,7 @@ pub fn decode(source: &[u8]) -> Result<(Vec<u8>, usize)> {
                 )?;
             },
             CompressionScheme::Reserved => {
-                return Err(DeflateError::ReservedCompressionScheme.into());
+                return Err(DeflateError::ReservedCompressionScheme);
             },
         }
 
@@ -102,7 +113,7 @@ fn decompress_block(
     distance_tree: &HuffmanTree<usize>,
     reader: &mut BitReader,
     output_stream: &mut Vec<u8>,
-) -> Result<()> {
+) -> Result<(), DeflateError> {
     'decompress_block: loop {
         let symbol = *literal_tree
             .lookup_incrementally(reader)
@@ -141,16 +152,19 @@ fn decompress_block(
 const CODE_LENGTH_ALPHABET: [usize; 19] = [
     16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
 ];
+
 fn read_literal_and_distance_tree(
     hlit: usize,
     hdist: usize,
     hclen: usize,
     reader: &mut BitReader,
-) -> Result<(HuffmanTree<usize>, HuffmanTree<usize>)> {
+) -> Result<(HuffmanTree<usize>, HuffmanTree<usize>), DeflateError> {
     let mut code_lengths = vec![0; 19];
 
     for index in &CODE_LENGTH_ALPHABET[..hclen] {
-        code_lengths[*index] = reader.read_bits::<usize>(3)?;
+        code_lengths[*index] = reader
+            .read_bits::<usize>(3)
+            .map_err(DeflateError::BitReader)?;
     }
 
     let code_tree = HuffmanTree::new_infer_codes_without_symbols(&code_lengths);
@@ -168,31 +182,38 @@ fn read_literal_and_distance_tree(
                 codes.push(symbol);
             },
             16 => {
-                let to_repeat = *codes.last().ok_or_else::<anyhow::Error, _>(|| {
-                    DeflateError::RLELeadingRepeatValue.into()
-                })?;
-                let repeat_for = reader.read_bits::<usize>(2)? + 3;
+                let to_repeat = *codes.last().ok_or(DeflateError::RLELeadingRepeatValue)?;
+                let repeat_for = reader
+                    .read_bits::<usize>(2)
+                    .map_err(DeflateError::BitReader)?
+                    + 3;
 
                 if total_number_of_codes < codes.len() + repeat_for {
-                    return Err(DeflateError::RLEExceedsExpectedLength.into());
+                    return Err(DeflateError::RLEExceedsExpectedLength);
                 }
 
                 codes.resize(codes.len() + repeat_for, to_repeat);
             },
             17 => {
-                let repeat_for = reader.read_bits::<usize>(3)? + 3;
+                let repeat_for = reader
+                    .read_bits::<usize>(3)
+                    .map_err(DeflateError::BitReader)?
+                    + 3;
 
                 if total_number_of_codes < codes.len() + repeat_for {
-                    return Err(DeflateError::RLEExceedsExpectedLength.into());
+                    return Err(DeflateError::RLEExceedsExpectedLength);
                 }
 
                 codes.resize(codes.len() + repeat_for, 0);
             },
             18 => {
-                let repeat_for = reader.read_bits::<usize>(7)? + 11;
+                let repeat_for = reader
+                    .read_bits::<usize>(7)
+                    .map_err(DeflateError::BitReader)?
+                    + 11;
 
                 if total_number_of_codes < codes.len() + repeat_for {
-                    return Err(DeflateError::RLEExceedsExpectedLength.into());
+                    return Err(DeflateError::RLEExceedsExpectedLength);
                 }
 
                 codes.resize(codes.len() + repeat_for, 0);
@@ -209,7 +230,7 @@ fn read_literal_and_distance_tree(
     Ok((literal_tree, dist_tree))
 }
 
-fn decode_distance(code: usize, reader: &mut BitReader) -> Result<usize> {
+fn decode_distance(code: usize, reader: &mut BitReader) -> Result<usize, DeflateError> {
     let (base, num_extra_bits) = match code {
         0 => (1, 0),
         1 => (2, 0),
@@ -243,11 +264,13 @@ fn decode_distance(code: usize, reader: &mut BitReader) -> Result<usize> {
         29 => (24577, 13),
         _ => unreachable!("Invalid distance code: {code}"),
     };
-    let extra_bits = reader.read_bits::<usize>(num_extra_bits)?;
+    let extra_bits = reader
+        .read_bits::<usize>(num_extra_bits)
+        .map_err(DeflateError::BitReader)?;
     Ok(base + extra_bits)
 }
 
-fn decode_run_length(code: usize, reader: &mut BitReader) -> Result<usize> {
+fn decode_run_length(code: usize, reader: &mut BitReader) -> Result<usize, DeflateError> {
     let (base, num_extra_bits) = match code {
         257 => (3, 0),
         258 => (4, 0),
@@ -281,7 +304,9 @@ fn decode_run_length(code: usize, reader: &mut BitReader) -> Result<usize> {
         _ => unreachable!("Invalid distance code: {code}"),
     };
 
-    let extra_bits = reader.read_bits::<usize>(num_extra_bits)?;
+    let extra_bits = reader
+        .read_bits::<usize>(num_extra_bits)
+        .map_err(DeflateError::BitReader)?;
     Ok(base + extra_bits)
 }
 
@@ -294,19 +319,20 @@ impl TryFrom<u8> for CompressionScheme {
             1 => Ok(Self::FixedHuffmanCodes),
             2 => Ok(Self::DynamicHuffmanCodes),
             3 => Ok(Self::Reserved),
-            _ => Err(DeflateError::InvalidCompressionScheme(value)),
+            _ => {
+                log::warn!("Invalid DEFLATE compression scheme: {value}");
+                Err(DeflateError::InvalidCompressionScheme)
+            },
         }
     }
 }
 
-// TODO we need more tests
 #[cfg(test)]
 mod tests {
-    use super::decode;
-    use anyhow::Result;
+    use super::{decode, DeflateError};
 
     #[test]
-    fn test_basic() -> Result<()> {
+    fn test_basic() -> Result<(), DeflateError> {
         let bytes = [0x4b, 0x4c, 0x4a, 0x06, 0x00];
         let (decompressed, num_consumed_bytes) = decode(&bytes)?;
 

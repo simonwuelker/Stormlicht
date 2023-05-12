@@ -7,8 +7,7 @@ edition = "2021"
 
 [dependencies]
 canvas = { path = "../gui/canvas" }
-anyhow = "1"
-thiserror = "1"
+log = "0.4"
 
 # The cli is only required by the binary.
 # Cargo doesn't support "bin-dependencies", so we need to put

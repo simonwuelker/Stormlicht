@@ -53,7 +53,7 @@ pub(crate) fn is_c0_control(c: char) -> bool {
 }
 
 impl<'a> URLParser<'a> {
-    pub(crate) fn run(&mut self) -> Result<(), ()> {
+    pub(crate) fn run_to_completion(mut self) -> Result<Self, ()> {
         loop {
             // Keep running the following state machine by switching on state.
             self.step()?;
@@ -69,7 +69,7 @@ impl<'a> URLParser<'a> {
                 self.ptr += 1;
             }
         }
-        Ok(())
+        Ok(self)
     }
 
     fn c(&self) -> Option<char> {
@@ -546,7 +546,7 @@ impl<'a> URLParser<'a> {
                     let host_or_failure = host::host_parse_with_special(self.buffer.as_str(), true);
 
                     // If host is failure, then return failure.
-                    let host = host_or_failure?;
+                    let host = host_or_failure.map_err(|_| ())?; // FIXME: proper error handling
 
                     // Set url’s host to host,
                     self.url.host = Some(host);
@@ -589,7 +589,7 @@ impl<'a> URLParser<'a> {
                     let host_or_failure = host::host_parse_with_special(self.buffer.as_str(), true);
 
                     // If host is failure, then return failure.
-                    let host = host_or_failure?;
+                    let host = host_or_failure.map_err(|_| ())?; // FIXME: proper error handling
 
                     // Set url’s host to host,
                     self.url.host = Some(host);
@@ -835,7 +835,8 @@ impl<'a> URLParser<'a> {
                     else {
                         // Let host be the result of host parsing buffer with url is not special.
                         // If host is failure, then return failure.
-                        let mut host = host_parse_with_special(&self.buffer, false)?;
+                        let mut host =
+                            host_parse_with_special(&self.buffer, false).map_err(|_| ())?; // FIXME: proper error handling
 
                         // If host is "localhost", then set host to the empty string.
                         if Host::OpaqueHost("localhost".to_string()) == host {

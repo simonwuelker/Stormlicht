@@ -19,13 +19,15 @@ fi
 # Download brotli test files
 mkdir -p $download_dir/brotli/testdata
 if [ ! -f "$download_dir/brotli/testdata/tests" ]; then
-    # # do a sparse checkout, we don't need the entire repository
+    # do a sparse checkout, we don't need the entire repository
     git clone \
+        -n \
+        --depth=1 \
+        --filter=tree:0 \
         -q \
-        --filter=blob:none  \
-        --sparse \
         https://github.com/google/brotli \
         "$download_dir/brotli/testdata"
 
     git -C "$download_dir/brotli/testdata" sparse-checkout set tests/testdata
+    git -C "$download_dir/brotli/testdata" checkout
 fi

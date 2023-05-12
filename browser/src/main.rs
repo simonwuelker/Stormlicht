@@ -2,11 +2,9 @@
 
 mod browser_application;
 
-use anyhow::{anyhow, Result};
 use browser_application::BrowserApplication;
 
 use cli::CommandLineArgumentParser;
-use widgets::application::Application;
 
 #[derive(Debug, Default, CommandLineArgumentParser)]
 struct ArgumentParser {
@@ -42,7 +40,7 @@ extern "C" {
     fn geteuid() -> u32;
 }
 
-pub fn main() -> Result<()> {
+pub fn main() {
     // Register a custom panic handler
     std::panic::update_hook(move |prev, info| {
         println!("The browser has panicked. This is a bug. Please open an issue at {}, including the debug information below. Thanks!\n", env!("CARGO_PKG_REPOSITORY"));
@@ -55,27 +53,26 @@ pub fn main() -> Result<()> {
 
     #[cfg(target_os = "linux")]
     if unsafe { geteuid() } == 0 {
-        return Err(anyhow!("Refusing to run as root"));
+        log::error!("Refusing to run as root");
     }
 
     let arguments = match ArgumentParser::parse() {
         Ok(arguments) => arguments,
         Err(_) => {
             println!("{}", ArgumentParser::help());
-            return Ok(());
+            return;
         },
     };
 
     if arguments.help {
         println!("{}", ArgumentParser::help());
-        return Ok(());
+        return;
     }
 
     if arguments.version {
         println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-        return Ok(());
+        return;
     }
 
-    let mut application = BrowserApplication::default();
-    application.run()
+    BrowserApplication::default().run();
 }

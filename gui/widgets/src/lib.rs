@@ -6,16 +6,8 @@ pub mod primitives;
 
 pub use alignment::Alignment;
 pub use sdl2;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Clone, Debug)]
 pub enum GuiError {
-    #[error("SDL Error: {:?}", .0)]
     SDL(String),
-}
-
-impl GuiError {
-    pub fn from_sdl(error_msg: String) -> Self {
-        Self::SDL(error_msg)
-    }
 }

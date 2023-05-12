@@ -26,7 +26,7 @@ pub type Path = Vec<String>;
 /// A **U**niform **R**esource **L**ocator
 ///
 /// [Specification](https://url.spec.whatwg.org/#concept-url)
-#[derive(Default, Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct URL {
     /// A [URL]’s scheme is an ASCII string that identifies the type of URL
     /// and can be used to dispatch a URL for further processing after parsing.
@@ -61,14 +61,25 @@ pub struct URL {
     pub fragment: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct URLParseError;
+
+/// Whether or not the fragment of an [URL] should be excluded during serialization.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ExcludeFragment {
+    Yes,
+    #[default]
+    No,
+}
+
 impl URL {
-    // https://url.spec.whatwg.org/#concept-basic-url-parser
+    /// [Specification](https://url.spec.whatwg.org/#concept-basic-url-parser)
     pub fn parse_with_base(
         mut input: &str,
         base: Option<URL>,
         given_url: Option<URL>,
         state_override: Option<URLParserState>,
-    ) -> Self {
+    ) -> Result<Self, URLParseError> {
         let url = match given_url {
             Some(url) => url,
             None => {
@@ -111,7 +122,7 @@ impl URL {
 
         let ptr = 0;
 
-        let mut state_machine = URLParser {
+        let state_machine = URLParser {
             url: url,
             state: state,
             buffer: buffer,
@@ -123,12 +134,16 @@ impl URL {
             inside_brackets: inside_brackets,
             password_token_seen: password_token_seen,
         };
-        _ = state_machine.run();
-        state_machine.url
+
+        let parsed_url = state_machine
+            .run_to_completion()
+            .map_err(|_| URLParseError)?
+            .url;
+        Ok(parsed_url)
     }
 
     /// [Specification](https://url.spec.whatwg.org/#concept-basic-url-parser)
-    pub fn parse(input: &str) -> Self {
+    pub fn parse(input: &str) -> Result<Self, URLParseError> {
         Self::parse_with_base(input, None, None, None)
     }
 
@@ -173,11 +188,97 @@ impl URL {
         // Remove path’s last item, if any.
         path.pop();
     }
+
+    /// <https://url.spec.whatwg.org/#url-serializing>
+    pub fn serialize(&self, exclude_fragment: ExcludeFragment) -> String {
+        // 1. Let output be url’s scheme and U+003A (:) concatenated.
+        let mut output = format!("{}:", self.scheme);
+
+        // 2. If url’s host is non-null:
+        if let Some(host) = &self.host {
+            // 1. Append "//" to output.
+            output.push_str("//");
+
+            // 2. If url includes credentials, then:
+            if self.includes_credentials() {
+                // 1. Append url’s username to output.
+                output.push_str(&self.username);
+
+                // 2. If url’s password is not the empty string, then append U+003A (:), followed by url’s password, to output.
+                if !self.password.is_empty() {
+                    output.push_str(&format!(":{}", self.password));
+                }
+
+                // 3. Append U+0040 (@) to output.
+                output.push('@');
+            }
+
+            // 3. Append url’s host, serialized, to output.
+            output.push_str(&host.to_string());
+
+            // 4. If url’s port is non-null, append U+003A (:) followed by url’s port, serialized, to output.
+            if let Some(port) = self.port {
+                output.push_str(&format!(":{port}"));
+            }
+        }
+
+        // 3. If url’s host is null, url does not have an opaque path, url’s path’s size is greater than 1, and url’s path[0] is the empty string, then append U+002F (/) followed by U+002E (.) to output.
+        if self.host.is_none()
+            && !self.has_opaque_path()
+            && self.path.len() > 1
+            && self.path[0].is_empty()
+        {
+            output.push_str("/.");
+        }
+
+        // 4. Append the result of URL path serializing url to output.
+        output.push_str(&self.path_serialize());
+
+        // 5. If url’s query is non-null, append U+003F (?), followed by url’s query, to output.
+        if let Some(query) = &self.query {
+            output.push_str(&format!("?{query}"));
+        }
+
+        // 6. If exclude fragment is false and url’s fragment is non-null, then append U+0023 (#), followed by url’s fragment, to output.
+        if exclude_fragment == ExcludeFragment::No {
+            if let Some(fragment) = &self.fragment {
+                output.push_str(&format!("?{fragment}"));
+            }
+        }
+
+        // 7. Return output.
+        output
+    }
+
+    /// <https://url.spec.whatwg.org/#url-path-serializer>
+    fn path_serialize(&self) -> String {
+        // If url has an opaque path, then return url’s path.
+        if self.has_opaque_path() {
+            return self.path[0].clone();
+        }
+
+        // Let output be the empty string.
+        // For each segment of url’s path: append U+002F (/) followed by segment to output.
+        // Return output.
+        if !self.path.is_empty() {
+            format!("/{}", self.path.join("/"))
+        } else {
+            String::new()
+        }
+    }
 }
 
-impl From<&str> for URL {
-    fn from(from: &str) -> Self {
+impl TryFrom<&str> for URL {
+    type Error = URLParseError;
+
+    fn try_from(from: &str) -> Result<Self, Self::Error> {
         Self::parse(from)
+    }
+}
+
+impl ToString for URL {
+    fn to_string(&self) -> String {
+        self.serialize(ExcludeFragment::default())
     }
 }
 
@@ -187,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_simple_url() {
-        let url = URL::parse("https://google.com");
+        let url = URL::parse("https://google.com").unwrap();
 
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "");
@@ -200,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_with_query() {
-        let url = URL::parse("https://google.com?a=b");
+        let url = URL::parse("https://google.com?a=b").unwrap();
 
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "");
@@ -213,7 +314,7 @@ mod tests {
 
     #[test]
     fn test_with_fragment() {
-        let url = URL::parse("https://google.com#foo");
+        let url = URL::parse("https://google.com#foo").unwrap();
 
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "");
@@ -226,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_with_credentials() {
-        let url = URL::parse("https://user:password@google.com");
+        let url = URL::parse("https://user:password@google.com").unwrap();
 
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "user");

@@ -1,5 +1,4 @@
 use crate::{layout::Widget, GuiError};
-use anyhow::Result;
 use sdl2::{
     event::{Event, WindowEvent},
     keyboard::Keycode,
@@ -21,10 +20,10 @@ pub trait Application {
     fn view(&self) -> Box<dyn Widget<Message = Self::Message>>;
 
     /// Handle a resize event
-    fn on_resize(&mut self, width: i32, height: i32) -> RepaintState {
+    fn on_resize(&mut self, width: i32, height: i32) -> RepaintRequired {
         _ = width;
         _ = height;
-        RepaintState::NoRepaintRequired
+        RepaintRequired::No
     }
 
     /// Handle a message from another part of the application
@@ -37,21 +36,21 @@ pub trait Application {
         window: &mut Window,
         message: Self::Message,
         message_queue: AppendOnlyQueue<Self::Message>,
-    ) -> RepaintState {
+    ) -> RepaintRequired {
         _ = window;
         _ = message;
         _ = message_queue;
-        RepaintState::default()
+        RepaintRequired::default()
     }
 
     fn should_run(&self) -> bool;
 
     // TODO this should be generic to support non-browser applications.
     // Currently, window dimensions, title and other attributes are hardcoded
-    fn run(&mut self) -> Result<()> {
+    fn run(&mut self) -> Result<(), GuiError> {
         // Create the application window
-        let sdl_context = sdl2::init().map_err(GuiError::from_sdl)?;
-        let video_subsystem = sdl_context.video().map_err(GuiError::from_sdl)?;
+        let sdl_context = sdl2::init().map_err(GuiError::SDL)?;
+        let video_subsystem = sdl_context.video().map_err(GuiError::SDL)?;
 
         let window = video_subsystem
             .window("Browser", 800, 600)
@@ -72,7 +71,7 @@ pub trait Application {
         let mut message_queue = VecDeque::new();
         'running: while self.should_run() {
             // While processing the state and new events, keep track of whether we need to redraw the application
-            let mut repaint_required = RepaintState::default();
+            let mut repaint_required = RepaintRequired::default();
 
             // Handle window events
             for event in event_pump.poll_iter() {
@@ -124,7 +123,7 @@ pub trait Application {
                 );
             }
 
-            if repaint_required == RepaintState::RepaintRequired {
+            if repaint_required == RepaintRequired::Yes {
                 view_tree.render(&mut canvas).unwrap();
                 canvas.present()
             }
@@ -152,24 +151,24 @@ impl<'a, T> AppendOnlyQueue<'a, T> {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub enum RepaintState {
+pub enum RepaintRequired {
     #[default]
-    NoRepaintRequired,
-    RepaintRequired,
+    No,
+    Yes,
 }
 
-impl std::ops::BitOr for RepaintState {
+impl std::ops::BitOr for RepaintRequired {
     type Output = Self;
 
     fn bitor(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (Self::NoRepaintRequired, Self::NoRepaintRequired) => Self::NoRepaintRequired,
-            _ => Self::RepaintRequired,
+            (Self::No, Self::No) => Self::No,
+            _ => Self::Yes,
         }
     }
 }
 
-impl BitOrAssign for RepaintState {
+impl BitOrAssign for RepaintRequired {
     fn bitor_assign(&mut self, rhs: Self) {
         *self = *self | rhs;
     }

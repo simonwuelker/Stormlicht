@@ -1,4 +1,3 @@
-use anyhow::Result;
 use sdl2::{
     keyboard::{Keycode, Mod},
     mouse::MouseButton,
@@ -8,8 +7,9 @@ use sdl2::{
 };
 
 use crate::{
-    application::{AppendOnlyQueue, RepaintState},
+    application::{AppendOnlyQueue, RepaintRequired},
     layout::Sizing,
+    GuiError,
 };
 
 pub trait Widget {
@@ -20,7 +20,7 @@ pub trait Widget {
 
     fn bounding_box(&self) -> Option<Rect>;
 
-    fn render(&mut self, surface: &mut Canvas<Window>) -> Result<()> {
+    fn render(&mut self, surface: &mut Canvas<Window>) -> Result<(), GuiError> {
         let viewport = surface.viewport();
         self.render_to(surface, viewport)?;
         Ok(())
@@ -29,7 +29,7 @@ pub trait Widget {
     fn width(&self) -> Sizing;
     fn height(&self) -> Sizing;
 
-    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<()>;
+    fn render_to(&mut self, surface: &mut Canvas<Window>, into: Rect) -> Result<(), GuiError>;
 
     fn compute_layout(&mut self, into: Rect);
 
@@ -42,12 +42,12 @@ pub trait Widget {
         x: i32,
         y: i32,
         message_queue: AppendOnlyQueue<Self::Message>,
-    ) -> RepaintState {
+    ) -> RepaintRequired {
         _ = mouse_btn;
         _ = x;
         _ = y;
         _ = message_queue;
-        RepaintState::NoRepaintRequired
+        RepaintRequired::No
     }
 
     fn on_key_down(
@@ -55,11 +55,11 @@ pub trait Widget {
         keycode: Keycode,
         keymod: Mod,
         message_queue: AppendOnlyQueue<Self::Message>,
-    ) -> RepaintState {
+    ) -> RepaintRequired {
         _ = keycode;
         _ = keymod;
         _ = message_queue;
-        RepaintState::NoRepaintRequired
+        RepaintRequired::No
     }
 
     fn into_widget(self) -> Box<dyn Widget<Message = Self::Message>>

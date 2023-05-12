@@ -460,7 +460,10 @@ pub fn transform(word: &[u8], transform_id: usize) -> Result<Vec<u8>, BrotliErro
         118 => make_transform!(b" ", ferment_first, b"=\"", word),
         119 => make_transform!(b" ", ferment_all, b"='", word),
         120 => make_transform!(b" ", ferment_first, b"='", word),
-        _ => return Err(BrotliError::InvalidTransformID(transform_id)),
+        _ => {
+            log::warn!("Invalid transform id: {transform_id}");
+            return Err(BrotliError::InvalidTransformID);
+        },
     };
     Ok(transformed)
 }

@@ -7,5 +7,4 @@ edition = "2021"
 
 [dependencies]
 random = { path = "../../util/random" }
-anyhow = "1"
-thiserror = "1"
+log = "0.4"
