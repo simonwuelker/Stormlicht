@@ -29,6 +29,16 @@ impl Buffer {
         self.data[index] = pixel;
     }
 
+    pub fn data(&self) -> &[Pixel] {
+        &self.data
+    }
+
+    pub fn resize(&mut self, new_width: usize, new_height: usize) {
+        self.width = new_width;
+        self.height = new_height;
+        self.data.resize(new_width * new_height, 0);
+    }
+
     pub fn clear(&mut self, clear_color: Color) {
         self.data.fill(clear_color.into());
     }
