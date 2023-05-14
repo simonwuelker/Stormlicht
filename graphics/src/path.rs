@@ -9,26 +9,23 @@ pub enum PathCommand {
 
 #[derive(Clone, Debug)]
 pub struct Path {
-    /// The bounding rectangle of the paths contours.
-    /// This might be larger than the actual path, but will never be smaller.
-    // extents: Rectangle,
     start: Vec2D,
     commands: Vec<PathCommand>,
 }
 
 /// Approximates the number of segments required to
 impl Path {
+    #[must_use]
     pub fn empty() -> Self {
         Self {
-            // extents: Rectangle::default(),
             start: Vec2D::default(),
             commands: vec![],
         }
     }
 
+    #[must_use]
     pub fn new(start: Vec2D) -> Self {
         Self {
-            // extents: Rectangle::default(),
             start,
             commands: vec![],
         }

@@ -9,18 +9,21 @@ pub struct AffineTransform([[f32; 3]; 2]);
 
 impl AffineTransform {
     #[inline]
+    #[must_use]
     pub const fn identity() -> Self {
         Self([[1., 0., 0.], [0., 1., 0.]])
     }
 
     /// Create transformation that shifts every point by a fixed offset
     #[inline]
+    #[must_use]
     pub const fn translate(translate_by: Vec2D) -> Self {
         Self([[1., 0., translate_by.x], [0., 1., translate_by.y]])
     }
 
     /// Create a transformation that scales points by fixed values along the X and Y axis
     #[inline]
+    #[must_use]
     pub const fn scale(x_scale: f32, y_scale: f32) -> Self {
         Self([[x_scale, 0., 0.], [0., y_scale, 0.]])
     }
@@ -28,6 +31,7 @@ impl AffineTransform {
     /// Create a transformation that rotates points counterclockwise around the origin by a fixed
     /// amount
     #[inline]
+    #[must_use]
     pub fn rotate(angle: Angle) -> Self {
         Self([
             [angle.cos(), -angle.sin(), 0.],
@@ -37,6 +41,7 @@ impl AffineTransform {
 
     /// Apply this transform to a provided vector
     #[inline]
+    #[must_use]
     pub fn apply_to(self, point: Vec2D) -> Vec2D {
         Vec2D {
             x: point
@@ -50,6 +55,7 @@ impl AffineTransform {
 
     /// Combine two transforms together into a single one
     #[inline]
+    #[must_use]
     pub fn chain(&self, other: Self) -> Self {
         // Multiply the two matrices together
         // a b c
