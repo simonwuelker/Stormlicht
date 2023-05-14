@@ -1,4 +1,4 @@
-use super::{Angle, Vec2D};
+use crate::{Angle, Vec2D};
 
 /// A 2-dimensional transformation.
 ///
@@ -87,8 +87,7 @@ impl Default for AffineTransform {
 
 #[cfg(test)]
 mod tests {
-    use super::AffineTransform;
-    use crate::math::Vec2D;
+    use crate::{AffineTransform, Vec2D};
 
     #[test]
     fn test_identity() {

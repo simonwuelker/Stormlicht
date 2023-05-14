@@ -205,8 +205,9 @@ dependencies = [
  "cli",
  "env_logger 0.10.0",
  "glazier",
- "graphics",
  "log",
+ "math",
+ "render",
  "softbuffer",
  "widgets",
 ]
@@ -873,13 +874,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
-name = "graphics"
-version = "0.1.0"
-dependencies = [
- "log",
-]
-
-[[package]]
 name = "half"
 version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1113,6 +1107,10 @@ checksum = "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "math"
+version = "0.1.0"
 
 [[package]]
 name = "memchr"
@@ -1520,6 +1518,14 @@ name = "regex-syntax"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5996294f19bd3aae0453a862ad728f60e6600695733dd5df01da90c54363a3c"
+
+[[package]]
+name = "render"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "math",
+]
 
 [[package]]
 name = "rustc-hash"

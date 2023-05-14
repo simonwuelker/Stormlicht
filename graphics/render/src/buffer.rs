@@ -1,6 +1,7 @@
 //! Used to describe the memory layout that should be painted into
 
-use crate::{layer::Source, math::Vec2D, Color, Mask};
+use crate::{layer::Source, Color, Mask};
+use math::Vec2D;
 
 type Pixel = u32;
 

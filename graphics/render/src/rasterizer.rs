@@ -1,7 +1,5 @@
-use crate::{
-    math::{Rectangle, Vec2D},
-    FlattenedPathPoint,
-};
+use crate::FlattenedPathPoint;
+use math::{Rectangle, Vec2D};
 
 #[derive(Clone, Debug)]
 pub struct Rasterizer {

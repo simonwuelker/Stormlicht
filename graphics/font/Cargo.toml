@@ -6,13 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-canvas = { path = "../gui/canvas" }
+canvas = { path = "../../gui/canvas" }
 log = "0.4"
 
 # The cli is only required by the binary.
 # Cargo doesn't support "bin-dependencies", so we need to put
 # the dependency behind a feature gate.
-cli = { path = "../util/cli", optional = true}
+cli = { path = "../../util/cli", optional = true}
 
 [[bin]]         
 name = "font-unicode-test"    

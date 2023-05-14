@@ -1,4 +1,4 @@
-use crate::math::Vec2D;
+use math::Vec2D;
 
 #[derive(Clone, Copy, Debug)]
 pub enum PathCommand {

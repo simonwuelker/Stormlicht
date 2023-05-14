@@ -1,11 +1,6 @@
-pub use crate::{
-    math::{AffineTransform, Angle},
-    Color, Path,
-};
-use crate::{
-    math::{Rectangle, Vec2D},
-    Buffer, FlattenedPathPoint, Rasterizer,
-};
+use math::{AffineTransform, Angle, Rectangle, Vec2D};
+
+use crate::{Buffer, Color, FlattenedPathPoint, Path, Rasterizer};
 
 #[derive(Clone, Copy, Debug)]
 pub enum Source {

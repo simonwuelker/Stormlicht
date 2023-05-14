@@ -39,7 +39,6 @@ mod buffer;
 mod color;
 mod composition;
 mod layer;
-pub mod math;
 mod path;
 mod rasterizer;
 
