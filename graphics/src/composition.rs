@@ -2,7 +2,7 @@
 
 use std::collections::{hash_map::Iter, HashMap};
 
-use crate::Layer;
+use crate::{Buffer, Layer};
 
 /// Manages all the different [Layers](Layer) that should be rendered.
 ///
@@ -25,13 +25,18 @@ impl Composition {
         self.layers.iter()
     }
 
-    /// Update the internal list of flattened curves if the scale of the layer changed.
-    /// If only translation/rotation changed, that is not necessary.
-    pub fn flatten_layers_if_necessary(&mut self) {
-        for layer in self.layers.values_mut() {
-            if layer.is_enabled {
-                layer.flatten_if_necessary();
-            }
+    pub fn render_to(&mut self, buffer: &mut Buffer) {
+        // Draw all the layers, in order
+        let mut keys: Vec<u16> = self.layers.keys().copied().collect();
+        keys.sort();
+
+        for key in keys {
+            let layer = self
+                .layers
+                .get_mut(&key)
+                .expect("Every key returned by layers.keys() should be valid");
+
+            layer.render_to(buffer);
         }
     }
 }

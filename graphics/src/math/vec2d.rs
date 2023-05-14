@@ -49,6 +49,14 @@ impl Vec2D<f32> {
     pub fn cross_product(&self, other: Self) -> f32 {
         self.x.mul_add(other.y, -self.y * other.x)
     }
+
+    #[inline]
+    pub fn round_to_grid(&self) -> Vec2D<usize> {
+        Vec2D {
+            x: self.x.round() as usize,
+            y: self.y.round() as usize,
+        }
+    }
 }
 
 /// Zero cost wrapper type for an `f32`.

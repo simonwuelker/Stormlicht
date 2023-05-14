@@ -41,9 +41,11 @@ mod composition;
 mod layer;
 pub mod math;
 mod path;
+mod rasterizer;
 
 pub use buffer::Buffer;
 pub use color::Color;
 pub use composition::Composition;
-pub use layer::Layer;
+pub use layer::{Layer, Source};
 pub use path::{FlattenedPathPoint, Path};
+pub use rasterizer::{Mask, Rasterizer};

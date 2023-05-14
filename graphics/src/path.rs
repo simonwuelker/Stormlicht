@@ -1,4 +1,4 @@
-use crate::math::{Rectangle, Vec2D};
+use crate::math::Vec2D;
 
 #[derive(Clone, Copy, Debug)]
 pub enum PathCommand {
@@ -11,7 +11,7 @@ pub enum PathCommand {
 pub struct Path {
     /// The bounding rectangle of the paths contours.
     /// This might be larger than the actual path, but will never be smaller.
-    extents: Rectangle,
+    // extents: Rectangle,
     start: Vec2D,
     commands: Vec<PathCommand>,
 }
@@ -20,23 +20,15 @@ pub struct Path {
 impl Path {
     pub fn empty() -> Self {
         Self {
-            extents: Rectangle::default(),
+            // extents: Rectangle::default(),
             start: Vec2D::default(),
             commands: vec![],
         }
     }
 
-    #[inline]
-    fn add_point_to_outline(&mut self, point: Vec2D) {
-        self.extents.top_left.x = self.extents.top_left.x.min(point.x);
-        self.extents.top_left.y = self.extents.top_left.y.min(point.y);
-        self.extents.bottom_right.x = self.extents.bottom_right.x.max(point.x);
-        self.extents.bottom_right.y = self.extents.bottom_right.x.max(point.y);
-    }
-
     pub fn new(start: Vec2D) -> Self {
         Self {
-            extents: Rectangle::default(),
+            // extents: Rectangle::default(),
             start,
             commands: vec![],
         }
@@ -52,8 +44,6 @@ impl Path {
 
     /// Move the write head to a new point without connecting the two.
     pub fn move_to(mut self, to: Vec2D) -> Self {
-        self.add_point_to_outline(to);
-
         match self.commands.last_mut() {
             Some(PathCommand::MoveTo(point)) => {
                 *point = to;
@@ -67,16 +57,11 @@ impl Path {
 
     /// Create a straight Line from the current position to the point.
     pub fn line_to(mut self, point: Vec2D) -> Self {
-        self.add_point_to_outline(point);
-
         self.commands.push(PathCommand::LineTo(point));
         self
     }
 
     pub fn quad_bez_to(mut self, p1: Vec2D, p2: Vec2D) -> Self {
-        self.add_point_to_outline(p1);
-        self.add_point_to_outline(p2);
-
         self.commands.push(PathCommand::QuadTo(p1, p2));
         self
     }
