@@ -13,7 +13,6 @@ pub struct Path {
     commands: Vec<PathCommand>,
 }
 
-/// Approximates the number of segments required to
 impl Path {
     #[must_use]
     pub fn empty() -> Self {
@@ -133,16 +132,15 @@ impl Path {
         let sqrt_tolerance = tolerance.sqrt();
 
         let mut current_point = self.start;
-        let mut start_new_contour = true;
+
         for &command in &self.commands {
             match command {
                 PathCommand::MoveTo(point) => {
+                    flattened_path.push(FlattenedPathPoint::new(point, false));
                     current_point = point;
-                    start_new_contour = true;
                 },
                 PathCommand::LineTo(point) => {
-                    flattened_path.push(FlattenedPathPoint::new(point, !start_new_contour));
-                    start_new_contour = false;
+                    flattened_path.push(FlattenedPathPoint::new(point, true));
                     current_point = point;
                 },
                 PathCommand::QuadTo(p1, p2) => {
@@ -160,17 +158,12 @@ impl Path {
                         let progress = i as f32 * step_size;
                         let t = segment_parameters.determine_subdiv_t(progress);
                         let curve_value_at_t = curve.evaluate_at(t);
-                        flattened_path.push(FlattenedPathPoint::new(
-                            curve_value_at_t,
-                            !start_new_contour,
-                        ));
-                        start_new_contour = false;
+                        flattened_path.push(FlattenedPathPoint::new(curve_value_at_t, true));
                     }
 
                     // Connect to the end of the contour
-                    flattened_path.push(FlattenedPathPoint::new(p2, !start_new_contour));
+                    flattened_path.push(FlattenedPathPoint::new(p2, true));
 
-                    start_new_contour = false;
                     current_point = p2;
                 },
             }
@@ -284,7 +277,6 @@ impl FlattenedPathPoint {
 
 impl font::path::PathConsumer for Path {
     fn line_to(&mut self, p: Vec2D) {
-        log::info!("Line to {p:?}");
         self.commands.push(PathCommand::LineTo(p));
     }
 
@@ -293,7 +285,6 @@ impl font::path::PathConsumer for Path {
     }
 
     fn quad_bez_to(&mut self, p1: Vec2D, p2: Vec2D) {
-        log::info!("Quad bez along {p1:?} to {p2:?}");
         self.commands.push(PathCommand::QuadTo(p1, p2));
     }
 }
