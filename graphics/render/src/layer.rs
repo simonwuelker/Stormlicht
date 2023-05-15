@@ -127,7 +127,7 @@ impl Layer {
                     rectangle.top_left.x = rectangle.top_left.x.min(p.coordinates.x);
                     rectangle.top_left.y = rectangle.top_left.y.min(p.coordinates.y);
                     rectangle.bottom_right.x = rectangle.bottom_right.x.max(p.coordinates.x);
-                    rectangle.bottom_right.y = rectangle.bottom_right.x.max(p.coordinates.y);
+                    rectangle.bottom_right.y = rectangle.bottom_right.y.max(p.coordinates.y);
                 },
                 None => {
                     extents = Some(Rectangle {
