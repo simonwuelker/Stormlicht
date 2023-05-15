@@ -182,7 +182,7 @@ impl<'a> Font<'a> {
         for glyph in glyphs {
             let scale_point = |glyph_point: math::Vec2D<i16>| math::Vec2D {
                 x: self.scale(glyph_point.x, font_size),
-                y: self.scale(glyph_point.y, font_size),
+                y: font_size - self.scale(glyph_point.y, font_size),
             };
 
             // Draw the outlines of the glyph on the rasterizer buffer
@@ -354,6 +354,10 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
         let glyph = self.font.get_glyph(glyph_id).unwrap();
 
         match glyph {
+            Glyph::Empty => {
+                // Nothing to do, return the next glyph
+                self.next()
+            },
             Glyph::Simple(simple_glyph) => {
                 let path_operations = PathReader::new(simple_glyph.into_iter());
                 Some(RenderedGlyph {

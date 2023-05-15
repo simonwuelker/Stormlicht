@@ -254,6 +254,7 @@ impl<'a> Format4<'a> {
             let start_code = self.get_start_code(index);
 
             if start_code > codepoint {
+                // The correct segment must have a lower index
                 end = index;
             } else {
                 let end_code = self.get_end_code(index);
@@ -275,6 +276,7 @@ impl<'a> Format4<'a> {
                         return Some(GlyphID(glyph_id.wrapping_add(id_delta)));
                     }
                 } else {
+                    // The correct segment must have a higher index
                     start = index + 1;
                 }
             }

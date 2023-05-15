@@ -30,8 +30,9 @@ impl<'a> GlyphOutlineTable<'a> {
     }
 
     pub fn get_glyph(&self, glyph_id: GlyphID) -> Glyph<'a> {
-        let offset = self.loca_table.get_glyph_offset(glyph_id);
-        let data = &self.data[offset as usize..];
+        let glyph_location = self.loca_table.get_glyph_offset(glyph_id);
+        let glyph_data_end = glyph_location.offset + glyph_location.length;
+        let data = &self.data[glyph_location.offset as usize..glyph_data_end as usize];
         Glyph::from_data(data)
     }
 }
@@ -56,6 +57,8 @@ impl Metrics {
 
 #[derive(Clone, Copy, Debug)]
 pub enum Glyph<'a> {
+    /// A glyph without an outline, like a whitespace
+    Empty,
     Simple(SimpleGlyph<'a>),
     Compound(CompoundGlyph<'a>),
 }
@@ -87,6 +90,10 @@ pub struct CompoundGlyphComponent {
 
 impl<'a> Glyph<'a> {
     pub fn from_data(data: &'a [u8]) -> Self {
+        if data.is_empty() {
+            return Self::Empty;
+        }
+
         // Memory map is like this (same for simple & compound glyphs):
         // num contours          : i16
         // min x                 : i16
