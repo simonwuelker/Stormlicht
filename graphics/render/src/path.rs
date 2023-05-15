@@ -23,6 +23,20 @@ impl Path {
         }
     }
 
+    /// Helper function to create a rectangular [Path]
+    #[must_use]
+    pub fn rect(top_left: Vec2D, bottom_right: Vec2D) -> Self {
+        Self {
+            start: top_left,
+            commands: vec![
+                PathCommand::LineTo(Vec2D::new(bottom_right.x, top_left.y)),
+                PathCommand::LineTo(bottom_right),
+                PathCommand::LineTo(Vec2D::new(top_left.x, bottom_right.y)),
+                PathCommand::LineTo(top_left),
+            ],
+        }
+    }
+
     #[must_use]
     pub fn new(start: Vec2D) -> Self {
         Self {
@@ -129,6 +143,7 @@ impl Path {
                 PathCommand::LineTo(point) => {
                     flattened_path.push(FlattenedPathPoint::new(point, !start_new_contour));
                     start_new_contour = false;
+                    current_point = point;
                 },
                 PathCommand::QuadTo(p1, p2) => {
                     let curve = QuadraticBezier {
@@ -156,6 +171,7 @@ impl Path {
                     flattened_path.push(FlattenedPathPoint::new(p2, !start_new_contour));
 
                     start_new_contour = false;
+                    current_point = p2;
                 },
             }
         }
@@ -211,6 +227,7 @@ impl QuadraticBezier {
         } else {
             0.
         };
+
         let u0 = approximate_inverse_parabola_integral(a0);
         let u2 = approximate_inverse_parabola_integral(a2);
         let u_scale = (u2 - u0).recip();
@@ -262,5 +279,21 @@ impl FlattenedPathPoint {
             coordinates,
             connected,
         }
+    }
+}
+
+impl font::path::PathConsumer for Path {
+    fn line_to(&mut self, p: Vec2D) {
+        log::info!("Line to {p:?}");
+        self.commands.push(PathCommand::LineTo(p));
+    }
+
+    fn move_to(&mut self, p: Vec2D) {
+        self.commands.push(PathCommand::MoveTo(p));
+    }
+
+    fn quad_bez_to(&mut self, p1: Vec2D, p2: Vec2D) {
+        log::info!("Quad bez along {p1:?} to {p2:?}");
+        self.commands.push(PathCommand::QuadTo(p1, p2));
     }
 }

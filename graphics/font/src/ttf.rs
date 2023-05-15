@@ -6,16 +6,14 @@
 //! * <https://handmade.network/forums/articles/t/7330-implementing_a_font_reader_and_rasterizer_from_scratch%252C_part_1__ttf_font_reader>
 
 use crate::{
-    path::{DiscretePoint, Operation, PathReader},
+    path::{Operation, PathConsumer, PathReader},
     ttf_tables::{
         cmap::{self, GlyphID},
         glyf::{self, CompoundGlyph, Glyph, GlyphPointIterator, Metrics},
         head, hhea, hmtx, loca, maxp, name,
         offset::OffsetTable,
     },
-    Point, Rasterizer,
 };
-use canvas::{Canvas, Drawable};
 
 const DEFAULT_FONT: &[u8; 168644] =
     include_bytes!("../../../downloads/fonts/roboto/Roboto-Medium.ttf");
@@ -173,53 +171,39 @@ impl<'a> Font<'a> {
         self.head_table.units_per_em()
     }
 
-    pub fn rasterize(&self, text: &str, bitmap: &mut Canvas, position: (i16, i16), font_size: f32) {
+    pub fn render<P: PathConsumer>(
+        &self,
+        text: &str,
+        renderer: &mut P,
+        font_size: f32,
+        text_offset: math::Vec2D,
+    ) {
         let glyphs = self.path_objects(text);
         for glyph in glyphs {
-            // All the values are in font units, we need to scale them for appropriate use
-            let scaled_x = self.scale(glyph.position.x, font_size) as usize;
-            let scaled_y = self.scale(glyph.position.y, font_size) as usize;
-            let scaled_width = self.scale(glyph.metrics.width(), font_size) as usize;
-            let scaled_height = self.scale(glyph.metrics.height(), font_size) as usize;
-
-            let mut rasterizer = Rasterizer::new(scaled_width, scaled_height);
-            let scale_point = |glyph_point: DiscretePoint| Point {
+            let scale_point = |glyph_point: math::Vec2D<i16>| math::Vec2D {
                 x: self.scale(glyph_point.x, font_size),
                 y: self.scale(glyph_point.y, font_size),
             };
 
             // Draw the outlines of the glyph on the rasterizer buffer
-            let mut write_head = Point::default();
+            // Note: all the coordinates in the path operations are relative to the glyph positiont;
             for path_op in glyph.path_operations {
                 match path_op {
-                    Operation::MoveTo(destination) => write_head = scale_point(destination),
+                    Operation::MoveTo(destination) => {
+                        renderer.move_to(scale_point(destination + glyph.position) + text_offset);
+                    },
                     Operation::LineTo(destination) => {
-                        let scaled_destionation = scale_point(destination);
-                        rasterizer.draw_line(write_head, scaled_destionation);
-                        write_head = scaled_destionation;
+                        let scaled_destination =
+                            scale_point(destination + glyph.position) + text_offset;
+                        renderer.line_to(scaled_destination);
                     },
                     Operation::QuadBezTo(p1, p2) => {
-                        let scaled_p2 = scale_point(p2);
-                        rasterizer.draw_quad_bezier(write_head, scale_point(p1), scaled_p2);
-                        write_head = scaled_p2;
+                        let scaled_p1 = scale_point(p1 + glyph.position) + text_offset;
+                        let scaled_p2 = scale_point(p2 + glyph.position) + text_offset;
+                        renderer.quad_bez_to(scaled_p1, scaled_p2);
                     },
                 }
             }
-
-            rasterizer.for_each_pixel(|pixel_position, opacity| {
-                let translated_x = position.0 as usize + pixel_position.0 + scaled_x;
-                let translated_y =
-                    position.1 as usize + scaled_height - 1 - pixel_position.1 - scaled_y;
-
-                let color = [255 - opacity; 3];
-
-                // If the pixel is already darker, keep it as-is
-                if 255 - opacity < bitmap.pixel_at(translated_x, translated_y)[0] {
-                    bitmap
-                        .pixel_at_mut(translated_x, translated_y)
-                        .copy_from_slice(&color);
-                }
-            });
         }
     }
 
@@ -251,14 +235,17 @@ impl<'a> Font<'a> {
             let mut glyph_path = glyph
                 .path_operations
                 .map(|operation| match operation {
-                    Operation::MoveTo(DiscretePoint { x, y }) => {
+                    Operation::MoveTo(math::Vec2D { x, y }) => {
                         format!("M{x} {y}")
                     },
-                    Operation::LineTo(DiscretePoint { x, y }) => {
+                    Operation::LineTo(math::Vec2D { x, y }) => {
                         format!("L{x} {y}")
                     },
-                    Operation::QuadBezTo(p1, p2) => {
-                        format!("Q{} {} {} {}", p1.x, p1.y, p2.x, p2.y)
+                    Operation::QuadBezTo(
+                        math::Vec2D { x: x1, y: y1 },
+                        math::Vec2D { x: x2, y: y2 },
+                    ) => {
+                        format!("Q{} {} {} {}", x1, y1, x2, y2)
                     },
                 })
                 .collect::<Vec<String>>()
@@ -272,7 +259,7 @@ impl<'a> Font<'a> {
         let symbol_uses = symbol_positions
             .iter()
             .enumerate()
-            .map(|(index, DiscretePoint { x, y })| {
+            .map(|(index, math::Vec2D { x, y })| {
                 format!("<use xlink:href=\"#{index}\" x=\"{x}\" y=\"{y}\"/>")
             })
             .collect::<Vec<String>>()
@@ -315,7 +302,7 @@ pub fn read_i16_at(data: &[u8], offset: usize) -> i16 {
 
 pub struct RenderedGlyph<'a> {
     metrics: Metrics,
-    position: DiscretePoint,
+    position: math::Vec2D<i16>,
     path_operations: PathReader<GlyphPointIterator<'a>>,
 }
 
@@ -371,10 +358,7 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
                 let path_operations = PathReader::new(simple_glyph.into_iter());
                 Some(RenderedGlyph {
                     metrics: simple_glyph.metrics,
-                    position: DiscretePoint {
-                        x: glyph_x,
-                        y: glyph_y,
-                    },
+                    position: math::Vec2D::new(glyph_x, glyph_y),
                     path_operations,
                 })
             },

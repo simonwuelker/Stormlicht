@@ -6,11 +6,8 @@ use crate::{
     GuiError,
 };
 
-use canvas::{Canvas, PixelFormat};
-use font::Font;
 use sdl2::{
     keyboard::{Keycode, Mod},
-    pixels::PixelFormatEnum,
     rect::Rect,
     render::Canvas as SDLCanvas,
     video::Window,
@@ -52,37 +49,39 @@ impl<M> Widget for Input<M> {
     }
 
     fn render_to(&mut self, surface: &mut SDLCanvas<Window>, into: Rect) -> Result<(), GuiError> {
+        _ = surface;
+        _ = into;
         // White Background
         // Black text, default font
 
         // TODO this is extremely inefficient (we create a new texture on every render call)
         // but since we don't do rerendering right now anyways it shouldn't matter and i want to
         // figure out the general architecture first.
-        let font = Font::default();
-        let texture_creator = surface.texture_creator();
-        let mut texture = texture_creator
-            .create_texture_target(Some(PixelFormatEnum::RGB24), into.width(), into.height())
-            .unwrap();
-        let mut canvas = Canvas::new(
-            vec![
-                255;
-                into.width() as usize * into.height() as usize * PixelFormat::RGB8.pixel_size()
-            ],
-            into.width() as usize,
-            into.height() as usize,
-            PixelFormat::RGB8,
-        );
-        font.rasterize(&self.text, &mut canvas, (0, 0), 30.);
+        // let font = Font::default();
+        // let texture_creator = surface.texture_creator();
+        // let mut texture = texture_creator
+        //     .create_texture_target(Some(PixelFormatEnum::RGB24), into.width(), into.height())
+        //     .unwrap();
+        // let mut canvas = Canvas::new(
+        //     vec![
+        //         255;
+        //         into.width() as usize * into.height() as usize * PixelFormat::RGB8.pixel_size()
+        //     ],
+        //     into.width() as usize,
+        //     into.height() as usize,
+        //     PixelFormat::RGB8,
+        // );
+        // font.rasterize(&self.text, &mut canvas, (0, 0), 30.);
 
-        texture
-            .update(
-                None,
-                canvas.data(),
-                into.width() as usize * canvas.format().pixel_size(),
-            )
-            .unwrap();
+        // texture
+        //     .update(
+        //         None,
+        //         canvas.data(),
+        //         into.width() as usize * canvas.format().pixel_size(),
+        //     )
+        //     .unwrap();
 
-        surface.copy(&texture, None, into).map_err(GuiError::SDL)?;
+        // surface.copy(&texture, None, into).map_err(GuiError::SDL)?;
         Ok(())
     }
 

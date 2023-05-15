@@ -1,8 +1,9 @@
 //! [Glyph](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6glyf.html) table implementation
 
+use math::Vec2D;
+
 use super::{cmap::GlyphID, loca::LocaTable};
 use crate::{
-    path::DiscretePoint,
     ttf::{read_i16_at, read_u16_at},
     Stream,
 };
@@ -293,7 +294,7 @@ impl GlyphFlag {
 pub struct GlyphPoint {
     pub is_on_curve: bool,
     pub is_last_point_of_contour: bool,
-    pub coordinates: DiscretePoint,
+    pub coordinates: Vec2D<i16>,
 }
 
 #[derive(Debug)]
@@ -330,7 +331,7 @@ pub struct GlyphPointIterator<'a> {
     flag_index: usize,
     x_index: usize,
     y_index: usize,
-    previous_point: DiscretePoint,
+    previous_point: Vec2D<i16>,
     points_emitted: usize,
     contours_emitted: usize,
     num_points: usize,
@@ -354,7 +355,7 @@ impl<'a> GlyphPointIterator<'a> {
             flag_index: 0,
             x_index: 0,
             y_index: 0,
-            previous_point: DiscretePoint::origin(),
+            previous_point: Vec2D::default(),
             points_emitted: 0,
             contours_emitted: 0,
             num_points: num_points,
@@ -406,7 +407,7 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
         };
         self.y_index += self.current_flag.coordinate_type_y().size();
 
-        let new_point = DiscretePoint {
+        let new_point = Vec2D {
             x: self.previous_point.x + delta_x,
             y: self.previous_point.y + delta_y,
         };

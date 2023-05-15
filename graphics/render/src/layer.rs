@@ -43,6 +43,21 @@ impl Layer {
         self
     }
 
+    /// Draw text to the layer. This replaces any existing paths within
+    /// the layer
+    #[inline]
+    pub fn text(
+        &mut self,
+        text: &str,
+        fontface: font::Font,
+        font_size: f32,
+        offset: Vec2D,
+    ) -> &mut Self {
+        self.outline = Path::new(Vec2D::new(0., 0.));
+        fontface.render(text, &mut self.outline, font_size, offset);
+        self
+    }
+
     /// Set the color source of the elements within the [Layer]
     #[inline]
     pub fn with_source(&mut self, source: Source) -> &mut Self {

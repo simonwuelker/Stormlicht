@@ -204,6 +204,7 @@ version = "0.1.0"
 dependencies = [
  "cli",
  "env_logger 0.10.0",
+ "font",
  "glazier",
  "log",
  "math",
@@ -687,9 +688,9 @@ dependencies = [
 name = "font"
 version = "0.1.0"
 dependencies = [
- "canvas",
  "cli",
  "log",
+ "math",
 ]
 
 [[package]]
@@ -1523,6 +1524,7 @@ checksum = "a5996294f19bd3aae0453a862ad728f60e6600695733dd5df01da90c54363a3c"
 name = "render"
 version = "0.1.0"
 dependencies = [
+ "font",
  "log",
  "math",
 ]

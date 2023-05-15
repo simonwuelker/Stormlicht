@@ -53,6 +53,11 @@ impl Buffer {
     }
 
     pub fn compose(&mut self, mask: Mask, source: Source, offset: Vec2D<usize>) {
+        // log::info!(
+        //     "Composing mask of size {}x{} at {offset:?}",
+        //     mask.width(),
+        //     mask.height()
+        // );
         match source {
             Source::Solid(color) => {
                 for x in 0..mask.width() {

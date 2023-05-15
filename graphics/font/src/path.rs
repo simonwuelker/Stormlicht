@@ -1,34 +1,16 @@
 use crate::ttf_tables::glyf::GlyphPoint;
+use math::Vec2D;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Operation {
-    LineTo(DiscretePoint),
-    QuadBezTo(DiscretePoint, DiscretePoint),
-    MoveTo(DiscretePoint),
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct DiscretePoint {
-    pub x: i16,
-    pub y: i16,
-}
-
-impl DiscretePoint {
-    pub fn origin() -> Self {
-        Self { x: 0, y: 0 }
-    }
-
-    pub fn mid(p0: Self, p1: Self) -> Self {
-        Self {
-            x: (p0.x + p1.x) / 2,
-            y: (p0.y + p1.y) / 2,
-        }
-    }
+    LineTo(Vec2D<i16>),
+    QuadBezTo(Vec2D<i16>, Vec2D<i16>),
+    MoveTo(Vec2D<i16>),
 }
 
 pub struct PathReader<I: Iterator<Item = GlyphPoint>> {
     inner: I,
-    last_on_curve_point: Option<DiscretePoint>,
+    last_on_curve_point: Option<Vec2D<i16>>,
     previous_point: Option<GlyphPoint>,
     first_point_of_contour: Option<GlyphPoint>,
     state: PathReaderState,
@@ -114,10 +96,9 @@ impl<I: Iterator<Item = GlyphPoint>> Iterator for PathReader<I> {
                         },
                         (false, false) => {
                             // If multiple off-curve points occur consecutively, we insert a linearly interpolated mid point (on-curve) between them
-                            let mid_point = DiscretePoint::mid(
-                                previous_point.coordinates,
-                                glyph_point.coordinates,
-                            );
+                            let mid_point =
+                                (previous_point.coordinates + glyph_point.coordinates) / 2;
+
                             self.last_on_curve_point = Some(mid_point);
                             self.previous_point = Some(glyph_point);
                             return Some(Operation::QuadBezTo(
@@ -139,4 +120,10 @@ impl<I: Iterator<Item = GlyphPoint>> Iterator for PathReader<I> {
             }
         }
     }
+}
+
+pub trait PathConsumer {
+    fn move_to(&mut self, p: Vec2D);
+    fn line_to(&mut self, p: Vec2D);
+    fn quad_bez_to(&mut self, p1: Vec2D, p2: Vec2D);
 }
