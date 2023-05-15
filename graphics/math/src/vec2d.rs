@@ -6,6 +6,7 @@ pub struct Vec2D<T = f32> {
 
 impl<T> Vec2D<T> {
     #[inline]
+    #[must_use]
     pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
     }
@@ -13,21 +14,25 @@ impl<T> Vec2D<T> {
 
 impl Vec2D<f32> {
     #[inline]
+    #[must_use]
     pub fn magnitude(&self) -> f32 {
         self.x.hypot(self.y)
     }
 
     #[inline]
+    #[must_use]
     pub fn is_origin(&self) -> bool {
         self.magnitude() < f32::EPSILON
     }
 
     #[inline]
+    #[must_use]
     pub fn angle(&self) -> Angle {
         Angle::from_radians(self.y.atan2(self.x))
     }
 
     #[inline]
+    #[must_use]
     pub fn lerp(&self, other: Self, t: f32) -> Self {
         debug_assert!(0. <= t);
         debug_assert!(t <= 1.);
@@ -40,17 +45,20 @@ impl Vec2D<f32> {
 
     // Compute the dot product of two vectors
     #[inline]
+    #[must_use]
     pub fn dot(&self, other: Self) -> f32 {
         self.x.mul_add(other.x, self.y * other.y)
     }
 
     // Compute the cross product of two vectors
     #[inline]
+    #[must_use]
     pub fn cross_product(&self, other: Self) -> f32 {
         self.x.mul_add(other.y, -self.y * other.x)
     }
 
     #[inline]
+    #[must_use]
     pub fn round_to_grid(&self) -> Vec2D<usize> {
         Vec2D {
             x: self.x.round() as usize,
@@ -72,11 +80,13 @@ impl Angle {
     const MAX_ERROR: f32 = 0.01;
 
     #[inline]
+    #[must_use]
     pub fn from_radians(radians: f32) -> Self {
         Self(radians)
     }
 
     #[inline]
+    #[must_use]
     pub fn diff(&self, other: &Self) -> Self {
         let mut difference_in_radians = (self.0 - other.0).abs();
 
@@ -88,11 +98,13 @@ impl Angle {
     }
 
     #[inline]
+    #[must_use]
     pub fn sin(&self) -> f32 {
         self.0.sin()
     }
 
     #[inline]
+    #[must_use]
     pub fn cos(&self) -> f32 {
         self.0.cos()
     }
