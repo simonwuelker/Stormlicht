@@ -1,3 +1,39 @@
+use std::ops::{Add, Div, Mul, Sub};
+
+/// Generate a trait impl for an operation involving two [Vec2D]s, like [Add] or [Sub]
+macro_rules! impl_bin_op {
+    ($trait: ident, $fn: ident, $op: tt) => {
+        impl<T: $trait<T, Output = T>> $trait for Vec2D<T> {
+            type Output = Vec2D<T>;
+
+            #[must_use]
+            fn $fn(self, rhs: Self) -> Self::Output {
+                Self {
+                    x: self.x $op rhs.x,
+                    y: self.y $op rhs.y,
+                }
+            }
+        }
+    };
+}
+
+/// Generate a trait impl for an operation involving a [Vec2D] and a scalar value of unknown type
+macro_rules! impl_scalar_op {
+    ($trait: ident, $fn: ident, $op: tt, $rhs: ident) => {
+        impl<T: $trait<$rhs, Output = T>> $trait<$rhs> for Vec2D<T> {
+            type Output = Vec2D<T>;
+
+            #[must_use]
+            fn $fn(self, rhs: $rhs) -> Self::Output {
+                Self {
+                    x: self.x $op rhs,
+                    y: self.y $op rhs,
+                }
+            }
+        }
+    };
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Vec2D<T = f32> {
     pub x: T,
@@ -9,6 +45,14 @@ impl<T> Vec2D<T> {
     #[must_use]
     pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
+    }
+}
+
+impl<T: Add<Output = T> + Div<i32, Output = T>> Vec2D<T> {
+    #[inline]
+    #[must_use]
+    pub fn middle(a: Self, b: Self) -> Self {
+        Self::new((a.x + b.x) / 2, (a.y + b.y) / 2)
     }
 }
 
@@ -111,43 +155,40 @@ impl Angle {
 }
 
 impl PartialEq for Angle {
+    #[must_use]
     fn eq(&self, other: &Self) -> bool {
         self.diff(other).0 < Self::MAX_ERROR
     }
 }
 
-impl std::ops::Add for Vec2D {
-    type Output = Self;
+impl_bin_op!(Add, add, +);
+impl_bin_op!(Sub, sub, -);
 
-    fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-        }
-    }
-}
+impl_scalar_op!(Mul, mul, *, f32);
+impl_scalar_op!(Mul, mul, *, f64);
+impl_scalar_op!(Mul, mul, *, i8);
+impl_scalar_op!(Mul, mul, *, i16);
+impl_scalar_op!(Mul, mul, *, i32);
+impl_scalar_op!(Mul, mul, *, i64);
+impl_scalar_op!(Mul, mul, *, i128);
+impl_scalar_op!(Mul, mul, *, u8);
+impl_scalar_op!(Mul, mul, *, u16);
+impl_scalar_op!(Mul, mul, *, u32);
+impl_scalar_op!(Mul, mul, *, u64);
+impl_scalar_op!(Mul, mul, *, u128);
 
-impl std::ops::Sub for Vec2D {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self {
-            x: self.x - rhs.x,
-            y: self.y - rhs.y,
-        }
-    }
-}
-
-impl std::ops::Mul<f32> for Vec2D {
-    type Output = Vec2D;
-
-    fn mul(self, rhs: f32) -> Self::Output {
-        Self {
-            x: self.x * rhs,
-            y: self.y * rhs,
-        }
-    }
-}
+impl_scalar_op!(Div, div, /, f32);
+impl_scalar_op!(Div, div, /, f64);
+impl_scalar_op!(Div, div, /, i8);
+impl_scalar_op!(Div, div, /, i16);
+impl_scalar_op!(Div, div, /, i32);
+impl_scalar_op!(Div, div, /, i64);
+impl_scalar_op!(Div, div, /, i128);
+impl_scalar_op!(Div, div, /, u8);
+impl_scalar_op!(Div, div, /, u16);
+impl_scalar_op!(Div, div, /, u32);
+impl_scalar_op!(Div, div, /, u64);
+impl_scalar_op!(Div, div, /, u128);
 
 #[cfg(test)]
 mod tests {
