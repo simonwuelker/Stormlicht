@@ -163,4 +163,28 @@ mod tests {
             Angle::from_radians(-std::f32::consts::FRAC_PI_2)
         );
     }
+
+    #[test]
+    fn vec2d_add() {
+        assert_eq!(Vec2D::new(1., 0.) + Vec2D::new(1., 1.), Vec2D::new(2., 1.));
+        assert_eq!(Vec2D::new(-2, 1) + Vec2D::new(1, 0), Vec2D::new(-1, 1));
+    }
+
+    #[test]
+    fn vec2d_sub() {
+        assert_eq!(Vec2D::new(1., 0.) - Vec2D::new(1., 1.), Vec2D::new(0., -1.));
+        assert_eq!(Vec2D::new(-2, 1) - Vec2D::new(1, 0), Vec2D::new(-3, 1));
+    }
+
+    #[test]
+    fn vec2d_mul() {
+        assert_eq!(Vec2D::new(1., -1.) * 2., Vec2D::new(2., -2.));
+        assert_eq!(Vec2D::new(1, -1) * 2, Vec2D::new(2, -2));
+    }
+
+    #[test]
+    fn vec2d_div() {
+        assert_eq!(Vec2D::new(1., -1.) / 2., Vec2D::new(0.5, -0.5));
+        assert_eq!(Vec2D::new(2, -1) / 2, Vec2D::new(1, 0));
+    }
 }
