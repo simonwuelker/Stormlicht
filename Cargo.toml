@@ -16,7 +16,6 @@ members = [
     "util/mime",
     "util/random",
     "gui/widgets", 
-    "gui/canvas",  
     "parser_combinators", 
     "async/executor",
     "browser",
