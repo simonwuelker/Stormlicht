@@ -1,28 +1,20 @@
-use gui::{
-    application::{Application, RepaintRequired},
-    colorscheme,
-    layout::{
-        widgets::{Button, ColoredBox, Input},
-        Container, Orientation, Sizing, Widget,
-    },
-};
-
 const INITIAL_WIDTH: u16 = 800;
 const INITIAL_HEIGHT: u16 = 600;
 
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+enum RepaintRequired {
+    #[default]
+    Yes,
+    No,
+}
+
 pub struct BrowserApplication {
-    should_run: bool,
     view_buffer: math::Bitmap<u32>,
     graphics_context: Option<softbuffer::GraphicsContext>,
     size: (u16, u16),
     repaint_required: RepaintRequired,
     composition: render::Composition,
     window_handle: glazier::WindowHandle,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Message {
-    Close,
 }
 
 impl Default for BrowserApplication {
@@ -46,7 +38,6 @@ impl Default for BrowserApplication {
                 math::Vec2D::new(0., 0.),
             );
         Self {
-            should_run: true,
             view_buffer: math::Bitmap::new(INITIAL_WIDTH as usize, INITIAL_HEIGHT as usize),
             graphics_context: None,
             size: (INITIAL_WIDTH, INITIAL_HEIGHT),
@@ -54,50 +45,6 @@ impl Default for BrowserApplication {
             composition,
             window_handle: glazier::WindowHandle::default(),
         }
-    }
-}
-
-impl Application for BrowserApplication {
-    type Message = Message;
-
-    fn view(&self) -> Box<dyn Widget<Message = Self::Message>> {
-        let search_bar = Input::default().into_widget();
-
-        let close_btn = Button::new(ColoredBox::new(colorscheme::ALTERNATIVE).into_widget())
-            .on_click(Message::Close)
-            .set_width(Sizing::Exactly(50))
-            .set_height(Sizing::Exactly(50))
-            .into_widget();
-
-        let navbar = Container::new(Orientation::Horizontal)
-            .add_child(search_bar)
-            .add_child(close_btn)
-            .into_widget();
-
-        let webcontent = ColoredBox::new(colorscheme::BACKGROUND_LIGHT).into_widget();
-
-        let root = Container::new(Orientation::Vertical)
-            .add_child(navbar)
-            .add_child(webcontent);
-        Box::new(root) as Box<dyn Widget<Message = Self::Message>>
-    }
-
-    fn should_run(&self) -> bool {
-        self.should_run
-    }
-
-    fn on_message(
-        &mut self,
-        window: &mut gui::sdl2::video::Window,
-        message: Self::Message,
-        message_queue: gui::application::AppendOnlyQueue<Self::Message>,
-    ) -> RepaintRequired {
-        _ = window;
-        _ = message_queue;
-        match message {
-            Message::Close => self.should_run = false,
-        }
-        RepaintRequired::No
     }
 }
 
