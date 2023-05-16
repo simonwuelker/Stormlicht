@@ -35,13 +35,11 @@
 #![feature(array_windows)]
 #![feature(portable_simd)]
 
-mod color;
 mod composition;
 mod layer;
 mod path;
 mod rasterizer;
 
-pub use color::Color;
 pub use composition::Composition;
 pub use layer::{Layer, Source};
 pub use path::{FlattenedPathPoint, Path};

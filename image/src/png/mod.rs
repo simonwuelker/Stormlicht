@@ -15,6 +15,8 @@ use compression::zlib;
 
 use hash::CRC32;
 
+use self::chunks::ihdr::ImageType;
+
 const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
 #[derive(Debug)]
@@ -35,9 +37,10 @@ pub enum PNGError {
     IO(io::Error),
 }
 
-pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<canvas::Canvas, PNGError> {
+pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<math::Bitmap<u32>, PNGError> {
     let mut file_contents = vec![];
-    fs::File::open(&path).map_err(PNGError::IO)?
+    fs::File::open(&path)
+        .map_err(PNGError::IO)?
         .read_to_end(&mut file_contents)
         .map_err(PNGError::IO)?;
     decode(&file_contents)
@@ -85,7 +88,7 @@ enum ParserStage {
     AfterIDAT,
 }
 
-pub fn decode(bytes: &[u8]) -> Result<canvas::Canvas, PNGError> {
+pub fn decode(bytes: &[u8]) -> Result<math::Bitmap<u32>, PNGError> {
     let mut reader = Cursor::new(bytes);
 
     let mut signature = [0; 8];
@@ -102,6 +105,8 @@ pub fn decode(bytes: &[u8]) -> Result<canvas::Canvas, PNGError> {
         log::warn!("Expected IHDR chunk, found {ihdr_chunk:?}");
         return Err(PNGError::ExpectedIHDR);
     };
+    let image_width = image_header.width as usize;
+    let image_height = image_header.height as usize;
 
     let mut parser_stage = ParserStage::BeforeIDAT;
     let mut idat = vec![];
@@ -135,15 +140,19 @@ pub fn decode(bytes: &[u8]) -> Result<canvas::Canvas, PNGError> {
 
     let decompressed_body = zlib::decode(&idat).map_err(PNGError::ZLib)?;
 
-    let scanline_width = image_header.width as usize * image_header.image_type.pixel_width();
+    let scanline_width = image_width * image_header.image_type.pixel_width();
 
     // NOTE: need to add 1 here because each scanline also contains a byte specifying a filter type
     if decompressed_body.len() % (scanline_width + 1) != 0 {
-        log::warn!("Decompressed data size {} is not a multiple of scanline size {}", decompressed_body.len(), scanline_width + 1);
+        log::warn!(
+            "Decompressed data size {} is not a multiple of scanline size {}",
+            decompressed_body.len(),
+            scanline_width + 1
+        );
         return Err(PNGError::MismatchedDecompressedZlibSize);
     }
 
-    let mut image_data = vec![0; image_header.height as usize * scanline_width];
+    let mut image_data = vec![0; image_height * scanline_width];
     apply_filters(
         &decompressed_body,
         &mut image_data,
@@ -151,11 +160,28 @@ pub fn decode(bytes: &[u8]) -> Result<canvas::Canvas, PNGError> {
         image_header.image_type.pixel_width(),
     )?;
 
-    Ok(canvas::Canvas::new(
-        image_data,
+    // Transform to the pixel format we need (0RGBA)
+    let mut image_data_u32 = vec![0; image_width * image_height];
+    for (pixel, pixel_dst) in image_data
+        .chunks_exact(image_header.image_type.pixel_width())
+        .zip(image_data_u32.iter_mut())
+    {
+        *pixel_dst = match image_header.image_type {
+            ImageType::GrayScale => math::Color::rgb(pixel[0], pixel[1], pixel[2]).0,
+            ImageType::GrayScaleWithAlpha => math::Color::rgb(pixel[0], pixel[1], pixel[2]).0, // TODO: figure out alpha values
+            ImageType::TrueColor => math::Color::rgb(pixel[0], pixel[1], pixel[2]).0,
+            ImageType::TrueColorWithAlpha => math::Color::rgb(pixel[0], pixel[1], pixel[2]).0, // TODO: figure out alpha values
+            ImageType::IndexedColor => {
+                log::warn!("FIXME: png implement indexed color");
+                0
+            },
+        }
+    }
+
+    Ok(math::Bitmap::from_data(
+        image_data_u32,
         image_header.width as usize,
         image_header.height as usize,
-        image_header.image_type.into(),
     ))
 }
 

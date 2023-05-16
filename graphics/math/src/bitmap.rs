@@ -23,6 +23,15 @@ impl<T: Default + Copy> Bitmap<T> {
 }
 
 impl<T: Copy> Bitmap<T> {
+    pub fn from_data(data: Vec<T>, width: usize, height: usize) -> Self {
+        debug_assert_eq!(data.len(), width * height);
+
+        Self {
+            width,
+            height,
+            data,
+        }
+    }
     pub fn width(&self) -> usize {
         self.width
     }

@@ -80,17 +80,6 @@ pub enum ImageType {
     TrueColorWithAlpha,
 }
 
-impl From<ImageType> for canvas::PixelFormat {
-    fn from(value: ImageType) -> Self {
-        match &value {
-            ImageType::GrayScale => Self::GrayScale,
-            ImageType::TrueColor => Self::RGB8,
-            ImageType::TrueColorWithAlpha => Self::RGBA8,
-            _ => todo!(),
-        }
-    }
-}
-
 impl ImageType {
     pub fn is_allowed_bit_depth(&self, bit_depth: u8) -> bool {
         matches!(
@@ -128,7 +117,7 @@ impl TryFrom<u8> for ImageType {
             _ => {
                 log::warn!("Unknown image type: {value}");
                 Err(ImageHeaderError::InvalidImageType)
-            }
+            },
         }
     }
 }
@@ -149,7 +138,7 @@ impl TryFrom<u8> for InterlaceMethod {
             _ => {
                 log::warn!("Unknown interlace method: {value}");
                 Err(ImageHeaderError::UnknownInterlaceMethod)
-            }
+            },
         }
     }
 }

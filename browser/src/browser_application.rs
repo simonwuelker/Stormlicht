@@ -30,7 +30,7 @@ impl Default for BrowserApplication {
         let mut composition = render::Composition::default();
         composition
             .get_or_insert_layer(0)
-            .with_source(render::Source::Solid(render::Color::BLUE))
+            .with_source(render::Source::Solid(math::Color::BLUE))
             .with_outline(render::Path::rect(
                 math::Vec2D::new(100., 100.),
                 math::Vec2D::new(500., 500.),
@@ -38,7 +38,7 @@ impl Default for BrowserApplication {
 
         composition
             .get_or_insert_layer(1)
-            .with_source(render::Source::Solid(render::Color::BLACK))
+            .with_source(render::Source::Solid(math::Color::BLACK))
             .text(
                 "Font test",
                 font::Font::default(),
@@ -115,7 +115,7 @@ impl glazier::WinHandler for BrowserApplication {
     }
 
     fn paint(&mut self, _invalid: &glazier::Region) {
-        self.view_buffer.clear(render::Color::WHITE.into());
+        self.view_buffer.clear(math::Color::WHITE.into());
         self.composition.render_to(&mut self.view_buffer);
 
         if let Some(graphics_context) = &mut self.graphics_context {
