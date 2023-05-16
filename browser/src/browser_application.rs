@@ -1,4 +1,4 @@
-use widgets::{
+use gui::{
     application::{Application, RepaintRequired},
     colorscheme,
     layout::{
@@ -88,9 +88,9 @@ impl Application for BrowserApplication {
 
     fn on_message(
         &mut self,
-        window: &mut widgets::sdl2::video::Window,
+        window: &mut gui::sdl2::video::Window,
         message: Self::Message,
-        message_queue: widgets::application::AppendOnlyQueue<Self::Message>,
+        message_queue: gui::application::AppendOnlyQueue<Self::Message>,
     ) -> RepaintRequired {
         _ = window;
         _ = message_queue;
