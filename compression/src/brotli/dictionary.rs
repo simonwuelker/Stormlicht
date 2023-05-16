@@ -4,7 +4,7 @@
 
 use super::BrotliError;
 
-const DICTIONARY: &[u8; 122784] = include_bytes!(concat!(env!("OUT_DIR"), "/dictionary.bin"));
+const DICTIONARY: &[u8; 122784] = include_bytes!("../../../downloads/brotli/dictionary.bin");
 
 const NDBITS: [usize; 25] = [
     0, 0, 0, 0, 10, 10, 11, 11, 10, 10, 10, 10, 10, 9, 9, 8, 7, 7, 8, 7, 7, 6, 6, 5, 5,
