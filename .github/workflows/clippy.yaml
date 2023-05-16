@@ -21,7 +21,7 @@ jobs:
       - name: Install required libraries
         run: sudo apt install libxkbcommon-x11-dev
       - name: Download required files
-        run: ./download.sh
+        run: python3 setup.py
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features -- -Dclippy::correctness -Dclippy::perf -Aclippy::needless_range_loop -Aclippy::redundant_field_names -Aclippy::neg_multiply -Aclippy::upper_case_acronyms -Aclippy::iter_nth_zero -Aclippy::enum-variant-names
 
