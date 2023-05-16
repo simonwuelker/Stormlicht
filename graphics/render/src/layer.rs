@@ -1,6 +1,6 @@
-use math::{AffineTransform, Angle, Rectangle, Vec2D};
+use math::{AffineTransform, Angle, Bitmap, Rectangle, Vec2D};
 
-use crate::{Buffer, Color, FlattenedPathPoint, Path, Rasterizer};
+use crate::{Color, FlattenedPathPoint, Mask, Path, Rasterizer};
 
 #[derive(Clone, Copy, Debug)]
 pub enum Source {
@@ -140,12 +140,12 @@ impl Layer {
         extents
     }
 
-    pub(crate) fn render_to(&mut self, buffer: &mut Buffer) {
+    pub(crate) fn render_to(&mut self, bitmap: &mut Bitmap<u32>) {
         self.flatten_if_necessary();
 
         if let Some(outline_extent) = self.apply_transform() {
             // Compute a mask for the layer.
-            // This mask determines which pixels in the buffer should be
+            // This mask determines which pixels in the bitmap should be
             // colored and which should not be.
             let outline_offset = outline_extent.top_left;
             let outline_extent = outline_extent.round_to_grid();
@@ -154,7 +154,7 @@ impl Layer {
             let mask = rasterizer.into_mask();
 
             // Compose the mask onto the buffer
-            buffer.compose(mask, self.source, outline_extent.top_left);
+            compose(bitmap, mask, self.source, outline_extent.top_left);
         }
     }
 }
@@ -168,6 +168,25 @@ impl Default for Layer {
             is_enabled: true,
             needs_flattening: true,
             flattened_outline: vec![],
+        }
+    }
+}
+
+fn compose(bitmap: &mut Bitmap<u32>, mask: Mask, source: Source, offset: Vec2D<usize>) {
+    if offset.x < bitmap.width() && offset.y < bitmap.height() {
+        // Don't draw out of bounds
+        let available_space = Vec2D::new(bitmap.width() - offset.x, bitmap.height() - offset.y);
+        match source {
+            Source::Solid(color) => {
+                for x in 0..mask.width().min(available_space.x) {
+                    for y in 0..mask.height().min(available_space.y) {
+                        let opacity = mask.opacity_at(x, y).abs().min(1.);
+                        let previous_color = bitmap.get_pixel(x + offset.x, y + offset.y);
+                        let computed_color = color.interpolate(Color(previous_color), opacity);
+                        bitmap.set_pixel(x + offset.x, y + offset.y, computed_color.into());
+                    }
+                }
+            },
         }
     }
 }

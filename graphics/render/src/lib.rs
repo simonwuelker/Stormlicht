@@ -35,14 +35,12 @@
 #![feature(array_windows)]
 #![feature(portable_simd)]
 
-mod buffer;
 mod color;
 mod composition;
 mod layer;
 mod path;
 mod rasterizer;
 
-pub use buffer::Buffer;
 pub use color::Color;
 pub use composition::Composition;
 pub use layer::{Layer, Source};

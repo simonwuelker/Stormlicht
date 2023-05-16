@@ -12,10 +12,11 @@ const INITIAL_HEIGHT: u16 = 600;
 
 pub struct BrowserApplication {
     should_run: bool,
-    view_buffer: Vec<u32>,
+    view_buffer: math::Bitmap<u32>,
     graphics_context: Option<softbuffer::GraphicsContext>,
     size: (u16, u16),
     repaint_required: RepaintRequired,
+    composition: render::Composition,
     window_handle: glazier::WindowHandle,
 }
 
@@ -26,12 +27,31 @@ pub enum Message {
 
 impl Default for BrowserApplication {
     fn default() -> Self {
+        let mut composition = render::Composition::default();
+        composition
+            .get_or_insert_layer(0)
+            .with_source(render::Source::Solid(render::Color::BLUE))
+            .with_outline(render::Path::rect(
+                math::Vec2D::new(100., 100.),
+                math::Vec2D::new(500., 500.),
+            ));
+
+        composition
+            .get_or_insert_layer(1)
+            .with_source(render::Source::Solid(render::Color::BLACK))
+            .text(
+                "Font test",
+                font::Font::default(),
+                200.,
+                math::Vec2D::new(0., 0.),
+            );
         Self {
             should_run: true,
-            view_buffer: vec![],
+            view_buffer: math::Bitmap::new(INITIAL_WIDTH as usize, INITIAL_HEIGHT as usize),
             graphics_context: None,
             size: (INITIAL_WIDTH, INITIAL_HEIGHT),
             repaint_required: RepaintRequired::Yes,
+            composition,
             window_handle: glazier::WindowHandle::default(),
         }
     }
@@ -74,7 +94,6 @@ impl Application for BrowserApplication {
     ) -> RepaintRequired {
         _ = window;
         _ = message_queue;
-        dbg!(message);
         match message {
             Message::Close => self.should_run = false,
         }
@@ -96,23 +115,13 @@ impl glazier::WinHandler for BrowserApplication {
     }
 
     fn paint(&mut self, _invalid: &glazier::Region) {
-        self.view_buffer = (0..(self.size.0 as usize * self.size.1 as usize))
-            .map(|index| {
-                let y = index / (self.size.0 as usize);
-                let x = index % (self.size.0 as usize);
-                let red = x % 255;
-                let green = y % 255;
-                let blue = (x * y) % 255;
-
-                let color = blue | (green << 8) | (red << 16);
-
-                color as u32
-            })
-            .collect::<Vec<_>>();
+        self.view_buffer.clear(render::Color::WHITE.into());
+        self.composition.render_to(&mut self.view_buffer);
 
         if let Some(graphics_context) = &mut self.graphics_context {
-            graphics_context.set_buffer(&self.view_buffer, self.size.0, self.size.1);
+            graphics_context.set_buffer(self.view_buffer.data(), self.size.0, self.size.1);
         }
+        self.repaint_required = RepaintRequired::No;
     }
 
     fn as_any(&mut self) -> &mut dyn std::any::Any {
@@ -120,8 +129,10 @@ impl glazier::WinHandler for BrowserApplication {
     }
 
     fn size(&mut self, size: glazier::kurbo::Size) {
-        dbg!(size);
-        self.size = (size.width.ceil() as u16 * 2, size.height.ceil() as u16 * 2);
+        let width = size.width.ceil() as u16 * 2;
+        let height = size.height.ceil() as u16 * 2;
+        self.size = (width, height);
+        self.view_buffer.resize(width as usize, height as usize);
         self.repaint_required = RepaintRequired::Yes;
     }
 
