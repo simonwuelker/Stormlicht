@@ -8,5 +8,4 @@ edition = "2021"
 [dependencies]
 font = { path = "../../graphics/font" }
 image = { path = "../../image" }
-canvas = { path = "../canvas" }
 sdl2 = { version = "0.35" } # , default-features = false, features = ["gfx"]}

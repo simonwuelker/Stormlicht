@@ -2059,7 +2059,6 @@ dependencies = [
 name = "widgets"
 version = "0.1.0"
 dependencies = [
- "canvas",
  "font",
  "image",
  "sdl2",
