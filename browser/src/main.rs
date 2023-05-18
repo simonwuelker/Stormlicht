@@ -47,9 +47,7 @@ pub fn main() {
         prev(info);
     });
 
-    env_logger::Builder::from_default_env()
-        .filter_level(log::LevelFilter::Info)
-        .init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
 
     #[cfg(target_os = "linux")]
     if unsafe { geteuid() } == 0 {
