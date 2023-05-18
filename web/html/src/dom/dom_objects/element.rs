@@ -21,6 +21,7 @@ impl Element {
         namespace_prefix: Option<String>,
         local_name: String,
         custom_state: ElementCustomState,
+        _custom_element_definition: Option<()>,
         is: Option<String>,
     ) -> Self {
         Self {

@@ -3,7 +3,9 @@
 use crate::{
     dom::{
         self,
-        dom_objects::{Comment, Document, DocumentType, HTMLHtmlElement, Node, Text},
+        dom_objects::{
+            Comment, Document, DocumentType, HTMLHtmlElement, HTMLScriptElement, Node, Text,
+        },
         DOMPtr, DOMType,
     },
     infra::Namespace,
@@ -99,7 +101,11 @@ impl<'source> Parser<'source> {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#current-node>
     fn current_node(&self) -> DOMPtr<Node> {
         // The current node is the bottommost node in this stack of open elements.
-        DOMPtr::clone(self.open_elements.first().unwrap())
+        DOMPtr::clone(
+            self.open_elements
+                .last()
+                .expect("Stack of open elements is empty"),
+        )
     }
 
     fn consume(&mut self, token: Token) {
@@ -351,7 +357,10 @@ impl<'source> Parser<'source> {
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhtml>
     fn consume_in_mode(&mut self, mode: InsertionMode, token: Token) {
-        log::info!("Consuming {token:?} in {mode:?}");
+        log::trace!(
+            "Consuming {token:?} in {mode:?}.\nThe current token is a {:?}",
+            self.open_elements.last().map(DOMPtr::underlying_type)
+        );
         match mode {
             // https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode
             InsertionMode::Initial => {
@@ -545,6 +554,7 @@ impl<'source> Parser<'source> {
                         self.open_elements.pop();
 
                         // Acknowledge the token's self-closing flag, if it is set.
+                        // NOTE: this is a no-op
                     },
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "meta" => {
                         // Insert an HTML element for the token.
@@ -599,7 +609,38 @@ impl<'source> Parser<'source> {
                         self.insertion_mode = InsertionMode::InHeadNoscript;
                     },
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "script" => {
-                        unimplemented!();
+                        // 1. Let the adjusted insertion location be the appropriate place for inserting a node.
+                        let adjusted_insert_location = self.appropriate_place_for_inserting_node();
+
+                        // 2. Create an element for the token in the HTML namespace, with the intended parent being the element
+                        // in which the adjusted insertion location finds itself.
+                        let element = self.create_html_element_for_token(
+                            tagdata,
+                            Namespace::HTML,
+                            &adjusted_insert_location,
+                        );
+
+                        // 3. Set the element's parser document to the Document, and set the element's force async to false.
+                        log::warn!("FIXME: Set script element attributes");
+
+                        // 4. If the parser was created as part of the HTML fragment parsing algorithm, then set the script element's already started to true. (fragment case)
+
+                        // 5. If the parser was invoked via the document.write() or document.writeln() methods, then optionally set the script element's already started to true.
+
+                        // 6. Insert the newly created element at the adjusted insertion location.
+                        Node::append_child(adjusted_insert_location, element.clone());
+
+                        // 7. Push the element onto the stack of open elements so that it is the new current node.
+                        self.open_elements.push(element);
+
+                        // 8. Switch the tokenizer to the script data state.
+                        self.tokenizer.state = TokenizerState::ScriptDataState;
+
+                        // 9. Let the original insertion mode be the current insertion mode.
+                        self.original_insertion_mode = Some(self.insertion_mode);
+
+                        // 10. Switch the insertion mode to "text".
+                        self.insertion_mode = InsertionMode::Text;
                     },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "head" => {
                         todo!()
@@ -1119,8 +1160,40 @@ impl<'source> Parser<'source> {
             // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incdata
             InsertionMode::Text => {
                 match token {
-                    Token::Character(_) => {
+                    Token::Character(c) => {
                         // Insert the token's character.
+                        self.insert_character(c);
+                    },
+                    Token::EOF => {
+                        // Parse error.
+
+                        // FIXME: If the current node is a script element, then set its already started to true.
+
+                        // Pop the current node off the stack of open elements.
+                        self.open_elements.pop();
+
+                        // Switch the insertion mode to the original insertion mode and reprocess the token.
+                        self.switch_back_to_original_insertion_mode();
+
+                        self.consume(token);
+                    },
+                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "script" => {
+                        log::warn!("FIXME: implement closing script tag in text mode");
+
+                        // If the active speculative HTML parser is null and the JavaScript execution context stack is empty, then perform a microtask checkpoint.
+
+                        // Let script be the current node (which will be a script element).
+                        let script = self.current_node();
+                        log::info!("{:?}", script.underlying_type());
+                        script.into_type::<HTMLScriptElement>();
+
+                        // Pop the current node off the stack of open elements.
+                        self.open_elements.pop();
+
+                        // Switch the insertion mode to the original insertion mode.
+                        self.switch_back_to_original_insertion_mode();
+
+                        // FIXME: the rest of this method is concerned with scripting, which we don't support yet.
                     },
                     Token::Tag(ref tagdata) if !tagdata.opening => {
                         // Pop the current node off the stack of open elements.
@@ -1134,5 +1207,12 @@ impl<'source> Parser<'source> {
             },
             _ => todo!("Implement '{mode:?}' state"),
         }
+    }
+
+    fn switch_back_to_original_insertion_mode(&mut self) {
+        self.insertion_mode = self
+            .original_insertion_mode
+            .take()
+            .expect("Original insertion mode has not been set");
     }
 }

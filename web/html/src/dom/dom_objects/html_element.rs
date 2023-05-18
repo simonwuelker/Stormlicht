@@ -6,3 +6,9 @@ use super::Element;
 
 #[inherit(Element)]
 pub struct HTMLElement {}
+
+impl HTMLElement {
+    pub fn new(element: Element) -> Self {
+        Self { __parent: element }
+    }
+}
