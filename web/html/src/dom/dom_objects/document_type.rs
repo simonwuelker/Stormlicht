@@ -1,4 +1,5 @@
 use super::Node;
+use crate::display_tagname;
 use dom_derive::inherit;
 
 /// <https://dom.spec.whatwg.org/#interface-documenttype>
@@ -8,6 +9,8 @@ pub struct DocumentType {
     public_id: String,
     system_id: String,
 }
+
+display_tagname!(DocumentType, "DOCTYPE");
 
 impl DocumentType {
     pub fn name_mut(&mut self) -> &mut String {

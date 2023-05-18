@@ -3,6 +3,7 @@
 use dom_derive::inherit;
 
 use super::HTMLElement;
+use crate::display_tagname;
 
 #[inherit(HTMLElement)]
 pub struct HTMLNoscriptElement {}
@@ -14,3 +15,5 @@ impl HTMLNoscriptElement {
         }
     }
 }
+
+display_tagname!(HTMLNoscriptElement, "noscript");

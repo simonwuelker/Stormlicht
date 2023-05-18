@@ -1,4 +1,5 @@
 mod character_data;
+mod comment;
 mod document;
 mod document_type;
 mod element;
@@ -11,7 +12,8 @@ mod html_template_element;
 mod node;
 mod text;
 
-pub use character_data::{CharacterData, Comment};
+pub use character_data::CharacterData;
+pub use comment::Comment;
 pub use document::Document;
 pub use document_type::DocumentType;
 pub use element::Element;

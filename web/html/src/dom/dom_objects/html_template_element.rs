@@ -3,6 +3,7 @@
 use dom_derive::inherit;
 
 use super::HTMLElement;
+use crate::display_tagname;
 
 #[inherit(HTMLElement)]
 pub struct HTMLTemplateElement {}
@@ -14,3 +15,5 @@ impl HTMLTemplateElement {
         }
     }
 }
+
+display_tagname!(HTMLTemplateElement, "template");

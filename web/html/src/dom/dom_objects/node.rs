@@ -1,7 +1,10 @@
 use dom_derive::inherit;
 
 use super::Document;
-use crate::dom::{DOMPtr, WeakDOMPtr};
+use crate::{
+    display_string,
+    dom::{dom_display::IndentFormatter, DOMPtr, WeakDOMPtr},
+};
 
 /// <https://dom.spec.whatwg.org/#interface-node>
 #[inherit]
@@ -11,7 +14,13 @@ pub struct Node {
     owning_document: Option<WeakDOMPtr<Document>>,
 }
 
+display_string!(Node, "NODE");
+
 impl Node {
+    pub fn children(&self) -> &[DOMPtr<Self>] {
+        &self.child_nodes
+    }
+
     pub fn parent_node(&self) -> Option<DOMPtr<Node>> {
         self.parent_node.as_ref()?.upgrade()
     }
@@ -35,5 +44,14 @@ impl Node {
 
     pub fn set_owning_document(&mut self, document: WeakDOMPtr<Document>) {
         self.owning_document = Some(document);
+    }
+}
+
+impl DOMPtr<Node> {
+    pub fn debug(&self) -> IndentFormatter {
+        IndentFormatter {
+            indent_level: 0,
+            inner: self.clone(),
+        }
     }
 }

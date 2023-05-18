@@ -1,17 +1,19 @@
 //! <https://dom.spec.whatwg.org/>
 
 mod codegen;
+mod dom_display;
 pub mod dom_objects;
 mod dom_ptr;
 
 pub use codegen::{DOMType, DOMTyped};
+pub use dom_display::DOMDisplay;
 pub use dom_ptr::{DOMPtr, WeakDOMPtr};
 
-use self::dom_objects::{
+use crate::infra::Namespace;
+use dom_objects::{
     Document, Element, HTMLElement, HTMLHeadElement, HTMLHtmlElement, HTMLNoscriptElement,
     HTMLScriptElement, HTMLTemplateElement,
 };
-use crate::infra::Namespace;
 
 /// <https://dom.spec.whatwg.org/#concept-element-custom-element-state>
 #[derive(Clone, Copy, Debug, PartialEq, Default)]

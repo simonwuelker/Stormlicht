@@ -2,7 +2,7 @@
 
 use dom_derive::inherit;
 
-use crate::{dom::ElementCustomState, infra::Namespace};
+use crate::{display_string, dom::ElementCustomState, infra::Namespace};
 
 use super::Node;
 
@@ -14,6 +14,8 @@ pub struct Element {
     custom_state: ElementCustomState,
     is: Option<String>,
 }
+
+display_string!(Element, "ELEMENT");
 
 impl Element {
     pub fn new(

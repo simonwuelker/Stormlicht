@@ -10,7 +10,7 @@ pub fn inherit(attr: TokenStream, item: TokenStream) -> TokenStream {
         // This is a root object that does not inherit from anything
         return quote!(
             #[repr(C)]
-            #[derive(Default, Debug)]
+            #[derive(Default)]
             #struct_declaration
         )
         .into();
@@ -40,7 +40,7 @@ pub fn inherit(attr: TokenStream, item: TokenStream) -> TokenStream {
     let struct_ident = &struct_declaration.ident;
     quote!(
         #[repr(C)]
-        #[derive(Default, Debug)]
+        #[derive(Default)]
         #struct_declaration
 
         #[automatically_derived]

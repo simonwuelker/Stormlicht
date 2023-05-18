@@ -6,17 +6,17 @@ use dom_derive::inherit;
 
 /// <https://dom.spec.whatwg.org/#characterdata>
 #[inherit(Node)]
-pub struct CharacterData {
+pub struct Comment {
     content: String,
 }
 
-impl CharacterData {
+impl Comment {
     pub fn content_mut(&mut self) -> &mut String {
         &mut self.content
     }
 }
 
-impl DOMDisplay for CharacterData {
+impl DOMDisplay for Comment {
     fn format(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "CDATA({:?})", self.content)
     }

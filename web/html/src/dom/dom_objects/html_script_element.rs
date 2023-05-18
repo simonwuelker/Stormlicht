@@ -3,6 +3,7 @@
 use dom_derive::inherit;
 
 use super::HTMLElement;
+use crate::display_tagname;
 
 #[inherit(HTMLElement)]
 pub struct HTMLScriptElement {}
@@ -14,3 +15,5 @@ impl HTMLScriptElement {
         }
     }
 }
+
+display_tagname!(HTMLScriptElement, "script");

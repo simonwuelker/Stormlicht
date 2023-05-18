@@ -11,7 +11,6 @@ use super::codegen::{DOMType, DOMTyped};
 /// `T` is either the actual type stored at the address or any
 /// of its supertypes.
 /// The internal objects are reference counted and inside a `RefCell`.
-#[derive(Debug)]
 pub struct DOMPtr<T: DOMTyped> {
     inner: Rc<RefCell<T>>,
 
@@ -19,7 +18,6 @@ pub struct DOMPtr<T: DOMTyped> {
     underlying_type: DOMType,
 }
 
-#[derive(Debug)]
 pub struct WeakDOMPtr<T: DOMTyped> {
     inner: Weak<RefCell<T>>,
 

@@ -1,5 +1,6 @@
 use super::Node;
 use dom_derive::inherit;
+use std::fmt;
 
 /// <https://dom.spec.whatwg.org/#interface-text>
 #[inherit(Node)]
@@ -14,5 +15,11 @@ impl Text {
 
     pub fn content_mut(&mut self) -> &mut String {
         &mut self.content
+    }
+}
+
+impl crate::dom::DOMDisplay for Text {
+    fn format(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{:?}", &self.content)
     }
 }
