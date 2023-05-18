@@ -1,29 +1,21 @@
 # Browser
 (The name is a work in progress)
 
-## Code
-Here are some of the cool things built (from scratch) for this browser:
+## Design goals
+I strive for Correctness, Performance and Safety, in that order.
 
-| Path | Description | Completeness | Resources |
-| ---- | ----------- | ------------ | --------- |
-| [`/web/dns`](https://github.com/Wuelle/browser/tree/main/web/dns) | DNS-Resolver | Usable | [RFC 1034](https://www.rfc-editor.org/rfc/rfc1034) |
-| [`/web/url`](https://github.com/Wuelle/browser/tree/main/web/url) | URL-Parser | Usable |  [url.spec.whatwg.org](https://url.spec.whatwg.org/) |
-| [`/web/http`](https://github.com/Wuelle/browser/tree/main/web/http) | HTTP/1.1 Client | Usable |  [RFC 9112](https://datatracker.ietf.org/doc/html/rfc9112) |
-| [`/web/html`](https://github.com/Wuelle/browser/tree/main/web/http) | HTML Parser | Tokenizer complete, Tree builder is WIP | [html.spec.whatwg.org](https://html.spec.whatwg.org/) |
-| [`/font_rasterizer`](https://github.com/Wuelle/browser/tree/main/font_rasterizer) | `.ttf` Font parser & rasterizer | Usable | |
-| [`/parser_combinators`](https://github.com/Wuelle/browser/tree/main/parser_combinators) | PEG Library | Usable | |
+This is also a "for fun" project, so I do try and implement as much of the functionality as possible without relying on third party crates. (currently, we only need [glazier](https://github.com/linebender/glazier) and [softbuffer](https://github.com/rust-windowing/softbuffer) for cross-platform window management and `syn`/`quote`/`proc-macro2` during compilation)
 
-## Building
+## Build Instructions
 Simply run
 ```
-sudo apt install build-essential
-sudo apt install libsdl2-dev
+sudo apt install build-essential python3
 ```
 and
 ```
-./download.sh
+python3 setup.py
 ```
-to download all required files and then
+to download all required files (mostly fonts) and then
 ```
 cargo r
 ```
@@ -31,4 +23,4 @@ to compile and run the browser.
 
 
 ## Credits
-This project is heavily inspired by [Andreas Kling](https://github.com/awesomekling)/[the LadyBird Browser](https://github.com/SerenityOS/ladybird)
+This project is heavily inspired by [Andreas Kling](https://github.com/awesomekling)/[the Ladybird Browser](https://awesomekling.github.io/Ladybird-a-new-cross-platform-browser-project/)
