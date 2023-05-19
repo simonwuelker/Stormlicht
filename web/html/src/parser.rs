@@ -61,6 +61,9 @@ pub struct Parser<'source> {
     insertion_mode: InsertionMode,
     open_elements: Vec<DOMPtr<Node>>,
     head: Option<DOMPtr<Node>>,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#list-of-active-formatting-elements>
+    active_formatting_elements: Vec<()>,
     execute_script: bool,
     done: bool,
 }
@@ -81,6 +84,7 @@ impl<'source> Parser<'source> {
             insertion_mode: InsertionMode::Initial,
             open_elements: vec![],
             head: None,
+            active_formatting_elements: vec![],
             execute_script: false,
             done: false,
         }
@@ -114,23 +118,26 @@ impl<'source> Parser<'source> {
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-a-character>
     pub fn insert_character(&self, c: char) {
-        // FIXME Let data be the characters passed to the algorithm, or, if no characters were explicitly specified, the character of the character token being processed.
+        // 1. Let data be the characters passed to the algorithm, or, if no characters were explicitly specified,
+        // the character of the character token being processed.
+        // NOTE: We always pass the character to the algorithm.
 
-        // Let the adjusted insertion location be the appropriate place for inserting a node.
+        // 2. Let the adjusted insertion location be the appropriate place for inserting a node.
         let adjusted_insert_location = self.appropriate_place_for_inserting_node();
 
-        // If the adjusted insertion location is in a Document node
+        // 3. If the adjusted insertion location is in a Document node
         if adjusted_insert_location.is_a::<Document>() {
             // then return.
             return;
         }
 
-        // If there is a Text node immediately before the adjusted insertion location
+        // 4. If there is a Text node immediately before the adjusted insertion location
         if let Some(last_child) = adjusted_insert_location.borrow().last_child() {
             if last_child.is_a::<Text>() {
                 let text = last_child.into_type::<Text>();
                 // then append data to that Text node's data.
                 text.borrow_mut().content_mut().push(c);
+                return;
             }
         }
 
@@ -233,8 +240,35 @@ impl<'source> Parser<'source> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-scope>
-    fn _is_element_in_scope(&self, _target_node_type: &DOMType, _scope: &[DOMType]) -> bool {
-        todo!()
+    fn is_element_in_scope(&self, target_node_type: DOMType) -> bool {
+        // FIXME: this default scope should contain more types but they dont exist yet
+        self.is_element_in_specific_scope(target_node_type, &[DOMType::HTMLHtmlElement])
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-the-specific-scope>
+    fn is_element_in_specific_scope(&self, target_node_type: DOMType, scope: &[DOMType]) -> bool {
+        // 1. Initialize node to be the current node (the bottommost node of the stack).
+        let mut node = self.current_node();
+
+        loop {
+            // 2. If node is the target node, terminate in a match state.
+            if node.underlying_type() == target_node_type {
+                return true;
+            }
+            // 3. Otherwise, if node is one of the element types in list, terminate in a failure state.
+            else if scope.contains(&node.underlying_type()) {
+                return false;
+            }
+
+            // Otherwise, set node to the previous entry in the stack of open elements and return to step 2.
+            let next_node = node
+                .borrow()
+                .parent_node()
+                .expect("Algorithm should terminate before top of the stack is reached");
+            node = next_node;
+            // (This will never fail, since the loop will always terminate in the previous step if the
+            // top of the stack — an html element — is reached.)
+        }
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#close-a-p-element>
@@ -352,6 +386,10 @@ impl<'source> Parser<'source> {
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#reconstruct-the-active-formatting-elements>
     fn reconstruct_active_formatting_elements(&mut self) {
+        // 1. If there are no entries in the list of active formatting elements, then there is nothing to reconstruct; stop this algorithm.
+        if self.active_formatting_elements.is_empty() {
+            return;
+        }
         todo!()
     }
 
@@ -643,7 +681,15 @@ impl<'source> Parser<'source> {
                         self.insertion_mode = InsertionMode::Text;
                     },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "head" => {
-                        todo!()
+                        // Pop the current node (which will be the head element) off the stack of open elements.
+                        let current_node = self.open_elements.pop();
+                        assert_eq!(
+                            current_node.as_ref().map(DOMPtr::underlying_type),
+                            Some(DOMType::HTMLHeadElement)
+                        );
+
+                        // Switch the insertion mode to "after head".
+                        self.insertion_mode = InsertionMode::AfterHead;
                     },
                     Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "template" => {
                         // Insert an HTML element for the token.
@@ -954,7 +1000,19 @@ impl<'source> Parser<'source> {
                         self.done = true;
                     },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "body" => {
-                        todo!()
+                        // If the stack of open elements does not have a body element in scope, this is a parse error; ignore the token.
+                        if !self.is_element_in_scope(DOMType::HTMLBodyElement) {
+                            return;
+                        }
+
+                        // FIXME: Otherwise, if there is a node in the stack of open elements that is not either
+                        // a dd element, a dt element, an li element, an optgroup element, an option element,
+                        // a p element, an rb element, an rp element, an rt element, an rtc element, a tbody element,
+                        // a td element, a tfoot element, a th element, a thead element, a tr element,
+                        // the body element, or the html element, then this is a parse error.
+
+                        // Switch the insertion mode to "after body".
+                        self.insertion_mode = InsertionMode::AfterBody;
                     },
 
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "body" => {
@@ -1085,7 +1143,6 @@ impl<'source> Parser<'source> {
                     Token::Tag(tagdata) if tagdata.opening => {
                         todo!()
                     },
-
                     _ => todo!(),
                 }
             },

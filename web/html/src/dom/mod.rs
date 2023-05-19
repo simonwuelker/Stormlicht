@@ -11,8 +11,8 @@ pub use dom_ptr::{DOMPtr, WeakDOMPtr};
 
 use crate::infra::Namespace;
 use dom_objects::{
-    Document, Element, HTMLElement, HTMLHeadElement, HTMLHtmlElement, HTMLNoscriptElement,
-    HTMLScriptElement, HTMLTemplateElement,
+    Document, Element, HTMLBodyElement, HTMLElement, HTMLHeadElement, HTMLHtmlElement,
+    HTMLNoscriptElement, HTMLScriptElement, HTMLTemplateElement,
 };
 
 /// <https://dom.spec.whatwg.org/#concept-element-custom-element-state>
@@ -126,6 +126,9 @@ fn create_element_for_interface(
         },
         "html" => {
             DOMPtr::new(HTMLHtmlElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+        },
+        "body" => {
+            DOMPtr::new(HTMLBodyElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
         "template" => DOMPtr::new(HTMLTemplateElement::new(HTMLElement::new(element_data)))
             .into_type::<Element>(),

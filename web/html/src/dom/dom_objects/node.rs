@@ -30,7 +30,7 @@ impl Node {
     }
 
     pub fn last_child(&self) -> Option<DOMPtr<Node>> {
-        self.child_nodes.first().cloned()
+        self.child_nodes.last().cloned()
     }
 
     pub fn append_child(parent: DOMPtr<Node>, child: DOMPtr<Node>) {
