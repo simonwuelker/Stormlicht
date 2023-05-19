@@ -7,7 +7,6 @@ default-run = "browser"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-gui = { path = "../gui" }
 cli = { path = "../util/cli" }
 env_logger = "0.10"
 log = "0.4"

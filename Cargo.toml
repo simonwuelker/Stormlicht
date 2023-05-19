@@ -9,7 +9,6 @@ members = [
     "graphics/render",
     "graphics/font",
     "graphics/math",
-    "gui", 
     "compression",
     "util/cli",
     "util/cli-derive",
