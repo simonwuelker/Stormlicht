@@ -799,12 +799,7 @@ impl<'a> URLParser<'a> {
             // https://url.spec.whatwg.org/#file-host-state
             URLParserState::FileHost => {
                 // If c is the EOF code point, U+002F (/), U+005C (\), U+003F (?), or U+0023 (#)
-                if self.c().is_none()
-                    || self.c() == Some('/')
-                    || self.c() == Some('\\')
-                    || self.c() == Some('?')
-                    || self.c() == Some('#')
-                {
+                if matches!(self.c(), None | Some('/' | '\\' | '?' | '#')) {
                     // then decrease pointer by 1 and then:
                     self.ptr -= 1;
 
@@ -816,7 +811,7 @@ impl<'a> URLParser<'a> {
                         self.set_state(URLParserState::Path);
                     }
                     // Otherwise, if buffer is the empty string, then:
-                    else if !self.buffer.is_empty() {
+                    else if self.buffer.is_empty() {
                         // Set url’s host to the empty string.
                         self.url.host = Some(Host::OpaqueHost(String::new()));
 
