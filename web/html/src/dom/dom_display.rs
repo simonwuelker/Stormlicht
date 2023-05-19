@@ -4,6 +4,13 @@ use std::fmt;
 
 use crate::dom::{dom_objects::Node, DOMPtr};
 
+/// Number of spaces added per nesting level
+const INDENT_LEVEL: usize = 2;
+
+/// Maximum number of text characters to display before cutting them of.
+/// This prevents `<script>`/`<style>` spam.
+const MAX_TEXT_LEN: usize = 16;
+
 /// Similar to [Display](std::fmt::Display), except the format is a compact
 /// DOM tree, like this:
 /// ```text
@@ -13,7 +20,14 @@ use crate::dom::{dom_objects::Node, DOMPtr};
 ///         <p>
 /// ```
 pub trait DOMDisplay {
-    fn format(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error>;
+    fn format(&self, f: &mut fmt::Formatter) -> fmt::Result;
+    fn format_text(&self, f: &mut fmt::Formatter, text: &str) -> fmt::Result {
+        if text.len() < MAX_TEXT_LEN {
+            write!(f, "{}", text)
+        } else {
+            write!(f, "{} [...]", &text[..MAX_TEXT_LEN])
+        }
+    }
 }
 
 /// When printing the DOM, we want to keep track of the indent level
@@ -21,12 +35,12 @@ pub trait DOMDisplay {
 /// The default [Debug] trait does not allow for this, which is why we
 /// wrap the element to be formatted in an [IndentFormatter].
 pub struct IndentFormatter {
+    /// The indent level for the debug representation of [IndentFormatter.inner]
     pub indent_level: usize,
+
+    /// The object that should be formatted
     pub inner: DOMPtr<Node>,
 }
-
-/// Number of spaces added per nesting level
-const INDENT_LEVEL: usize = 2;
 
 impl fmt::Debug for IndentFormatter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

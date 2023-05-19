@@ -17,7 +17,10 @@ impl Comment {
 }
 
 impl DOMDisplay for Comment {
-    fn format(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "CDATA({:?})", self.content)
+    fn format(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "<!-- ")?;
+        self.format_text(f, &self.content)?;
+        write!(f, " -->")?;
+        Ok(())
     }
 }

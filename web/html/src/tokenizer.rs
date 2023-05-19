@@ -1,15 +1,16 @@
-//! Implements a [HTML Tokenizer](https://html.spec.whatwg.org/multipage/parsing.html#tokenization)
+//! The [HTML Tokenizer](https://html.spec.whatwg.org/multipage/parsing.html#tokenization)
 
 use super::character_reference::match_reference;
 use std::collections::VecDeque;
 
+// Characters that are hard to read
 const UNICODE_REPLACEMENT: char = '\u{FFFD}';
-
 const TAB: char = '\u{0009}';
 const LINE_FEED: char = '\u{000A}';
 const FORM_FEED: char = '\u{000C}';
 const SPACE: char = '\u{0020}';
 
+/// The different states of the [Tokenizer] state machine
 #[derive(Debug, Clone, Copy)]
 pub enum TokenizerState {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#data-state>
@@ -273,9 +274,20 @@ pub struct Doctype {
 
 #[derive(Debug, Clone)]
 pub struct TagData {
+    /// True if the tag is opening (`<tag>`) and false if it's a closing tag (`</tag>`)
     pub opening: bool,
+
+    /// The tag identifier.
+    ///
+    /// For `<script>`, this would be `"script"` for example.
     pub name: String,
+
+    /// Whether the tag declaration closes itself (`<tag/>`)
     pub self_closing: bool,
+
+    /// A list of tag attributes.
+    ///
+    /// For example, the tag `<tag foo=bar baz=boo>` has two attributes, `("foo", "bar")` and `("baz", "boo")`.
     pub attributes: Vec<(String, String)>,
 }
 
@@ -323,16 +335,28 @@ impl TagData {
 }
 
 pub struct Tokenizer<'source> {
+    /// The source code that is being tokenized
     source: &'source str,
+
+    /// The current state of the state machine
     pub state: TokenizerState,
+
+    /// Index of the next character to be fed to the tokenizer
     ptr: usize,
+
+    /// Whether or not we should continue tokenizing
     pub done: bool,
+
+    /// The tokens produced by the [Tokenizer]
     token_buffer: VecDeque<Token>,
 
     /// Used by [TokenizerState::CharacterReferenceState]
     return_state: Option<TokenizerState>,
     last_emitted_start_tag_name: Option<String>,
+
+    /// A general-purpose temporary buffer
     buffer: Option<String>,
+
     current_token: Option<Token>,
     character_reference_code: u32,
 }

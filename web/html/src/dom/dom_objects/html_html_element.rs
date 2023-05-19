@@ -1,10 +1,9 @@
-//! <https://html.spec.whatwg.org/multipage/semantics.html#the-html-element>
-
 use dom_derive::inherit;
 
 use super::HTMLElement;
 use crate::display_tagname;
 
+/// <https://html.spec.whatwg.org/multipage/semantics.html#the-html-element>
 #[inherit(HTMLElement)]
 pub struct HTMLHtmlElement {}
 

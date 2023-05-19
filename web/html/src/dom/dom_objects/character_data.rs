@@ -17,7 +17,10 @@ impl CharacterData {
 }
 
 impl DOMDisplay for CharacterData {
-    fn format(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "CDATA({:?})", self.content)
+    fn format(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "CDATA(")?;
+        self.format_text(f, &self.content)?;
+        write!(f, ")")?;
+        Ok(())
     }
 }

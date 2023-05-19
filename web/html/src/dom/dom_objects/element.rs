@@ -1,11 +1,10 @@
-//! <https://dom.spec.whatwg.org/#interface-element>
-
 use dom_derive::inherit;
 
 use crate::{display_string, dom::ElementCustomState, infra::Namespace};
 
 use super::Node;
 
+/// <https://dom.spec.whatwg.org/#interface-element>
 #[inherit(Node)]
 pub struct Element {
     namespace: Namespace,

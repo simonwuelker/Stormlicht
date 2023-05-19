@@ -1,10 +1,9 @@
-//! <https://html.spec.whatwg.org/multipage/sections.html#the-body-element>
-
 use dom_derive::inherit;
 
 use super::HTMLElement;
 use crate::display_tagname;
 
+/// <https://html.spec.whatwg.org/multipage/sections.html#the-body-element>
 #[inherit(HTMLElement)]
 pub struct HTMLBodyElement {}
 

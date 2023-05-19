@@ -49,10 +49,12 @@ impl<T: DOMTyped> DOMPtr<T> {
         }
     }
 
+    /// Get the actual type pointed to by the [DOMPtr]
     pub fn underlying_type(&self) -> DOMType {
         self.underlying_type
     }
 
+    /// Return true if the DOMPtr stores `O` or any of its subclasses
     pub fn is_a<O: DOMTyped>(&self) -> bool {
         self.underlying_type.is_a(O::as_type())
     }
@@ -67,6 +69,8 @@ impl<T: DOMTyped> DOMPtr<T> {
         unsafe { std::mem::transmute(self) }
     }
 
+    /// Try to cast the object to another type and fail
+    /// if the cast is invalid (ie the objects don't inherit from each other)
     pub fn try_into<O: DOMTyped>(&self) -> Option<DOMPtr<O>> {
         if self.is_a::<O>() {
             Some(DOMPtr::clone(self).into_type())
@@ -92,10 +96,12 @@ impl<T: DOMTyped> DOMPtr<T> {
 }
 
 impl<T: DOMTyped> WeakDOMPtr<T> {
+    /// Get the actual type pointed to by the [DOMPtr]
     pub fn underlying_type(&self) -> DOMType {
         self.underlying_type
     }
 
+    /// Return true if the DOMPtr stores `O` or any of its subclasses
     pub fn is_a<O: DOMTyped>(&self) -> bool {
         self.underlying_type.is_a(O::as_type())
     }

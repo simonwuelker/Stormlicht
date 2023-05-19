@@ -986,7 +986,7 @@ impl<'source> Parser<'source> {
                     Token::EOF => {
                         // If the stack of template insertion modes is not empty, then process the
                         // token using the rules for the "in template" insertion mode.
-                        // FIXME we don't have a template insertion mode yet
+                        // FIXME we don't have a stack of template insertion modes yet
 
                         // Otherwise, follow these steps:
                         //     If there is a node in the stack of open elements that is not either
