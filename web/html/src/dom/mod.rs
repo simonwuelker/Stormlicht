@@ -11,9 +11,10 @@ pub use dom_ptr::{DOMPtr, WeakDOMPtr};
 
 use crate::infra::Namespace;
 use dom_objects::{
-    Document, Element, HTMLBodyElement, HTMLElement, HTMLHeadElement, HTMLHtmlElement,
-    HTMLLinkElement, HTMLMetaElement, HTMLNoscriptElement, HTMLScriptElement, HTMLStyleElement,
-    HTMLTemplateElement, HTMLTitleElement,
+    Document, Element, HTMLBodyElement, HTMLButtonElement, HTMLDivElement, HTMLElement,
+    HTMLHeadElement, HTMLHtmlElement, HTMLLinkElement, HTMLMetaElement, HTMLNoscriptElement,
+    HTMLParagraphElement, HTMLScriptElement, HTMLStyleElement, HTMLTemplateElement,
+    HTMLTitleElement,
 };
 
 /// <https://dom.spec.whatwg.org/#concept-element-custom-element-state>
@@ -125,6 +126,11 @@ fn create_element_for_interface(
         "body" => {
             DOMPtr::new(HTMLBodyElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
+        "button" => DOMPtr::new(HTMLButtonElement::new(HTMLElement::new(element_data)))
+            .into_type::<Element>(),
+        "div" => {
+            DOMPtr::new(HTMLDivElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+        },
         "head" => {
             DOMPtr::new(HTMLHeadElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
@@ -138,6 +144,8 @@ fn create_element_for_interface(
             DOMPtr::new(HTMLMetaElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
         "noscript" => DOMPtr::new(HTMLNoscriptElement::new(HTMLElement::new(element_data)))
+            .into_type::<Element>(),
+        "p" => DOMPtr::new(HTMLParagraphElement::new(HTMLElement::new(element_data)))
             .into_type::<Element>(),
         "script" => DOMPtr::new(HTMLScriptElement::new(HTMLElement::new(element_data)))
             .into_type::<Element>(),

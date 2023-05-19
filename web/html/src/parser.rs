@@ -17,6 +17,13 @@ const LINE_FEED: char = '\u{000A}';
 const FORM_FEED: char = '\u{000C}';
 const WHITESPACE: char = '\u{0020}';
 
+const DEFAULT_SCOPE: &[DOMType] = &[DOMType::HTMLHtmlElement, DOMType::HTMLTemplateElement];
+const BUTTON_SCOPE: &[DOMType] = &[
+    DOMType::HTMLHtmlElement,
+    DOMType::HTMLTemplateElement,
+    DOMType::HTMLButtonElement,
+];
+
 #[derive(Clone, Copy, Debug)]
 enum GenericParsingAlgorithm {
     RCDATA,
@@ -242,7 +249,12 @@ impl<'source> Parser<'source> {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-scope>
     fn is_element_in_scope(&self, target_node_type: DOMType) -> bool {
         // FIXME: this default scope should contain more types but they dont exist yet
-        self.is_element_in_specific_scope(target_node_type, &[DOMType::HTMLHtmlElement])
+        self.is_element_in_specific_scope(target_node_type, DEFAULT_SCOPE)
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-button-scope>
+    fn is_element_in_button_scope(&self, target_node_type: DOMType) -> bool {
+        self.is_element_in_specific_scope(target_node_type, BUTTON_SCOPE)
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-the-specific-scope>
@@ -1045,7 +1057,13 @@ impl<'source> Parser<'source> {
                                 || tagdata.name == "summary"
                                 || tagdata.name == "ul") =>
                     {
-                        todo!()
+                        // If the stack of open elements has a p element in button scope, then close a p element.
+                        if self.is_element_in_button_scope(DOMType::HTMLParagraphElement) {
+                            self._close_p_element();
+                        }
+
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(tagdata);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
