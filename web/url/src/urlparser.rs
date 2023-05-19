@@ -115,9 +115,7 @@ impl<'a> URLParser<'a> {
                 let c = self.c();
 
                 // If c is an ASCII alphanumeric, U+002B (+), U+002D (-), or U+002E (.),
-                if c.is_some() && c.unwrap().is_ascii_alphanumeric()
-                    || matches!(c, Some('+' | '#' | '.'))
-                {
+                if matches!(c, Some('a'..='z' | 'A'..='Z' | '0'..='9' | '+' | '-' | '.')) {
                     // Append c, lowercased, to buffer
                     self.buffer.push(c.unwrap().to_ascii_lowercase());
                 }
@@ -167,7 +165,7 @@ impl<'a> URLParser<'a> {
                     }
 
                     // Set buffer to the empty string.
-                    self.buffer = String::new();
+                    self.buffer.clear();
 
                     // If url’s scheme is "file", then:
                     if self.url.scheme == "file" {
@@ -214,7 +212,7 @@ impl<'a> URLParser<'a> {
                 // Otherwise, if state override is not given
                 else if self.state_override.is_none() {
                     // set buffer to the empty string,
-                    self.buffer = String::new();
+                    self.buffer.clear();
 
                     // state to no scheme state,
                     self.set_state(URLParserState::NoScheme);
@@ -486,7 +484,7 @@ impl<'a> URLParser<'a> {
                     }
 
                     // Set buffer to the empty string.
-                    self.buffer = String::new();
+                    self.buffer.clear();
                 }
                 // Otherwise, if one of the following is true:
                 // * c is the EOF code point, U+002F (/), U+003F (?), or U+0023 (#)
@@ -505,7 +503,7 @@ impl<'a> URLParser<'a> {
                     self.ptr -= self.buffer.chars().count() + 1;
 
                     // set buffer to the empty string,
-                    self.buffer = String::new();
+                    self.buffer.clear();
 
                     // and set state to host state.
                     self.set_state(URLParserState::Host);
@@ -525,7 +523,7 @@ impl<'a> URLParser<'a> {
                     self.ptr -= 1;
 
                     // and set state to file host state.
-                    self.state = URLParserState::FileHost;
+                    self.set_state(URLParserState::FileHost);
                 }
                 // Otherwise, if c is U+003A (:) and insideBrackets is false
                 else if self.c() == Some(':') && !self.inside_brackets {
@@ -552,7 +550,7 @@ impl<'a> URLParser<'a> {
                     self.url.host = Some(host);
 
                     // buffer to the empty string,
-                    self.buffer = String::new();
+                    self.buffer.clear();
 
                     // and state to port state.
                     self.set_state(URLParserState::Port);
@@ -595,7 +593,7 @@ impl<'a> URLParser<'a> {
                     self.url.host = Some(host);
 
                     // buffer to the empty string,
-                    self.buffer = String::new();
+                    self.buffer.clear();
 
                     // and state to path start state.
                     self.set_state(URLParserState::PathStart);
@@ -656,7 +654,7 @@ impl<'a> URLParser<'a> {
                         }
 
                         // Set buffer to the empty string.
-                        self.buffer = String::new();
+                        self.buffer.clear();
                     }
 
                     // If state override is given
@@ -853,7 +851,7 @@ impl<'a> URLParser<'a> {
                         }
 
                         // Set buffer to the empty string
-                        self.buffer = String::new();
+                        self.buffer.clear();
 
                         // and state to path start state.
                         self.set_state(URLParserState::PathStart);
@@ -979,7 +977,7 @@ impl<'a> URLParser<'a> {
                     }
 
                     // Set buffer to the empty string.
-                    self.buffer = String::new();
+                    self.buffer.clear();
 
                     // If c is U+003F (?)
                     if self.c() == Some('?') {
@@ -1010,9 +1008,7 @@ impl<'a> URLParser<'a> {
 
                     // UTF-8 percent-encode c using the path percent-encode set and append the result to buffer.
                     let result = percent_encode_char(self.c().unwrap(), is_path_percent_encode_set);
-
-                    // and append the result to url’s path.
-                    self.url.path.push(result);
+                    self.buffer.push_str(&result);
                 }
             },
             // https://url.spec.whatwg.org/#cannot-be-a-base-url-path-state
@@ -1077,7 +1073,7 @@ impl<'a> URLParser<'a> {
                     self.url.query.as_mut().unwrap().push_str(&result);
 
                     // Set buffer to the empty string.
-                    self.buffer = String::new();
+                    self.buffer.clear();
 
                     // If c is U+0023 (#),
                     if self.c() == Some('#') {
