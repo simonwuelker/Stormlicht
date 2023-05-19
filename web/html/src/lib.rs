@@ -1,5 +1,6 @@
-pub mod character_reference;
 pub mod dom;
 pub mod infra;
-pub mod parser;
-pub mod tokenizer;
+pub mod tokenization;
+pub mod treebuilding;
+
+pub use treebuilding::parser::Parser;

@@ -1,6 +1,6 @@
 //! The [HTML Tokenizer](https://html.spec.whatwg.org/multipage/parsing.html#tokenization)
 
-use super::character_reference::match_reference;
+use super::{lookup_character_reference, Doctype, TagData, Token};
 use std::collections::VecDeque;
 
 // Characters that are hard to read
@@ -252,86 +252,6 @@ pub enum TokenizerState {
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-end-state>
     NumericCharacterReferenceEndState,
-}
-
-#[derive(Debug, Clone)]
-pub enum Token {
-    DOCTYPE(Doctype),
-    Tag(TagData),
-    Comment(String),
-    // TODO: emitting single characters is really inefficient, change this to be a string
-    Character(char),
-    EOF,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Doctype {
-    pub name: Option<String>,
-    pub public_ident: Option<String>,
-    pub system_ident: Option<String>,
-    pub force_quirks: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct TagData {
-    /// True if the tag is opening (`<tag>`) and false if it's a closing tag (`</tag>`)
-    pub opening: bool,
-
-    /// The tag identifier.
-    ///
-    /// For `<script>`, this would be `"script"` for example.
-    pub name: String,
-
-    /// Whether the tag declaration closes itself (`<tag/>`)
-    pub self_closing: bool,
-
-    /// A list of tag attributes.
-    ///
-    /// For example, the tag `<tag foo=bar baz=boo>` has two attributes, `("foo", "bar")` and `("baz", "boo")`.
-    pub attributes: Vec<(String, String)>,
-}
-
-impl TagData {
-    pub fn lookup_attribute<'a>(&'a self, want: &str) -> Option<&'a str> {
-        for (key, value) in &self.attributes {
-            if key == want {
-                return Some(value);
-            }
-        }
-        None
-    }
-
-    fn new_attribute(&mut self) {
-        self.attributes.push((String::new(), String::new()));
-    }
-
-    /// Add a character to the last attribute's name
-    fn add_to_attr_name(&mut self, c: char) {
-        self.attributes.last_mut().unwrap().0.push(c);
-    }
-
-    /// Add a character to the last attribute's value
-    fn add_to_attr_value(&mut self, c: char) {
-        self.attributes.last_mut().unwrap().1.push(c);
-    }
-
-    fn default_open() -> Self {
-        Self {
-            opening: true,
-            name: String::default(),
-            self_closing: false,
-            attributes: Vec::new(),
-        }
-    }
-
-    fn default_close() -> Self {
-        Self {
-            opening: false,
-            name: String::default(),
-            self_closing: false,
-            attributes: Vec::new(),
-        }
-    }
 }
 
 pub struct Tokenizer<'source> {
@@ -2897,7 +2817,7 @@ impl<'source> Tokenizer<'source> {
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#named-character-reference-state
             TokenizerState::NamedCharacterReferenceState => {
-                match match_reference(&self.source[self.ptr..]) {
+                match lookup_character_reference(&self.source[self.ptr..]) {
                     Some(unicode_val) => {
                         // If the character reference was consumed as part of an attribute, and
                         // the last character matched is not a U+003B SEMICOLON character (;),

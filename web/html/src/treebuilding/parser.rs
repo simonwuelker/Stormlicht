@@ -9,7 +9,7 @@ use crate::{
         DOMPtr, DOMType,
     },
     infra::Namespace,
-    tokenizer::{TagData, Token, Tokenizer, TokenizerState},
+    tokenization::{TagData, Token, Tokenizer, TokenizerState},
 };
 
 const TAB: char = '\u{0009}';

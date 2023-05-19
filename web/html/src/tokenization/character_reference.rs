@@ -4467,6 +4467,6 @@ const VALUES: [&str; 2231] = [
     "\u{200c}",
 ];
 
-pub fn match_reference(source: &str) -> Option<&'static str> {
+pub fn lookup_character_reference(source: &str) -> Option<&'static str> {
     KEYS.binary_search(&source).ok().map(|index| VALUES[index])
 }
