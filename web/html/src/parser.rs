@@ -1241,7 +1241,6 @@ impl<'source> Parser<'source> {
 
                         // Let script be the current node (which will be a script element).
                         let script = self.current_node();
-                        log::info!("{:?}", script.underlying_type());
                         script.into_type::<HTMLScriptElement>();
 
                         // Pop the current node off the stack of open elements.

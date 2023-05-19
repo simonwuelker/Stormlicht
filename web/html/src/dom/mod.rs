@@ -12,7 +12,8 @@ pub use dom_ptr::{DOMPtr, WeakDOMPtr};
 use crate::infra::Namespace;
 use dom_objects::{
     Document, Element, HTMLBodyElement, HTMLElement, HTMLHeadElement, HTMLHtmlElement,
-    HTMLNoscriptElement, HTMLScriptElement, HTMLTemplateElement,
+    HTMLMetaElement, HTMLNoscriptElement, HTMLScriptElement, HTMLStyleElement, HTMLTemplateElement,
+    HTMLTitleElement,
 };
 
 /// <https://dom.spec.whatwg.org/#concept-element-custom-element-state>
@@ -121,20 +122,27 @@ fn create_element_for_interface(
     }
 
     match local_name {
+        "body" => {
+            DOMPtr::new(HTMLBodyElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+        },
         "head" => {
             DOMPtr::new(HTMLHeadElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
         "html" => {
             DOMPtr::new(HTMLHtmlElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
-        "body" => {
-            DOMPtr::new(HTMLBodyElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+        "meta" => {
+            DOMPtr::new(HTMLMetaElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
-        "template" => DOMPtr::new(HTMLTemplateElement::new(HTMLElement::new(element_data)))
+        "noscript" => DOMPtr::new(HTMLNoscriptElement::new(HTMLElement::new(element_data)))
             .into_type::<Element>(),
         "script" => DOMPtr::new(HTMLScriptElement::new(HTMLElement::new(element_data)))
             .into_type::<Element>(),
-        "noscript" => DOMPtr::new(HTMLNoscriptElement::new(HTMLElement::new(element_data)))
+        "style" => DOMPtr::new(HTMLStyleElement::new(HTMLElement::new(element_data)))
+            .into_type::<Element>(),
+        "template" => DOMPtr::new(HTMLTemplateElement::new(HTMLElement::new(element_data)))
+            .into_type::<Element>(),
+        "title" => DOMPtr::new(HTMLTitleElement::new(HTMLElement::new(element_data)))
             .into_type::<Element>(),
         _ => {
             log::warn!("Failed to create element for interface {local_name:?}");
