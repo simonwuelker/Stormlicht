@@ -1,6 +1,6 @@
 //! <https://mimesniff.spec.whatwg.org/#resource>
 
-use std::str::FromStr;
+use std::{fs, str::FromStr};
 
 use crate::{
     sniff::{self, identify_audio_or_video_type, identify_image_type},
@@ -53,6 +53,7 @@ pub enum ResourceLoadError {
     HTTP(HTTPError),
     UnsupportedScheme,
     BadURL(url::URLParseError),
+    File(std::io::Error),
 }
 
 impl Resource {
@@ -97,7 +98,8 @@ impl Resource {
             },
             "file" => {
                 // Fetch the file from the local filesystem
-                todo!()
+                let path = url.path.join("/");
+                fs::read(path).map_err(ResourceLoadError::File)?
             },
             other => {
                 log::error!(
