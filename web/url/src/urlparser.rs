@@ -172,7 +172,6 @@ impl<'a> URLParser<'a> {
                         // If remaining does not start with "//"
                         if !self.remaining().starts_with("//") {
                             // validation error.
-                            return Err(());
                         }
 
                         // Set state to file state.
@@ -579,7 +578,7 @@ impl<'a> URLParser<'a> {
                         && self.buffer.is_empty()
                         && (self.url.includes_credentials() || self.url.port.is_some())
                     {
-                        //  return.
+                        // return.
                         return Ok(());
                     }
 
@@ -629,10 +628,7 @@ impl<'a> URLParser<'a> {
                 // * c is the EOF code point, U+002F (/), U+003F (?), or U+0023 (#)
                 // * url is special and c is U+005C (\)
                 // * state override is given
-                else if (self.c().is_none()
-                    || self.c() == Some('/')
-                    || self.c() == Some('?')
-                    || self.c() == Some('#'))
+                else if matches!(self.c(), None | Some('/' | '?' | '#'))
                     || (self.url.is_special() && self.c() == Some('\\'))
                     || (self.state_override.is_some())
                 {
