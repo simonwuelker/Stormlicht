@@ -3,7 +3,7 @@ use crate::display_tagname;
 
 use dom_derive::inherit;
 
-/// <https://html.spec.whatwg.org/multipage/semantics.html#the-title-element>
+/// <https://html.spec.whatwg.org/multipage/semantics.html#the-meta-element>
 #[inherit(HTMLElement)]
 pub struct HTMLMetaElement {
     name: String,

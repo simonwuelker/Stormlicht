@@ -34,4 +34,8 @@ impl Element {
             ..Default::default()
         }
     }
+
+    pub fn local_name(&self) -> &str {
+        &self.local_name
+    }
 }

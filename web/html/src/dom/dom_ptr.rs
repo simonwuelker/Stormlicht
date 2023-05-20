@@ -71,7 +71,7 @@ impl<T: DOMTyped> DOMPtr<T> {
 
     /// Try to cast the object to another type and fail
     /// if the cast is invalid (ie the objects don't inherit from each other)
-    pub fn try_into<O: DOMTyped>(&self) -> Option<DOMPtr<O>> {
+    pub fn try_into_type<O: DOMTyped>(&self) -> Option<DOMPtr<O>> {
         if self.is_a::<O>() {
             Some(DOMPtr::clone(self).into_type())
         } else {
@@ -83,8 +83,10 @@ impl<T: DOMTyped> DOMPtr<T> {
     /// This is the equivalent `ptr_eq` on [Rc](std::rc::Rc).
     /// Note that due to the constraints on [Rc], the two dom
     /// pointers must point to the same type.
-    pub fn ptr_eq(this: &DOMPtr<T>, other: &DOMPtr<T>) -> bool {
-        Rc::ptr_eq(&this.inner, &other.inner)
+    pub fn ptr_eq<U: DOMTyped>(&self, other: &DOMPtr<U>) -> bool {
+        // We don't care about the type information,
+        // only if the two DOMPtrs point to the same underlying object
+        self.inner.as_ptr().cast::<U>() == other.as_ptr()
     }
 
     pub fn downgrade(&self) -> WeakDOMPtr<T> {
