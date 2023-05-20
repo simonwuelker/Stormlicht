@@ -5,7 +5,7 @@ use crate::{
         self,
         dom_objects::{
             Comment, Document, DocumentType, Element, HTMLElement, HTMLHtmlElement,
-            HTMLScriptElement, Node, Text,
+            HTMLParagraphElement, HTMLScriptElement, Node, Text,
         },
         DOMPtr, DOMType,
     },
@@ -34,7 +34,7 @@ enum GenericParsingAlgorithm {
 }
 
 /// <https://html.spec.whatwg.org/multipage/parsing.html#parse-state>
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InsertionMode {
     Initial,
     BeforeHtml,
@@ -61,6 +61,13 @@ pub enum InsertionMode {
     AfterAfterFrameset,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum FramesetOkFlag {
+    #[default]
+    Ok,
+    NotOk,
+}
+
 pub struct Parser<'source> {
     tokenizer: Tokenizer<'source>,
     document: DOMPtr<Document>,
@@ -71,6 +78,7 @@ pub struct Parser<'source> {
     insertion_mode: InsertionMode,
     open_elements: StackOfOpenElements,
     head: Option<DOMPtr<Node>>,
+    frameset_ok: FramesetOkFlag,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#list-of-active-formatting-elements>
     active_formatting_elements: ActiveFormattingElements,
@@ -94,6 +102,7 @@ impl<'source> Parser<'source> {
             insertion_mode: InsertionMode::Initial,
             open_elements: StackOfOpenElements::default(),
             head: None,
+            frameset_ok: FramesetOkFlag::default(),
             active_formatting_elements: ActiveFormattingElements::default(),
             execute_script: false,
             done: false,
@@ -287,17 +296,34 @@ impl<'source> Parser<'source> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#close-a-p-element>
-    fn _close_p_element(&mut self) {
-        todo!()
+    fn close_p_element(&mut self) {
+        // 1. Generate implied end tags, except for p elements.
+        self.generate_implied_end_tags_excluding(Some(DOMType::HTMLParagraphElement));
+
+        // 2. If the current node is not a p element,
+        if !self.current_node().is_a::<HTMLParagraphElement>() {
+            // then this is a parse error.
+        }
+
+        // 3. Pop elements from the stack of open elements until a p element has been popped from the stack.
+        loop {
+            if self
+                .open_elements
+                .pop()
+                .is_some_and(|node| node.is_a::<HTMLParagraphElement>())
+            {
+                break;
+            }
+        }
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#closing-elements-that-have-implied-end-tags>
     fn _generate_implied_end_tags(&mut self) {
-        self._generate_implied_end_tags_excluding(None);
+        self.generate_implied_end_tags_excluding(None);
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#closing-elements-that-have-implied-end-tags>
-    fn _generate_implied_end_tags_excluding(&mut self, _exclude: Option<DOMType>) {
+    fn generate_implied_end_tags_excluding(&mut self, _exclude: Option<DOMType>) {
         todo!()
     }
 
@@ -1208,7 +1234,7 @@ impl<'source> Parser<'source> {
                     {
                         // If the stack of open elements has a p element in button scope, then close a p element.
                         if self.is_element_in_button_scope(DOMType::HTMLParagraphElement) {
-                            self._close_p_element();
+                            self.close_p_element();
                         }
 
                         // Insert an HTML element for the token.
@@ -1281,7 +1307,19 @@ impl<'source> Parser<'source> {
                         todo!()
                     },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "p" => {
-                        todo!()
+                        // If the stack of open elements does not have a p element in button scope, then this is a parse error;
+                        // insert an HTML element for a "p" start tag token with no attributes.
+                        if !self.is_element_in_button_scope(DOMType::HTMLParagraphElement) {
+                            self.insert_html_element_for_token(&TagData {
+                                opening: true,
+                                name: "p".to_string(),
+                                self_closing: false,
+                                attributes: vec![],
+                            });
+                        }
+
+                        // Close a p element.
+                        self.close_p_element();
                     },
                     Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "li" => {
                         todo!("handle li closing tag")
@@ -1335,11 +1373,327 @@ impl<'source> Parser<'source> {
                         self.active_formatting_elements
                             .push(element.into_type::<Element>());
                     },
+                    Token::Tag(tagdata)
+                        if tagdata.opening
+                            && (tagdata.name == "b"
+                                || tagdata.name == "big"
+                                || tagdata.name == "code"
+                                || tagdata.name == "em"
+                                || tagdata.name == "font"
+                                || tagdata.name == "i"
+                                || tagdata.name == "s"
+                                || tagdata.name == "small"
+                                || tagdata.name == "strike"
+                                || tagdata.name == "strong"
+                                || tagdata.name == "tt"
+                                || tagdata.name == "u") =>
+                    {
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // Insert an HTML element for the token
+                        let element = self
+                            .insert_html_element_for_token(&tagdata)
+                            .into_type::<Element>();
+
+                        // Push onto the list of active formatting elements that element.
+                        self.active_formatting_elements.push(element);
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "nobr" => {
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // FIXME: If the stack of open elements has a nobr element in scope, then this is a parse error; run the adoption agency algorithm for the token,
+                        // then once again reconstruct the active formatting elements, if any.
+                        log::warn!("FIXME: check if <nobr> is in scope");
+
+                        // Insert an HTML element for the token
+                        let element = self
+                            .insert_html_element_for_token(&tagdata)
+                            .into_type::<Element>();
+
+                        // Push onto the list of active formatting elements that element.
+                        self.active_formatting_elements.push(element);
+                    },
+                    Token::Tag(tagdata)
+                        if !tagdata.opening
+                            && (tagdata.name == "a"
+                                || tagdata.name == "b"
+                                || tagdata.name == "big"
+                                || tagdata.name == "code"
+                                || tagdata.name == "em"
+                                || tagdata.name == "font"
+                                || tagdata.name == "i"
+                                || tagdata.name == "nobr"
+                                || tagdata.name == "s"
+                                || tagdata.name == "small"
+                                || tagdata.name == "strike"
+                                || tagdata.name == "strong"
+                                || tagdata.name == "tt"
+                                || tagdata.name == "u") =>
+                    {
+                        // Run the adoption agency algorithm for the token.
+                        self.run_adoption_agency_algorithm(&tagdata);
+                    },
+                    Token::Tag(tagdata)
+                        if tagdata.opening
+                            && (tagdata.name == "applet"
+                                || tagdata.name == "marquee"
+                                || tagdata.name == "object") =>
+                    {
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // Insert an HTML element for the token
+                        self.insert_html_element_for_token(&tagdata);
+
+                        // Insert a marker at the end of the list of active formatting elements.
+                        self.active_formatting_elements.insert_marker();
+
+                        // Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
+                    },
+                    Token::Tag(tagdata)
+                        if !tagdata.opening
+                            && (tagdata.name == "applet"
+                                || tagdata.name == "marquee"
+                                || tagdata.name == "object") =>
+                    {
+                        todo!();
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "table" => {
+                        todo!();
+                    },
+                    Token::Tag(mut tagdata) if !tagdata.opening && tagdata.name == "br" => {
+                        // Parse error. Drop the attributes from the token, and act as described in the next entry; i.e.
+                        // act as if this was a "br" start tag token with no attributes, rather than the end tag token that it actually is.
+                        tagdata.attributes.clear();
+
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+
+                        // Immediately pop the current node off the stack of open elements.
+                        self.open_elements.pop();
+
+                        // Acknowledge the token's self-closing flag, if it is set.
+
+                        // Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
+                    },
+                    Token::Tag(tagdata)
+                        if tagdata.opening
+                            && (tagdata.name == "area"
+                                || tagdata.name == "br"
+                                || tagdata.name == "embed"
+                                || tagdata.name == "img"
+                                || tagdata.name == "keygen"
+                                || tagdata.name == "wbr") =>
+                    {
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+
+                        // Immediately pop the current node off the stack of open elements.
+                        self.open_elements.pop();
+
+                        // Acknowledge the token's self-closing flag, if it is set.
+
+                        // Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "input" => {
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+
+                        // Immediately pop the current node off the stack of open elements.
+                        self.open_elements.pop();
+
+                        // Acknowledge the token's self-closing flag, if it is set.
+
+                        // If the token does not have an attribute with the name "type", or if it does,
+                        // but that attribute's value is not an ASCII case-insensitive match for the string "hidden",
+                        // then: set the frameset-ok flag to "not ok".
+                        if !tagdata.attributes.iter().any(|(key, value)| {
+                            key == "type" && value.eq_ignore_ascii_case("hidden")
+                        }) {
+                            self.frameset_ok = FramesetOkFlag::NotOk;
+                        }
+                    },
+                    Token::Tag(tagdata)
+                        if tagdata.opening
+                            && (tagdata.name == "param"
+                                || tagdata.name == "source"
+                                || tagdata.name == "track") =>
+                    {
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+
+                        // Immediately pop the current node off the stack of open elements.
+                        self.open_elements.pop();
+
+                        // Acknowledge the token's self-closing flag, if it is set.
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "hr" => {
+                        // If the stack of open elements has a p element in button scope, then close a p element.
+                        if self.is_element_in_button_scope(DOMType::HTMLParagraphElement) {
+                            self.close_p_element();
+                        }
+
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+
+                        // Immediately pop the current node off the stack of open elements.
+                        self.open_elements.pop();
+
+                        // Acknowledge the token's self-closing flag, if it is set.
+
+                        // Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
+                    },
+                    Token::Tag(mut tagdata) if tagdata.opening && tagdata.name == "image" => {
+                        // Parse error. Change the token's tag name to "img" and reprocess it. (Don't ask.)
+                        tagdata.name = "img".to_owned();
+                        self.consume(Token::Tag(tagdata));
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "textarea" => {
+                        // Run these steps:
+
+                        // 1. Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+
+                        // 2. If the next token is a U+000A LINE FEED (LF) character token, then ignore that token and move on to the next one.
+                        //    (Newlines at the start of textarea elements are ignored as an authoring convenience.)
+                        log::warn!("FIXME: ignore newlines at start of <textarea>");
+
+                        // 3. Switch the tokenizer to the RCDATA state.
+                        self.tokenizer.switch_to(TokenizerState::RCDATAState);
+
+                        // 4. Let the original insertion mode be the current insertion mode.
+                        self.original_insertion_mode = Some(self.insertion_mode);
+
+                        // 5. Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
+
+                        // 6. Switch the insertion mode to "text".
+                        self.insertion_mode = InsertionMode::Text;
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "xmp" => {
+                        // If the stack of open elements has a p element in button scope, then close a p element.
+                        if self.is_element_in_button_scope(DOMType::HTMLParagraphElement) {
+                            self.close_p_element();
+                        }
+
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
+
+                        // Follow the generic raw text element parsing algorithm.
+                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "iframe" => {
+                        // Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
+
+                        // Follow the generic raw text element parsing algorithm.
+                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "noembed" => {
+                        // Follow the generic raw text element parsing algorithm.
+                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
+                    },
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == "noscript" && self.execute_script =>
+                    {
+                        // Follow the generic raw text element parsing algorithm.
+                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "select" => {
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+
+                        // Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
+
+                        // If the insertion mode is one of "in table", "in caption", "in table body", "in row", or "in cell",
+                        // then switch the insertion mode to "in select in table".
+                        if self.insertion_mode == InsertionMode::InTable
+                            || self.insertion_mode == InsertionMode::InCaption
+                            || self.insertion_mode == InsertionMode::InTableBody
+                            || self.insertion_mode == InsertionMode::InRow
+                            || self.insertion_mode == InsertionMode::InCell
+                        {
+                            self.insertion_mode = InsertionMode::InSelectInTable;
+                        } else {
+                            // Otherwise, switch the insertion mode to "in select".
+                            self.insertion_mode = InsertionMode::InSelect;
+                        }
+                    },
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == "optgroup"
+                            || tagdata.name == "option" =>
+                    {
+                        todo!();
+                    },
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == "rb" || tagdata.name == "rtc" =>
+                    {
+                        todo!();
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "math" => {
+                        todo!();
+                    },
+                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "svg" => {
+                        todo!();
+                    },
+                    Token::Tag(tagdata)
+                        if tagdata.opening
+                            && (tagdata.name == "caption"
+                                || tagdata.name == "col"
+                                || tagdata.name == "colgroup"
+                                || tagdata.name == "frame"
+                                || tagdata.name == "head"
+                                || tagdata.name == "tbody"
+                                || tagdata.name == "td"
+                                || tagdata.name == "tfoot"
+                                || tagdata.name == "th"
+                                || tagdata.name == "thead"
+                                || tagdata.name == "tr") =>
+                    {
+                        // Parse error. Ignore the token.
+                    },
+                    Token::Tag(tagdata) if tagdata.opening => {
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+                    },
+                    Token::Tag(tagdata) if !tagdata.opening => {
+                        // Run these steps:
+
+                        // 1. Initialize node to be the current node (the bottommost node of the stack).
+                        let _node = self.current_node();
+
+                        // 2. Loop: If node is an HTML element with the same tag name as the token, then:
+                        log::warn!(
+                            "FIXME: implement remainder of \"any other end tag\" for inbody"
+                        );
+                    },
 
                     // FIXME a lot of (for now) irrelevant rules are missing here
-                    Token::Tag(tagdata) if tagdata.opening => {
-                        todo!()
-                    },
                     _ => todo!(),
                 }
             },

@@ -53,4 +53,8 @@ impl ActiveFormattingElements {
     pub fn contains<T: DOMTyped>(&self, needle: &DOMPtr<T>) -> bool {
         self.find(needle).is_some()
     }
+
+    pub fn insert_marker(&mut self) {
+        self.markers.push(self.elements.len())
+    }
 }
