@@ -11,9 +11,8 @@ use http::request::HTTPError;
 use url::URL;
 
 /// Whether or not the user agent should try to guess the computed [MIMEType] of a [Resource].
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NoSniff {
-    #[default]
     Yes,
     No,
 }
@@ -110,12 +109,8 @@ impl Resource {
             },
         };
 
-        let metadata = ResourceMetadata::new(
-            supplied_type,
-            check_for_apache_bug,
-            NoSniff::default(),
-            &data,
-        );
+        let metadata =
+            ResourceMetadata::new(supplied_type, check_for_apache_bug, NoSniff::No, &data);
 
         Ok(Resource { metadata, data })
     }
