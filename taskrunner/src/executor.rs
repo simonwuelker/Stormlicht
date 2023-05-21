@@ -28,13 +28,12 @@ impl Default for Executor {
 }
 impl Executor {
     pub fn spawn(&mut self, task: Task) {
-        let task_id = task.id;
-
-        if self.tasks.insert(task.id, task).is_some() {
+        let id = task.id();
+        if self.tasks.insert(id, task).is_some() {
             panic!("Task has already been spawned");
         }
 
-        self.task_queue.lock().unwrap().push_back(task_id);
+        self.task_queue.lock().unwrap().push_back(id);
     }
 
     fn next_task(&self) -> Option<TaskID> {

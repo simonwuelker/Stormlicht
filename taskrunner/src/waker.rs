@@ -18,6 +18,7 @@ impl TaskWaker {
             task_queue,
         }))
     }
+
     fn wake_task(&self) {
         self.task_queue.lock().unwrap().push_back(self.task_id);
     }

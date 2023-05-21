@@ -15,7 +15,7 @@ members = [
     "util/mime",
     "util/random",
     "parser_combinators", 
-    "async/executor",
+    "taskrunner",
     "browser",
     "crypto/ciphers",
     "crypto/hash",
