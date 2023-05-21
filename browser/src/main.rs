@@ -15,7 +15,7 @@ struct ArgumentParser {
         long_name = "URL",
         description = "URL to load"
     )]
-    _url: Option<String>,
+    url: Option<String>,
 
     #[argument(
         flag,
@@ -73,5 +73,5 @@ pub fn main() {
         return;
     }
 
-    BrowserApplication::default().run();
+    BrowserApplication::new(arguments.url.as_deref()).run()
 }

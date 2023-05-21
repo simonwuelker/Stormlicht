@@ -9,4 +9,4 @@ mod sniff;
 mod sniff_tables;
 
 pub use mime_type::{MIMEParseError, MIMEType};
-pub use resource::{Resource, ResourceMetadata};
+pub use resource::{Resource, ResourceLoadError, ResourceMetadata};

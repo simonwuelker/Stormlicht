@@ -15,3 +15,4 @@ softbuffer = "0.2"
 render = { path = "../graphics/render" }
 math = { path = "../graphics/math" }
 font = { path = "../graphics/font" }
+html = { path = "../web/html" }

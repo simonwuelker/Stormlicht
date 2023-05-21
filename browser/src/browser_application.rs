@@ -1,3 +1,5 @@
+use html::BrowsingContext;
+
 const INITIAL_WIDTH: u16 = 800;
 const INITIAL_HEIGHT: u16 = 600;
 
@@ -15,37 +17,7 @@ pub struct BrowserApplication {
     repaint_required: RepaintRequired,
     composition: render::Composition,
     window_handle: glazier::WindowHandle,
-}
-
-impl Default for BrowserApplication {
-    fn default() -> Self {
-        let mut composition = render::Composition::default();
-        composition
-            .get_or_insert_layer(0)
-            .with_source(render::Source::Solid(math::Color::BLUE))
-            .with_outline(render::Path::rect(
-                math::Vec2D::new(100., 100.),
-                math::Vec2D::new(500., 500.),
-            ));
-
-        composition
-            .get_or_insert_layer(1)
-            .with_source(render::Source::Solid(math::Color::BLACK))
-            .text(
-                "Font test",
-                font::Font::default(),
-                200.,
-                math::Vec2D::new(0., 0.),
-            );
-        Self {
-            view_buffer: math::Bitmap::new(INITIAL_WIDTH as usize, INITIAL_HEIGHT as usize),
-            graphics_context: None,
-            size: (INITIAL_WIDTH, INITIAL_HEIGHT),
-            repaint_required: RepaintRequired::Yes,
-            composition,
-            window_handle: glazier::WindowHandle::default(),
-        }
-    }
+    _browsing_context: BrowsingContext,
 }
 
 impl glazier::WinHandler for BrowserApplication {
@@ -90,6 +62,45 @@ impl glazier::WinHandler for BrowserApplication {
 }
 
 impl BrowserApplication {
+    pub fn new(url: Option<&str>) -> Self {
+        let mut composition = render::Composition::default();
+        composition
+            .get_or_insert_layer(0)
+            .with_source(render::Source::Solid(math::Color::BLUE))
+            .with_outline(render::Path::rect(
+                math::Vec2D::new(100., 100.),
+                math::Vec2D::new(500., 500.),
+            ));
+
+        composition
+            .get_or_insert_layer(1)
+            .with_source(render::Source::Solid(math::Color::BLACK))
+            .text(
+                "Font test",
+                font::Font::default(),
+                200.,
+                math::Vec2D::new(0., 0.),
+            );
+
+        let browsing_context = match url {
+            Some(url) => BrowsingContext::load(url).unwrap(),
+            None => {
+                // FIXME: default url
+                BrowsingContext
+            },
+        };
+
+        Self {
+            view_buffer: math::Bitmap::new(INITIAL_WIDTH as usize, INITIAL_HEIGHT as usize),
+            graphics_context: None,
+            size: (INITIAL_WIDTH, INITIAL_HEIGHT),
+            repaint_required: RepaintRequired::Yes,
+            composition,
+            window_handle: glazier::WindowHandle::default(),
+            _browsing_context: browsing_context,
+        }
+    }
+
     pub fn run(self) {
         let app = glazier::Application::new().unwrap();
         let window = glazier::WindowBuilder::new(app.clone())

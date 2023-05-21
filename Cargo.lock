@@ -200,6 +200,7 @@ dependencies = [
  "env_logger 0.10.0",
  "font",
  "glazier",
+ "html",
  "log",
  "math",
  "render",
@@ -909,6 +910,7 @@ version = "0.1.0"
 dependencies = [
  "dom-derive",
  "log",
+ "mime",
  "proc-macro2",
  "syn 1.0.109",
 ]

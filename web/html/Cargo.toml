@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 dom-derive = { path = "../dom-derive"}
 log = "0.4"
+mime = { path = "../../util/mime" }
 
 [build-dependencies]
 syn = "1"
