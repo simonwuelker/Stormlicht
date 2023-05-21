@@ -14,11 +14,10 @@
 //! The term "whitespace" includes comments.
 //! Any parsing function should consume any trailing whitespace *after* it's input but not *before it*.
 
-use crate::{
+use super::{
     rule_parser::{ParsedRule, RuleParser},
     tokenizer::{Token, Tokenizer},
 };
-use bitflags::bitflags;
 use std::fmt::Debug;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -158,12 +157,22 @@ pub struct Parser<'a> {
     stopped: bool,
 }
 
-bitflags! {
-    #[derive(Debug, Clone, Copy)]
-    pub struct ParserDelimiter: u8 {
-        const CURLY_BRACE_OPEN = 0b00000001;
-        const CURLY_BRACE_CLOSE = 0b00000010;
-        const SEMICOLON = 0b00000100;
+#[derive(Debug, Clone, Copy)]
+pub struct ParserDelimiter(u8);
+
+impl ParserDelimiter {
+    const CURLY_BRACE_OPEN: Self = Self(0b00000001);
+    const CURLY_BRACE_CLOSE: Self = Self(0b00000010);
+    const SEMICOLON: Self = Self(0b00000100);
+
+    #[must_use]
+    pub fn contains(&self, other: Self) -> bool {
+        (self.0 & other.0) == other.0
+    }
+
+    #[must_use]
+    pub fn or(&self, other: Self) -> Self {
+        Self(self.0 | other.0)
     }
 }
 
@@ -340,7 +349,7 @@ impl<'a> Parser<'a> {
 
         // Create a delimited parser that only consumes the rule's prelude
         let prelude_ends_at = if mixed_with_declarations == MixedWithDeclarations::True {
-            ParserDelimiter::CURLY_BRACE_OPEN | ParserDelimiter::SEMICOLON
+            ParserDelimiter::CURLY_BRACE_OPEN.or(ParserDelimiter::SEMICOLON)
         } else {
             ParserDelimiter::CURLY_BRACE_OPEN
         };

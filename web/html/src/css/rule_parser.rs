@@ -1,4 +1,4 @@
-use crate::{
+use super::{
     parser::{CSSParse, ParseError, Parser},
     selectors::SelectorList,
 };

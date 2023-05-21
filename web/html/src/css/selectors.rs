@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use crate::{
+use super::{
     parser::{CSSParse, ParseError, Parser},
     tokenizer::{HashFlag, Token},
 };
