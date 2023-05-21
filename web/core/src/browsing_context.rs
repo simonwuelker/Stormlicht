@@ -26,7 +26,7 @@ impl BrowsingContext {
 
         // Parse the data into a html document
         let parse_start = time::Instant::now();
-        let parser = crate::Parser::new(&html_source);
+        let parser = crate::html::Parser::new(&html_source);
         let document = parser.parse();
         let parse_end = time::Instant::now();
 

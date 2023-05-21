@@ -3,9 +3,7 @@
 mod browsing_context;
 pub mod css;
 pub mod dom;
+pub mod html;
 pub mod infra;
-pub mod tokenization;
-pub mod treebuilding;
 
 pub use browsing_context::BrowsingContext;
-pub use treebuilding::parser::Parser;

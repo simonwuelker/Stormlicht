@@ -9,8 +9,8 @@ use crate::{
         },
         DOMPtr, DOMType,
     },
+    html::tokenization::{TagData, Token, Tokenizer, TokenizerState},
     infra::Namespace,
-    tokenization::{TagData, Token, Tokenizer, TokenizerState},
 };
 
 use super::{ActiveFormattingElements, StackOfOpenElements};

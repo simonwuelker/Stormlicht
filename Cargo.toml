@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "web/html", 
+    "web/core", 
     "web/http", 
     "web/url",
     "web/dns",

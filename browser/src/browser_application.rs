@@ -1,4 +1,4 @@
-use html::BrowsingContext;
+use core::BrowsingContext;
 
 const INITIAL_WIDTH: u16 = 800;
 const INITIAL_HEIGHT: u16 = 600;

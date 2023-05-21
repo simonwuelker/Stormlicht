@@ -197,10 +197,10 @@ name = "browser"
 version = "0.1.0"
 dependencies = [
  "cli",
+ "core",
  "env_logger 0.10.0",
  "font",
  "glazier",
- "html",
  "log",
  "math",
  "render",
@@ -387,6 +387,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62ec6771ecfa0762d24683ee5a32ad78487a3d3afdc0fb8cae19d2c5deb50b7c"
 dependencies = [
  "crossbeam-utils",
+]
+
+[[package]]
+name = "core"
+version = "0.1.0"
+dependencies = [
+ "dom-derive",
+ "log",
+ "mime",
+ "proc-macro2",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -903,17 +914,6 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
-
-[[package]]
-name = "html"
-version = "0.1.0"
-dependencies = [
- "dom-derive",
- "log",
- "mime",
- "proc-macro2",
- "syn 1.0.109",
-]
 
 [[package]]
 name = "http"
