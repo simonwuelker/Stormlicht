@@ -52,6 +52,7 @@ pub fn main() {
     #[cfg(target_os = "linux")]
     if unsafe { geteuid() } == 0 {
         log::error!("Refusing to run as root");
+        return;
     }
 
     let arguments = match ArgumentParser::parse() {
