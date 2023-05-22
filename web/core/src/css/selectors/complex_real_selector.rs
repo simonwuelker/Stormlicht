@@ -45,4 +45,12 @@ fn parse_selector_with_combinator<'a>(
     Ok((combinator, selector))
 }
 
-impl<'a> CSSValidateSelector for ComplexRealSelector<'a> {}
+impl<'a> CSSValidateSelector for ComplexRealSelector<'a> {
+    fn is_valid(&self) -> bool {
+        self.first_selector.is_valid()
+            && self
+                .subsequent_selectors
+                .iter()
+                .all(|(combinator, selector)| combinator.is_valid() && selector.is_valid())
+    }
+}

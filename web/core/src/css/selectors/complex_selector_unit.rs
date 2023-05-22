@@ -31,4 +31,22 @@ fn parse_complex_selector_unit_part<'a>(
     })
 }
 
-impl<'a> CSSValidateSelector for ComplexSelectorUnit<'a> {}
+impl<'a> CSSValidateSelector for ComplexSelectorUnit<'a> {
+    fn is_valid(&self) -> bool {
+        self.0.is_valid()
+    }
+}
+
+impl<'a> CSSValidateSelector for ComplexSelectorUnitPart<'a> {
+    fn is_valid(&self) -> bool {
+        // We don't care if there's no compound selector
+        if self
+            .compound_selector
+            .as_ref()
+            .is_some_and(|c| !c.is_valid())
+        {
+            return false;
+        }
+        self.pseudo_compound_selectors.is_valid()
+    }
+}

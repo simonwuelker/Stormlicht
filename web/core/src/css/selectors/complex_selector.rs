@@ -51,12 +51,10 @@ fn parse_complex_selector_unit_with_combinator<'a>(
 
 impl<'a> CSSValidateSelector for ComplexSelector<'a> {
     fn is_valid(&self) -> bool {
-        self.first_unit.is_valid() && self.subsequent_units.iter().all(|unit| unit.1.is_valid())
-    }
-}
-
-impl<'a> CSSValidateSelector for ComplexSelectorList<'a> {
-    fn is_valid(&self) -> bool {
-        self.iter().all(|element| element.is_valid())
+        self.first_unit.is_valid()
+            && self
+                .subsequent_units
+                .iter()
+                .all(|(combinator, unit)| combinator.is_valid() && unit.is_valid())
     }
 }

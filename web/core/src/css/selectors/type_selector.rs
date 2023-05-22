@@ -30,7 +30,14 @@ impl<'a> CSSParse<'a> for TypeSelector<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for TypeSelector<'a> {}
+impl<'a> CSSValidateSelector for TypeSelector<'a> {
+    fn is_valid(&self) -> bool {
+        match self {
+            Self::NSPrefix(ns_prefix) => !ns_prefix.as_ref().is_some_and(|n| n.is_valid()),
+            Self::WQName(wq_name) => wq_name.is_valid(),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

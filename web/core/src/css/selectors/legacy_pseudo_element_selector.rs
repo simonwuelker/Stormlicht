@@ -38,7 +38,13 @@ impl<'a> CSSParse<'a> for LegacyPseudoElementSelector {
     }
 }
 
-impl CSSValidateSelector for LegacyPseudoElementSelector {}
+impl CSSValidateSelector for LegacyPseudoElementSelector {
+    fn is_valid(&self) -> bool {
+        // We don't support *any* legacy pseudo element selectors
+        // As per spec, we therefore treat them as invalid
+        false
+    }
+}
 
 #[cfg(test)]
 mod tests {

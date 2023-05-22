@@ -21,4 +21,8 @@ impl<'a> CSSParse<'a> for PseudoCompoundSelector<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for PseudoCompoundSelector<'a> {}
+impl<'a> CSSValidateSelector for PseudoCompoundSelector<'a> {
+    fn is_valid(&self) -> bool {
+        self.pseudo_element_selector.is_valid() && self.pseudo_class_selectors.is_valid()
+    }
+}

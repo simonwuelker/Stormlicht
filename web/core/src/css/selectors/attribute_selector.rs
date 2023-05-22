@@ -72,7 +72,19 @@ fn parse_attribute_value_matcher<'a>(
     Ok((attribute_matcher, attribute_value, attribute_modifier))
 }
 
-impl<'a> CSSValidateSelector for AttributeSelector<'a> {}
+impl<'a> CSSValidateSelector for AttributeSelector<'a> {
+    fn is_valid(&self) -> bool {
+        match self {
+            Self::Exists { attribute_name } => attribute_name.is_valid(),
+            Self::Matches {
+                attribute_name,
+                matcher,
+                value: _,
+                modifier,
+            } => attribute_name.is_valid() && matcher.is_valid() && modifier.is_valid(),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

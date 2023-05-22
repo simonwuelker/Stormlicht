@@ -28,7 +28,11 @@ impl<'a> CSSParse<'a> for WQName<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for WQName<'a> {}
+impl<'a> CSSValidateSelector for WQName<'a> {
+    fn is_valid(&self) -> bool {
+        true
+    }
+}
 
 #[cfg(test)]
 mod tests {

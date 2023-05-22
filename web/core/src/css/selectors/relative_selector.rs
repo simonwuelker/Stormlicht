@@ -31,4 +31,15 @@ impl<'a> CSSParse<'a> for RelativeSelectorList<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for RelativeSelector<'a> {}
+impl<'a> CSSValidateSelector for RelativeSelector<'a> {
+    fn is_valid(&self) -> bool {
+        if self
+            .combinator
+            .is_some_and(|combinator| !combinator.is_valid())
+        {
+            return false;
+        }
+
+        self.complex_selector.is_valid()
+    }
+}

@@ -24,4 +24,8 @@ impl<'a> CSSParse<'a> for ClassSelector<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for ClassSelector<'a> {}
+impl<'a> CSSValidateSelector for ClassSelector<'a> {
+    fn is_valid(&self) -> bool {
+        true
+    }
+}

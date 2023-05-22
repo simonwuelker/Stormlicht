@@ -48,7 +48,13 @@ impl<'a> CSSParse<'a> for AttributeMatcher {
     }
 }
 
-impl CSSValidateSelector for AttributeMatcher {}
+impl CSSValidateSelector for AttributeMatcher {
+    fn is_valid(&self) -> bool {
+        // We don't support *any* attribute matchers
+        // As per spec, we therefore treat them as invalid
+        false
+    }
+}
 
 #[cfg(test)]
 mod tests {

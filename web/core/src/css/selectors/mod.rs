@@ -56,7 +56,7 @@ pub fn parse_selector<'a>(parser: &mut Parser<'a>) -> Result<SelectorList<'a>, P
 
     // 2. If selector is an invalid selector for any other reason (such as, for example,
     //    containing an undeclared namespace prefix), return failure.
-    if false {
+    if !selector.is_valid() {
         return Err(ParseError);
     }
 
@@ -65,7 +65,12 @@ pub fn parse_selector<'a>(parser: &mut Parser<'a>) -> Result<SelectorList<'a>, P
 }
 
 pub trait CSSValidateSelector {
+    /// <https://drafts.csswg.org/selectors-4/#invalid-selector>
+    fn is_valid(&self) -> bool;
+}
+
+impl<T: CSSValidateSelector> CSSValidateSelector for [T] {
     fn is_valid(&self) -> bool {
-        true
+        self.iter().all(|element| element.is_valid())
     }
 }

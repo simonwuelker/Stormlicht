@@ -35,7 +35,13 @@ impl<'a> CSSParse<'a> for NSPrefix<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for NSPrefix<'a> {}
+impl<'a> CSSValidateSelector for NSPrefix<'a> {
+    fn is_valid(&self) -> bool {
+        // We don't support *any* namespace prefixes
+        // As per spec, we therefore treat them as invalid
+        false
+    }
+}
 
 #[cfg(test)]
 mod tests {

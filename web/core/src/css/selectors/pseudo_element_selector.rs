@@ -32,7 +32,16 @@ impl<'a> CSSParse<'a> for PseudoElementSelector<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for PseudoElementSelector<'a> {}
+impl<'a> CSSValidateSelector for PseudoElementSelector<'a> {
+    fn is_valid(&self) -> bool {
+        match self {
+            Self::PseudoClass(pseudo_class_selector) => pseudo_class_selector.is_valid(),
+            Self::Legacy(legacy_pseudo_element_selector) => {
+                legacy_pseudo_element_selector.is_valid()
+            },
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

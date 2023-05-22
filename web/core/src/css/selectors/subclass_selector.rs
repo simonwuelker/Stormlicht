@@ -39,4 +39,13 @@ impl<'a> CSSParse<'a> for SubClassSelector<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for SubClassSelector<'a> {}
+impl<'a> CSSValidateSelector for SubClassSelector<'a> {
+    fn is_valid(&self) -> bool {
+        match self {
+            Self::ID(id_selector) => id_selector.is_valid(),
+            Self::Class(class_selector) => class_selector.is_valid(),
+            Self::Attribute(attribute_selector) => attribute_selector.is_valid(),
+            Self::PseudoClass(pseudo_class_selector) => pseudo_class_selector.is_valid(),
+        }
+    }
+}

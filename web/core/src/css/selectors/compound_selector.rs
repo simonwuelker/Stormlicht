@@ -37,4 +37,17 @@ impl<'a> CSSParse<'a> for CompoundSelectorList<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for CompoundSelector<'a> {}
+impl<'a> CSSValidateSelector for CompoundSelector<'a> {
+    fn is_valid(&self) -> bool {
+        self.0.iter().all(|p| p.is_valid())
+    }
+}
+
+impl<'a> CSSValidateSelector for CompoundSelectorPart<'a> {
+    fn is_valid(&self) -> bool {
+        if self.type_selector.as_ref().is_some_and(|t| !t.is_valid()) {
+            return false;
+        }
+        self.subclass_selectors.is_valid()
+    }
+}

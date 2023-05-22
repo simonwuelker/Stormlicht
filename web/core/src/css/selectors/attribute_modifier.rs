@@ -31,7 +31,13 @@ impl<'a> CSSParse<'a> for AttributeModifier {
     }
 }
 
-impl CSSValidateSelector for AttributeModifier {}
+impl CSSValidateSelector for AttributeModifier {
+    fn is_valid(&self) -> bool {
+        // We don't support *any* attribute modifiers
+        // As per spec, we therefore treat them as invalid
+        false
+    }
+}
 
 #[cfg(test)]
 mod tests {

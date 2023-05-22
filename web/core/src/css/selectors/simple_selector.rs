@@ -35,7 +35,14 @@ impl<'a> CSSParse<'a> for SimpleSelectorList<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for SimpleSelector<'a> {}
+impl<'a> CSSValidateSelector for SimpleSelector<'a> {
+    fn is_valid(&self) -> bool {
+        match self {
+            Self::Type(type_selector) => type_selector.is_valid(),
+            Self::SubClass(subclass_selector) => subclass_selector.is_valid(),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

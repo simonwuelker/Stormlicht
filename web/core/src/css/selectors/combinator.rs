@@ -60,7 +60,9 @@ impl<'a> CSSParse<'a> for Combinator {
 
 impl CSSValidateSelector for Combinator {
     fn is_valid(&self) -> bool {
-        true
+        // We don't support *any* combinators
+        // As per spec, we therefore treat them as invalid
+        false
     }
 }
 

@@ -23,4 +23,8 @@ impl<'a> CSSParse<'a> for IDSelector<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for IDSelector<'a> {}
+impl<'a> CSSValidateSelector for IDSelector<'a> {
+    fn is_valid(&self) -> bool {
+        true
+    }
+}
