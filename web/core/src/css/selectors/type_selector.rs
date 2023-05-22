@@ -1,7 +1,10 @@
-use super::{CSSValidateSelector, NSPrefix, WQName};
-use crate::css::{
-    parser::{CSSParse, ParseError, Parser},
-    tokenizer::Token,
+use super::{CSSValidateSelector, NSPrefix, Selector, WQName};
+use crate::{
+    css::{
+        parser::{CSSParse, ParseError, Parser},
+        tokenizer::Token,
+    },
+    dom::{dom_objects::Element, DOMPtr},
 };
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-type-selector>
@@ -35,6 +38,17 @@ impl<'a> CSSValidateSelector for TypeSelector<'a> {
         match self {
             Self::NSPrefix(ns_prefix) => !ns_prefix.as_ref().is_some_and(|n| n.is_valid()),
             Self::WQName(wq_name) => wq_name.is_valid(),
+        }
+    }
+}
+
+impl<'a> Selector for TypeSelector<'a> {
+    fn matches(&self, element: DOMPtr<Element>) -> bool {
+        match self {
+            Self::NSPrefix(_) => false,
+            Self::WQName(wq_name) => {
+                wq_name.prefix.is_none() && wq_name.ident == element.borrow().local_name()
+            },
         }
     }
 }

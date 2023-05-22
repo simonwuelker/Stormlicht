@@ -1,7 +1,11 @@
 use super::{
     AttributeSelector, CSSValidateSelector, ClassSelector, IDSelector, PseudoClassSelector,
+    Selector,
 };
-use crate::css::parser::{CSSParse, ParseError, Parser};
+use crate::{
+    css::parser::{CSSParse, ParseError, Parser},
+    dom::{dom_objects::Element, DOMPtr},
+};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-subclass-selector>
 #[derive(Clone, Debug, PartialEq)]
@@ -46,6 +50,15 @@ impl<'a> CSSValidateSelector for SubClassSelector<'a> {
             Self::Class(class_selector) => class_selector.is_valid(),
             Self::Attribute(attribute_selector) => attribute_selector.is_valid(),
             Self::PseudoClass(pseudo_class_selector) => pseudo_class_selector.is_valid(),
+        }
+    }
+}
+
+impl<'a> Selector for SubClassSelector<'a> {
+    fn matches(&self, element: DOMPtr<Element>) -> bool {
+        match self {
+            Self::ID(id_selector) => id_selector.matches(element),
+            _ => todo!(),
         }
     }
 }

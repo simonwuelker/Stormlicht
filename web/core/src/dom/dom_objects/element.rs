@@ -12,6 +12,7 @@ pub struct Element {
     local_name: String,
     custom_state: ElementCustomState,
     is: Option<String>,
+    id: String,
 }
 
 display_string!(Element, "ELEMENT");
@@ -37,5 +38,9 @@ impl Element {
 
     pub fn local_name(&self) -> &str {
         &self.local_name
+    }
+
+    pub fn id(&self) -> &str {
+        &self.id
     }
 }

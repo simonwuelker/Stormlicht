@@ -1,9 +1,12 @@
 use std::borrow::Cow;
 
-use super::CSSValidateSelector;
-use crate::css::{
-    parser::{CSSParse, ParseError, Parser},
-    tokenizer::{HashFlag, Token},
+use super::{CSSValidateSelector, Selector};
+use crate::{
+    css::{
+        parser::{CSSParse, ParseError, Parser},
+        tokenizer::{HashFlag, Token},
+    },
+    dom::{dom_objects::Element, DOMPtr},
 };
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-id-selector>
@@ -26,5 +29,11 @@ impl<'a> CSSParse<'a> for IDSelector<'a> {
 impl<'a> CSSValidateSelector for IDSelector<'a> {
     fn is_valid(&self) -> bool {
         true
+    }
+}
+
+impl<'a> Selector for IDSelector<'a> {
+    fn matches(&self, element: DOMPtr<Element>) -> bool {
+        self.ident == element.borrow().id()
     }
 }

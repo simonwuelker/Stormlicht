@@ -46,6 +46,8 @@ pub use subclass_selector::SubClassSelector;
 pub use type_selector::TypeSelector;
 pub use wq_name::WQName;
 
+use crate::dom::{dom_objects::Element, DOMPtr};
+
 use super::parser::{CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#parse-selector>
@@ -69,8 +71,20 @@ pub trait CSSValidateSelector {
     fn is_valid(&self) -> bool;
 }
 
+pub trait Selector {
+    /// Determine if the given selector matches the given element
+    fn matches(&self, element: DOMPtr<Element>) -> bool;
+}
+
 impl<T: CSSValidateSelector> CSSValidateSelector for [T] {
     fn is_valid(&self) -> bool {
         self.iter().all(|element| element.is_valid())
+    }
+}
+
+impl<T: Selector> Selector for [T] {
+    fn matches(&self, element: DOMPtr<Element>) -> bool {
+        self.iter()
+            .any(|selector| selector.matches(element.clone()))
     }
 }

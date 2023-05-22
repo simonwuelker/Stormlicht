@@ -1,5 +1,8 @@
-use super::{CSSValidateSelector, SubClassSelector, TypeSelector};
-use crate::css::parser::{CSSParse, ParseError, Parser};
+use super::{CSSValidateSelector, Selector, SubClassSelector, TypeSelector};
+use crate::{
+    css::parser::{CSSParse, ParseError, Parser},
+    dom::{dom_objects::Element, DOMPtr},
+};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-simple-selector>
 #[derive(Clone, Debug, PartialEq)]
@@ -40,6 +43,15 @@ impl<'a> CSSValidateSelector for SimpleSelector<'a> {
         match self {
             Self::Type(type_selector) => type_selector.is_valid(),
             Self::SubClass(subclass_selector) => subclass_selector.is_valid(),
+        }
+    }
+}
+
+impl<'a> Selector for SimpleSelector<'a> {
+    fn matches(&self, element: DOMPtr<Element>) -> bool {
+        match self {
+            Self::Type(type_selector) => type_selector.matches(element),
+            Self::SubClass(subclass_selector) => subclass_selector.matches(element),
         }
     }
 }
