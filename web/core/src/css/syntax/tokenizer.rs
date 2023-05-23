@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use super::values::Number;
+use crate::css::values::Number;
 
 // characters are sort of unreadable and should
 // be referenced via their name instead

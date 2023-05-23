@@ -1,8 +1,5 @@
 use super::CSSValidateSelector;
-use crate::css::{
-    parser::{CSSParse, ParseError, Parser},
-    tokenizer::Token,
-};
+use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-combinator>
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -69,7 +66,7 @@ impl CSSValidateSelector for Combinator {
 #[cfg(test)]
 mod tests {
     use super::Combinator;
-    use crate::css::parser::CSSParse;
+    use crate::css::CSSParse;
 
     #[test]
     fn parse_combinator() {

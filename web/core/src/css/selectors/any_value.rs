@@ -1,7 +1,4 @@
-use crate::css::{
-    parser::{CSSParse, ParseError, Parser},
-    tokenizer::Token,
-};
+use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://w3c.github.io/csswg-drafts/css-syntax-3/#typedef-any-value>
 #[derive(Clone, Debug, PartialEq)]

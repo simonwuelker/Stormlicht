@@ -2,7 +2,7 @@
 //!
 //! See <https://drafts.csswg.org/css-syntax/#parsing> for more details.
 
-use super::tokenizer::Token;
+use super::syntax::Token;
 
 #[derive(Clone, Copy, Debug)]
 pub enum BlockDelimiter {

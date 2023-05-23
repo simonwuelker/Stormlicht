@@ -1,9 +1,6 @@
 use std::borrow::Cow;
 
-use crate::css::{
-    parser::{CSSParse, ParseError, Parser},
-    tokenizer::Token,
-};
+use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 use super::{AttributeMatcher, AttributeModifier, CSSValidateSelector, WQName};
 
@@ -90,11 +87,11 @@ impl<'a> CSSValidateSelector for AttributeSelector<'a> {
 mod tests {
     use super::AttributeSelector;
     use crate::css::{
-        parser::CSSParse,
         selectors::{
             AttributeMatcher, AttributeModifier, ClassSelector, IDSelector, PseudoClassSelector,
             SubClassSelector, WQName,
         },
+        CSSParse,
     };
 
     #[test]

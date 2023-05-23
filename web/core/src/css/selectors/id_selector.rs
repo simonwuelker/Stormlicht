@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use super::{CSSValidateSelector, Selector};
 use crate::{
     css::{
-        parser::{CSSParse, ParseError, Parser},
-        tokenizer::{HashFlag, Token},
+        syntax::{HashFlag, Token},
+        CSSParse, ParseError, Parser,
     },
     dom::{dom_objects::Element, DOMPtr},
 };

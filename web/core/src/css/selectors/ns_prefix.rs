@@ -1,10 +1,7 @@
 use std::borrow::Cow;
 
 use super::CSSValidateSelector;
-use crate::css::{
-    parser::{CSSParse, ParseError, Parser},
-    tokenizer::Token,
-};
+use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-ns-prefix>
 #[derive(Clone, Debug, PartialEq)]
@@ -46,7 +43,7 @@ impl<'a> CSSValidateSelector for NSPrefix<'a> {
 #[cfg(test)]
 mod tests {
     use super::NSPrefix;
-    use crate::css::parser::CSSParse;
+    use crate::css::CSSParse;
 
     #[test]
     fn parse_ns_prefix() {

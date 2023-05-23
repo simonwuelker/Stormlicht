@@ -1,6 +1,6 @@
 use super::{CSSValidateSelector, Selector, SubClassSelector, TypeSelector};
 use crate::{
-    css::parser::{CSSParse, ParseError, Parser},
+    css::{CSSParse, ParseError, Parser},
     dom::{dom_objects::Element, DOMPtr},
 };
 
@@ -60,8 +60,8 @@ impl<'a> Selector for SimpleSelector<'a> {
 mod tests {
     use super::SimpleSelector;
     use crate::css::{
-        parser::CSSParse,
         selectors::{IDSelector, SubClassSelector, TypeSelector, WQName},
+        CSSParse,
     };
 
     #[test]

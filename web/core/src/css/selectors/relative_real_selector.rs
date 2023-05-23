@@ -1,5 +1,5 @@
 use super::{CSSValidateSelector, Combinator, ComplexRealSelector};
-use crate::css::parser::{CSSParse, ParseError, Parser};
+use crate::css::{CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-relative-real-selector>
 #[derive(Clone, Debug, PartialEq)]

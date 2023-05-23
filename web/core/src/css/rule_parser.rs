@@ -1,7 +1,4 @@
-use super::{
-    parser::{CSSParse, ParseError, Parser},
-    selectors::SelectorList,
-};
+use super::{selectors::SelectorList, CSSParse, ParseError, Parser, StyleProperty};
 
 #[derive(Clone, Copy, Debug)]
 pub struct RuleParser;
@@ -19,13 +16,25 @@ impl RuleParser {
         parser: &mut Parser<'a>,
         selectors: SelectorList<'a>,
     ) -> Result<ParsedRule<'a>, ParseError> {
+        let properties = vec![];
         // FIXME: actually parse the rule body here
         while parser.next_token().is_some() {}
-        Ok(ParsedRule { selectors })
+        Ok(ParsedRule {
+            selectors,
+            properties,
+        })
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct ParsedRule<'a> {
     pub selectors: SelectorList<'a>,
+    properties: Vec<StyleProperty>,
+}
+
+impl<'a> ParsedRule<'a> {
+    #[must_use]
+    pub fn properties(&self) -> &[StyleProperty] {
+        &self.properties
+    }
 }

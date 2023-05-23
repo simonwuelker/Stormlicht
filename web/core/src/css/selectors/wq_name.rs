@@ -1,10 +1,7 @@
 use std::borrow::Cow;
 
 use super::{CSSValidateSelector, NSPrefix};
-use crate::css::{
-    parser::{CSSParse, ParseError, Parser},
-    tokenizer::Token,
-};
+use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-wq-name>
 #[derive(Clone, Debug, PartialEq)]
@@ -37,7 +34,7 @@ impl<'a> CSSValidateSelector for WQName<'a> {
 #[cfg(test)]
 mod tests {
     use super::WQName;
-    use crate::css::{parser::CSSParse, selectors::NSPrefix};
+    use crate::css::{selectors::NSPrefix, CSSParse};
 
     #[test]
     fn parse_wq_name() {

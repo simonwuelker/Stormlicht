@@ -1,4 +1,4 @@
-use crate::css::parser::{CSSParse, ParseError, Parser, WhitespaceAllowed};
+use crate::css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser};
 
 use super::{CSSValidateSelector, Combinator, ComplexSelectorUnit};
 

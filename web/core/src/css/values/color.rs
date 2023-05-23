@@ -1,9 +1,6 @@
 //! <https://drafts.csswg.org/css-color>
 
-use crate::css::{
-    parser::{CSSParse, ParseError, Parser},
-    tokenizer::Token,
-};
+use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 use super::Number;
 
@@ -166,7 +163,7 @@ fn resolve_percentage(percentage: Number) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::Color;
-    use crate::css::parser::{CSSParse, Parser};
+    use crate::css::{CSSParse, Parser};
 
     #[test]
     fn test_hex_color_code() {

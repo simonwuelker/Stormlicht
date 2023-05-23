@@ -48,7 +48,7 @@ pub use wq_name::WQName;
 
 use crate::dom::{dom_objects::Element, DOMPtr};
 
-use super::parser::{CSSParse, ParseError, Parser};
+use super::{CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#parse-selector>
 pub fn parse_selector<'a>(parser: &mut Parser<'a>) -> Result<SelectorList<'a>, ParseError> {

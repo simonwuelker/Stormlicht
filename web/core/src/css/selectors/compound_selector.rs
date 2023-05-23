@@ -1,6 +1,6 @@
 use super::{CSSValidateSelector, Selector, SubClassSelector, TypeSelector};
 use crate::{
-    css::parser::{CSSParse, ParseError, Parser, WhitespaceAllowed},
+    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser},
     dom::{dom_objects::Element, DOMPtr},
 };
 /// <https://drafts.csswg.org/selectors-4/#compound>

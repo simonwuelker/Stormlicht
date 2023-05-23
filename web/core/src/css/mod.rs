@@ -1,10 +1,12 @@
-//! Implements the [CSS Syntax Module Level 3](https://drafts.csswg.org/css-syntax/) draft.
+//! Cascading Style Sheets
 
-pub mod parser;
+mod properties;
+pub mod syntax;
+
 pub mod rule_parser;
 pub mod selectors;
-pub mod tokenizer;
 pub mod tree;
 pub mod values;
 
-pub use parser::{CSSParse, ParseError, Parser};
+pub use properties::StyleProperty;
+pub use syntax::parser::{CSSParse, ParseError, Parser};

@@ -1,9 +1,6 @@
 use super::{CSSValidateSelector, NSPrefix, Selector, WQName};
 use crate::{
-    css::{
-        parser::{CSSParse, ParseError, Parser},
-        tokenizer::Token,
-    },
+    css::{syntax::Token, CSSParse, ParseError, Parser},
     dom::{dom_objects::Element, DOMPtr},
 };
 
@@ -57,8 +54,8 @@ impl<'a> Selector for TypeSelector<'a> {
 mod tests {
     use super::TypeSelector;
     use crate::css::{
-        parser::CSSParse,
         selectors::{NSPrefix, WQName},
+        CSSParse,
     };
 
     #[test]

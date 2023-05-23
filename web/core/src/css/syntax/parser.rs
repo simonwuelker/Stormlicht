@@ -14,9 +14,10 @@
 //! The term "whitespace" includes comments.
 //! Any parsing function should consume any trailing whitespace *after* it's input but not *before it*.
 
-use super::{
+use super::tokenizer::{Token, Tokenizer};
+
+use crate::css::{
     rule_parser::{ParsedRule, RuleParser},
-    tokenizer::{Token, Tokenizer},
     values::Number,
 };
 use std::fmt::Debug;

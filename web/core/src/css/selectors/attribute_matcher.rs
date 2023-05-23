@@ -1,8 +1,5 @@
 use super::CSSValidateSelector;
-use crate::css::{
-    parser::{CSSParse, ParseError, Parser},
-    tokenizer::Token,
-};
+use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-attr-matcher>
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -59,7 +56,7 @@ impl CSSValidateSelector for AttributeMatcher {
 #[cfg(test)]
 mod tests {
     use super::AttributeMatcher;
-    use crate::css::parser::CSSParse;
+    use crate::css::CSSParse;
 
     #[test]
     fn parse_attribute_matcher() {

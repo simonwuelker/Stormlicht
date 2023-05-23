@@ -1,10 +1,7 @@
 use std::borrow::Cow;
 
 use super::CSSValidateSelector;
-use crate::css::{
-    parser::{CSSParse, ParseError, Parser},
-    tokenizer::Token,
-};
+use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-class-selector>
 #[derive(Clone, Debug, PartialEq)]

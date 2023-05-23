@@ -1,8 +1,5 @@
 use super::{CSSValidateSelector, LegacyPseudoElementSelector, PseudoClassSelector};
-use crate::css::{
-    parser::{CSSParse, ParseError, Parser},
-    tokenizer::Token,
-};
+use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-element-selector>
 #[derive(Clone, Debug, PartialEq)]
@@ -47,9 +44,9 @@ impl<'a> CSSValidateSelector for PseudoElementSelector<'a> {
 mod tests {
     use super::PseudoElementSelector;
     use crate::css::{
-        parser::CSSParse,
         selectors::{AnyValue, LegacyPseudoElementSelector, PseudoClassSelector},
-        tokenizer::Token,
+        syntax::Token,
+        CSSParse,
     };
 
     #[test]

@@ -3,7 +3,7 @@ use super::{
     Selector,
 };
 use crate::{
-    css::parser::{CSSParse, ParseError, Parser},
+    css::{CSSParse, ParseError, Parser},
     dom::{dom_objects::Element, DOMPtr},
 };
 
