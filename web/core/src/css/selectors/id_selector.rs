@@ -33,7 +33,7 @@ impl<'a> CSSValidateSelector for IDSelector<'a> {
 }
 
 impl<'a> Selector for IDSelector<'a> {
-    fn matches(&self, element: DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DOMPtr<Element>) -> bool {
         self.ident == element.borrow().id()
     }
 }

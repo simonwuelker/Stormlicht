@@ -7,4 +7,4 @@ pub mod tokenizer;
 pub mod tree;
 pub mod values;
 
-pub use parser::Parser;
+pub use parser::{CSSParse, ParseError, Parser};

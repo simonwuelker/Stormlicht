@@ -1,4 +1,4 @@
-use crate::css::parser::{CSSParse, ParseError, Parser};
+use crate::css::parser::{CSSParse, ParseError, Parser, WhitespaceAllowed};
 
 use super::{CSSValidateSelector, Combinator, ComplexSelectorUnit};
 
@@ -19,8 +19,10 @@ impl<'a> CSSParse<'a> for ComplexSelector<'a> {
     // <https://drafts.csswg.org/selectors-4/#typedef-complex-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let first_unit = ComplexSelectorUnit::parse(parser)?;
-        let subsequent_units =
-            parser.parse_any_number_of(parse_complex_selector_unit_with_combinator);
+        let subsequent_units = parser.parse_any_number_of(
+            parse_complex_selector_unit_with_combinator,
+            WhitespaceAllowed::Yes,
+        );
 
         Ok(ComplexSelector {
             first_unit,

@@ -1,5 +1,5 @@
 use super::{CSSValidateSelector, Combinator, CompoundSelector};
-use crate::css::parser::{CSSParse, ParseError, Parser};
+use crate::css::parser::{CSSParse, ParseError, Parser, WhitespaceAllowed};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-complex-real-selector>
 #[derive(Clone, Debug, PartialEq)]
@@ -23,7 +23,8 @@ impl<'a> CSSParse<'a> for ComplexRealSelector<'a> {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let first_selector = CompoundSelector::parse(parser)?;
 
-        let subsequent_selectors = parser.parse_any_number_of(parse_selector_with_combinator);
+        let subsequent_selectors =
+            parser.parse_any_number_of(parse_selector_with_combinator, WhitespaceAllowed::Yes);
 
         Ok(ComplexRealSelector {
             first_selector,

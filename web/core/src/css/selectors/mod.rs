@@ -73,7 +73,7 @@ pub trait CSSValidateSelector {
 
 pub trait Selector {
     /// Determine if the given selector matches the given element
-    fn matches(&self, element: DOMPtr<Element>) -> bool;
+    fn matches(&self, element: &DOMPtr<Element>) -> bool;
 }
 
 impl<T: CSSValidateSelector> CSSValidateSelector for [T] {
@@ -83,8 +83,7 @@ impl<T: CSSValidateSelector> CSSValidateSelector for [T] {
 }
 
 impl<T: Selector> Selector for [T] {
-    fn matches(&self, element: DOMPtr<Element>) -> bool {
-        self.iter()
-            .any(|selector| selector.matches(element.clone()))
+    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+        self.iter().any(|selector| selector.matches(element))
     }
 }

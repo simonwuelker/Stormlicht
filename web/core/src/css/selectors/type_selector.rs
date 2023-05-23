@@ -43,7 +43,7 @@ impl<'a> CSSValidateSelector for TypeSelector<'a> {
 }
 
 impl<'a> Selector for TypeSelector<'a> {
-    fn matches(&self, element: DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DOMPtr<Element>) -> bool {
         match self {
             Self::NSPrefix(_) => false,
             Self::WQName(wq_name) => {

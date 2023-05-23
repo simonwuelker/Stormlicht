@@ -55,7 +55,7 @@ impl<'a> CSSValidateSelector for SubClassSelector<'a> {
 }
 
 impl<'a> Selector for SubClassSelector<'a> {
-    fn matches(&self, element: DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DOMPtr<Element>) -> bool {
         match self {
             Self::ID(id_selector) => id_selector.matches(element),
             _ => todo!(),

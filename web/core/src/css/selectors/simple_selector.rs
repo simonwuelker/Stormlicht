@@ -4,7 +4,7 @@ use crate::{
     dom::{dom_objects::Element, DOMPtr},
 };
 
-/// <https://drafts.csswg.org/selectors-4/#typedef-simple-selector>
+/// <https://drafts.csswg.org/selectors-4/#simple>
 #[derive(Clone, Debug, PartialEq)]
 pub enum SimpleSelector<'a> {
     Type(TypeSelector<'a>),
@@ -48,7 +48,7 @@ impl<'a> CSSValidateSelector for SimpleSelector<'a> {
 }
 
 impl<'a> Selector for SimpleSelector<'a> {
-    fn matches(&self, element: DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DOMPtr<Element>) -> bool {
         match self {
             Self::Type(type_selector) => type_selector.matches(element),
             Self::SubClass(subclass_selector) => subclass_selector.matches(element),

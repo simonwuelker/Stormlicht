@@ -1,5 +1,5 @@
 use super::{CSSValidateSelector, CompoundSelector, PseudoCompoundSelector};
-use crate::css::parser::{CSSParse, ParseError, Parser};
+use crate::css::parser::{CSSParse, ParseError, Parser, WhitespaceAllowed};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-complex-selector-unit>
 #[derive(Clone, Debug, PartialEq)]
@@ -24,7 +24,8 @@ fn parse_complex_selector_unit_part<'a>(
     parser: &mut Parser<'a>,
 ) -> Result<ComplexSelectorUnitPart<'a>, ParseError> {
     let compound_selector = parser.parse_optional_value(CompoundSelector::parse);
-    let pseudo_compound_selectors = parser.parse_any_number_of(PseudoCompoundSelector::parse);
+    let pseudo_compound_selectors =
+        parser.parse_any_number_of(PseudoCompoundSelector::parse, WhitespaceAllowed::Yes);
     Ok(ComplexSelectorUnitPart {
         compound_selector,
         pseudo_compound_selectors,

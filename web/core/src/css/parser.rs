@@ -35,6 +35,13 @@ pub enum TopLevel {
     False,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum WhitespaceAllowed {
+    #[default]
+    Yes,
+    No,
+}
+
 // /// <https://drafts.csswg.org/css-syntax/#css-decode-bytes>
 // #[inline]
 // pub fn decode_bytes(bytes: &[u8]) -> Cow<'_, str> {
@@ -564,9 +571,17 @@ impl<'a> Parser<'a> {
 
     /// Applies a parser as often as possible, including (possibly) not at all.
     ///
+    /// The `whitespace_allowed` parameter can be used to control if parser calls may be seperated
+    /// by whitespace. If you are not sure whether they can be, it's generally okay to pass
+    /// `WhitespaceAllowed::Yes`.
+    ///
     /// # Specification
     /// <https://w3c.github.io/csswg-drafts/css-values-4/#mult-zero-plus>
-    pub fn parse_any_number_of<T: Debug, F>(&mut self, closure: F) -> Vec<T>
+    pub fn parse_any_number_of<T: Debug, F>(
+        &mut self,
+        closure: F,
+        whitespace_allowed: WhitespaceAllowed,
+    ) -> Vec<T>
     where
         F: Fn(&mut Self) -> Result<T, ParseError>,
     {
@@ -576,8 +591,8 @@ impl<'a> Parser<'a> {
             state_before_end_token = self.state();
             parsed_tokens.push(parsed_value);
 
-            if self.expect_whitespace().is_err() {
-                break;
+            if whitespace_allowed == WhitespaceAllowed::Yes {
+                self.skip_whitespace();
             }
         }
 
