@@ -119,10 +119,13 @@ impl Color {
             }
 
             if let Some(color) = parser.parse_optional_value(Self::parse_legacy_rgb) {
+                parser.expect_token(Token::ParenthesisClose)?;
                 return Ok(color);
             }
 
-            Self::parse_modern_rgb(parser)
+            let color = Self::parse_modern_rgb(parser)?;
+            parser.expect_token(Token::ParenthesisClose)?;
+            Ok(color)
         } else {
             Err(ParseError)
         }
@@ -194,19 +197,19 @@ mod tests {
 
     #[test]
     fn test_legacy_rgb() {
-        let mut legacy_rgb = Parser::new("rgb(100%, 50.0%, 10%");
+        let mut legacy_rgb = Parser::new("rgb(100%, 50.0%, 10%)");
         assert_eq!(
             Color::parse_complete(&mut legacy_rgb),
             Ok(Color::rgb(255, 128, 26))
         );
 
-        let mut legacy_rgba_number = Parser::new("rgb(100%, 50.0%, 10%, 1");
+        let mut legacy_rgba_number = Parser::new("rgb(100%, 50.0%, 10%, 1)");
         assert_eq!(
             Color::parse_complete(&mut legacy_rgba_number),
             Ok(Color::rgba(255, 128, 26, 1))
         );
 
-        let mut legacy_rgba_percent = Parser::new("rgb(100%, 50.0%, 10%, 1%");
+        let mut legacy_rgba_percent = Parser::new("rgb(100%, 50.0%, 10%, 1%)");
         assert_eq!(
             Color::parse_complete(&mut legacy_rgba_percent),
             Ok(Color::rgba(255, 128, 26, 3))
