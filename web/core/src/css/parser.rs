@@ -17,6 +17,7 @@
 use super::{
     rule_parser::{ParsedRule, RuleParser},
     tokenizer::{Token, Tokenizer},
+    values::Number,
 };
 use std::fmt::Debug;
 
@@ -642,6 +643,14 @@ impl<'a> Parser<'a> {
         }
 
         self.set_state(state_before_non_whitespace);
+    }
+
+    pub fn expect_percentage(&mut self) -> Result<Number, ParseError> {
+        if let Some(Token::Percentage(percentage)) = self.next_token() {
+            Ok(percentage)
+        } else {
+            Err(ParseError)
+        }
     }
 }
 

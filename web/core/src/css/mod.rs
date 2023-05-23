@@ -5,5 +5,6 @@ pub mod rule_parser;
 pub mod selectors;
 pub mod tokenizer;
 pub mod tree;
+pub mod values;
 
 pub use parser::Parser;

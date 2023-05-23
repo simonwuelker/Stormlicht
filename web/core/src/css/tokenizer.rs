@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use super::values::Number;
+
 // characters are sort of unreadable and should
 // be referenced via their name instead
 const NEWLINE: char = '\n';
@@ -9,16 +11,11 @@ const APOSTROPHE: char = '\'';
 const BACKSLASH: char = '\\';
 const REPLACEMENT: char = '\u{FFFD}';
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum HashFlag {
+    #[default]
     Unrestricted,
     Id,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Number {
-    Integer(i32),
-    Number(f32),
 }
 
 #[derive(Clone, Debug, PartialEq)]
