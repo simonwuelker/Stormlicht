@@ -3,7 +3,6 @@
 mod properties;
 pub mod syntax;
 
-pub mod rule_parser;
 pub mod selectors;
 pub mod values;
 

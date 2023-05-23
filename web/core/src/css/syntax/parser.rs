@@ -14,26 +14,26 @@
 //! The term "whitespace" includes comments.
 //! Any parsing function should consume any trailing whitespace *after* it's input but not *before it*.
 
-use super::tokenizer::{Token, Tokenizer};
-
-use crate::css::{
+use super::{
     rule_parser::{ParsedRule, RuleParser},
-    values::Number,
+    tokenizer::{Token, Tokenizer},
 };
+
+use crate::css::values::Number;
 use std::fmt::Debug;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum MixedWithDeclarations {
-    True,
+    Yes,
     #[default]
-    False,
+    No,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum TopLevel {
-    True,
+    Yes,
     #[default]
-    False,
+    No,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -191,7 +191,7 @@ impl<'a> Parser<'a> {
                 },
                 Some(token @ (Token::CommentDeclarationOpen | Token::CommentDeclarationClose)) => {
                     // If the top-level flag is set,
-                    if top_level == TopLevel::True {
+                    if top_level == TopLevel::Yes {
                         // do nothing.
                     }
                     // Otherwise,
@@ -241,7 +241,7 @@ impl<'a> Parser<'a> {
         // we never return None, always Err(_).
 
         // Create a delimited parser that only consumes the rule's prelude
-        let prelude_ends_at = if mixed_with_declarations == MixedWithDeclarations::True {
+        let prelude_ends_at = if mixed_with_declarations == MixedWithDeclarations::Yes {
             ParserDelimiter::CURLY_BRACE_OPEN.or(ParserDelimiter::SEMICOLON)
         } else {
             ParserDelimiter::CURLY_BRACE_OPEN
@@ -250,6 +250,7 @@ impl<'a> Parser<'a> {
         let mut prelude_parser = self.create_limited(prelude_ends_at);
         let selectors = rule_parser.parse_qualified_rule_prelude(&mut prelude_parser)?;
         prelude_parser.expect_exhausted()?;
+
         self.set_state(prelude_parser.state());
         self.expect_token(Token::CurlyBraceOpen)?; // FIXME: this could be a semicolon
 
@@ -262,6 +263,22 @@ impl<'a> Parser<'a> {
         self.expect_token(Token::CurlyBraceClose)?;
 
         Ok(qualified_rule)
+    }
+
+    pub fn parse_stylesheet(&mut self) -> Result<Vec<ParsedRule<'a>>, ParseError> {
+        // NOTE: The ruleparser shouldn't stay a unit struct
+        #[allow(clippy::default_constructed_unit_structs)]
+        let mut rule_parser = RuleParser::default();
+
+        let mut rules = vec![];
+
+        while let Ok(rule) =
+            self.consume_qualified_rule(&mut rule_parser, MixedWithDeclarations::No)
+        {
+            rules.push(rule);
+        }
+
+        Ok(rules)
     }
 
     /// Applies a parser as often as possible, seperating individual parser calls by

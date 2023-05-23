@@ -1,6 +1,11 @@
-use super::{selectors::SelectorList, CSSParse, ParseError, Parser, StyleProperty};
+use crate::css::{selectors::SelectorList, CSSParse, ParseError, Parser, StyleProperty};
 
-#[derive(Clone, Copy, Debug)]
+/// Used to track state across an CSS Stylesheet.
+///
+/// A parser should repeatedly call the methods on a [RuleParser]
+/// so it can for example declare the Stylesheet as invalid if there's
+/// a `@import` rule after another At-Rule that isn't `@charset`.
+#[derive(Clone, Copy, Debug, Default)]
 pub struct RuleParser;
 
 impl RuleParser {
