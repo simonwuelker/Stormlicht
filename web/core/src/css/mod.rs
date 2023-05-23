@@ -5,7 +5,6 @@ pub mod syntax;
 
 pub mod rule_parser;
 pub mod selectors;
-pub mod tree;
 pub mod values;
 
 pub use properties::StyleProperty;
