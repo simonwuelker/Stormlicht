@@ -262,6 +262,7 @@ impl<'a> Parser<'a> {
         block_parser.expect_exhausted()?;
         self.set_state(block_parser.state());
         self.expect_token(Token::CurlyBraceClose)?;
+        self.skip_whitespace();
 
         Ok(qualified_rule)
     }
