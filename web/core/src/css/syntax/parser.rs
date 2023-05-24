@@ -103,7 +103,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[inline]
     pub fn next_token(&mut self) -> Option<Token<'a>> {
         if self.stopped {
             return None;
@@ -325,9 +324,15 @@ impl<'a> Parser<'a> {
     where
         F: Fn(&mut Self) -> Result<T, ParseError>,
     {
+        // Remember where we were at before we parsed a list
+        let position = self.tokenizer.position();
+        let has_token_buffered = self.buffered_token.is_some();
+
         let parsed_tokens = self.parse_comma_seperated_list(closure);
 
-        if parsed_tokens.is_empty() {
+        if self.tokenizer.position() == position
+            && self.buffered_token.is_some() == has_token_buffered
+        {
             Err(ParseError)
         } else {
             Ok(parsed_tokens)
