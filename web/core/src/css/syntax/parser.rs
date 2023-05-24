@@ -71,7 +71,7 @@ impl ParserDelimiter {
 
 #[derive(Clone, Debug)]
 pub struct ParserState<'a> {
-    position: usize,
+    pub position: usize,
     buffered_token: Option<Token<'a>>,
     stopped: bool,
 }
@@ -247,7 +247,9 @@ impl<'a> Parser<'a> {
         };
 
         let mut prelude_parser = self.create_limited(prelude_ends_at);
+
         let selectors = rule_parser.parse_qualified_rule_prelude(&mut prelude_parser)?;
+
         prelude_parser.expect_exhausted()?;
 
         self.set_state(prelude_parser.state());
@@ -314,16 +316,11 @@ impl<'a> Parser<'a> {
         parsed_tokens
     }
 
-    /// Applies a parser as often as possible, seperating individual parser calls by
-    /// [Comma](Token::Comma) tokens (and optionally [whitespace](Token::Whitespace) or comments).
-    /// The parsing fails if no tokens are produced. If this is not desired, use [parse_comma_seperated_list](Self::parse_comma_seperated_list) instead.
+    /// Apply a parser, but fail if the reader state is not advanced.
     ///
     /// # Specification
-    /// <https://w3c.github.io/csswg-drafts/css-values-4/#mult-req>
-    pub fn parse_nonempty_comma_seperated_list<T: Debug, F>(
-        &mut self,
-        closure: F,
-    ) -> Result<Vec<T>, ParseError>
+    /// <https://drafts.csswg.org/css-values-4/#mult-req>
+    pub fn parse_nonempty<T: Debug, F>(&mut self, closure: F) -> Result<T, ParseError>
     where
         F: Fn(&mut Self) -> Result<T, ParseError>,
     {
@@ -331,14 +328,16 @@ impl<'a> Parser<'a> {
         let position = self.tokenizer.position();
         let has_token_buffered = self.buffered_token.is_some();
 
-        let parsed_tokens = self.parse_comma_seperated_list(closure);
+        // Apply the parser
+        let parsed_token = closure(self)?;
 
+        // Fail if our reader was not advanced
         if self.tokenizer.position() == position
             && self.buffered_token.is_some() == has_token_buffered
         {
             Err(ParseError)
         } else {
-            Ok(parsed_tokens)
+            Ok(parsed_token)
         }
     }
 
@@ -376,7 +375,6 @@ impl<'a> Parser<'a> {
         if whitespace_allowed == WhitespaceAllowed::Yes {
             self.skip_whitespace();
         }
-
         parsed_tokens
     }
 

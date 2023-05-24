@@ -31,7 +31,7 @@ pub use class_selector::ClassSelector;
 pub use combinator::Combinator;
 pub use complex_real_selector::{ComplexRealSelector, ComplexRealSelectorList};
 pub use complex_selector::{ComplexSelector, ComplexSelectorList, SelectorList};
-pub use complex_selector_unit::{ComplexSelectorUnit, ComplexSelectorUnitPart};
+pub use complex_selector_unit::ComplexSelectorUnit;
 pub use compound_selector::{CompoundSelector, CompoundSelectorList};
 pub use id_selector::IDSelector;
 pub use legacy_pseudo_element_selector::LegacyPseudoElementSelector;
