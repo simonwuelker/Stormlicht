@@ -308,6 +308,9 @@ impl<'a> Parser<'a> {
         // Don't consume the token that caused us to exit the loop
         self.set_state(state_before_last_token);
 
+        // But consume the eventual whitespace after it :)
+        self.skip_whitespace();
+
         parsed_tokens
     }
 
@@ -357,6 +360,7 @@ impl<'a> Parser<'a> {
     {
         let mut parsed_tokens = vec![];
         let mut state_before_end_token = self.state();
+
         while let Ok(parsed_value) = closure(self) {
             state_before_end_token = self.state();
             parsed_tokens.push(parsed_value);
@@ -368,6 +372,11 @@ impl<'a> Parser<'a> {
 
         // Reset to the last valid state to avoid accidentally consuming too many tokens
         self.set_state(state_before_end_token);
+
+        if whitespace_allowed == WhitespaceAllowed::Yes {
+            self.skip_whitespace();
+        }
+
         parsed_tokens
     }
 
