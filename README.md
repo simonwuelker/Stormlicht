@@ -34,12 +34,12 @@ to set the log level. Refer to the documentation of [env-logger](https://docs.rs
 
 For example:
 ```sh
-# Log "info" and above
-RUST_LOG=info cargo r -- <url>
+# Log "debug" and above
+RUST_LOG=debug cargo r -- <url>
 ```
 Available levels are `trace`, `debug`, `info`, `warn` and `error`, in ascending order.
 
-The default log level is `warn`
+The default log level is `info`
 
 ## 1.4. Why is there no GUI?
 I would love to have a GUI! But actually writing one in rust is *hard*, mostly due to the lack of OOP and the borrowchecker. (See also: [areweguiyet.com](http://www.areweguiyet.com/))
