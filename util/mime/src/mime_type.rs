@@ -7,7 +7,7 @@ fn is_http_token_code_point(c: char) -> bool {
 }
 
 /// <https://mimesniff.spec.whatwg.org/#mime-type>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MIMEType {
     /// <https://mimesniff.spec.whatwg.org/#type>
     pub mime_type: String,
@@ -125,7 +125,7 @@ impl fmt::Display for MIMEType {
 }
 
 /// Errors that can occur while parsing a [MIMEType]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MIMEParseError {
     NoSubType,
     TypeContainsNonHTTPCodePoint,
@@ -136,6 +136,7 @@ pub enum MIMEParseError {
 
 impl FromStr for MIMEType {
     type Err = MIMEParseError;
+
     // <https://mimesniff.spec.whatwg.org/#parse-a-mime-type>
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         // 1. Remove any leading and trailing HTTP whitespace from input.
@@ -263,14 +264,48 @@ impl FromStr for MIMEType {
                 && parameter_name.chars().all(is_http_token_code_point)
                 && parameter_value.chars().all(is_http_token_code_point)
             {
+                // then set mimeType’s parameters[parameterName] to parameterValue.
                 mime.parameters
                     .entry(parameter_name)
                     .or_insert(parameter_value.to_string());
             }
-            // then set mimeType’s parameters[parameterName] to parameterValue.
         }
 
         // 12. Return mimeType.
         Ok(mime)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::{MIMEParseError, MIMEType};
+
+    #[test]
+    fn invalid_mime_type() {
+        // MIME type without a subtype
+        assert_eq!(MIMEType::from_str("foo"), Err(MIMEParseError::NoSubType));
+
+        // Empty type
+        assert_eq!(MIMEType::from_str("/foo"), Err(MIMEParseError::EmptyType));
+
+        // Empty subtype
+        assert_eq!(MIMEType::from_str("foo/"), Err(MIMEParseError::EmptySubType));
+
+        // Type containing non-http codepoints
+        assert_eq!(MIMEType::from_str("foo@bar/foo"), Err(MIMEParseError::TypeContainsNonHTTPCodePoint));
+
+        // Subtype containing non-http codepoints
+        assert_eq!(MIMEType::from_str("foo/foo@bar"), Err(MIMEParseError::SubTypeContainsNonHTTPCodePoint));
+    }
+
+    #[test]
+    fn valid_mime_type() {
+        // Simple MIME type
+        assert_eq!(MIMEType::from_str("foo/bar"), Ok(MIMEType::new("foo", "bar")));
+
+        // Leading/trailing whitespace
+        assert_eq!(MIMEType::from_str("  foo/bar  "), Ok(MIMEType::new("foo", "bar")));
     }
 }
