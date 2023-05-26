@@ -1,4 +1,4 @@
-use super::{CSSValidateSelector, NSPrefix, Selector, WQName};
+use super::{CSSValidateSelector, NSPrefix, Selector, Specificity, WQName};
 use crate::{
     css::{syntax::Token, CSSParse, ParseError, Parser},
     dom::{dom_objects::Element, DOMPtr},
@@ -47,6 +47,10 @@ impl<'a> Selector for TypeSelector<'a> {
                 wq_name.prefix.is_none() && wq_name.ident == element.borrow().local_name()
             },
         }
+    }
+
+    fn specificity(&self) -> Specificity {
+        Specificity::new(0, 0, 1)
     }
 }
 

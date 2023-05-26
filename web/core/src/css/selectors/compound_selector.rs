@@ -1,4 +1,4 @@
-use super::{CSSValidateSelector, Selector, SubClassSelector, TypeSelector};
+use super::{CSSValidateSelector, Selector, Specificity, SubClassSelector, TypeSelector};
 use crate::{
     css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser},
     dom::{dom_objects::Element, DOMPtr},
@@ -54,6 +54,20 @@ impl<'a> Selector for CompoundSelector<'a> {
             return false;
         }
         self.subclass_selectors.iter().all(|s| s.matches(element))
+    }
+
+    fn specificity(&self) -> Specificity {
+        let mut specificity = Specificity::ZERO;
+
+        if let Some(type_selector) = &self.type_selector {
+            specificity += type_selector.specificity();
+        }
+
+        for subclass_selector in &self.subclass_selectors {
+            specificity += subclass_selector.specificity();
+        }
+
+        specificity
     }
 }
 

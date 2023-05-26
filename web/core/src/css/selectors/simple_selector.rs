@@ -54,6 +54,13 @@ impl<'a> Selector for SimpleSelector<'a> {
             Self::SubClass(subclass_selector) => subclass_selector.matches(element),
         }
     }
+
+    fn specificity(&self) -> super::Specificity {
+        match self {
+            Self::Type(type_selector) => type_selector.specificity(),
+            Self::SubClass(subclass_selector) => subclass_selector.specificity(),
+        }
+    }
 }
 
 #[cfg(test)]

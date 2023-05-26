@@ -1,8 +1,13 @@
 use std::borrow::Cow;
 
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use crate::{
+    css::{syntax::Token, CSSParse, ParseError, Parser},
+    dom::{dom_objects::Element, DOMPtr},
+};
 
-use super::{AttributeMatcher, AttributeModifier, CSSValidateSelector, WQName};
+use super::{
+    AttributeMatcher, AttributeModifier, CSSValidateSelector, Selector, Specificity, WQName,
+};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-attribute-selector>
 #[derive(Clone, Debug, PartialEq)]
@@ -80,6 +85,17 @@ impl<'a> CSSValidateSelector for AttributeSelector<'a> {
                 modifier,
             } => attribute_name.is_valid() && matcher.is_valid() && modifier.is_valid(),
         }
+    }
+}
+
+impl<'a> Selector for AttributeSelector<'a> {
+    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
+        log::warn!("FIXME: Attribute selector matching");
+        false
+    }
+
+    fn specificity(&self) -> Specificity {
+        Specificity::new(0, 1, 0)
     }
 }
 

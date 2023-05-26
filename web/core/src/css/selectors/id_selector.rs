@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use super::{CSSValidateSelector, Selector};
+use super::{CSSValidateSelector, Selector, Specificity};
 use crate::{
     css::{
         syntax::{HashFlag, Token},
@@ -35,5 +35,9 @@ impl<'a> CSSValidateSelector for IDSelector<'a> {
 impl<'a> Selector for IDSelector<'a> {
     fn matches(&self, element: &DOMPtr<Element>) -> bool {
         self.ident == element.borrow().id()
+    }
+
+    fn specificity(&self) -> Specificity {
+        Specificity::new(1, 0, 0)
     }
 }

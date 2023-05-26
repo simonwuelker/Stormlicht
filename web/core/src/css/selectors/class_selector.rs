@@ -1,7 +1,10 @@
 use std::borrow::Cow;
 
-use super::CSSValidateSelector;
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use super::{CSSValidateSelector, Selector, Specificity};
+use crate::{
+    css::{syntax::Token, CSSParse, ParseError, Parser},
+    dom::{dom_objects::Element, DOMPtr},
+};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-class-selector>
 #[derive(Clone, Debug, PartialEq)]
@@ -24,5 +27,16 @@ impl<'a> CSSParse<'a> for ClassSelector<'a> {
 impl<'a> CSSValidateSelector for ClassSelector<'a> {
     fn is_valid(&self) -> bool {
         true
+    }
+}
+
+impl<'a> Selector for ClassSelector<'a> {
+    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
+        log::warn!("FIXME: Class selector matching");
+        false
+    }
+
+    fn specificity(&self) -> Specificity {
+        Specificity::new(0, 1, 0)
     }
 }

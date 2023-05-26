@@ -19,6 +19,7 @@ mod pseudo_element_selector;
 mod relative_real_selector;
 mod relative_selector;
 mod simple_selector;
+mod specificity;
 mod subclass_selector;
 mod type_selector;
 mod wq_name;
@@ -42,6 +43,7 @@ pub use pseudo_element_selector::PseudoElementSelector;
 pub use relative_real_selector::{RelativeRealSelector, RelativeRealSelectorList};
 pub use relative_selector::{RelativeSelector, RelativeSelectorList};
 pub use simple_selector::{SimpleSelector, SimpleSelectorList};
+pub use specificity::Specificity;
 pub use subclass_selector::SubClassSelector;
 pub use type_selector::TypeSelector;
 pub use wq_name::WQName;
@@ -74,6 +76,9 @@ pub trait CSSValidateSelector {
 pub trait Selector {
     /// Determine if the given selector matches the given element
     fn matches(&self, element: &DOMPtr<Element>) -> bool;
+
+    /// Calculate the selectors [Specificity](https://drafts.csswg.org/selectors-4/#specificity)
+    fn specificity(&self) -> Specificity;
 }
 
 impl<T: CSSValidateSelector> CSSValidateSelector for [T] {
@@ -85,5 +90,9 @@ impl<T: CSSValidateSelector> CSSValidateSelector for [T] {
 impl<T: Selector> Selector for [T] {
     fn matches(&self, element: &DOMPtr<Element>) -> bool {
         self.iter().any(|selector| selector.matches(element))
+    }
+
+    fn specificity(&self) -> Specificity {
+        todo!()
     }
 }

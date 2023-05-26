@@ -61,4 +61,13 @@ impl<'a> Selector for SubClassSelector<'a> {
             _ => todo!(),
         }
     }
+
+    fn specificity(&self) -> super::Specificity {
+        match self {
+            Self::ID(id_selector) => id_selector.specificity(),
+            Self::Class(class_selector) => class_selector.specificity(),
+            Self::Attribute(attribute_selector) => attribute_selector.specificity(),
+            Self::PseudoClass(pseudo_class_selector) => pseudo_class_selector.specificity(),
+        }
+    }
 }

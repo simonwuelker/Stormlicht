@@ -1,7 +1,10 @@
 use std::borrow::Cow;
 
-use super::{AnyValue, CSSValidateSelector};
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use super::{AnyValue, CSSValidateSelector, Selector, Specificity};
+use crate::{
+    css::{syntax::Token, CSSParse, ParseError, Parser},
+    dom::{dom_objects::Element, DOMPtr},
+};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-class-selector>
 #[derive(Clone, Debug, PartialEq)]
@@ -41,6 +44,23 @@ impl<'a> CSSParse<'a> for PseudoClassSelector<'a> {
                 }
             },
             _ => Err(ParseError),
+        }
+    }
+}
+
+impl<'a> Selector for PseudoClassSelector<'a> {
+    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
+        log::warn!("FIXME: Pseudo Class selector matching");
+        false
+    }
+
+    fn specificity(&self) -> Specificity {
+        match self {
+            Self::Ident(_) => Specificity::new(0, 1, 0),
+            Self::Function { .. } => {
+                // FIXME: Some pseudo classes have their own specificity rules
+                Specificity::new(0, 1, 0)
+            },
         }
     }
 }
