@@ -9,6 +9,7 @@ edition = "2021"
 dom-derive = { path = "../dom-derive"}
 log = "0.4"
 mime = { path = "../../util/mime" }
+cssproperty-derive = { path = "../cssproperty-derive" }
 
 [build-dependencies]
 syn = "1"

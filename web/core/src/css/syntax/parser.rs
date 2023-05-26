@@ -254,12 +254,14 @@ impl<'a> Parser<'a> {
 
         self.set_state(prelude_parser.state());
         self.expect_token(Token::CurlyBraceOpen)?; // FIXME: this could be a semicolon
+        self.skip_whitespace();
 
         // Create a delimited parser that consumes the rule's block
         let mut block_parser = self.create_limited(ParserDelimiter::CURLY_BRACE_CLOSE);
         let qualified_rule =
             rule_parser.parse_qualified_rule_block(&mut block_parser, selectors)?;
         block_parser.expect_exhausted()?;
+
         self.set_state(block_parser.state());
         self.expect_token(Token::CurlyBraceClose)?;
         self.skip_whitespace();
