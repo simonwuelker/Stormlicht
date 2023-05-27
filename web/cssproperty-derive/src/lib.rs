@@ -1,26 +1,15 @@
-use std::str::FromStr;
+use quote::quote;
 
 use proc_macro::TokenStream;
-
-#[derive(Clone, Debug)]
-struct Keyword {
-    name: String,
-    variant: String,
-}
-
-#[derive(Clone, Debug)]
-struct ValueType {
-    type_name: String,
-    variant: String,
-}
+use proc_macro2::TokenStream as TokenStream2;
 
 #[proc_macro_derive(CSSProperty, attributes(keyword))]
 pub fn cssproperty_derive(input: TokenStream) -> TokenStream {
     let enum_def: syn::ItemEnum = syn::parse(input).expect("Not a valid rust enum");
-    let enum_name = enum_def.ident.to_string();
+    let enum_name = enum_def.ident;
 
-    let mut keywords: Vec<Keyword> = vec![];
-    let mut value_types: Vec<ValueType> = vec![];
+    let mut keywords = vec![];
+    let mut value_types = vec![];
 
     // Iterate over all the enum variants
     'variants: for variant in &enum_def.variants {
@@ -40,10 +29,8 @@ pub fn cssproperty_derive(input: TokenStream) -> TokenStream {
                         ..
                     }) = &name_value.value
                     {
-                        keywords.push(Keyword {
-                            name: keyword.value(),
-                            variant: variant.ident.to_string(),
-                        });
+                        keywords.push((keyword, &variant.ident));
+
                         continue 'variants; // We're done parsing this variant
                     } else {
                         panic!("Invalid use of keyword attribute: Only string literals are accepted as values");
@@ -60,10 +47,8 @@ pub fn cssproperty_derive(input: TokenStream) -> TokenStream {
                         .path
                         .get_ident()
                         .expect("CSS Property value type must have simple identifier (no '::')");
-                    value_types.push(ValueType {
-                        type_name: value_type_name.to_string(),
-                        variant: variant.ident.to_string(),
-                    });
+                    value_types.push((value_type_name, &variant.ident));
+
                     continue 'variants;
                 } else {
                     panic!("CSS Properties must be simple types");
@@ -78,47 +63,43 @@ pub fn cssproperty_derive(input: TokenStream) -> TokenStream {
 
     let keyword_match = keywords
         .iter()
-        .map(|keyword| format!("\"{}\" => Ok(Self::{})", keyword.name, keyword.variant))
-        .collect::<Vec<String>>()
-        .join(",");
+        .map(|(keyword, variant)| quote!(#keyword => Ok(Self::#variant),))
+        .collect::<TokenStream2>();
 
     let value_type_code = value_types
         .iter()
-        .map(|value_type| {
-            format!(
-                "if let Some(value) = parser.parse_optional_value({}::parse) {{
-                    return Ok(Self::{}(value));
-                }}",
-                value_type.type_name, value_type.variant,
-            )
+        .map(|(type_name, variant)| {
+            quote! {
+                if let Some(value) = parser.parse_optional_value(#type_name::parse) {
+                    return Ok(Self::#variant(value));
+                }
+            }
         })
-        .collect::<String>();
+        .collect::<TokenStream2>();
 
-    let css_property_impl = format!(
-        "
-    impl<'a> CSSParse<'a> for {enum_name} {{
-        fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {{
-            let parsed_keyword = parser.parse_optional_value(|parser| {{
-                if let Some(Token::Ident(identifier)) = parser.next_token() {{
-                    match identifier.as_ref() {{
-                        {keyword_match},
-                        _ => Err(ParseError),
-                    }}
-                }} else {{
-                    Err(ParseError)
-                }}
-            }});
+    quote!(
+        impl<'a> CSSParse<'a> for #enum_name {
+            fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+                let parsed_keyword = parser.parse_optional_value(|parser| {
+                    if let Some(Token::Ident(identifier)) = parser.next_token() {
+                        match identifier.as_ref() {
+                            #keyword_match
+                            _ => Err(ParseError),
+                        }
+                    } else {
+                        Err(ParseError)
+                    }
+                });
 
-            if let Some(variant) = parsed_keyword {{
-                return Ok(variant);
-            }}
+                if let Some(variant) = parsed_keyword {
+                    return Ok(variant);
+                }
 
-            {value_type_code}
+                #value_type_code
 
-            Err(ParseError)
-        }}
-    }}"
-    );
-
-    TokenStream::from_str(&css_property_impl).expect("Proc macro produced invalid rust code")
+                Err(ParseError)
+            }
+        }
+    )
+    .into()
 }
