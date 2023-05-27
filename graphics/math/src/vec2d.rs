@@ -58,6 +58,8 @@ impl<T: Add<Output = T> + Div<i32, Output = T>> Vec2D<T> {
 }
 
 impl Vec2D<f32> {
+    pub const ORIGIN: Self = Self::new(0., 0.);
+
     #[inline]
     #[must_use]
     pub fn magnitude(&self) -> f32 {

@@ -5,6 +5,8 @@
 //! * <https://formats.kaitai.io/ttf/index.html>
 //! * <https://handmade.network/forums/articles/t/7330-implementing_a_font_reader_and_rasterizer_from_scratch%252C_part_1__ttf_font_reader>
 
+use math::Vec2D;
+
 use crate::{
     path::{Operation, PathConsumer, PathReader},
     ttf_tables::{
@@ -169,6 +171,25 @@ impl<'a> Font<'a> {
     /// A glyph may have a size larger than `1em`.
     pub fn units_per_em(&self) -> u16 {
         self.head_table.units_per_em()
+    }
+
+    pub fn compute_rendered_width(&self, text: &str, font_size: f32) -> f32 {
+        let mut width: f32 = 0.;
+
+        let glyphs = self.path_objects(text);
+        for glyph in glyphs {
+            let scale_point = |glyph_point: math::Vec2D<i16>| math::Vec2D {
+                x: self.scale(glyph_point.x, font_size),
+                y: self.scale(glyph_point.y, font_size),
+            };
+
+            let glyph_dimension =
+                scale_point(Vec2D::new(glyph.metrics.max_x, glyph.metrics.max_y) + glyph.position);
+
+            width = width.max(glyph_dimension.x);
+        }
+
+        width
     }
 
     pub fn render<P: PathConsumer>(
