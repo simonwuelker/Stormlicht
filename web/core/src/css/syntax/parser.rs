@@ -477,3 +477,9 @@ pub trait CSSParse<'a>: Sized {
         Ok(parsed_value)
     }
 }
+
+impl<'a, T: CSSParse<'a> + Debug> CSSParse<'a> for Option<T> {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        Ok(parser.parse_optional_value(T::parse))
+    }
+}
