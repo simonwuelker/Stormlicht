@@ -22,6 +22,8 @@ use super::{
 use crate::css::values::Number;
 use std::fmt::Debug;
 
+const MAX_ITERATIONS: usize = 20;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum MixedWithDeclarations {
     Yes,
@@ -298,8 +300,14 @@ impl<'a> Parser<'a> {
     {
         let mut parsed_tokens = vec![];
         let mut state_before_last_token = self.state();
+        let mut iterations = 0;
 
         while let Ok(parsed_value) = closure(self) {
+            if iterations == MAX_ITERATIONS {
+                log::warn!("Exceeded maximum number of iterations, skipping...");
+                break;
+            }
+
             parsed_tokens.push(parsed_value);
             state_before_last_token = self.state();
 
@@ -308,6 +316,8 @@ impl<'a> Parser<'a> {
                 break;
             }
             self.skip_whitespace();
+
+            iterations += 1;
         }
 
         // Don't consume the token that caused us to exit the loop
@@ -362,14 +372,22 @@ impl<'a> Parser<'a> {
     {
         let mut parsed_tokens = vec![];
         let mut state_before_end_token = self.state();
+        let mut iterations = 0;
 
         while let Ok(parsed_value) = closure(self) {
+            if iterations == MAX_ITERATIONS {
+                log::warn!("Exceeded maximum number of iterations, skipping...");
+                break;
+            }
+
             state_before_end_token = self.state();
             parsed_tokens.push(parsed_value);
 
             if whitespace_allowed == WhitespaceAllowed::Yes {
                 self.skip_whitespace();
             }
+
+            iterations += 1;
         }
 
         // Reset to the last valid state to avoid accidentally consuming too many tokens
