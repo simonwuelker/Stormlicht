@@ -63,23 +63,26 @@ impl glazier::WinHandler for BrowserApplication {
 
 impl BrowserApplication {
     pub fn new(url: Option<&str>) -> Self {
+        let font = font::Font::default();
+        let d = font.compute_rendered_width("Font test", 200.);
         let mut composition = render::Composition::default();
-        composition
-            .get_or_insert_layer(0)
-            .with_source(render::Source::Solid(math::Color::BLUE))
-            .with_outline(render::Path::rect(
-                math::Vec2D::new(100., 100.),
-                math::Vec2D::new(500., 500.),
-            ));
 
         composition
             .get_or_insert_layer(1)
+            .with_source(render::Source::Solid(math::Color::BLUE))
+            .with_outline(render::Path::rect(
+                math::Vec2D::new(50., 50.),
+                math::Vec2D::new(50. + d, 250.),
+            ));
+
+        composition
+            .get_or_insert_layer(2)
             .with_source(render::Source::Solid(math::Color::BLACK))
             .text(
                 "Font test",
                 font::Font::default(),
                 200.,
-                math::Vec2D::new(0., 0.),
+                math::Vec2D::new(50., 50.),
             );
 
         let browsing_context = match url {

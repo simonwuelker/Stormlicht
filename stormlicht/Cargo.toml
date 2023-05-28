@@ -1,9 +1,8 @@
 [package]
-name = "browser"
+name = "stormlicht"
 version = "0.1.0"
 edition = "2021"
-repository = "https://github.com/wuelle/browser"
-default-run = "browser"
+default-run = "stormlicht"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

@@ -17,7 +17,7 @@ members = [
     "util/random",
     "parser_combinators", 
     "taskrunner",
-    "browser",
+    "stormlicht",
     "crypto/ciphers",
     "crypto/hash",
     "crypto/tls",

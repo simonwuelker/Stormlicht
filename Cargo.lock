@@ -193,21 +193,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
 
 [[package]]
-name = "browser"
-version = "0.1.0"
-dependencies = [
- "cli",
- "core",
- "env_logger 0.10.0",
- "font",
- "glazier",
- "log",
- "math",
- "render",
- "softbuffer",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1675,6 +1660,21 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stormlicht"
+version = "0.1.0"
+dependencies = [
+ "cli",
+ "core",
+ "env_logger 0.10.0",
+ "font",
+ "glazier",
+ "log",
+ "math",
+ "render",
+ "softbuffer",
+]
 
 [[package]]
 name = "strsim"
