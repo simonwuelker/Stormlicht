@@ -773,61 +773,60 @@ fn resolve_percentage(percentage: Number) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::Color;
-    use crate::css::{CSSParse, Parser};
+    use crate::css::CSSParse;
 
     #[test]
     fn parse_color_name() {
-        let mut misty_rose = Parser::new("mistyrose");
         assert_eq!(
-            Color::parse_complete(&mut misty_rose),
+            Color::parse_from_str("mistyrose"),
             Ok(Color::rgb(255, 228, 225))
         );
     }
 
     #[test]
     fn parse_hex_color_code() {
-        let mut six_digit_parser = Parser::new("#F00f10");
+        // 6 digit hex color
         assert_eq!(
-            Color::parse_complete(&mut six_digit_parser),
+            Color::parse_from_str("#F00f10"),
             Ok(Color::rgb(0xF0, 0x0F, 0x10))
         );
 
-        let mut eight_digit_parser = Parser::new("#F00f10AB");
+        // 8 digit hex color
         assert_eq!(
-            Color::parse_complete(&mut eight_digit_parser),
+            Color::parse_from_str("#F00f10AB"),
             Ok(Color::rgba(0xF0, 0x0F, 0x10, 0xAB))
         );
 
-        let mut six_digit_parser = Parser::new("#abc");
+        // 3 digit hex color
         assert_eq!(
-            Color::parse_complete(&mut six_digit_parser),
+            Color::parse_from_str("#abc"),
             Ok(Color::rgb(0xAA, 0xBB, 0xCC))
         );
 
-        let mut six_digit_parser = Parser::new("#abcd");
+        // 4 digit hex color
         assert_eq!(
-            Color::parse_complete(&mut six_digit_parser),
+            Color::parse_from_str("#abcd"),
             Ok(Color::rgba(0xAA, 0xBB, 0xCC, 0xDD))
         );
     }
 
     #[test]
     fn parse_legacy_rgb() {
-        let mut legacy_rgb = Parser::new("rgb(100%, 50.0%, 10%)");
+        // legacy syntax without alpha value
         assert_eq!(
-            Color::parse_complete(&mut legacy_rgb),
+            Color::parse_from_str("rgb(100%, 50.0%, 10%)"),
             Ok(Color::rgb(255, 128, 26))
         );
 
-        let mut legacy_rgba_number = Parser::new("rgb(100%, 50.0%, 10%, 1)");
+        // legacy syntax with alpha value
         assert_eq!(
-            Color::parse_complete(&mut legacy_rgba_number),
+            Color::parse_from_str("rgb(100%, 50.0%, 10%, 1)"),
             Ok(Color::rgba(255, 128, 26, 1))
         );
 
-        let mut legacy_rgba_percent = Parser::new("rgb(100%, 50.0%, 10%, 1%)");
+        // legacy syntax with alpha %
         assert_eq!(
-            Color::parse_complete(&mut legacy_rgba_percent),
+            Color::parse_from_str("rgb(100%, 50.0%, 10%, 1%)"),
             Ok(Color::rgba(255, 128, 26, 3))
         );
     }

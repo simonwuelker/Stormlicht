@@ -15,11 +15,13 @@
 //! Any parsing function should consume any trailing whitespace *after* it's input but not *before it*.
 
 use super::{
-    rule_parser::{ParsedRule, RuleParser},
+    rule_parser::RuleParser,
     tokenizer::{Token, Tokenizer},
 };
 
-use crate::css::{values::Number, StyleProperty, StylePropertyDeclaration};
+use crate::css::{
+    values::Number, Origin, StyleProperty, StylePropertyDeclaration, StyleRule, Stylesheet,
+};
 use std::{borrow::Cow, fmt::Debug};
 
 const MAX_ITERATIONS: usize = 20;
@@ -50,6 +52,7 @@ pub struct Parser<'a> {
     buffered_token: Option<Token<'a>>,
     stop_at: Option<ParserDelimiter>,
     stopped: bool,
+    origin: Origin,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -82,12 +85,13 @@ pub struct ParserState<'a> {
 pub struct ParseError;
 
 impl<'a> Parser<'a> {
-    pub fn new(source: &'a str) -> Self {
+    pub fn new(source: &'a str, origin: Origin) -> Self {
         let mut parser = Self {
             tokenizer: Tokenizer::new(source),
             buffered_token: None,
             stop_at: None,
             stopped: false,
+            origin,
         };
         parser.skip_whitespace();
         parser
@@ -102,6 +106,7 @@ impl<'a> Parser<'a> {
             buffered_token: self.buffered_token.clone(),
             stop_at: Some(limit),
             stopped: false,
+            origin: self.origin,
         }
     }
 
@@ -176,7 +181,7 @@ impl<'a> Parser<'a> {
         &mut self,
         rule_parser: &mut RuleParser,
         top_level: TopLevel,
-    ) -> Vec<ParsedRule<'a>> {
+    ) -> Vec<StyleRule<'a>> {
         // Create an initially empty list of rules.
         let mut rules = vec![];
 
@@ -236,7 +241,7 @@ impl<'a> Parser<'a> {
         &mut self,
         rule_parser: &mut RuleParser,
         mixed_with_declarations: MixedWithDeclarations,
-    ) -> Result<ParsedRule<'a>, ParseError> {
+    ) -> Result<StyleRule<'a>, ParseError> {
         // NOTE: The spec sometimes returns "None" (not an error, but no rule.)
         // Since "None" and "Err(_)" are treated the same (the parser ignores the rule and moves on),
         // we never return None, always Err(_).
@@ -345,7 +350,7 @@ impl<'a> Parser<'a> {
         while !matches!(self.next_token(), Some(Token::Semicolon) | None) {}
     }
 
-    pub fn parse_stylesheet(&mut self) -> Result<Vec<ParsedRule<'a>>, ParseError> {
+    pub fn parse_stylesheet(&mut self) -> Result<Stylesheet<'a>, ParseError> {
         // NOTE: The ruleparser shouldn't stay a unit struct
         #[allow(clippy::default_constructed_unit_structs)]
         let mut rule_parser = RuleParser::default();
@@ -358,7 +363,10 @@ impl<'a> Parser<'a> {
             rules.push(rule);
         }
 
-        Ok(rules)
+        Ok(Stylesheet {
+            origin: self.origin,
+            rules,
+        })
     }
 
     /// Applies a parser as often as possible, seperating individual parser calls by
@@ -551,8 +559,11 @@ pub trait CSSParse<'a>: Sized {
     ///
     /// If any tokens remain in the source after the instance is parsed, an
     /// error is returned.
+    ///
+    /// This function is primarily intended to be used in tests.
+    #[cfg(test)]
     fn parse_from_str(source: &'a str) -> Result<Self, ParseError> {
-        let mut parser = Parser::new(source);
+        let mut parser = Parser::new(source, Origin::Author);
         let parsed_value = Self::parse(&mut parser)?;
         parser.expect_exhausted()?;
         Ok(parsed_value)

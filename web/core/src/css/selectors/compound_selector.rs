@@ -74,13 +74,13 @@ impl<'a> Selector for CompoundSelector<'a> {
 #[cfg(test)]
 mod tests {
     use super::CompoundSelector;
-    use crate::css::{CSSParse, ParseError, Parser};
+    use crate::css::{CSSParse, ParseError};
 
     #[test]
     fn invalid_compound_selector() {
-        let mut spaces_between_selectors = Parser::new("h1#foo bar");
+        // Spaces between selectors, invalid
         assert_eq!(
-            CompoundSelector::parse_complete(&mut spaces_between_selectors),
+            CompoundSelector::parse_from_str("h1#foo bar"),
             Err(ParseError)
         );
     }
