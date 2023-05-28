@@ -1,5 +1,5 @@
 use crate::css::{
-    properties::StyleProperty, selectors::SelectorList, syntax::Token, CSSParse, ParseError, Parser,
+    selectors::SelectorList, syntax::Token, CSSParse, ParseError, Parser, StylePropertyDeclaration,
 };
 
 /// Used to track state across an CSS Stylesheet.
@@ -24,15 +24,10 @@ impl RuleParser {
         selectors: SelectorList<'a>,
     ) -> Result<ParsedRule<'a>, ParseError> {
         let mut properties = vec![];
-        while let Some(Token::Ident(property_name)) = parser.next_token() {
-            parser.skip_whitespace();
-            parser.expect_token(Token::Colon)?;
-            parser.skip_whitespace();
-
-            let property_with_value = StyleProperty::parse_value(parser, &property_name)?;
-            properties.push(property_with_value);
-
-            parser.skip_whitespace();
+        while !parser.is_exhausted() {
+            if let Some(declaration) = parser.consume_declaration() {
+                properties.push(declaration);
+            }
 
             if parser.expect_token(Token::Semicolon).is_err() {
                 // If this is not the last property in the rule body, this is a parse error!
@@ -53,12 +48,12 @@ impl RuleParser {
 #[derive(Clone, Debug)]
 pub struct ParsedRule<'a> {
     pub selectors: SelectorList<'a>,
-    properties: Vec<StyleProperty>,
+    properties: Vec<StylePropertyDeclaration>,
 }
 
 impl<'a> ParsedRule<'a> {
     #[must_use]
-    pub fn properties(&self) -> &[StyleProperty] {
+    pub fn properties(&self) -> &[StylePropertyDeclaration] {
         &self.properties
     }
 }

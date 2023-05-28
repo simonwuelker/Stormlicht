@@ -19,8 +19,8 @@ use super::{
     tokenizer::{Token, Tokenizer},
 };
 
-use crate::css::values::Number;
-use std::fmt::Debug;
+use crate::css::{values::Number, StyleProperty, StylePropertyDeclaration};
+use std::{borrow::Cow, fmt::Debug};
 
 const MAX_ITERATIONS: usize = 20;
 
@@ -271,6 +271,80 @@ impl<'a> Parser<'a> {
         Ok(qualified_rule)
     }
 
+    /// <https://drafts.csswg.org/css-syntax-3/#consume-declaration>
+    pub fn consume_declaration(&mut self) -> Option<StylePropertyDeclaration> {
+        self.consume_declaration_with_nested(false)
+    }
+
+    /// <https://drafts.csswg.org/css-syntax-3/#consume-declaration>
+    fn consume_declaration_with_nested(
+        &mut self,
+        nested: bool,
+    ) -> Option<StylePropertyDeclaration> {
+        // Let decl be a new declaration, with an initially empty name and a value set to an empty list.
+        // NOTE: We don't construct declarations like this.
+        let mut is_important = false;
+
+        // 1. If the next token is an <ident-token>, consume a token from input and set decl’s name to the token’s value.
+        //    Otherwise, consume the remnants of a bad declaration from input, with nested, and return nothing.
+        let declaration_name = if let Some(Token::Ident(name)) = self.peek_token() {
+            self.next_token();
+            name
+        } else {
+            self.consume_remnants_of_bad_declaration(nested);
+            return None;
+        };
+
+        // 2. Discard whitespace from input.
+        self.skip_whitespace();
+
+        // 3. If the next token is a <colon-token>, discard a token from input.
+        //    Otherwise, consume the remnants of a bad declaration from input, with nested, and return nothing.
+        if let Some(Token::Colon) = self.peek_token() {
+            self.next_token();
+        } else {
+            self.consume_remnants_of_bad_declaration(nested);
+            return None;
+        }
+
+        // 4. Discard whitespace from input.
+        self.skip_whitespace();
+
+        // NOTE: At this point we deviate from the spec because the spec gets a little silly
+        let value = if let Ok(value) = StyleProperty::parse_value(self, &declaration_name) {
+            value
+        } else {
+            self.consume_remnants_of_bad_declaration(nested);
+            return None;
+        };
+
+        // Check for !important
+        if matches!(self.peek_token(), Some(Token::Delim('!'))) {
+            self.next_token();
+            if self.next_token() == Some(Token::Ident(Cow::Borrowed("important"))) {
+                is_important = true;
+                self.skip_whitespace();
+            } else {
+                self.consume_remnants_of_bad_declaration(nested);
+                return None;
+            }
+        }
+
+        Some(StylePropertyDeclaration {
+            value,
+            is_important,
+        })
+    }
+
+    /// <https://drafts.csswg.org/css-syntax-3/#consume-the-remnants-of-a-bad-declaration>
+    fn consume_remnants_of_bad_declaration(&mut self, nested: bool) {
+        _ = nested;
+        // NOTE: This is not what the spec does.
+        // But for now, it should be more or less equivalent (we don't respect "}")
+        // Process input:
+        while !matches!(self.next_token(), Some(Token::Semicolon) | None) {}
+    }
+
     pub fn parse_stylesheet(&mut self) -> Result<Vec<ParsedRule<'a>>, ParseError> {
         // NOTE: The ruleparser shouldn't stay a unit struct
         #[allow(clippy::default_constructed_unit_structs)]
@@ -418,6 +492,10 @@ impl<'a> Parser<'a> {
                 None
             },
         }
+    }
+
+    pub fn is_exhausted(&mut self) -> bool {
+        self.peek_token().is_none()
     }
 
     /// Return an error if any tokens are left in the token stream.
