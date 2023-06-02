@@ -43,7 +43,7 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>, ZLibError> {
     let compression_info = compression_method_and_flags >> 4;
 
     // Parse compression flags (FLG)
-    let flags = bytes[2];
+    let flags = bytes[1];
     let flag_dict = ((flags & 1) << 5) != 0;
     let _flag_level = flags >> 6; // compression level, not needed for decompression
 
