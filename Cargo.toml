@@ -22,6 +22,7 @@ members = [
     "crypto/hash",
     "crypto/tls",
 ]
+resolver = "2"
 
 [workspace.package]
 authors = ["Simon Wülker"]
