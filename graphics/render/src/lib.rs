@@ -2,28 +2,7 @@
 //!
 //! ## Design
 //! While performance is obviously nice to have, the focus of this library is on ease of use.
-//! This rendered is designed to be used in the browser.
-//!
-//! ## Example Code
-//! The general rendering pipeline looks like this (incomplete):
-//! ```rust
-//! # use graphics::{Renderer, Compositor, Color, Vec2D, Path};
-//!
-//! // The compositor manages the layers that should be rendered
-//! let mut compositor = Compositor::default();
-//! compositor.get_or_insert_layer(0)
-//!     .set_color(Color::rgb(255, 111, 200))
-//!     .scale(2., 1.)
-//!     .add_path(
-//!         Path::new(Vec2D::new(0., 0.))
-//!             .line_to(Vec2D::new(1., 0.))
-//!             .line_to(Vec2D::new(1., 1.))
-//!             .line_to(Vec2D::new(0., 1.))
-//!             .close_contour()
-//!     );
-//!
-//! Renderer::render(&mut compositor);
-//! ```
+//! This renderer is designed to be used in the browser.
 //!
 //! ## Related
 //! * [Vello](https://github.com/linebender/vello)(GPU-centric, Rust)
