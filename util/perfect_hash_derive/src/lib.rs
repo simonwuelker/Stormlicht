@@ -1,5 +1,4 @@
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
 
 use quote::quote;
 use syn::{
@@ -97,11 +96,6 @@ pub fn perfect_set(input: TokenStream) -> TokenStream {
         }
     }
 
-    let second_hash_functions_tokens: TokenStream2 = secondary_hash_functions
-        .iter()
-        .map(|f| quote!(#f,))
-        .collect();
-
     // Create the list of entries
     let mut entries = vec![String::new(); size];
     for s in strings {
@@ -111,16 +105,38 @@ pub fn perfect_set(input: TokenStream) -> TokenStream {
         entries[secondary_hash] = s;
     }
 
-    let entries_tokens: TokenStream2 = entries
-        .into_iter()
-        .map(|s| quote!(::perfect_hash::Entry::new(#s),))
+    let const_idents: Vec<String> = entries.iter().map(|s| make_identifier(s)).collect();
+    let indices: Vec<u32> = (0..const_idents.len() as u32).collect();
+
+    let consts: Vec<proc_macro2::TokenStream> = const_idents
+        .iter()
+        .enumerate()
+        .map(|(index, s)| {
+            let token_stream: TokenStream = format!("pub const STATIC_STRING_{s}: u32 = {index};")
+                .parse()
+                .unwrap();
+            token_stream.into()
+        })
         .collect();
 
     let ident = input_data.ident;
     quote!(
         const #ident: ::perfect_hash::PerfectHashTable<#size> = ::perfect_hash::PerfectHashTable::new(
-            [#second_hash_functions_tokens],
-           [#entries_tokens],
+            [#(#secondary_hash_functions,)*],
+           [#(::perfect_hash::Entry::new(#entries),)*],
+        );
+
+        #(
+            #[doc(hidden)]
+            #consts
+        )*
+
+        /// Converts from a string stored inside the static set to its hash at compile-time.
+        #[macro_export]
+        macro_rules! static_str(
+            #(
+                (#entries) => {#indices};
+            )*
         );
     )
     .into()
@@ -143,4 +159,18 @@ fn hash_fn_does_not_have_collisions(
 
     // No collisions found
     true
+}
+
+fn make_identifier(s: &str) -> String {
+    let mut result = String::with_capacity(s.bytes().len());
+    for c in s.chars() {
+        if !matches!(c, 'A'..='Z' | 'a'..='z' | '0'..='9') {
+            // The resulting string is still unique, because underscores are also
+            // escaped if they were part of the input string.
+            result.push_str(&format!("_{:x}_", c as u32))
+        } else {
+            result.push(c);
+        }
+    }
+    result
 }
