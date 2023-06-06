@@ -15,6 +15,7 @@ members = [
     "util/cli-derive",
     "util/mime",
     "util/random",
+    "util/string_interner",
     "util/perfect_hash",
     "util/perfect_hash_derive",
     "parser_combinators", 
