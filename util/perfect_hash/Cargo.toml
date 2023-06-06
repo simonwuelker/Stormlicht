@@ -1,0 +1,13 @@
+[package]
+name = "perfect_hash"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["derive"]
+derive = ["dep:perfect_hash_derive"]
+
+[dependencies]
+perfect_hash_derive = { path = "../perfect_hash_derive", optional = true }
