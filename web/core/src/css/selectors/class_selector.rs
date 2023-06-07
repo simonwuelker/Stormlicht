@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use string_interner::InternedString;
 
 use super::{CSSValidateSelector, Selector, Specificity};
 use crate::{
@@ -8,11 +8,11 @@ use crate::{
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-class-selector>
 #[derive(Clone, Debug, PartialEq)]
-pub struct ClassSelector<'a> {
-    pub ident: Cow<'a, str>,
+pub struct ClassSelector {
+    pub ident: InternedString,
 }
 
-impl<'a> CSSParse<'a> for ClassSelector<'a> {
+impl<'a> CSSParse<'a> for ClassSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-class-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         if let Some(Token::Delim('.')) = parser.next_token() {
@@ -24,13 +24,13 @@ impl<'a> CSSParse<'a> for ClassSelector<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for ClassSelector<'a> {
+impl CSSValidateSelector for ClassSelector {
     fn is_valid(&self) -> bool {
         true
     }
 }
 
-impl<'a> Selector for ClassSelector<'a> {
+impl Selector for ClassSelector {
     fn matches(&self, _element: &DOMPtr<Element>) -> bool {
         log::warn!("FIXME: Class selector matching");
         false

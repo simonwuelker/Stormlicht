@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use string_interner::InternedString;
 
 use crate::{
     css::{syntax::Token, CSSParse, ParseError, Parser},
@@ -11,19 +11,19 @@ use super::{
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-attribute-selector>
 #[derive(Clone, Debug, PartialEq)]
-pub enum AttributeSelector<'a> {
+pub enum AttributeSelector {
     Exists {
-        attribute_name: WQName<'a>,
+        attribute_name: WQName,
     },
     Matches {
-        attribute_name: WQName<'a>,
+        attribute_name: WQName,
         matcher: AttributeMatcher,
-        value: Cow<'a, str>,
+        value: InternedString,
         modifier: AttributeModifier,
     },
 }
 
-impl<'a> CSSParse<'a> for AttributeSelector<'a> {
+impl<'a> CSSParse<'a> for AttributeSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-attribute-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         if !matches!(parser.next_token(), Some(Token::BracketOpen)) {
@@ -57,9 +57,9 @@ impl<'a> CSSParse<'a> for AttributeSelector<'a> {
     }
 }
 
-fn parse_attribute_value_matcher<'a>(
-    parser: &mut Parser<'a>,
-) -> Result<(AttributeMatcher, Cow<'a, str>, AttributeModifier), ParseError> {
+fn parse_attribute_value_matcher(
+    parser: &mut Parser<'_>,
+) -> Result<(AttributeMatcher, InternedString, AttributeModifier), ParseError> {
     let attribute_matcher = AttributeMatcher::parse(parser)?;
     parser.skip_whitespace();
     let attribute_value = match parser.next_token() {
@@ -74,7 +74,7 @@ fn parse_attribute_value_matcher<'a>(
     Ok((attribute_matcher, attribute_value, attribute_modifier))
 }
 
-impl<'a> CSSValidateSelector for AttributeSelector<'a> {
+impl CSSValidateSelector for AttributeSelector {
     fn is_valid(&self) -> bool {
         match self {
             Self::Exists { attribute_name } => attribute_name.is_valid(),
@@ -88,7 +88,7 @@ impl<'a> CSSValidateSelector for AttributeSelector<'a> {
     }
 }
 
-impl<'a> Selector for AttributeSelector<'a> {
+impl Selector for AttributeSelector {
     fn matches(&self, _element: &DOMPtr<Element>) -> bool {
         log::warn!("FIXME: Attribute selector matching");
         false

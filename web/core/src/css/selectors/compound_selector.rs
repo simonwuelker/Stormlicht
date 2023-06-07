@@ -5,15 +5,15 @@ use crate::{
 };
 /// <https://drafts.csswg.org/selectors-4/#compound>
 #[derive(Clone, Debug, PartialEq)]
-pub struct CompoundSelector<'a> {
-    pub type_selector: Option<TypeSelector<'a>>,
-    pub subclass_selectors: Vec<SubClassSelector<'a>>,
+pub struct CompoundSelector {
+    pub type_selector: Option<TypeSelector>,
+    pub subclass_selectors: Vec<SubClassSelector>,
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-compound-selector-list>
-pub type CompoundSelectorList<'a> = Vec<CompoundSelector<'a>>;
+pub type CompoundSelectorList = Vec<CompoundSelector>;
 
-impl<'a> CSSParse<'a> for CompoundSelector<'a> {
+impl<'a> CSSParse<'a> for CompoundSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-compound-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         // Note that the selectors *must not* be seperated by whitespace
@@ -28,14 +28,14 @@ impl<'a> CSSParse<'a> for CompoundSelector<'a> {
     }
 }
 
-impl<'a> CSSParse<'a> for CompoundSelectorList<'a> {
+impl<'a> CSSParse<'a> for CompoundSelectorList {
     // <https://drafts.csswg.org/selectors-4/#typedef-compound-selector-list>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         Ok(parser.parse_comma_seperated_list(CompoundSelector::parse))
     }
 }
 
-impl<'a> CSSValidateSelector for CompoundSelector<'a> {
+impl CSSValidateSelector for CompoundSelector {
     fn is_valid(&self) -> bool {
         if self.type_selector.as_ref().is_some_and(|t| !t.is_valid()) {
             return false;
@@ -44,7 +44,7 @@ impl<'a> CSSValidateSelector for CompoundSelector<'a> {
     }
 }
 
-impl<'a> Selector for CompoundSelector<'a> {
+impl Selector for CompoundSelector {
     fn matches(&self, element: &DOMPtr<Element>) -> bool {
         if self
             .type_selector

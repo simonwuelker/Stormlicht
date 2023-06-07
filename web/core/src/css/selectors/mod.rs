@@ -53,7 +53,7 @@ use crate::dom::{dom_objects::Element, DOMPtr};
 use super::{CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#parse-selector>
-pub fn parse_selector<'a>(parser: &mut Parser<'a>) -> Result<SelectorList<'a>, ParseError> {
+pub fn parse_selector(parser: &mut Parser<'_>) -> Result<SelectorList, ParseError> {
     // 1. Let selector be the result of parsing source as a <selector-list>. If this returns failure,
     //    it’s an invalid selector; return failure.
     let selector = SelectorList::parse(parser)?;

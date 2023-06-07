@@ -6,15 +6,15 @@ use crate::{
 
 /// <https://drafts.csswg.org/selectors-4/#simple>
 #[derive(Clone, Debug, PartialEq)]
-pub enum SimpleSelector<'a> {
-    Type(TypeSelector<'a>),
-    SubClass(SubClassSelector<'a>),
+pub enum SimpleSelector {
+    Type(TypeSelector),
+    SubClass(SubClassSelector),
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-simple-selector-list>
-pub type SimpleSelectorList<'a> = Vec<SimpleSelector<'a>>;
+pub type SimpleSelectorList = Vec<SimpleSelector>;
 
-impl<'a> CSSParse<'a> for SimpleSelector<'a> {
+impl<'a> CSSParse<'a> for SimpleSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-simple-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let start_state = parser.state();
@@ -31,14 +31,14 @@ impl<'a> CSSParse<'a> for SimpleSelector<'a> {
     }
 }
 
-impl<'a> CSSParse<'a> for SimpleSelectorList<'a> {
+impl<'a> CSSParse<'a> for SimpleSelectorList {
     // <https://drafts.csswg.org/selectors-4/#typedef-simple-selector-list>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         Ok(parser.parse_comma_seperated_list(SimpleSelector::parse))
     }
 }
 
-impl<'a> CSSValidateSelector for SimpleSelector<'a> {
+impl CSSValidateSelector for SimpleSelector {
     fn is_valid(&self) -> bool {
         match self {
             Self::Type(type_selector) => type_selector.is_valid(),
@@ -47,7 +47,7 @@ impl<'a> CSSValidateSelector for SimpleSelector<'a> {
     }
 }
 
-impl<'a> Selector for SimpleSelector<'a> {
+impl Selector for SimpleSelector {
     fn matches(&self, element: &DOMPtr<Element>) -> bool {
         match self {
             Self::Type(type_selector) => type_selector.matches(element),

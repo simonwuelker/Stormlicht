@@ -1,3 +1,5 @@
+use string_interner::{static_interned, static_str};
+
 use super::CSSValidateSelector;
 use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
@@ -18,9 +20,9 @@ impl<'a> CSSParse<'a> for AttributeModifier {
     // <https://drafts.csswg.org/selectors-4/#typedef-attr-modifier>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         match parser.next_token() {
-            Some(Token::Ident(ident)) => match ident.as_ref() {
-                "i" => Ok(AttributeModifier::CaseInsensitive),
-                "s" => Ok(AttributeModifier::CaseSensitive),
+            Some(Token::Ident(ident)) => match ident {
+                static_interned!("i") => Ok(AttributeModifier::CaseInsensitive),
+                static_interned!("s") => Ok(AttributeModifier::CaseSensitive),
                 _ => Err(ParseError),
             },
             _ => Err(ParseError),

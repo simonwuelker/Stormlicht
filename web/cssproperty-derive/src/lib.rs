@@ -10,7 +10,10 @@ enum FieldConstraints {
     OptionalUnordered,
 }
 
-#[proc_macro_derive(CSSProperty, attributes(keyword, ordered, unordered, optional_unordered))]
+#[proc_macro_derive(
+    CSSProperty,
+    attributes(keyword, ordered, unordered, optional_unordered)
+)]
 pub fn cssproperty_derive(input: TokenStream) -> TokenStream {
     let enum_def: syn::ItemEnum = syn::parse(input).expect("Not a valid rust enum");
     let enum_name = enum_def.ident;
@@ -96,7 +99,7 @@ pub fn cssproperty_derive(input: TokenStream) -> TokenStream {
     // ```
     let keyword_match = keywords
         .iter()
-        .map(|(keyword, variant)| quote!(#keyword => Self::#variant,))
+        .map(|(keyword, variant)| quote!(static_interned!(#keyword) => Self::#variant,))
         .collect::<TokenStream2>();
 
     // For each unit struct variant (For example, "::Foo(ContainedType)" ),
@@ -265,9 +268,10 @@ pub fn cssproperty_derive(input: TokenStream) -> TokenStream {
         TokenStream2::new()
     } else {
         quote!(
+            use string_interner::{static_interned, static_str};
             let parsed_keyword = parser.parse_optional_value(|parser| {
                 if let Some(Token::Ident(identifier)) = parser.next_token() {
-                    let parsed_keyword = match identifier.as_ref() {
+                    let parsed_keyword = match identifier {
                         #keyword_match
                         _ => return Err(ParseError),
                     };

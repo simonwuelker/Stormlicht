@@ -6,12 +6,12 @@ use crate::{
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-type-selector>
 #[derive(Clone, Debug, PartialEq)]
-pub enum TypeSelector<'a> {
-    NSPrefix(Option<NSPrefix<'a>>),
-    WQName(WQName<'a>),
+pub enum TypeSelector {
+    NSPrefix(Option<NSPrefix>),
+    WQName(WQName),
 }
 
-impl<'a> CSSParse<'a> for TypeSelector<'a> {
+impl<'a> CSSParse<'a> for TypeSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-type-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let start_state = parser.state();
@@ -23,14 +23,14 @@ impl<'a> CSSParse<'a> for TypeSelector<'a> {
         let ns_prefix = parser.parse_optional_value(NSPrefix::parse);
         parser.skip_whitespace();
         if matches!(parser.next_token(), Some(Token::Delim('*'))) {
-            return Ok(TypeSelector::NSPrefix(ns_prefix));
+            Ok(TypeSelector::NSPrefix(ns_prefix))
         } else {
             Err(ParseError)
         }
     }
 }
 
-impl<'a> CSSValidateSelector for TypeSelector<'a> {
+impl CSSValidateSelector for TypeSelector {
     fn is_valid(&self) -> bool {
         match self {
             Self::NSPrefix(ns_prefix) => !ns_prefix.as_ref().is_some_and(|n| n.is_valid()),
@@ -39,7 +39,7 @@ impl<'a> CSSValidateSelector for TypeSelector<'a> {
     }
 }
 
-impl<'a> Selector for TypeSelector<'a> {
+impl Selector for TypeSelector {
     fn matches(&self, element: &DOMPtr<Element>) -> bool {
         _ = element;
         match self {

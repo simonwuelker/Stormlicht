@@ -4,18 +4,18 @@ use super::{CSSValidateSelector, Combinator, ComplexSelectorUnit};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-complex-selector>
 #[derive(Clone, Debug, PartialEq)]
-pub struct ComplexSelector<'a> {
-    pub first_unit: ComplexSelectorUnit<'a>,
-    pub subsequent_units: Vec<(Combinator, ComplexSelectorUnit<'a>)>,
+pub struct ComplexSelector {
+    pub first_unit: ComplexSelectorUnit,
+    pub subsequent_units: Vec<(Combinator, ComplexSelectorUnit)>,
 }
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-selector-list>
-pub type SelectorList<'a> = ComplexSelectorList<'a>;
+pub type SelectorList = ComplexSelectorList;
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-complex-selector-list>
-pub type ComplexSelectorList<'a> = Vec<ComplexSelector<'a>>;
+pub type ComplexSelectorList = Vec<ComplexSelector>;
 
-impl<'a> CSSParse<'a> for ComplexSelector<'a> {
+impl<'a> CSSParse<'a> for ComplexSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-complex-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let first_unit = ComplexSelectorUnit::parse(parser)?;
@@ -31,16 +31,16 @@ impl<'a> CSSParse<'a> for ComplexSelector<'a> {
     }
 }
 
-impl<'a> CSSParse<'a> for ComplexSelectorList<'a> {
+impl<'a> CSSParse<'a> for ComplexSelectorList {
     // <https://drafts.csswg.org/selectors-4/#typedef-complex-selector-list>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         Ok(parser.parse_comma_seperated_list(ComplexSelector::parse))
     }
 }
 
-fn parse_complex_selector_unit_with_combinator<'a>(
-    parser: &mut Parser<'a>,
-) -> Result<(Combinator, ComplexSelectorUnit<'a>), ParseError> {
+fn parse_complex_selector_unit_with_combinator(
+    parser: &mut Parser<'_>,
+) -> Result<(Combinator, ComplexSelectorUnit), ParseError> {
     parser.skip_whitespace();
     let combinator = parser
         .parse_optional_value(Combinator::parse)
@@ -51,7 +51,7 @@ fn parse_complex_selector_unit_with_combinator<'a>(
     Ok((combinator, complex_selector_unit))
 }
 
-impl<'a> CSSValidateSelector for ComplexSelector<'a> {
+impl CSSValidateSelector for ComplexSelector {
     fn is_valid(&self) -> bool {
         self.first_unit.is_valid()
             && self

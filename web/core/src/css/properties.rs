@@ -1,5 +1,6 @@
 use super::{syntax::Token, values::color::Color, CSSParse, ParseError, Parser};
 use cssproperty_derive::CSSProperty;
+use string_interner::{static_interned, static_str, InternedString};
 
 /// Enumerates the CSS properties supported by the user agent
 #[derive(Clone, Debug)]
@@ -25,11 +26,16 @@ pub struct StylePropertyDeclaration {
 }
 
 impl StyleProperty {
-    pub fn parse_value(parser: &mut Parser, property_name: &str) -> Result<Self, ParseError> {
+    pub fn parse_value(
+        parser: &mut Parser,
+        property_name: InternedString,
+    ) -> Result<Self, ParseError> {
         let property = match property_name {
-            "color" => Self::Color(ColorValue::parse(parser)?),
-            "background-color" => Self::BackgroundColor(BackgroundColorValue::parse(parser)?),
-            "display" => Self::Display(DisplayValue::parse(parser)?),
+            static_interned!("color") => Self::Color(ColorValue::parse(parser)?),
+            static_interned!("background-color") => {
+                Self::BackgroundColor(BackgroundColorValue::parse(parser)?)
+            },
+            static_interned!("display") => Self::Display(DisplayValue::parse(parser)?),
             _ => {
                 log::warn!("Unknown CSS property name: {property_name:?}");
                 return Err(ParseError);

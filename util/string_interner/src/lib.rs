@@ -133,9 +133,25 @@ perfect_set!(
         "type",
 
         // CSS terms
-        "hidden",
-        "color",
+        "after",
         "background-color",
+        "before",
+        "block",
+        "color",
+        "display",
+        "first-line",
+        "first-letter",
+        "flex",
+        "flow",
+        "flow-root",
+        "grid",
+        "hidden",
+        "important",
+        "inherit",
+        "inline",
+        "ruby",
+        "run-in",
+        "transparent",
     ];
 );
 
@@ -222,6 +238,19 @@ impl fmt::Display for InternedString {
         }
     }
 }
+
+impl From<String> for InternedString {
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<&str> for InternedString {
+    fn from(value: &str) -> Self {
+        Self::new(value.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::InternedString;

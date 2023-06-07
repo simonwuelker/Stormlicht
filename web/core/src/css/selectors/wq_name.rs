@@ -1,16 +1,16 @@
-use std::borrow::Cow;
+use string_interner::InternedString;
 
 use super::{CSSValidateSelector, NSPrefix};
 use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-wq-name>
 #[derive(Clone, Debug, PartialEq)]
-pub struct WQName<'a> {
-    pub prefix: Option<NSPrefix<'a>>,
-    pub ident: Cow<'a, str>,
+pub struct WQName {
+    pub prefix: Option<NSPrefix>,
+    pub ident: InternedString,
 }
 
-impl<'a> CSSParse<'a> for WQName<'a> {
+impl<'a> CSSParse<'a> for WQName {
     // <https://drafts.csswg.org/selectors-4/#typedef-wq-name>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let prefix = parser.parse_optional_value(NSPrefix::parse);
@@ -25,7 +25,7 @@ impl<'a> CSSParse<'a> for WQName<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for WQName<'a> {
+impl CSSValidateSelector for WQName {
     fn is_valid(&self) -> bool {
         true
     }

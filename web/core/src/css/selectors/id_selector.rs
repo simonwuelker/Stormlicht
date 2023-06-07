@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use string_interner::InternedString;
 
 use super::{CSSValidateSelector, Selector, Specificity};
 use crate::{
@@ -11,11 +11,11 @@ use crate::{
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-id-selector>
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IDSelector<'a> {
-    pub ident: Cow<'a, str>,
+pub struct IDSelector {
+    pub ident: InternedString,
 }
 
-impl<'a> CSSParse<'a> for IDSelector<'a> {
+impl<'a> CSSParse<'a> for IDSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-id-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         if let Some(Token::Hash(ident, HashFlag::Id)) = parser.next_token() {
@@ -26,13 +26,13 @@ impl<'a> CSSParse<'a> for IDSelector<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for IDSelector<'a> {
+impl CSSValidateSelector for IDSelector {
     fn is_valid(&self) -> bool {
         true
     }
 }
 
-impl<'a> Selector for IDSelector<'a> {
+impl Selector for IDSelector {
     fn matches(&self, element: &DOMPtr<Element>) -> bool {
         _ = element;
         // Temporarily disabled due to interned string changes

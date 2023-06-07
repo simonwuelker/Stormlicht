@@ -2,9 +2,9 @@ use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://w3c.github.io/csswg-drafts/css-syntax-3/#typedef-any-value>
 #[derive(Clone, Debug, PartialEq)]
-pub struct AnyValue<'a>(pub Vec<Token<'a>>);
+pub struct AnyValue(pub Vec<Token>);
 
-impl<'a> CSSParse<'a> for AnyValue<'a> {
+impl<'a> CSSParse<'a> for AnyValue {
     // <https://w3c.github.io/csswg-drafts/css-syntax-3/#typedef-any-value>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let mut values = vec![];

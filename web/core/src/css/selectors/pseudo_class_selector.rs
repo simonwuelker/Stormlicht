@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use string_interner::{static_interned, static_str, InternedString};
 
 use super::{AnyValue, CSSValidateSelector, Selector, Specificity};
 use crate::{
@@ -8,15 +8,15 @@ use crate::{
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-class-selector>
 #[derive(Clone, Debug, PartialEq)]
-pub enum PseudoClassSelector<'a> {
-    Ident(Cow<'a, str>),
+pub enum PseudoClassSelector {
+    Ident(InternedString),
     Function {
-        function_name: Cow<'a, str>,
-        content: AnyValue<'a>,
+        function_name: InternedString,
+        content: AnyValue,
     },
 }
 
-impl<'a> CSSParse<'a> for PseudoClassSelector<'a> {
+impl<'a> CSSParse<'a> for PseudoClassSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-pseudo-class-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         if !matches!(parser.next_token(), Some(Token::Colon)) {
@@ -27,8 +27,11 @@ impl<'a> CSSParse<'a> for PseudoClassSelector<'a> {
             Some(Token::Ident(ident)) => {
                 // LEGACY:
                 // The <pseudo-class-selector> production excludes the <legacy-pseudo-element-selector> production. (That is, :before/etc must never be parsed as a pseudo-class)
-                match ident.as_ref() {
-                    "before" | "after" | "first-line" | "first-letter" => Err(ParseError),
+                match ident {
+                    static_interned!("before")
+                    | static_interned!("after")
+                    | static_interned!("first-line")
+                    | static_interned!("first-letter") => Err(ParseError),
                     _ => Ok(PseudoClassSelector::Ident(ident)),
                 }
             },
@@ -48,7 +51,7 @@ impl<'a> CSSParse<'a> for PseudoClassSelector<'a> {
     }
 }
 
-impl<'a> Selector for PseudoClassSelector<'a> {
+impl Selector for PseudoClassSelector {
     fn matches(&self, _element: &DOMPtr<Element>) -> bool {
         log::warn!("FIXME: Pseudo Class selector matching");
         false
@@ -65,7 +68,7 @@ impl<'a> Selector for PseudoClassSelector<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for PseudoClassSelector<'a> {
+impl CSSValidateSelector for PseudoClassSelector {
     fn is_valid(&self) -> bool {
         // We don't support *any* legacy pseudo class selectors
         // As per spec, we therefore treat them as invalid

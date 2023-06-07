@@ -3,12 +3,12 @@ use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-element-selector>
 #[derive(Clone, Debug, PartialEq)]
-pub enum PseudoElementSelector<'a> {
-    PseudoClass(PseudoClassSelector<'a>),
+pub enum PseudoElementSelector {
+    PseudoClass(PseudoClassSelector),
     Legacy(LegacyPseudoElementSelector),
 }
 
-impl<'a> CSSParse<'a> for PseudoElementSelector<'a> {
+impl<'a> CSSParse<'a> for PseudoElementSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-pseudo-element-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let start_state = parser.state();
@@ -29,7 +29,7 @@ impl<'a> CSSParse<'a> for PseudoElementSelector<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for PseudoElementSelector<'a> {
+impl CSSValidateSelector for PseudoElementSelector {
     fn is_valid(&self) -> bool {
         match self {
             Self::PseudoClass(pseudo_class_selector) => pseudo_class_selector.is_valid(),

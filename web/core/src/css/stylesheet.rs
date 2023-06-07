@@ -13,21 +13,21 @@ pub enum Origin {
 }
 
 #[derive(Clone, Debug)]
-pub struct Stylesheet<'a> {
+pub struct Stylesheet {
     /// Where the stylesheet came from
     pub origin: Origin,
 
     /// The rules contained in the stylesheet
-    pub rules: Vec<StyleRule<'a>>,
+    pub rules: Vec<StyleRule>,
 }
 
 #[derive(Clone, Debug)]
-pub struct StyleRule<'a> {
-    pub selectors: SelectorList<'a>,
+pub struct StyleRule {
+    pub selectors: SelectorList,
     pub properties: Vec<StylePropertyDeclaration>,
 }
 
-impl<'a> StyleRule<'a> {
+impl StyleRule {
     #[must_use]
     pub fn properties(&self) -> &[StylePropertyDeclaration] {
         &self.properties

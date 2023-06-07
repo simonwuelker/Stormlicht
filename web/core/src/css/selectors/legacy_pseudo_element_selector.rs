@@ -1,3 +1,5 @@
+use string_interner::{static_interned, static_str};
+
 use super::CSSValidateSelector;
 use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
@@ -22,11 +24,11 @@ impl<'a> CSSParse<'a> for LegacyPseudoElementSelector {
         }
 
         if let Some(Token::Ident(ident)) = parser.next_token() {
-            match ident.as_ref() {
-                "before" => Ok(LegacyPseudoElementSelector::Before),
-                "after" => Ok(LegacyPseudoElementSelector::After),
-                "first-line" => Ok(LegacyPseudoElementSelector::FirstLine),
-                "first-letter" => Ok(LegacyPseudoElementSelector::FirstLetter),
+            match ident {
+                static_interned!("before") => Ok(LegacyPseudoElementSelector::Before),
+                static_interned!("after") => Ok(LegacyPseudoElementSelector::After),
+                static_interned!("first-line") => Ok(LegacyPseudoElementSelector::FirstLine),
+                static_interned!("first-letter") => Ok(LegacyPseudoElementSelector::FirstLetter),
                 _ => Err(ParseError),
             }
         } else {

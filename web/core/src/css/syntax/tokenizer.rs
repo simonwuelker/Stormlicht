@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use string_interner::InternedString;
 
 use crate::css::values::Number;
 
@@ -19,17 +19,17 @@ pub enum HashFlag {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Token<'a> {
-    Ident(Cow<'a, str>),
-    AtKeyword(Cow<'a, str>),
-    String(Cow<'a, str>),
-    BadString(Cow<'a, str>),
-    BadURI(Cow<'a, str>),
-    Hash(Cow<'a, str>, HashFlag),
+pub enum Token {
+    Ident(InternedString),
+    AtKeyword(InternedString),
+    String(InternedString),
+    BadString(InternedString),
+    BadURI(InternedString),
+    Hash(InternedString, HashFlag),
     Number(Number),
     Percentage(Number),
-    Dimension(Number, Cow<'a, str>),
-    URI(Cow<'a, str>),
+    Dimension(Number, InternedString),
+    URI(InternedString),
     CommentDeclarationOpen,
     CommentDeclarationClose,
     Colon,
@@ -41,7 +41,7 @@ pub enum Token<'a> {
     BracketOpen,
     BracketClose,
     Whitespace,
-    Function(Cow<'a, str>),
+    Function(InternedString),
     Comma,
     Delim(char),
 }
@@ -50,24 +50,6 @@ pub enum Token<'a> {
 pub struct Tokenizer<'a> {
     source: &'a str,
     position: usize,
-}
-
-/// When reading an identifier from source code, there is generally no need to
-/// clone the data, unless escape sequences are involved. This is a utility enum
-/// to avoid unnecessary clones. See [Parser::consume_ident_sequence] for a usage example.
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum Ident {
-    Borrowing(usize),
-    Owned(String),
-}
-
-impl Ident {
-    fn resolve(self, to: usize, source: &str) -> Cow<'_, str> {
-        match self {
-            Self::Borrowing(from) => Cow::Borrowed(&source[from..=to]),
-            Self::Owned(ident_string) => Cow::Owned(ident_string),
-        }
-    }
 }
 
 impl<'a> Tokenizer<'a> {
@@ -195,10 +177,9 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// <https://drafts.csswg.org/css-syntax/#consume-an-ident-sequence>
-    fn consume_ident_sequence(&mut self) -> Cow<'a, str> {
+    fn consume_ident_sequence(&mut self) -> InternedString {
         // Let result initially be an empty string.
-        let start_index = self.current_position();
-        let mut result = Ident::Borrowing(start_index);
+        let mut result = String::new();
 
         // Repeatedly consume the next input code point from the stream:
         loop {
@@ -209,29 +190,15 @@ impl<'a> Tokenizer<'a> {
                     // ident code point:
                     if is_ident_code_point(c) {
                         // Append the code point to result.
-                        if let Ident::Owned(ref mut ident) = result {
-                            ident.push(c);
-                        }
+                        result.push(c);
                     }
                     // the stream starts with a valid escape:
                     else if self.is_valid_escape_start() {
-                        let end_index = self.current_position();
-
                         // Consume an escaped code point.
                         let c = self.consume_escaped_codepoint();
 
                         // Append the returned code point to result.
-                        match result {
-                            Ident::Owned(ref mut ident) => ident.push(c),
-                            Ident::Borrowing(start_index) => {
-                                // At this point we can no longer return a reference to the source code and must
-                                // clone our own String
-                                let mut owned_ident =
-                                    self.source[start_index..end_index].to_owned();
-                                owned_ident.push(c);
-                                result = Ident::Owned(owned_ident)
-                            },
-                        }
+                        result.push(c);
                     }
                     // anything else
                     else {
@@ -239,7 +206,7 @@ impl<'a> Tokenizer<'a> {
                         self.reconsume();
 
                         // Return result.
-                        return result.resolve(self.current_position() - 1, self.source);
+                        return InternedString::new(result);
                     }
                 },
                 None => {
@@ -247,7 +214,7 @@ impl<'a> Tokenizer<'a> {
                     self.reconsume();
 
                     // Return result.
-                    return result.resolve(self.current_position() - 1, self.source);
+                    return InternedString::new(result);
                 },
             }
         }
@@ -382,7 +349,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// <https://drafts.csswg.org/css-syntax/#consume-a-numeric-token>
-    fn consume_numeric_token(&mut self) -> Token<'a> {
+    fn consume_numeric_token(&mut self) -> Token {
         // Consume a number and let number be the result.
         let number = self.consume_number();
 
@@ -432,7 +399,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// <https://drafts.csswg.org/css-syntax/#consume-a-url-token>
-    fn consume_url_token(&mut self) -> Token<'a> {
+    fn consume_url_token(&mut self) -> Token {
         // Initially create a <url-token> with its value set to the empty string.
         let mut value = String::new();
 
@@ -444,14 +411,14 @@ impl<'a> Tokenizer<'a> {
             match self.next_codepoint() {
                 Some(')') => {
                     // Return the <url-token>.
-                    return Token::URI(Cow::Owned(value));
+                    return Token::URI(InternedString::new(value));
                 },
                 None => {
                     // This is a parse error.
                     log::warn!(target: "css", "Parse Error: EOF in URL token");
 
                     // Return the <url-token>.
-                    return Token::URI(Cow::Owned(value));
+                    return Token::URI(InternedString::new(value));
                 },
                 Some(c) if is_whitespace(c) => {
                     // Consume as much whitespace as possible
@@ -467,7 +434,7 @@ impl<'a> Tokenizer<'a> {
                         if self.peek_codepoint(0).is_none() {
                             log::warn!(target: "css", "Parse Error: EOF in URL token");
                         }
-                        return Token::URI(Cow::Owned(value));
+                        return Token::URI(InternedString::new(value));
                     }
                     // otherwise,
                     else {
@@ -475,7 +442,7 @@ impl<'a> Tokenizer<'a> {
                         self.consume_remnants_of_a_bad_url();
 
                         // create a <bad-url-token>, and return it.
-                        return Token::BadURI(Cow::Owned(value));
+                        return Token::BadURI(InternedString::new(value));
                     }
                 },
                 Some(
@@ -494,7 +461,7 @@ impl<'a> Tokenizer<'a> {
                     self.consume_remnants_of_a_bad_url();
 
                     // create a <bad-url-token>, and return it.
-                    return Token::BadURI(Cow::Owned(value));
+                    return Token::BadURI(InternedString::new(value));
                 },
                 Some(BACKSLASH) => {
                     // If the stream starts with a valid escape
@@ -514,7 +481,7 @@ impl<'a> Tokenizer<'a> {
                         self.consume_remnants_of_a_bad_url();
 
                         // create a <bad-url-token>, and return it.
-                        return Token::BadURI(Cow::Owned(value));
+                        return Token::BadURI(InternedString::new(value));
                     }
                 },
                 Some(c) => {
@@ -526,12 +493,12 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// <https://drafts.csswg.org/css-syntax/#consume-an-ident-like-token>
-    fn consume_ident_like_token(&mut self) -> Token<'a> {
+    fn consume_ident_like_token(&mut self) -> Token {
         // Consume an ident sequence, and let string be the result.
         let ident = self.consume_ident_sequence();
 
         // If string’s value is an ASCII case-insensitive match for "url", and the next input code point is U+0028 LEFT PARENTHESIS (()
-        if ident.as_ref().eq_ignore_ascii_case("url") && self.peek_codepoint(0) == Some('(') {
+        if ident.to_string().eq_ignore_ascii_case("url") && self.peek_codepoint(0) == Some('(') {
             // consume it
             self.advance(1);
 
@@ -589,7 +556,7 @@ impl<'a> Tokenizer<'a> {
     /// This algorithm may be called with an ending code point, which denotes the code point that ends the string.
     /// If an ending code point is not specified, the current input code point is used.
     /// NOTE: You **need** to provide the ending code point
-    fn consume_string_token(&mut self, end_token: char) -> Token<'a> {
+    fn consume_string_token(&mut self, end_token: char) -> Token {
         // NOTE this seems a bit silly since we are pretty much guaranteed to use a '"' as the ending code point
         // Initially create a <string-token> with its value set to the empty string.
         let mut string = String::new();
@@ -599,7 +566,7 @@ impl<'a> Tokenizer<'a> {
             match self.next_codepoint() {
                 Some(c) if c == end_token => {
                     // Return the <string-token>
-                    return Token::String(Cow::Owned(string));
+                    return Token::String(InternedString::new(string));
                 },
                 Some(NEWLINE) => {
                     // This is a parse error.
@@ -609,7 +576,7 @@ impl<'a> Tokenizer<'a> {
                     self.reconsume();
 
                     // Create a <bad-string-token>, and return it.
-                    return Token::BadString(Cow::Owned(string));
+                    return Token::BadString(InternedString::new(string));
                 },
                 Some(BACKSLASH) => {
                     match self.peek_codepoint(0) {
@@ -638,7 +605,7 @@ impl<'a> Tokenizer<'a> {
                     log::warn!(target: "css", "Parse Error: EOF in string token");
 
                     // Return the <string-token>.
-                    return Token::String(Cow::Owned(string));
+                    return Token::String(InternedString::new(string));
                 },
             }
         }
@@ -683,7 +650,7 @@ impl<'a> Tokenizer<'a> {
     ///
     /// # Specification
     /// <https://drafts.csswg.org/css-syntax/#consume-token>
-    pub fn next_token(&mut self) -> Option<Token<'a>> {
+    pub fn next_token(&mut self) -> Option<Token> {
         // Consume comments.
         self.consume_comments();
 
@@ -924,7 +891,7 @@ impl<'a> Tokenizer<'a> {
 }
 
 impl<'a> Iterator for Tokenizer<'a> {
-    type Item = Token<'a>;
+    type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_token()

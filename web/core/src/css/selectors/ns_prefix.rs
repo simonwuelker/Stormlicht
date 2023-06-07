@@ -1,17 +1,17 @@
-use std::borrow::Cow;
+use string_interner::InternedString;
 
 use super::CSSValidateSelector;
 use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-ns-prefix>
 #[derive(Clone, Debug, PartialEq)]
-pub enum NSPrefix<'a> {
-    Ident(Cow<'a, str>),
+pub enum NSPrefix {
+    Ident(InternedString),
     Asterisk,
     Empty,
 }
 
-impl<'a> CSSParse<'a> for NSPrefix<'a> {
+impl<'a> CSSParse<'a> for NSPrefix {
     // <https://drafts.csswg.org/selectors-4/#typedef-ns-prefix>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let prefix = parser
@@ -32,7 +32,7 @@ impl<'a> CSSParse<'a> for NSPrefix<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for NSPrefix<'a> {
+impl CSSValidateSelector for NSPrefix {
     fn is_valid(&self) -> bool {
         // We don't support *any* namespace prefixes
         // As per spec, we therefore treat them as invalid

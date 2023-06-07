@@ -291,21 +291,36 @@ mod tests {
         assert_eq!(MIMEType::from_str("/foo"), Err(MIMEParseError::EmptyType));
 
         // Empty subtype
-        assert_eq!(MIMEType::from_str("foo/"), Err(MIMEParseError::EmptySubType));
+        assert_eq!(
+            MIMEType::from_str("foo/"),
+            Err(MIMEParseError::EmptySubType)
+        );
 
         // Type containing non-http codepoints
-        assert_eq!(MIMEType::from_str("foo@bar/foo"), Err(MIMEParseError::TypeContainsNonHTTPCodePoint));
+        assert_eq!(
+            MIMEType::from_str("foo@bar/foo"),
+            Err(MIMEParseError::TypeContainsNonHTTPCodePoint)
+        );
 
         // Subtype containing non-http codepoints
-        assert_eq!(MIMEType::from_str("foo/foo@bar"), Err(MIMEParseError::SubTypeContainsNonHTTPCodePoint));
+        assert_eq!(
+            MIMEType::from_str("foo/foo@bar"),
+            Err(MIMEParseError::SubTypeContainsNonHTTPCodePoint)
+        );
     }
 
     #[test]
     fn valid_mime_type() {
         // Simple MIME type
-        assert_eq!(MIMEType::from_str("foo/bar"), Ok(MIMEType::new("foo", "bar")));
+        assert_eq!(
+            MIMEType::from_str("foo/bar"),
+            Ok(MIMEType::new("foo", "bar"))
+        );
 
         // Leading/trailing whitespace
-        assert_eq!(MIMEType::from_str("  foo/bar  "), Ok(MIMEType::new("foo", "bar")));
+        assert_eq!(
+            MIMEType::from_str("  foo/bar  "),
+            Ok(MIMEType::new("foo", "bar"))
+        );
     }
 }

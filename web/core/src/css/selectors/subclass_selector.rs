@@ -9,14 +9,14 @@ use crate::{
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-subclass-selector>
 #[derive(Clone, Debug, PartialEq)]
-pub enum SubClassSelector<'a> {
-    ID(IDSelector<'a>),
-    Class(ClassSelector<'a>),
-    Attribute(AttributeSelector<'a>),
-    PseudoClass(PseudoClassSelector<'a>),
+pub enum SubClassSelector {
+    ID(IDSelector),
+    Class(ClassSelector),
+    Attribute(AttributeSelector),
+    PseudoClass(PseudoClassSelector),
 }
 
-impl<'a> CSSParse<'a> for SubClassSelector<'a> {
+impl<'a> CSSParse<'a> for SubClassSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-subclass-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let start_state = parser.state();
@@ -43,7 +43,7 @@ impl<'a> CSSParse<'a> for SubClassSelector<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for SubClassSelector<'a> {
+impl CSSValidateSelector for SubClassSelector {
     fn is_valid(&self) -> bool {
         match self {
             Self::ID(id_selector) => id_selector.is_valid(),
@@ -54,7 +54,7 @@ impl<'a> CSSValidateSelector for SubClassSelector<'a> {
     }
 }
 
-impl<'a> Selector for SubClassSelector<'a> {
+impl Selector for SubClassSelector {
     fn matches(&self, element: &DOMPtr<Element>) -> bool {
         match self {
             Self::ID(id_selector) => id_selector.matches(element),

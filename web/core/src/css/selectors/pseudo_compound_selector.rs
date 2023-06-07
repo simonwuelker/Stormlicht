@@ -3,12 +3,12 @@ use crate::css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-compound-selector>
 #[derive(Clone, Debug, PartialEq)]
-pub struct PseudoCompoundSelector<'a> {
-    pub pseudo_element_selector: PseudoElementSelector<'a>,
-    pub pseudo_class_selectors: Vec<PseudoClassSelector<'a>>,
+pub struct PseudoCompoundSelector {
+    pub pseudo_element_selector: PseudoElementSelector,
+    pub pseudo_class_selectors: Vec<PseudoClassSelector>,
 }
 
-impl<'a> CSSParse<'a> for PseudoCompoundSelector<'a> {
+impl<'a> CSSParse<'a> for PseudoCompoundSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-pseudo-compound-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let pseudo_element_selector = PseudoElementSelector::parse(parser)?;
@@ -22,7 +22,7 @@ impl<'a> CSSParse<'a> for PseudoCompoundSelector<'a> {
     }
 }
 
-impl<'a> CSSValidateSelector for PseudoCompoundSelector<'a> {
+impl CSSValidateSelector for PseudoCompoundSelector {
     fn is_valid(&self) -> bool {
         self.pseudo_element_selector.is_valid() && self.pseudo_class_selectors.is_valid()
     }

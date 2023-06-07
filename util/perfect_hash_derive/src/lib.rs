@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use proc_macro::TokenStream;
 
 use quote::quote;
@@ -62,6 +64,16 @@ pub fn perfect_set(input: TokenStream) -> TokenStream {
 
     let strings: Vec<String> = input_data.items.iter().map(|item| item.value()).collect();
     let size = strings.len();
+
+    // Duplicate strings are an error (its obviously impossible to seperate them)
+    // Check if there are any
+    let mut set = HashSet::new();
+    for s in &strings {
+        if !set.insert(s) {
+            panic!("Duplicate key: {s}");
+        }
+    }
+
     // Map all strings into buckets like in a regular hashmap
     let mut first_level_buckets = vec![vec![]; size];
     for string in &strings {

@@ -9,18 +9,18 @@ use crate::css::{selectors::SelectorList, syntax::Token, CSSParse, ParseError, P
 pub struct RuleParser;
 
 impl RuleParser {
-    pub fn parse_qualified_rule_prelude<'a>(
+    pub fn parse_qualified_rule_prelude(
         &self,
-        parser: &mut Parser<'a>,
-    ) -> Result<SelectorList<'a>, ParseError> {
+        parser: &mut Parser<'_>,
+    ) -> Result<SelectorList, ParseError> {
         SelectorList::parse_complete(parser)
     }
 
-    pub fn parse_qualified_rule_block<'a>(
+    pub fn parse_qualified_rule_block(
         &self,
-        parser: &mut Parser<'a>,
-        selectors: SelectorList<'a>,
-    ) -> Result<StyleRule<'a>, ParseError> {
+        parser: &mut Parser<'_>,
+        selectors: SelectorList,
+    ) -> Result<StyleRule, ParseError> {
         let mut properties = vec![];
         while !parser.is_exhausted() {
             if let Some(declaration) = parser.consume_declaration() {

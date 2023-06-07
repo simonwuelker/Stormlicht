@@ -14,6 +14,8 @@
 //! The term "whitespace" includes comments.
 //! Any parsing function should consume any trailing whitespace *after* it's input but not *before it*.
 
+use string_interner::{static_interned, static_str};
+
 use super::{
     rule_parser::RuleParser,
     tokenizer::{Token, Tokenizer},
@@ -22,7 +24,7 @@ use super::{
 use crate::css::{
     values::Number, Origin, StyleProperty, StylePropertyDeclaration, StyleRule, Stylesheet,
 };
-use std::{borrow::Cow, fmt::Debug};
+use std::fmt::Debug;
 
 const MAX_ITERATIONS: usize = 20;
 
@@ -49,7 +51,7 @@ pub enum WhitespaceAllowed {
 #[derive(Clone, Debug)]
 pub struct Parser<'a> {
     tokenizer: Tokenizer<'a>,
-    buffered_token: Option<Token<'a>>,
+    buffered_token: Option<Token>,
     stop_at: Option<ParserDelimiter>,
     stopped: bool,
     origin: Origin,
@@ -75,9 +77,9 @@ impl ParserDelimiter {
 }
 
 #[derive(Clone, Debug)]
-pub struct ParserState<'a> {
+pub struct ParserState {
     pub position: usize,
-    buffered_token: Option<Token<'a>>,
+    buffered_token: Option<Token>,
     stopped: bool,
 }
 
@@ -110,7 +112,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn next_token(&mut self) -> Option<Token<'a>> {
+    pub fn next_token(&mut self) -> Option<Token> {
         if self.stopped {
             return None;
         }
@@ -138,14 +140,14 @@ impl<'a> Parser<'a> {
         Some(next_token)
     }
 
-    pub fn peek_token(&mut self) -> Option<Token<'a>> {
+    pub fn peek_token(&mut self) -> Option<Token> {
         let next_token = self.next_token()?;
         self.reconsume(next_token.clone());
         Some(next_token)
     }
 
     #[inline]
-    pub fn expect_token(&mut self, expected_token: Token<'a>) -> Result<(), ParseError> {
+    pub fn expect_token(&mut self, expected_token: Token) -> Result<(), ParseError> {
         if self.next_token() == Some(expected_token) {
             Ok(())
         } else {
@@ -154,7 +156,7 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    pub fn state(&self) -> ParserState<'a> {
+    pub fn state(&self) -> ParserState {
         ParserState {
             position: self.tokenizer.position(),
             buffered_token: self.buffered_token.clone(),
@@ -163,7 +165,7 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    pub fn set_state(&mut self, state: ParserState<'a>) {
+    pub fn set_state(&mut self, state: ParserState) {
         self.tokenizer.set_position(state.position);
         self.buffered_token = state.buffered_token;
         self.stopped = state.stopped;
@@ -171,7 +173,7 @@ impl<'a> Parser<'a> {
 
     /// <https://drafts.csswg.org/css-syntax/#reconsume-the-current-input-token>
     #[inline]
-    fn reconsume(&mut self, token: Token<'a>) {
+    fn reconsume(&mut self, token: Token) {
         assert!(self.buffered_token.is_none());
         self.buffered_token = Some(token);
     }
@@ -181,7 +183,7 @@ impl<'a> Parser<'a> {
         &mut self,
         rule_parser: &mut RuleParser,
         top_level: TopLevel,
-    ) -> Vec<StyleRule<'a>> {
+    ) -> Vec<StyleRule> {
         // Create an initially empty list of rules.
         let mut rules = vec![];
 
@@ -241,7 +243,7 @@ impl<'a> Parser<'a> {
         &mut self,
         rule_parser: &mut RuleParser,
         mixed_with_declarations: MixedWithDeclarations,
-    ) -> Result<StyleRule<'a>, ParseError> {
+    ) -> Result<StyleRule, ParseError> {
         // NOTE: The spec sometimes returns "None" (not an error, but no rule.)
         // Since "None" and "Err(_)" are treated the same (the parser ignores the rule and moves on),
         // we never return None, always Err(_).
@@ -316,7 +318,7 @@ impl<'a> Parser<'a> {
         self.skip_whitespace();
 
         // NOTE: At this point we deviate from the spec because the spec gets a little silly
-        let value = if let Ok(value) = StyleProperty::parse_value(self, &declaration_name) {
+        let value = if let Ok(value) = StyleProperty::parse_value(self, declaration_name) {
             value
         } else {
             self.consume_remnants_of_bad_declaration(nested);
@@ -326,12 +328,15 @@ impl<'a> Parser<'a> {
         // Check for !important
         if matches!(self.peek_token(), Some(Token::Delim('!'))) {
             self.next_token();
-            if self.next_token() == Some(Token::Ident(Cow::Borrowed("important"))) {
-                is_important = true;
-                self.skip_whitespace();
-            } else {
-                self.consume_remnants_of_bad_declaration(nested);
-                return None;
+            match self.next_token() {
+                Some(Token::Ident(i)) if i == static_interned!("important") => {
+                    is_important = true;
+                    self.skip_whitespace();
+                },
+                _ => {
+                    self.consume_remnants_of_bad_declaration(nested);
+                    return None;
+                },
             }
         }
 
@@ -350,7 +355,7 @@ impl<'a> Parser<'a> {
         while !matches!(self.next_token(), Some(Token::Semicolon) | None) {}
     }
 
-    pub fn parse_stylesheet(&mut self) -> Result<Stylesheet<'a>, ParseError> {
+    pub fn parse_stylesheet(&mut self) -> Result<Stylesheet, ParseError> {
         // NOTE: The ruleparser shouldn't stay a unit struct
         #[allow(clippy::default_constructed_unit_structs)]
         let mut rule_parser = RuleParser::default();
