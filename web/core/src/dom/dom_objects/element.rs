@@ -1,4 +1,5 @@
 use dom_derive::inherit;
+use string_interner::InternedString;
 
 use crate::{display_string, dom::ElementCustomState, infra::Namespace};
 
@@ -8,11 +9,11 @@ use super::Node;
 #[inherit(Node)]
 pub struct Element {
     namespace: Namespace,
-    namespace_prefix: Option<String>,
-    local_name: String,
+    namespace_prefix: Option<InternedString>,
+    local_name: InternedString,
     custom_state: ElementCustomState,
-    is: Option<String>,
-    id: String,
+    is: Option<InternedString>,
+    id: InternedString,
 }
 
 display_string!(Element, "ELEMENT");
@@ -20,11 +21,11 @@ display_string!(Element, "ELEMENT");
 impl Element {
     pub fn new(
         namespace: Namespace,
-        namespace_prefix: Option<String>,
-        local_name: String,
+        namespace_prefix: Option<InternedString>,
+        local_name: InternedString,
         custom_state: ElementCustomState,
         _custom_element_definition: Option<()>,
-        is: Option<String>,
+        is: Option<InternedString>,
     ) -> Self {
         Self {
             namespace,
@@ -36,11 +37,11 @@ impl Element {
         }
     }
 
-    pub fn local_name(&self) -> &str {
-        &self.local_name
+    pub fn local_name(&self) -> InternedString {
+        self.local_name
     }
 
-    pub fn id(&self) -> &str {
-        &self.id
+    pub fn id(&self) -> InternedString {
+        self.id
     }
 }

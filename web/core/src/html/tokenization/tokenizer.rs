@@ -1,6 +1,10 @@
 //! The [HTML Tokenizer](https://html.spec.whatwg.org/multipage/parsing.html#tokenization)
 
-use super::{lookup_character_reference, Doctype, TagData, Token};
+use super::{
+    lookup_character_reference,
+    token::{CurrentToken, TagBuilder, TokenBuilder},
+    TagData, Token,
+};
 use std::collections::VecDeque;
 
 // Characters that are hard to read
@@ -277,7 +281,7 @@ pub struct Tokenizer<'source> {
     /// A general-purpose temporary buffer
     buffer: Option<String>,
 
-    current_token: Option<Token>,
+    current_token: CurrentToken,
     character_reference_code: u32,
 }
 
@@ -287,7 +291,7 @@ impl<'source> Tokenizer<'source> {
             source: source,
             state: TokenizerState::DataState,
             return_state: None,
-            current_token: None,
+            current_token: CurrentToken::default(),
             last_emitted_start_tag_name: None,
             character_reference_code: 0,
             buffer: None,
@@ -304,35 +308,14 @@ impl<'source> Tokenizer<'source> {
             ..
         }) = &token
         {
-            self.last_emitted_start_tag_name = Some(name.clone());
+            self.last_emitted_start_tag_name = Some(name.to_string());
         }
         self.token_buffer.push_back(token);
     }
 
     fn emit_current_token(&mut self) {
-        let current_token = self.current_token.take().unwrap();
-        self.emit(current_token);
-    }
-
-    fn get_current_doctype(&mut self) -> &mut Doctype {
-        match &mut self.current_token {
-            Some(Token::DOCTYPE(ref mut d)) => d,
-            _ => unreachable!(),
-        }
-    }
-
-    fn get_current_tag(&mut self) -> &mut TagData {
-        match &mut self.current_token {
-            Some(Token::Tag(ref mut t)) => t,
-            _ => unreachable!(),
-        }
-    }
-
-    fn get_current_comment(&mut self) -> &mut String {
-        match &mut self.current_token {
-            Some(Token::Comment(s)) => s,
-            _ => unreachable!(),
-        }
+        let token = self.current_token.build();
+        self.emit(token);
     }
 
     fn reconsume_in(&mut self, new_state: TokenizerState) {
@@ -347,10 +330,13 @@ impl<'source> Tokenizer<'source> {
         // * there was a start token emitted previously
         // * the token currently being emitted is an end token
         // * the name of the end token matches that of the start token
-        match (&self.last_emitted_start_tag_name, &self.current_token) {
+        match (
+            &self.last_emitted_start_tag_name,
+            &self.current_token.inner(),
+        ) {
             (
                 Some(open_name),
-                Some(Token::Tag(TagData {
+                Some(TokenBuilder::Tag(TagBuilder {
                     opening: false,
                     name: close_name,
                     ..
@@ -525,7 +511,7 @@ impl<'source> Tokenizer<'source> {
                     },
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new start tag token, set its tag name to the empty string.
-                        self.current_token = Some(Token::Tag(TagData::default_open()));
+                        self.current_token.create_start_tag();
 
                         // Reconsume in the tag name state.
                         self.reconsume_in(TokenizerState::TagNameState);
@@ -533,7 +519,7 @@ impl<'source> Tokenizer<'source> {
                     Some('?') => {
                         // This is an unexpected-question-mark-instead-of-tag-name parse error.
                         // Create a comment token whose data is the empty string.
-                        self.current_token = Some(Token::Comment(String::default()));
+                        self.current_token.create_comment();
 
                         // Reconsume in the bogus comment state.
                         self.reconsume_in(TokenizerState::BogusCommentState);
@@ -561,7 +547,7 @@ impl<'source> Tokenizer<'source> {
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new end tag token, set its tag name to the empty string.
-                        self.current_token = Some(Token::Tag(TagData::default_close()));
+                        self.current_token.create_end_tag();
 
                         // Reconsume in the tag name state.
                         self.reconsume_in(TokenizerState::TagNameState);
@@ -574,7 +560,7 @@ impl<'source> Tokenizer<'source> {
                     Some(_) => {
                         // This is an invalid-first-character-of-tag-name parse error.
                         // Create a comment token whose data is the empty string.
-                        self.current_token = Some(Token::Comment(String::default()));
+                        self.current_token.create_comment();
 
                         // Reconsume in the bogus comment state.
                         self.reconsume_in(TokenizerState::BogusCommentState);
@@ -612,16 +598,16 @@ impl<'source> Tokenizer<'source> {
                         // 0x0020 to the character's code point) to the current tag token's tag
                         // name.
                         c.make_ascii_lowercase();
-                        self.get_current_tag().name.push(c);
+                        self.current_token.append_to_tag_name(c);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error. Append a U+FFFD
                         // REPLACEMENT CHARACTER character to the current tag token's tag name.
-                        self.get_current_tag().name.push(UNICODE_REPLACEMENT);
+                        self.current_token.append_to_tag_name(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Append the current input character to the current tag token's tag name.
-                        self.get_current_tag().name.push(c);
+                        self.current_token.append_to_tag_name(c);
                     },
                     None => {
                         // This is an eof-in-tag parse error. Emit an end-of-file token.
@@ -654,7 +640,7 @@ impl<'source> Tokenizer<'source> {
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new end tag token, set its tag name to the empty string.
-                        self.current_token = Some(Token::Tag(TagData::default_close()));
+                        self.current_token.create_end_tag();
 
                         // Reconsume in the RCDATA end tag name state.
                         self.reconsume_in(TokenizerState::RCDATAEndTagNameState);
@@ -693,13 +679,13 @@ impl<'source> Tokenizer<'source> {
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
                         c.make_ascii_lowercase();
-                        self.get_current_tag().name.push(c);
+                        self.current_token.append_to_tag_name(c);
                     },
                     (Some(c @ 'a'..='z'), _) => {
                         // Append the current input character to the current tag token's tag name.
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
-                        self.get_current_tag().name.push(c);
+                        self.current_token.append_to_tag_name(c);
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token, a U+002F SOLIDUS character
@@ -741,7 +727,7 @@ impl<'source> Tokenizer<'source> {
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new end tag token, set its tag name to the empty string.
-                        self.current_token = Some(Token::Tag(TagData::default_close()));
+                        self.current_token.create_end_tag();
 
                         // Reconsume in the RAWTEXT end tag name state.
                         self.reconsume_in(TokenizerState::RAWTEXTEndTagNameState);
@@ -777,7 +763,8 @@ impl<'source> Tokenizer<'source> {
                     (Some(c @ 'A'..='Z'), _) => {
                         // Append the lowercase version of the current input character (add 0x0020
                         // to the character's code point) to the current tag token's tag name.
-                        self.get_current_tag().name.push(c.to_ascii_lowercase());
+                        self.current_token
+                            .append_to_tag_name(c.to_ascii_lowercase());
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
@@ -786,7 +773,7 @@ impl<'source> Tokenizer<'source> {
                         // Append the current input character to the current tag token's tag name.
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
-                        self.get_current_tag().name.push(c);
+                        self.current_token.append_to_tag_name(c);
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token, a U+002F SOLIDUS character
@@ -838,7 +825,7 @@ impl<'source> Tokenizer<'source> {
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new end tag token, set its tag name to the empty string.
-                        self.current_token = Some(Token::Tag(TagData::default_close()));
+                        self.current_token.create_end_tag();
 
                         // Reconsume in the script data end tag name state.
                         self.reconsume_in(TokenizerState::ScriptDataEndTagNameState);
@@ -875,14 +862,15 @@ impl<'source> Tokenizer<'source> {
                         // Append the lowercase version of the current input character (add
                         // 0x0020 to the character's code point) to the current tag token's tag
                         // name.
-                        self.get_current_tag().name.push(c.to_ascii_lowercase());
+                        self.current_token
+                            .append_to_tag_name(c.to_ascii_lowercase());
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
                     },
                     (Some(c @ 'a'..='z'), _) => {
                         // Append the current input character to the current tag token's tag name.
-                        self.get_current_tag().name.push(c);
+                        self.current_token.append_to_tag_name(c);
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
@@ -1074,7 +1062,7 @@ impl<'source> Tokenizer<'source> {
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new end tag token, set its tag name to the empty string.
-                        self.current_token = Some(Token::Tag(TagData::default_close()));
+                        self.current_token.create_end_tag();
 
                         // Reconsume in the script data escaped end tag name state.
                         self.reconsume_in(TokenizerState::ScriptDataEscapedEndTagNameState);
@@ -1110,14 +1098,15 @@ impl<'source> Tokenizer<'source> {
                     (Some(c @ 'A'..='Z'), _) => {
                         // Append the lowercase version of the current input character (add 0x0020
                         // to the character's code point) to the current tag token's tag name.
-                        self.get_current_tag().name.push(c.to_ascii_lowercase());
+                        self.current_token
+                            .append_to_tag_name(c.to_ascii_lowercase());
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
                     },
                     (Some(c @ 'a'..='z'), _) => {
                         // Append the current input character to the current tag token's tag name.
-                        self.get_current_tag().name.push(c);
+                        self.current_token.append_to_tag_name(c);
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
@@ -1370,10 +1359,10 @@ impl<'source> Tokenizer<'source> {
                     Some('=') => {
                         // This is an unexpected-equals-sign-before-attribute-name parse error.
                         // Start a new attribute in the current tag token.
-                        self.get_current_tag().new_attribute();
+                        self.current_token.start_new_attribute();
 
                         // Set that attribute's name to the current input character, and its value to the empty string.
-                        self.get_current_tag().add_to_attr_name('=');
+                        self.current_token.append_to_attribute_name('=');
 
                         // Switch to the attribute name state.
                         self.switch_to(TokenizerState::AttributeNameState);
@@ -1381,7 +1370,7 @@ impl<'source> Tokenizer<'source> {
                     _ => {
                         // Start a new attribute in the current tag token. Set that attribute name
                         // and value to the empty string.
-                        self.get_current_tag().new_attribute();
+                        self.current_token.start_new_attribute();
 
                         // Reconsume in the attribute name state.
                         self.reconsume_in(TokenizerState::AttributeNameState);
@@ -1407,22 +1396,23 @@ impl<'source> Tokenizer<'source> {
                     Some(c @ 'A'..='Z') => {
                         // Append the lowercase version of the current input character (add 0x0020
                         // to the character's code point) to the current attribute's name.
-                        self.get_current_tag()
-                            .add_to_attr_name(c.to_ascii_lowercase());
+                        self.current_token
+                            .append_to_attribute_name(c.to_ascii_lowercase());
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current attribute's name.
-                        self.get_current_tag().add_to_attr_name(UNICODE_REPLACEMENT);
+                        self.current_token
+                            .append_to_attribute_name(UNICODE_REPLACEMENT);
                     },
                     Some(c @ ('"' | '\'' | '<')) => {
                         // This is an unexpected-character-in-attribute-name parse error.
                         // Treat it as per the "anything else" entry below.
-                        self.get_current_tag().add_to_attr_name(c);
+                        self.current_token.append_to_attribute_name(c);
                     },
                     Some(c) => {
                         // Append the current input character to the current attribute's name.
-                        self.get_current_tag().add_to_attr_name(c);
+                        self.current_token.append_to_attribute_name(c);
                     },
                 }
             },
@@ -1447,7 +1437,7 @@ impl<'source> Tokenizer<'source> {
                     Some(_) => {
                         // Start a new attribute in the current tag token.
                         // Set that attribute name and value to the empty string.
-                        self.get_current_tag().new_attribute();
+                        self.current_token.start_new_attribute();
 
                         // Reconsume in the attribute name state.
                         self.reconsume_in(TokenizerState::AttributeNameState);
@@ -1504,12 +1494,12 @@ impl<'source> Tokenizer<'source> {
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current attribute's value.
-                        self.get_current_tag()
-                            .add_to_attr_value(UNICODE_REPLACEMENT);
+                        self.current_token
+                            .append_to_attribute_value(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Append the current input character to the current attribute's value.
-                        self.get_current_tag().add_to_attr_value(c);
+                        self.current_token.append_to_attribute_value(c);
                     },
                     None => {
                         // This is an eof-in-tag parse error.
@@ -1536,12 +1526,12 @@ impl<'source> Tokenizer<'source> {
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current attribute's value.
-                        self.get_current_tag()
-                            .add_to_attr_value(UNICODE_REPLACEMENT);
+                        self.current_token
+                            .append_to_attribute_value(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Append the current input character to the current attribute's value.
-                        self.get_current_tag().add_to_attr_value(c);
+                        self.current_token.append_to_attribute_value(c);
                     },
                     None => {
                         // This is an eof-in-tag parse error.
@@ -1573,17 +1563,17 @@ impl<'source> Tokenizer<'source> {
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current attribute's value.
-                        self.get_current_tag()
-                            .add_to_attr_value(UNICODE_REPLACEMENT);
+                        self.current_token
+                            .append_to_attribute_value(UNICODE_REPLACEMENT);
                     },
                     Some(c @ ('"' | '\'' | '<' | '=' | '`')) => {
                         // This is an unexpected-character-in-unquoted-attribute-value parse error.
                         // Treat it as per the "anything else" entry below.
-                        self.get_current_tag().add_to_attr_value(c);
+                        self.current_token.append_to_attribute_value(c);
                     },
                     Some(c) => {
                         // Append the current input character to the current attribute's value.
-                        self.get_current_tag().add_to_attr_value(c);
+                        self.current_token.append_to_attribute_value(c);
                     },
                     None => {
                         // This is an eof-in-tag parse error. Emit an end-of-file token.
@@ -1626,7 +1616,7 @@ impl<'source> Tokenizer<'source> {
                 match self.read_next() {
                     Some('>') => {
                         // Set the self-closing flag of the current tag token.
-                        self.get_current_tag().self_closing = true;
+                        self.current_token.set_self_closing();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::DataState);
@@ -1660,11 +1650,11 @@ impl<'source> Tokenizer<'source> {
                     Some('\0') => {
                         // This is an unexpected-null-character parse error. Append a U+FFFD
                         // REPLACEMENT CHARACTER character to the comment token's data.
-                        self.get_current_comment().push(UNICODE_REPLACEMENT);
+                        self.current_token.append_to_comment(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Append the current input character to the comment token's data.
-                        self.get_current_comment().push(c);
+                        self.current_token.append_to_comment(c);
                     },
                     None => {
                         // Emit the comment.
@@ -1682,7 +1672,7 @@ impl<'source> Tokenizer<'source> {
                     // Consume those two characters, create a comment token whose data is the empty
                     // string, and switch to the comment start state.
                     self.ptr += 2;
-                    self.current_token = Some(Token::Comment(String::default()));
+                    self.current_token.create_comment();
                     self.switch_to(TokenizerState::CommentStartState);
                 } else if self.source[self.ptr..self.ptr + 7].eq_ignore_ascii_case("DOCTYPE") {
                     // Consume those characters and switch to the DOCTYPE state.
@@ -1698,7 +1688,7 @@ impl<'source> Tokenizer<'source> {
                 } else {
                     // This is an incorrectly-opened-comment parse error.
                     // Create a comment token whose data is the empty string.
-                    self.current_token = Some(Token::Comment(String::default()));
+                    self.current_token.create_comment();
 
                     // Switch to the bogus comment state (don't consume anything in the current state).
                     self.switch_to(TokenizerState::BogusCommentState);
@@ -1744,7 +1734,7 @@ impl<'source> Tokenizer<'source> {
                     },
                     Some(_) => {
                         // Append a U+002D HYPHEN-MINUS character (-) to the comment token's data.
-                        self.get_current_comment().push('-');
+                        self.current_token.append_to_comment('-');
 
                         // Reconsume in the comment state.
                         self.reconsume_in(TokenizerState::CommentState);
@@ -1765,7 +1755,7 @@ impl<'source> Tokenizer<'source> {
                 match self.read_next() {
                     Some('>') => {
                         // Append the current input character to the comment token's data.
-                        self.get_current_comment().push('<');
+                        self.current_token.append_to_comment('<');
 
                         // Switch to the comment less-than sign state.
                         self.switch_to(TokenizerState::CommentLessThanSignState);
@@ -1777,11 +1767,11 @@ impl<'source> Tokenizer<'source> {
                     Some('\0') => {
                         // This is an unexpected-null-character parse error. Append a U+FFFD
                         // REPLACEMENT CHARACTER character to the comment token's data.
-                        self.get_current_comment().push(UNICODE_REPLACEMENT);
+                        self.current_token.append_to_comment(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Append the current input character to the comment token's data.
-                        self.get_current_comment().push(c);
+                        self.current_token.append_to_comment(c);
                     },
                     None => {
                         // This is an eof-in-comment parse error.
@@ -1799,14 +1789,14 @@ impl<'source> Tokenizer<'source> {
                 match self.read_next() {
                     Some('!') => {
                         // Append the current input character to the comment token's data.
-                        self.get_current_comment().push('!');
+                        self.current_token.append_to_comment('!');
 
                         // Switch to the comment less-than sign bang state.
                         self.switch_to(TokenizerState::CommentLessThanSignBangState);
                     },
                     Some('<') => {
                         // Append the current input character to the comment token's data.
-                        self.get_current_comment().push('<');
+                        self.current_token.append_to_comment('<');
                     },
                     _ => {
                         // Reconsume in the comment state.
@@ -1867,7 +1857,7 @@ impl<'source> Tokenizer<'source> {
                     },
                     Some(_) => {
                         // Append a U+002D HYPHEN-MINUS character (-) to the comment token's data.
-                        self.get_current_comment().push('-');
+                        self.current_token.append_to_comment('-');
 
                         // Reconsume in the comment state.
                         self.reconsume_in(TokenizerState::CommentState);
@@ -1897,12 +1887,13 @@ impl<'source> Tokenizer<'source> {
                     },
                     Some('-') => {
                         // Append a U+002D HYPHEN-MINUS character (-) to the comment token's data.
-                        self.get_current_comment().push('-');
+                        self.current_token.append_to_comment('-');
                     },
                     Some(_) => {
                         // Append two U+002D HYPHEN-MINUS characters (-) to the comment token's
                         // data.
-                        self.get_current_comment().push_str("--");
+                        self.current_token.append_to_comment('-');
+                        self.current_token.append_to_comment('-');
 
                         // Reconsume in the comment state.
                         self.reconsume_in(TokenizerState::CommentState);
@@ -1924,7 +1915,9 @@ impl<'source> Tokenizer<'source> {
                     Some('-') => {
                         // Append two U+002D HYPHEN-MINUS characters (-) and a U+0021 EXCLAMATION
                         // MARK character (!) to the comment token's data.
-                        self.get_current_comment().push_str("--!");
+                        self.current_token.append_to_comment('-');
+                        self.current_token.append_to_comment('-');
+                        self.current_token.append_to_comment('!');
 
                         // Switch to the comment end dash state.
                         self.switch_to(TokenizerState::CommentEndDashState);
@@ -1940,7 +1933,9 @@ impl<'source> Tokenizer<'source> {
                     Some(_) => {
                         // Append two U+002D HYPHEN-MINUS characters (-) and a U+0021 EXCLAMATION
                         // MARK character (!) to the comment token's data.
-                        self.get_current_comment().push_str("--!");
+                        self.current_token.append_to_comment('-');
+                        self.current_token.append_to_comment('-');
+                        self.current_token.append_to_comment('!');
 
                         // Reconsume in the comment state.
                         self.reconsume_in(TokenizerState::CommentState);
@@ -1975,10 +1970,10 @@ impl<'source> Tokenizer<'source> {
                     None => {
                         // This is an eof-in-doctype parse error.
                         // Create a new DOCTYPE token.
-                        self.current_token = Some(Token::DOCTYPE(Doctype::default()));
+                        self.current_token.create_doctype();
 
                         // Set its force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current token.
                         self.emit_current_token();
@@ -1997,13 +1992,12 @@ impl<'source> Tokenizer<'source> {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
                     Some(c @ 'A'..='Z') => {
                         // Create a new DOCTYPE token.
+                        self.current_token.create_doctype();
+
                         // Set the token's name to the lowercase version of the current input character (add 0x0020 to the
                         // character's code point).
-                        let doctype_token = Doctype {
-                            name: Some(c.to_ascii_lowercase().to_string()),
-                            ..Default::default()
-                        };
-                        self.current_token = Some(Token::DOCTYPE(doctype_token));
+                        self.current_token
+                            .append_to_doctype_name(c.to_ascii_lowercase());
 
                         // Switch to the DOCTYPE name state.
                         self.switch_to(TokenizerState::DOCTYPENameState);
@@ -2012,13 +2006,11 @@ impl<'source> Tokenizer<'source> {
                         // This is an unexpected-null-character parse error.
 
                         // Create a new DOCTYPE token.
-                        // Set the token's name to a U+FFFD REPLACEMENT CHARACTER character.
-                        let doctype_token = Doctype {
-                            name: Some(UNICODE_REPLACEMENT.to_string()),
-                            ..Default::default()
-                        };
+                        self.current_token.create_doctype();
 
-                        self.current_token = Some(Token::DOCTYPE(doctype_token));
+                        // Set the token's name to a U+FFFD REPLACEMENT CHARACTER character.
+                        self.current_token
+                            .append_to_doctype_name(UNICODE_REPLACEMENT);
 
                         // Switch to the DOCTYPE name state.
                         self.switch_to(TokenizerState::DOCTYPENameState);
@@ -2027,42 +2019,38 @@ impl<'source> Tokenizer<'source> {
                         // This is a missing-doctype-name parse error.
 
                         // Create a new DOCTYPE token.
+                        self.current_token.create_doctype();
+
                         // Set its force-quirks flag to on.
-                        let doctype_token = Doctype {
-                            force_quirks: true,
-                            ..Default::default()
-                        };
+                        self.current_token.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::DataState);
 
                         // Emit the current token.
-                        self.emit(Token::DOCTYPE(doctype_token));
+                        self.emit_current_token();
                     },
                     Some(c) => {
                         // Create a new DOCTYPE token.
-                        // Set the token's name to the current input character.
-                        let doctype_token = Doctype {
-                            name: Some(c.to_string()),
-                            ..Default::default()
-                        };
+                        self.current_token.create_doctype();
 
-                        self.current_token = Some(Token::DOCTYPE(doctype_token));
+                        // Set the token's name to the current input character.
+                        self.current_token.append_to_doctype_name(c);
 
                         // Switch to the DOCTYPE name state.
                         self.switch_to(TokenizerState::DOCTYPENameState);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+
                         // Create a new DOCTYPE token.
+                        self.current_token.create_doctype();
+
                         // Set its force-quirks flag to on.
-                        let doctype_token = Doctype {
-                            force_quirks: true,
-                            ..Default::default()
-                        };
+                        self.current_token.set_force_quirks();
 
                         // Emit the current token.
-                        self.emit(Token::DOCTYPE(doctype_token));
+                        self.emit_current_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF)
@@ -2085,27 +2073,25 @@ impl<'source> Tokenizer<'source> {
                     Some(c @ 'A'..='Z') => {
                         // Append the lowercase version of the current input character (add 0x0020
                         // to the character's code point) to the current DOCTYPE token's name.
-                        if let Some(name) = self.get_current_doctype().name.as_mut() {
-                            name.push(c.to_ascii_lowercase())
-                        }
+                        self.current_token
+                            .append_to_doctype_name(c.to_ascii_lowercase());
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's name.
-                        if let Some(name) = self.get_current_doctype().name.as_mut() {
-                            name.push(UNICODE_REPLACEMENT)
-                        }
+                        self.current_token
+                            .append_to_doctype_name(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's name.
-                        if let Some(name) = self.get_current_doctype().name.as_mut() {
-                            name.push(c)
-                        }
+                        self.current_token.append_to_doctype_name(c);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2128,7 +2114,7 @@ impl<'source> Tokenizer<'source> {
                     None => {
                         // This is an eof-in-doctype parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2161,7 +2147,8 @@ impl<'source> Tokenizer<'source> {
                         else {
                             // Set the current DOCTYPE token's force-quirks flag to on.
                             // Reconsume in the bogus DOCTYPE state.
-                            self.get_current_doctype().force_quirks = true;
+                            self.current_token.set_force_quirks();
+
                             // Note: we reconsume, but because we already decremented
                             // self.ptr (above) we don't need to do it again
                             self.switch_to(TokenizerState::BogusDOCTYPEState);
@@ -2180,23 +2167,25 @@ impl<'source> Tokenizer<'source> {
                     Some('"') => {
                         // This is a missing-whitespace-after-doctype-public-keyword parse error.
                         // Set the current DOCTYPE token's public identifier to the empty string
-                        // (not missing), then switch to the DOCTYPE public identifier
-                        // (double-quoted) state.
-                        self.get_current_doctype().public_ident = Some(String::new());
+                        // (not missing),
+                        self.current_token.init_doctype_public_ident();
+
+                        // then switch to the DOCTYPE public identifier (double-quoted) state.
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierDoublequotedState);
                     },
                     Some('\'') => {
                         // This is a missing-whitespace-after-doctype-public-keyword parse error.
                         // Set the current DOCTYPE token's public identifier to the empty string
-                        // (not missing), then switch to the DOCTYPE public identifier
-                        // (single-quoted) state.
-                        self.get_current_doctype().public_ident = Some(String::new());
+                        // (not missing),
+                        self.current_token.init_doctype_public_ident();
+
+                        // then switch to the DOCTYPE public identifier (single-quoted) state.
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierSinglequotedState);
                     },
                     Some('>') => {
                         // This is a missing-doctype-public-identifier parse error. Set the current
                         // DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::DataState);
@@ -2207,7 +2196,7 @@ impl<'source> Tokenizer<'source> {
                     Some(_) => {
                         // This is a missing-quote-before-doctype-public-identifier parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPEState);
@@ -2215,7 +2204,7 @@ impl<'source> Tokenizer<'source> {
                     None => {
                         // This is an eof-in-doctype parse error. Set the current DOCTYPE token's
                         // force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2232,22 +2221,24 @@ impl<'source> Tokenizer<'source> {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
                     Some('"') => {
                         // Set the current DOCTYPE token's public identifier to the empty string
-                        // (not missing), then switch to the DOCTYPE public identifier
-                        // (double-quoted) state.
-                        self.get_current_doctype().public_ident = Some(String::new());
+                        // (not missing),
+                        self.current_token.init_doctype_public_ident();
+
+                        // then switch to the DOCTYPE public identifier (double-quoted) state.
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierDoublequotedState);
                     },
                     Some('\'') => {
                         // Set the current DOCTYPE token's public identifier to the empty string
-                        // (not missing), then switch to the DOCTYPE public identifier
-                        // (single-quoted) state.
-                        self.get_current_doctype().public_ident = Some(String::new());
+                        // (not missing),
+                        self.current_token.init_doctype_public_ident();
+
+                        // then switch to the DOCTYPE public identifier (single-quoted) state.
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierSinglequotedState);
                     },
                     Some('>') => {
                         // This is a missing-doctype-public-identifier parse error. Set the current
                         // DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::DataState);
@@ -2258,7 +2249,7 @@ impl<'source> Tokenizer<'source> {
                     Some(_) => {
                         // This is a missing-quote-before-doctype-public-identifier parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPEState);
@@ -2266,7 +2257,7 @@ impl<'source> Tokenizer<'source> {
                     None => {
                         // This is an eof-in-doctype parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2286,16 +2277,17 @@ impl<'source> Tokenizer<'source> {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's public
                         // identifier.
-                        if let Some(ident) = self.get_current_doctype().public_ident.as_mut() {
-                            ident.push(UNICODE_REPLACEMENT)
-                        }
+                        self.current_token
+                            .append_to_doctype_public_ident(UNICODE_REPLACEMENT);
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-public-identifier parse error.
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::DataState);
@@ -2306,14 +2298,13 @@ impl<'source> Tokenizer<'source> {
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's
                         // public identifier.
-                        if let Some(ident) = self.get_current_doctype().public_ident.as_mut() {
-                            ident.push(c)
-                        }
+                        self.current_token.append_to_doctype_public_ident(c);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2333,16 +2324,16 @@ impl<'source> Tokenizer<'source> {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's public
                         // identifier.
-                        if let Some(ident) = self.get_current_doctype().public_ident.as_mut() {
-                            ident.push(UNICODE_REPLACEMENT)
-                        }
+                        self.current_token
+                            .append_to_doctype_public_ident(UNICODE_REPLACEMENT);
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-public-identifier parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::DataState);
@@ -2353,14 +2344,12 @@ impl<'source> Tokenizer<'source> {
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's public
                         // identifier.
-                        if let Some(ident) = self.get_current_doctype().public_ident.as_mut() {
-                            ident.push(c)
-                        }
+                        self.current_token.append_to_doctype_public_ident(c);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2389,33 +2378,39 @@ impl<'source> Tokenizer<'source> {
                         // This is a
                         // missing-whitespace-between-doctype-public-and-system-identifiers parse
                         // error.
+
                         // Set the current DOCTYPE token's system identifier to the empty
-                        // string (not missing), then switch to the DOCTYPE system identifier
-                        // (double-quoted) state.
-                        self.get_current_doctype().system_ident = Some(String::new());
+                        // string (not missing),
+                        self.current_token.init_doctype_system_ident();
+
+                        // then switch to the DOCTYPE system identifier (double-quoted) state.
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequotedState);
                     },
                     Some('\'') => {
                         // This is a missing-whitespace-between-doctype-public-and-system-identifiers
                         // parse error.
+
                         // Set the current DOCTYPE token's system identifier to
-                        // the empty string (not missing), then switch to the DOCTYPE system
-                        // identifier (single-quoted) state.
-                        self.get_current_doctype().system_ident = Some(String::new());
+                        // the empty string (not missing),
+                        self.current_token.init_doctype_system_ident();
+
+                        // then switch to the DOCTYPE system identifier (single-quoted) state.
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequotedState);
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-system-identifier parse error.
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPEState);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2439,28 +2434,30 @@ impl<'source> Tokenizer<'source> {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (double-quoted) state.
-                        self.get_current_doctype().system_ident = Some(String::new());
+                        self.current_token.init_doctype_system_ident();
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequotedState);
                     },
                     Some('\'') => {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (single-quoted) state.
-                        self.get_current_doctype().system_ident = Some(String::new());
+                        self.current_token.init_doctype_system_ident();
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequotedState);
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-system-identifier parse error.
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPEState);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2483,7 +2480,7 @@ impl<'source> Tokenizer<'source> {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (double-quoted) state.
-                        self.get_current_doctype().system_ident = Some(String::new());
+                        self.current_token.init_doctype_system_ident();
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequotedState);
                     },
                     Some('\'') => {
@@ -2491,13 +2488,13 @@ impl<'source> Tokenizer<'source> {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (single-quoted) state.
-                        self.get_current_doctype().system_ident = Some(String::new());
+                        self.current_token.init_doctype_system_ident();
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequotedState);
                     },
                     Some('>') => {
                         // This is a missing-doctype-system-identifier parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::DataState);
@@ -2508,7 +2505,7 @@ impl<'source> Tokenizer<'source> {
                     Some(_) => {
                         // This is a missing-quote-before-doctype-system-identifier parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPEState);
@@ -2516,7 +2513,7 @@ impl<'source> Tokenizer<'source> {
                     None => {
                         // This is an eof-in-doctype parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2535,20 +2532,20 @@ impl<'source> Tokenizer<'source> {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (double-quoted) state.
-                        self.get_current_doctype().system_ident = Some(String::new());
+                        self.current_token.init_doctype_system_ident();
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequotedState);
                     },
                     Some('\'') => {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (single-quoted) state.
-                        self.get_current_doctype().system_ident = Some(String::new());
+                        self.current_token.init_doctype_system_ident();
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequotedState);
                     },
                     Some('>') => {
                         // This is a missing-doctype-system-identifier parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::DataState);
@@ -2559,7 +2556,7 @@ impl<'source> Tokenizer<'source> {
                     Some(_) => {
                         // This is a missing-quote-before-doctype-system-identifier parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPEState);
@@ -2567,7 +2564,7 @@ impl<'source> Tokenizer<'source> {
                     None => {
                         // This is an eof-in-doctype parse error. Set the current DOCTYPE token's
                         // force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2589,14 +2586,13 @@ impl<'source> Tokenizer<'source> {
                         // This is an unexpected-null-character parse error.
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current
                         // DOCTYPE token's system identifier.
-                        if let Some(ident) = self.get_current_doctype().system_ident.as_mut() {
-                            ident.push(UNICODE_REPLACEMENT)
-                        }
+                        self.current_token
+                            .append_to_doctype_system_ident(UNICODE_REPLACEMENT);
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-system-identifier parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::DataState);
@@ -2607,14 +2603,12 @@ impl<'source> Tokenizer<'source> {
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's system
                         // identifier.
-                        if let Some(ident) = self.get_current_doctype().system_ident.as_mut() {
-                            ident.push(c)
-                        }
+                        self.current_token.append_to_doctype_system_ident(c);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2636,14 +2630,13 @@ impl<'source> Tokenizer<'source> {
                         // This is an unexpected-null-character parse error.
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's system
                         // identifier.
-                        if let Some(ident) = self.get_current_doctype().system_ident.as_mut() {
-                            ident.push(UNICODE_REPLACEMENT)
-                        }
+                        self.current_token
+                            .append_to_doctype_system_ident(UNICODE_REPLACEMENT);
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-system-identifier parse error. Set the current
                         // DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::DataState);
@@ -2654,14 +2647,12 @@ impl<'source> Tokenizer<'source> {
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's system
                         // identifier.
-                        if let Some(ident) = self.get_current_doctype().system_ident.as_mut() {
-                            ident.push(c)
-                        }
+                        self.current_token.append_to_doctype_system_ident(c);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2693,7 +2684,7 @@ impl<'source> Tokenizer<'source> {
                     None => {
                         // This is an eof-in-doctype parse error. Set the current DOCTYPE
                         // token's force-quirks flag to on.
-                        self.get_current_doctype().force_quirks = true;
+                        self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2861,7 +2852,7 @@ impl<'source> Tokenizer<'source> {
                         if was_consumed_as_part_of_attr {
                             // then append the current input character to the current attribute's
                             // value.
-                            self.get_current_tag().add_to_attr_value(c);
+                            self.current_token.append_to_attribute_value(c);
                         } else {
                             // Otherwise, emit the current input character as a character
                             // token.

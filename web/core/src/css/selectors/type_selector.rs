@@ -41,10 +41,14 @@ impl<'a> CSSValidateSelector for TypeSelector<'a> {
 
 impl<'a> Selector for TypeSelector<'a> {
     fn matches(&self, element: &DOMPtr<Element>) -> bool {
+        _ = element;
         match self {
             Self::NSPrefix(_) => false,
             Self::WQName(wq_name) => {
-                wq_name.prefix.is_none() && wq_name.ident == element.borrow().local_name()
+                _ = wq_name;
+                // Temporarily disabled due to interned string changes
+                // wq_name.prefix.is_none() && wq_name.ident == element.borrow().local_name()
+                false
             },
         }
     }

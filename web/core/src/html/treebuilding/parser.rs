@@ -15,6 +15,8 @@ use crate::{
 
 use super::{ActiveFormattingElements, StackOfOpenElements};
 
+use string_interner::{static_interned, static_str};
+
 const TAB: char = '\u{0009}';
 const LINE_FEED: char = '\u{000A}';
 const FORM_FEED: char = '\u{000C}';
@@ -346,13 +348,13 @@ impl<'source> Parser<'source> {
             .expect("Intended Parent does not belong to a document");
 
         // Let local name be the tag name of the token.
-        let local_name = tagdata.name.to_string();
+        let local_name = tagdata.name;
 
         // Let is be the value of the "is" attribute in the given token, if such an attribute exists, or null otherwise.
-        let is = tagdata.lookup_attribute("is");
+        let is = tagdata.lookup_attribute(static_interned!("is"));
 
         // Let definition be the result of looking up a custom element definition given document, given namespace, local name, and is.
-        let _definition = dom::lookup_custom_element_definition(namespace, &local_name, is);
+        let _definition = dom::lookup_custom_element_definition(namespace, local_name, is);
 
         // FIXME: If definition is non-null and the parser was not created as part of the HTML fragment parsing algorithm, then let will execute script be true. Otherwise, let it be false.
 
@@ -437,7 +439,7 @@ impl<'source> Parser<'source> {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#adoption-agency-algorithm>
     fn run_adoption_agency_algorithm(&mut self, tagdata: &TagData) {
         // 1. Let subject be token's tag name.
-        let subject = &tagdata.name;
+        let subject = tagdata.name;
 
         // 2. If the current node is an HTML element whose tag name is subject, and the current node is not
         //    in the list of active formatting elements, then pop the current node off the stack of open elements and return.
@@ -607,11 +609,9 @@ impl<'source> Parser<'source> {
                         // or the empty string if the public identifier was missing; and its system ID set to the system identifier given in
                         // the DOCTYPE token, or the empty string if the system identifier was missing.
                         let mut doctype_node = DocumentType::default();
-                        *doctype_node.name_mut() = doctype_token.name.unwrap_or_default();
-                        *doctype_node.public_id_mut() =
-                            doctype_token.public_ident.unwrap_or_default();
-                        *doctype_node.system_id_mut() =
-                            doctype_token.system_ident.unwrap_or_default();
+                        doctype_node.set_name(doctype_token.name.unwrap_or_default());
+                        doctype_node.set_public_id(doctype_token.public_ident.unwrap_or_default());
+                        doctype_node.set_system_id(doctype_token.system_ident.unwrap_or_default());
 
                         // FIXME: Then, if the document is not an iframe srcdoc document, and the parser cannot change the mode flag is false,
                         // and the DOCTYPE token matches one of the conditions in the following list, then set the Document to quirks mode:
@@ -641,14 +641,16 @@ impl<'source> Parser<'source> {
                     Token::DOCTYPE(_) => {}, // parse error, ignore token
                     Token::Tag(ref tagdata)
                         if !tagdata.opening
-                            && tagdata.name != "head"
-                            && tagdata.name != "body"
-                            && tagdata.name != "html"
-                            && tagdata.name != "br" =>
+                            && tagdata.name != static_interned!("head")
+                            && tagdata.name != static_interned!("body")
+                            && tagdata.name != static_interned!("html")
+                            && tagdata.name != static_interned!("br") =>
                     {
                         // Parse error. Ignore the token.
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("html") =>
+                    {
                         // Create an element for the token in the HTML namespace, with the Document as the intended parent.
                         let element = self.create_html_element_for_token(
                             tagdata,
@@ -704,11 +706,15 @@ impl<'source> Parser<'source> {
                     Token::DOCTYPE(_) => {
                         // parse error, ignore token
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("html") =>
+                    {
                         // Process the token using the rules for the "in body" insertion mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "head" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("head") =>
+                    {
                         // Insert an HTML element for the token.
                         let head = self.insert_html_element_for_token(tagdata);
 
@@ -720,17 +726,17 @@ impl<'source> Parser<'source> {
                     },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening
-                            && tagdata.name != "head"
-                            && tagdata.name != "body"
-                            && tagdata.name != "html"
-                            && tagdata.name != "br" =>
+                            && tagdata.name != static_interned!("head")
+                            && tagdata.name != static_interned!("body")
+                            && tagdata.name != static_interned!("html")
+                            && tagdata.name != static_interned!("br") =>
                     {
                         // Parse error. Ignore the token.
                     },
                     other => {
                         // Insert an HTML element for a "head" start tag token with no attributes.
                         let bogus_head_token = TagData {
-                            name: "head".to_string(),
+                            name: static_interned!("head"),
                             opening: true,
                             self_closing: false,
                             attributes: vec![],
@@ -762,16 +768,18 @@ impl<'source> Parser<'source> {
                     Token::DOCTYPE(_) => {
                         // parse error, ignore token
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("html") =>
+                    {
                         // Process the token using the rules for the "in body" insertion mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "base"
-                                || tagdata.name == "basefont"
-                                || tagdata.name == "bgsound"
-                                || tagdata.name == "link") =>
+                            && (tagdata.name == static_interned!("base")
+                                || tagdata.name == static_interned!("basefont")
+                                || tagdata.name == static_interned!("bgsound")
+                                || tagdata.name == static_interned!("link")) =>
                     {
                         // Insert an HTML element for the token.
                         self.insert_html_element_for_token(&tagdata);
@@ -782,7 +790,9 @@ impl<'source> Parser<'source> {
                         // Acknowledge the token's self-closing flag, if it is set.
                         // NOTE: this is a no-op
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "meta" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("meta") =>
+                    {
                         // Insert an HTML element for the token.
                         self.insert_html_element_for_token(tagdata);
 
@@ -806,26 +816,31 @@ impl<'source> Parser<'source> {
                         //     encoding, and the confidence is currently tentative, then
                         //     change the encoding to the extracted encoding.
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "title" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("title") =>
+                    {
                         // Follow the generic RCDATA element parsing algorithm.
                         self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RCDATA);
                     },
                     Token::Tag(tagdata)
-                        if tagdata.opening && tagdata.name == "noscript" && self.execute_script =>
+                        if tagdata.opening
+                            && tagdata.name == static_interned!("noscript")
+                            && self.execute_script =>
                     {
                         // Follow the generic raw text element parsing algorithm.
                         self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "noframes" || tagdata.name == "style") =>
+                            && (tagdata.name == static_interned!("noframes")
+                                || tagdata.name == static_interned!("style")) =>
                     {
                         // Follow the generic raw text element parsing algorithm.
                         self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
                     },
                     Token::Tag(ref tagdata)
                         if tagdata.opening
-                            && tagdata.name == "noscript"
+                            && tagdata.name == static_interned!("noscript")
                             && !self.execute_script =>
                     {
                         // Insert an HTML element for the token.
@@ -834,7 +849,9 @@ impl<'source> Parser<'source> {
                         // Switch the insertion mode to "in head noscript".
                         self.insertion_mode = InsertionMode::InHeadNoscript;
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "script" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("script") =>
+                    {
                         // 1. Let the adjusted insertion location be the appropriate place for inserting a node.
                         let adjusted_insert_location = self.appropriate_place_for_inserting_node();
 
@@ -868,7 +885,9 @@ impl<'source> Parser<'source> {
                         // 10. Switch the insertion mode to "text".
                         self.insertion_mode = InsertionMode::Text;
                     },
-                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "head" => {
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("head") =>
+                    {
                         // Pop the current node (which will be the head element) off the stack of open elements.
                         let current_node = self.open_elements.pop();
                         assert_eq!(
@@ -879,7 +898,9 @@ impl<'source> Parser<'source> {
                         // Switch the insertion mode to "after head".
                         self.insertion_mode = InsertionMode::AfterHead;
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "template" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("template") =>
+                    {
                         // Insert an HTML element for the token.
                         self.insert_html_element_for_token(tagdata);
 
@@ -897,7 +918,9 @@ impl<'source> Parser<'source> {
                         // that it is the new current template insertion mode.
                         // todo!();
                     },
-                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "template" => {
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("template") =>
+                    {
                         // If there is no template element on the stack of open elements, then
                         // this is a parse error; ignore the token.
                         //
@@ -923,11 +946,11 @@ impl<'source> Parser<'source> {
                         todo!();
                     },
                     Token::Tag(ref tagdata)
-                        if (tagdata.opening && tagdata.name == "head")
+                        if (tagdata.opening && tagdata.name == static_interned!("head"))
                             || (!tagdata.opening
-                                && tagdata.name != "body"
-                                && tagdata.name != "html"
-                                && tagdata.name != "br") =>
+                                && tagdata.name != static_interned!("body")
+                                && tagdata.name != static_interned!("html")
+                                && tagdata.name != static_interned!("br")) =>
                     {
                         // Parse error. Ignore the token.
                     },
@@ -953,12 +976,16 @@ impl<'source> Parser<'source> {
                     Token::DOCTYPE(_) => {
                         // Parse error. Ignore the token.
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("html") =>
+                    {
                         // Process the token using the rules for the "in body" insertion
                         // mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
                     },
-                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "noscript" => {
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("noscript") =>
+                    {
                         // Pop the current node (which will be a noscript element) from the stack of open elements; the new current node will be a head element.
                         let popped_node = self.open_elements.pop();
                         debug_assert_eq!(
@@ -981,11 +1008,11 @@ impl<'source> Parser<'source> {
                     },
                     Token::Tag(ref tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "basefont"
-                                || tagdata.name == "bgsound"
-                                || tagdata.name == "link"
-                                || tagdata.name == "meta"
-                                || tagdata.name == "style") =>
+                            && (tagdata.name == static_interned!("basefont")
+                                || tagdata.name == static_interned!("bgsound")
+                                || tagdata.name == static_interned!("link")
+                                || tagdata.name == static_interned!("meta")
+                                || tagdata.name == static_interned!("style")) =>
                     {
                         // Process the token using the rules for the "in head" insertion
                         // mode.
@@ -993,8 +1020,10 @@ impl<'source> Parser<'source> {
                     },
                     Token::Tag(ref tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "head" || tagdata.name == "noscript") => {}, // Parse error. Ignore the token.
-                    Token::Tag(ref tagdata) if !tagdata.opening && (tagdata.name != "br") => {}, // Parse error. Ignore the token.
+                            && (tagdata.name == static_interned!("head")
+                                || tagdata.name == static_interned!("noscript")) => {}, // Parse error. Ignore the token.
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening && (tagdata.name != static_interned!("br")) => {}, // Parse error. Ignore the token.
                     other => {
                         // Parse error.
 
@@ -1029,11 +1058,15 @@ impl<'source> Parser<'source> {
                         self.insert_comment(data);
                     },
                     Token::DOCTYPE(_) => {}, // Parse error. Ignore the token.
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("html") =>
+                    {
                         // Process the token using the rules for the "in body" insertion mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "body" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("body") =>
+                    {
                         // Insert an HTML element for the token.
                         self.insert_html_element_for_token(&tagdata);
 
@@ -1042,7 +1075,9 @@ impl<'source> Parser<'source> {
                         // Switch the insertion mode to "in body".
                         self.insertion_mode = InsertionMode::InBody;
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "frameset" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("frameset") =>
+                    {
                         // Insert an HTML element for the token.
                         self.insert_html_element_for_token(&tagdata);
 
@@ -1051,16 +1086,16 @@ impl<'source> Parser<'source> {
                     },
                     Token::Tag(ref tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "base"
-                                || tagdata.name == "basefont"
-                                || tagdata.name == "bgsound"
-                                || tagdata.name == "link"
-                                || tagdata.name == "meta"
-                                || tagdata.name == "noframes"
-                                || tagdata.name == "script"
-                                || tagdata.name == "style"
-                                || tagdata.name == "template"
-                                || tagdata.name == "title") =>
+                            && (tagdata.name == static_interned!("base")
+                                || tagdata.name == static_interned!("basefont")
+                                || tagdata.name == static_interned!("bgsound")
+                                || tagdata.name == static_interned!("link")
+                                || tagdata.name == static_interned!("meta")
+                                || tagdata.name == static_interned!("noframes")
+                                || tagdata.name == static_interned!("script")
+                                || tagdata.name == static_interned!("style")
+                                || tagdata.name == static_interned!("template")
+                                || tagdata.name == static_interned!("title")) =>
                     {
                         // Parse error.
 
@@ -1078,21 +1113,24 @@ impl<'source> Parser<'source> {
                         // Remove the node pointed to by the head element pointer from the stack of open elements. (It might not be the current node at this point.)
                         self.open_elements.remove(&head);
                     },
-                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "template" => {
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("template") =>
+                    {
                         // Process the token using the rules for the "in head" insertion mode.
                         self.consume_in_mode(InsertionMode::InHead, token);
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "head" => {}, // Parse error. Ignore the token.
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("head") => {}, // Parse error. Ignore the token.
                     Token::Tag(tagdata)
                         if !tagdata.opening
-                            && tagdata.name != "body"
-                            && tagdata.name != "html"
-                            && tagdata.name != "br" => {}, // Parse error. Ignore the token.
+                            && tagdata.name != static_interned!("body")
+                            && tagdata.name != static_interned!("html")
+                            && tagdata.name != static_interned!("br") => {}, // Parse error. Ignore the token.
                     _ => {
                         // Insert an HTML element for a "body" start tag token with no attributes.
                         let body_token = TagData {
                             opening: true,
-                            name: "body".to_string(),
+                            name: static_interned!("body"),
                             self_closing: false,
                             attributes: vec![],
                         };
@@ -1124,7 +1162,9 @@ impl<'source> Parser<'source> {
                         self.insert_comment(data);
                     },
                     Token::DOCTYPE(_) => {}, // Parse error. Ignore the token.
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "html" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("html") =>
+                    {
                         // Parse error.
 
                         // If there is a template element on the stack of open elements, then ignore
@@ -1138,22 +1178,25 @@ impl<'source> Parser<'source> {
                     },
                     Token::Tag(ref tagdata)
                         if (tagdata.opening
-                            && (tagdata.name == "base"
-                                || tagdata.name == "basefont"
-                                || tagdata.name == "bgsound"
-                                || tagdata.name == "link"
-                                || tagdata.name == "meta"
-                                || tagdata.name == "noframes"
-                                || tagdata.name == "script"
-                                || tagdata.name == "style"
-                                || tagdata.name == "template"
-                                || tagdata.name == "title"))
-                            || (!tagdata.opening && tagdata.name == "template") =>
+                            && (tagdata.name == static_interned!("base")
+                                || tagdata.name == static_interned!("basefont")
+                                || tagdata.name == static_interned!("bgsound")
+                                || tagdata.name == static_interned!("link")
+                                || tagdata.name == static_interned!("meta")
+                                || tagdata.name == static_interned!("noframes")
+                                || tagdata.name == static_interned!("script")
+                                || tagdata.name == static_interned!("style")
+                                || tagdata.name == static_interned!("template")
+                                || tagdata.name == static_interned!("title")))
+                            || (!tagdata.opening
+                                && tagdata.name == static_interned!("template")) =>
                     {
                         // Process the token using the rules for the "in head" insertion mode.
                         self.consume_in_mode(InsertionMode::InHead, token);
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "body" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("body") =>
+                    {
                         // Parse error.
 
                         // If the second element on the stack of open elements is not a body element,
@@ -1167,7 +1210,9 @@ impl<'source> Parser<'source> {
                         // not, add the attribute and its corresponding value to that element.
                         todo!();
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "frameset" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("frameset") =>
+                    {
                         todo!()
                     },
                     Token::EOF => {
@@ -1186,7 +1231,9 @@ impl<'source> Parser<'source> {
                         //     Stop parsing.
                         self.done = true;
                     },
-                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "body" => {
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("body") =>
+                    {
                         // If the stack of open elements does not have a body element in scope, this is a parse error; ignore the token.
                         if !self.is_element_in_scope(DOMType::HTMLBodyElement) {
                             return;
@@ -1202,35 +1249,37 @@ impl<'source> Parser<'source> {
                         self.insertion_mode = InsertionMode::AfterBody;
                     },
 
-                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "body" => {
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("body") =>
+                    {
                         todo!()
                     },
                     Token::Tag(ref tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "address"
-                                || tagdata.name == "article"
-                                || tagdata.name == "aside"
-                                || tagdata.name == "blockquote"
-                                || tagdata.name == "center"
-                                || tagdata.name == "details"
-                                || tagdata.name == "dialog"
-                                || tagdata.name == "dir"
-                                || tagdata.name == "div"
-                                || tagdata.name == "dl"
-                                || tagdata.name == "fieldset"
-                                || tagdata.name == "figcaption"
-                                || tagdata.name == "figure"
-                                || tagdata.name == "footer"
-                                || tagdata.name == "header"
-                                || tagdata.name == "hgroup"
-                                || tagdata.name == "main"
-                                || tagdata.name == "menu"
-                                || tagdata.name == "nav"
-                                || tagdata.name == "ol"
-                                || tagdata.name == "p"
-                                || tagdata.name == "section"
-                                || tagdata.name == "summary"
-                                || tagdata.name == "ul") =>
+                            && (tagdata.name == static_interned!("address")
+                                || tagdata.name == static_interned!("article")
+                                || tagdata.name == static_interned!("aside")
+                                || tagdata.name == static_interned!("blockquote")
+                                || tagdata.name == static_interned!("center")
+                                || tagdata.name == static_interned!("details")
+                                || tagdata.name == static_interned!("dialog")
+                                || tagdata.name == static_interned!("dir")
+                                || tagdata.name == static_interned!("div")
+                                || tagdata.name == static_interned!("dl")
+                                || tagdata.name == static_interned!("fieldset")
+                                || tagdata.name == static_interned!("figcaption")
+                                || tagdata.name == static_interned!("figure")
+                                || tagdata.name == static_interned!("footer")
+                                || tagdata.name == static_interned!("header")
+                                || tagdata.name == static_interned!("hgroup")
+                                || tagdata.name == static_interned!("main")
+                                || tagdata.name == static_interned!("menu")
+                                || tagdata.name == static_interned!("nav")
+                                || tagdata.name == static_interned!("ol")
+                                || tagdata.name == static_interned!("p")
+                                || tagdata.name == static_interned!("section")
+                                || tagdata.name == static_interned!("summary")
+                                || tagdata.name == static_interned!("ul")) =>
                     {
                         // If the stack of open elements has a p element in button scope, then close a p element.
                         if self.is_element_in_button_scope(DOMType::HTMLParagraphElement) {
@@ -1242,77 +1291,92 @@ impl<'source> Parser<'source> {
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "h1"
-                                || tagdata.name == "h2"
-                                || tagdata.name == "h3"
-                                || tagdata.name == "h4"
-                                || tagdata.name == "h5"
-                                || tagdata.name == "h6") =>
+                            && (tagdata.name == static_interned!("h1")
+                                || tagdata.name == static_interned!("h2")
+                                || tagdata.name == static_interned!("h3")
+                                || tagdata.name == static_interned!("h4")
+                                || tagdata.name == static_interned!("h5")
+                                || tagdata.name == static_interned!("h6")) =>
                     {
                         todo!()
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "pre" || tagdata.name == "listing") =>
+                            && (tagdata.name == static_interned!("pre")
+                                || tagdata.name == static_interned!("listing")) =>
                     {
                         todo!()
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "form" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("form") =>
+                    {
                         todo!()
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "li" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("li") =>
+                    {
                         todo!("handle li")
                     },
                     Token::Tag(tagdata)
-                        if tagdata.opening && (tagdata.name == "dd" || tagdata.name == "dt") =>
+                        if tagdata.opening
+                            && (tagdata.name == static_interned!("dd")
+                                || tagdata.name == static_interned!("dt")) =>
                     {
                         todo!("handle dd/dt")
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "plaintext" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("plaintext") =>
+                    {
                         todo!()
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "button" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("button") =>
+                    {
                         todo!()
                     },
                     Token::Tag(ref tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "address"
-                                || tagdata.name == "article"
-                                || tagdata.name == "aside"
-                                || tagdata.name == "blockquote"
-                                || tagdata.name == "center"
-                                || tagdata.name == "details"
-                                || tagdata.name == "dialog"
-                                || tagdata.name == "dir"
-                                || tagdata.name == "div"
-                                || tagdata.name == "dl"
-                                || tagdata.name == "fieldset"
-                                || tagdata.name == "figcaption"
-                                || tagdata.name == "figure"
-                                || tagdata.name == "footer"
-                                || tagdata.name == "header"
-                                || tagdata.name == "hgroup"
-                                || tagdata.name == "main"
-                                || tagdata.name == "menu"
-                                || tagdata.name == "nav"
-                                || tagdata.name == "ol"
-                                || tagdata.name == "p"
-                                || tagdata.name == "section"
-                                || tagdata.name == "summary"
-                                || tagdata.name == "ul") =>
+                            && (tagdata.name == static_interned!("address")
+                                || tagdata.name == static_interned!("article")
+                                || tagdata.name == static_interned!("aside")
+                                || tagdata.name == static_interned!("blockquote")
+                                || tagdata.name == static_interned!("center")
+                                || tagdata.name == static_interned!("details")
+                                || tagdata.name == static_interned!("dialog")
+                                || tagdata.name == static_interned!("dir")
+                                || tagdata.name == static_interned!("div")
+                                || tagdata.name == static_interned!("dl")
+                                || tagdata.name == static_interned!("fieldset")
+                                || tagdata.name == static_interned!("figcaption")
+                                || tagdata.name == static_interned!("figure")
+                                || tagdata.name == static_interned!("footer")
+                                || tagdata.name == static_interned!("header")
+                                || tagdata.name == static_interned!("hgroup")
+                                || tagdata.name == static_interned!("main")
+                                || tagdata.name == static_interned!("menu")
+                                || tagdata.name == static_interned!("nav")
+                                || tagdata.name == static_interned!("ol")
+                                || tagdata.name == static_interned!("p")
+                                || tagdata.name == static_interned!("section")
+                                || tagdata.name == static_interned!("summary")
+                                || tagdata.name == static_interned!("ul")) =>
                     {
                         todo!()
                     },
-                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "form" => {
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("form") =>
+                    {
                         todo!()
                     },
-                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "p" => {
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("p") =>
+                    {
                         // If the stack of open elements does not have a p element in button scope, then this is a parse error;
                         // insert an HTML element for a "p" start tag token with no attributes.
                         if !self.is_element_in_button_scope(DOMType::HTMLParagraphElement) {
                             self.insert_html_element_for_token(&TagData {
                                 opening: true,
-                                name: "p".to_string(),
+                                name: static_interned!("p"),
                                 self_closing: false,
                                 attributes: vec![],
                             });
@@ -1321,26 +1385,32 @@ impl<'source> Parser<'source> {
                         // Close a p element.
                         self.close_p_element();
                     },
-                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "li" => {
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("li") =>
+                    {
                         todo!("handle li closing tag")
                     },
                     Token::Tag(ref tagdata)
-                        if !tagdata.opening && (tagdata.name == "dd" || tagdata.name == "dt") =>
+                        if !tagdata.opening
+                            && (tagdata.name == static_interned!("dd")
+                                || tagdata.name == static_interned!("dt")) =>
                     {
                         todo!("handle dd/dt closing tag")
                     },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening
-                            && (tagdata.name == "h1"
-                                || tagdata.name == "h2"
-                                || tagdata.name == "h3"
-                                || tagdata.name == "h4"
-                                || tagdata.name == "h5"
-                                || tagdata.name == "h6") =>
+                            && (tagdata.name == static_interned!("h1")
+                                || tagdata.name == static_interned!("h2")
+                                || tagdata.name == static_interned!("h3")
+                                || tagdata.name == static_interned!("h4")
+                                || tagdata.name == static_interned!("h5")
+                                || tagdata.name == static_interned!("h6")) =>
                     {
                         todo!()
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "a" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("a") =>
+                    {
                         // If the list of active formatting elements contains an a element between the end of the list and the last marker on the list
                         // (or the start of the list if there is no marker on the list)
                         if let Some(element) = self
@@ -1375,18 +1445,18 @@ impl<'source> Parser<'source> {
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "b"
-                                || tagdata.name == "big"
-                                || tagdata.name == "code"
-                                || tagdata.name == "em"
-                                || tagdata.name == "font"
-                                || tagdata.name == "i"
-                                || tagdata.name == "s"
-                                || tagdata.name == "small"
-                                || tagdata.name == "strike"
-                                || tagdata.name == "strong"
-                                || tagdata.name == "tt"
-                                || tagdata.name == "u") =>
+                            && (tagdata.name == static_interned!("b")
+                                || tagdata.name == static_interned!("big")
+                                || tagdata.name == static_interned!("code")
+                                || tagdata.name == static_interned!("em")
+                                || tagdata.name == static_interned!("font")
+                                || tagdata.name == static_interned!("i")
+                                || tagdata.name == static_interned!("s")
+                                || tagdata.name == static_interned!("small")
+                                || tagdata.name == static_interned!("strike")
+                                || tagdata.name == static_interned!("strong")
+                                || tagdata.name == static_interned!("tt")
+                                || tagdata.name == static_interned!("u")) =>
                     {
                         // Reconstruct the active formatting elements, if any.
                         self.reconstruct_active_formatting_elements();
@@ -1399,7 +1469,9 @@ impl<'source> Parser<'source> {
                         // Push onto the list of active formatting elements that element.
                         self.active_formatting_elements.push(element);
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "nobr" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("nobr") =>
+                    {
                         // Reconstruct the active formatting elements, if any.
                         self.reconstruct_active_formatting_elements();
 
@@ -1417,29 +1489,29 @@ impl<'source> Parser<'source> {
                     },
                     Token::Tag(tagdata)
                         if !tagdata.opening
-                            && (tagdata.name == "a"
-                                || tagdata.name == "b"
-                                || tagdata.name == "big"
-                                || tagdata.name == "code"
-                                || tagdata.name == "em"
-                                || tagdata.name == "font"
-                                || tagdata.name == "i"
-                                || tagdata.name == "nobr"
-                                || tagdata.name == "s"
-                                || tagdata.name == "small"
-                                || tagdata.name == "strike"
-                                || tagdata.name == "strong"
-                                || tagdata.name == "tt"
-                                || tagdata.name == "u") =>
+                            && (tagdata.name == static_interned!("a")
+                                || tagdata.name == static_interned!("b")
+                                || tagdata.name == static_interned!("big")
+                                || tagdata.name == static_interned!("code")
+                                || tagdata.name == static_interned!("em")
+                                || tagdata.name == static_interned!("font")
+                                || tagdata.name == static_interned!("i")
+                                || tagdata.name == static_interned!("nobr")
+                                || tagdata.name == static_interned!("s")
+                                || tagdata.name == static_interned!("small")
+                                || tagdata.name == static_interned!("strike")
+                                || tagdata.name == static_interned!("strong")
+                                || tagdata.name == static_interned!("tt")
+                                || tagdata.name == static_interned!("u")) =>
                     {
                         // Run the adoption agency algorithm for the token.
                         self.run_adoption_agency_algorithm(&tagdata);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "applet"
-                                || tagdata.name == "marquee"
-                                || tagdata.name == "object") =>
+                            && (tagdata.name == static_interned!("applet")
+                                || tagdata.name == static_interned!("marquee")
+                                || tagdata.name == static_interned!("object")) =>
                     {
                         // Reconstruct the active formatting elements, if any.
                         self.reconstruct_active_formatting_elements();
@@ -1455,16 +1527,20 @@ impl<'source> Parser<'source> {
                     },
                     Token::Tag(tagdata)
                         if !tagdata.opening
-                            && (tagdata.name == "applet"
-                                || tagdata.name == "marquee"
-                                || tagdata.name == "object") =>
+                            && (tagdata.name == static_interned!("applet")
+                                || tagdata.name == static_interned!("marquee")
+                                || tagdata.name == static_interned!("object")) =>
                     {
                         todo!();
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "table" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("table") =>
+                    {
                         todo!();
                     },
-                    Token::Tag(mut tagdata) if !tagdata.opening && tagdata.name == "br" => {
+                    Token::Tag(mut tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("br") =>
+                    {
                         // Parse error. Drop the attributes from the token, and act as described in the next entry; i.e.
                         // act as if this was a "br" start tag token with no attributes, rather than the end tag token that it actually is.
                         tagdata.attributes.clear();
@@ -1485,12 +1561,12 @@ impl<'source> Parser<'source> {
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "area"
-                                || tagdata.name == "br"
-                                || tagdata.name == "embed"
-                                || tagdata.name == "img"
-                                || tagdata.name == "keygen"
-                                || tagdata.name == "wbr") =>
+                            && (tagdata.name == static_interned!("area")
+                                || tagdata.name == static_interned!("br")
+                                || tagdata.name == static_interned!("embed")
+                                || tagdata.name == static_interned!("img")
+                                || tagdata.name == static_interned!("keygen")
+                                || tagdata.name == static_interned!("wbr")) =>
                     {
                         // Reconstruct the active formatting elements, if any.
                         self.reconstruct_active_formatting_elements();
@@ -1506,7 +1582,9 @@ impl<'source> Parser<'source> {
                         // Set the frameset-ok flag to "not ok".
                         self.frameset_ok = FramesetOkFlag::NotOk;
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "input" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("input") =>
+                    {
                         // Reconstruct the active formatting elements, if any.
                         self.reconstruct_active_formatting_elements();
 
@@ -1522,16 +1600,17 @@ impl<'source> Parser<'source> {
                         // but that attribute's value is not an ASCII case-insensitive match for the string "hidden",
                         // then: set the frameset-ok flag to "not ok".
                         if !tagdata.attributes.iter().any(|(key, value)| {
-                            key == "type" && value.eq_ignore_ascii_case("hidden")
+                            *key == static_interned!("type")
+                                && value.to_string().eq_ignore_ascii_case("hidden")
                         }) {
                             self.frameset_ok = FramesetOkFlag::NotOk;
                         }
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "param"
-                                || tagdata.name == "source"
-                                || tagdata.name == "track") =>
+                            && (tagdata.name == static_interned!("param")
+                                || tagdata.name == static_interned!("source")
+                                || tagdata.name == static_interned!("track")) =>
                     {
                         // Insert an HTML element for the token.
                         self.insert_html_element_for_token(&tagdata);
@@ -1541,7 +1620,9 @@ impl<'source> Parser<'source> {
 
                         // Acknowledge the token's self-closing flag, if it is set.
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "hr" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("hr") =>
+                    {
                         // If the stack of open elements has a p element in button scope, then close a p element.
                         if self.is_element_in_button_scope(DOMType::HTMLParagraphElement) {
                             self.close_p_element();
@@ -1558,12 +1639,16 @@ impl<'source> Parser<'source> {
                         // Set the frameset-ok flag to "not ok".
                         self.frameset_ok = FramesetOkFlag::NotOk;
                     },
-                    Token::Tag(mut tagdata) if tagdata.opening && tagdata.name == "image" => {
+                    Token::Tag(mut tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("image") =>
+                    {
                         // Parse error. Change the token's tag name to "img" and reprocess it. (Don't ask.)
-                        tagdata.name = "img".to_owned();
+                        tagdata.name = static_interned!("img");
                         self.consume(Token::Tag(tagdata));
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "textarea" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("textarea") =>
+                    {
                         // Run these steps:
 
                         // 1. Insert an HTML element for the token.
@@ -1585,7 +1670,9 @@ impl<'source> Parser<'source> {
                         // 6. Switch the insertion mode to "text".
                         self.insertion_mode = InsertionMode::Text;
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "xmp" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("xmp") =>
+                    {
                         // If the stack of open elements has a p element in button scope, then close a p element.
                         if self.is_element_in_button_scope(DOMType::HTMLParagraphElement) {
                             self.close_p_element();
@@ -1600,24 +1687,32 @@ impl<'source> Parser<'source> {
                         // Follow the generic raw text element parsing algorithm.
                         self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "iframe" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("iframe") =>
+                    {
                         // Set the frameset-ok flag to "not ok".
                         self.frameset_ok = FramesetOkFlag::NotOk;
 
                         // Follow the generic raw text element parsing algorithm.
                         self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "noembed" => {
-                        // Follow the generic raw text element parsing algorithm.
-                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
-                    },
                     Token::Tag(tagdata)
-                        if tagdata.opening && tagdata.name == "noscript" && self.execute_script =>
+                        if tagdata.opening && tagdata.name == static_interned!("noembed") =>
                     {
                         // Follow the generic raw text element parsing algorithm.
                         self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "select" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening
+                            && tagdata.name == static_interned!("noscript")
+                            && self.execute_script =>
+                    {
+                        // Follow the generic raw text element parsing algorithm.
+                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
+                    },
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("select") =>
+                    {
                         // Reconstruct the active formatting elements, if any.
                         self.reconstruct_active_formatting_elements();
 
@@ -1642,35 +1737,40 @@ impl<'source> Parser<'source> {
                         }
                     },
                     Token::Tag(tagdata)
-                        if tagdata.opening && tagdata.name == "optgroup"
-                            || tagdata.name == "option" =>
+                        if tagdata.opening && tagdata.name == static_interned!("optgroup")
+                            || tagdata.name == static_interned!("option") =>
                     {
                         todo!();
                     },
                     Token::Tag(tagdata)
-                        if tagdata.opening && tagdata.name == "rb" || tagdata.name == "rtc" =>
+                        if tagdata.opening && tagdata.name == static_interned!("rb")
+                            || tagdata.name == static_interned!("rtc") =>
                     {
                         todo!();
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "math" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("math") =>
+                    {
                         todo!();
                     },
-                    Token::Tag(tagdata) if tagdata.opening && tagdata.name == "svg" => {
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("svg") =>
+                    {
                         todo!();
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
-                            && (tagdata.name == "caption"
-                                || tagdata.name == "col"
-                                || tagdata.name == "colgroup"
-                                || tagdata.name == "frame"
-                                || tagdata.name == "head"
-                                || tagdata.name == "tbody"
-                                || tagdata.name == "td"
-                                || tagdata.name == "tfoot"
-                                || tagdata.name == "th"
-                                || tagdata.name == "thead"
-                                || tagdata.name == "tr") =>
+                            && (tagdata.name == static_interned!("caption")
+                                || tagdata.name == static_interned!("col")
+                                || tagdata.name == static_interned!("colgroup")
+                                || tagdata.name == static_interned!("frame")
+                                || tagdata.name == static_interned!("head")
+                                || tagdata.name == static_interned!("tbody")
+                                || tagdata.name == static_interned!("td")
+                                || tagdata.name == static_interned!("tfoot")
+                                || tagdata.name == static_interned!("th")
+                                || tagdata.name == static_interned!("thead")
+                                || tagdata.name == static_interned!("tr")) =>
                     {
                         // Parse error. Ignore the token.
                     },
@@ -1712,11 +1812,15 @@ impl<'source> Parser<'source> {
                     Token::DOCTYPE(_) => {
                         // parse error, ignore token
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("html") =>
+                    {
                         // Process the token using the rules for the "in body" insertion mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
                     },
-                    Token::Tag(tagdata) if !tagdata.opening && tagdata.name == "html" => {
+                    Token::Tag(tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("html") =>
+                    {
                         // FIXME
                         // If the parser was created as part of the HTML fragment parsing
                         // algorithm, this is a parse error; ignore the token. (fragment case)
@@ -1749,7 +1853,9 @@ impl<'source> Parser<'source> {
                         // Process the token using the rules for the "in body" insertion mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
                     },
-                    Token::Tag(ref tagdata) if tagdata.opening && tagdata.name == "html" => {
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("html") =>
+                    {
                         // Process the token using the rules for the "in body" insertion mode.
                         self.consume_in_mode(InsertionMode::InBody, token);
                     },
@@ -1785,7 +1891,9 @@ impl<'source> Parser<'source> {
 
                         self.consume(token);
                     },
-                    Token::Tag(ref tagdata) if !tagdata.opening && tagdata.name == "script" => {
+                    Token::Tag(ref tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("script") =>
+                    {
                         log::warn!("FIXME: implement closing script tag in text mode");
 
                         // If the active speculative HTML parser is null and the JavaScript execution context stack is empty, then perform a microtask checkpoint.

@@ -383,6 +383,7 @@ dependencies = [
  "log",
  "mime",
  "proc-macro2",
+ "string_interner",
  "syn 1.0.109",
 ]
 

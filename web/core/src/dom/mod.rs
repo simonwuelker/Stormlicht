@@ -8,6 +8,7 @@ mod dom_ptr;
 pub use codegen::{DOMType, DOMTyped};
 pub use dom_display::DOMDisplay;
 pub use dom_ptr::{DOMPtr, WeakDOMPtr};
+use string_interner::{static_interned, static_str, InternedString};
 
 use crate::infra::Namespace;
 use dom_objects::{
@@ -32,10 +33,10 @@ pub enum ElementCustomState {
 #[allow(clippy::let_and_return)]
 pub fn create_element(
     document: WeakDOMPtr<Document>,
-    local_name: String,
+    local_name: InternedString,
     namespace: Namespace,
-    prefix: Option<String>,
-    is: Option<String>,
+    prefix: Option<InternedString>,
+    is: Option<InternedString>,
     _synchronous_custom_elements_flag: bool,
 ) -> DOMPtr<Element> {
     // FIXME: make this spec-compliant!
@@ -49,7 +50,7 @@ pub fn create_element(
     // let mut result = None;
 
     // 4. Let definition be the result of looking up a custom element definition given document, namespace, localName, and is.
-    let definition = lookup_custom_element_definition(namespace, &local_name, is.as_deref());
+    let definition = lookup_custom_element_definition(namespace, local_name, is);
 
     let result = match definition {
         // 5. FIXME: If definition is non-null, and definition’s name is not equal to its local name (i.e., definition represents a customized built-in element), then:
@@ -71,15 +72,14 @@ pub fn create_element(
             let mut element_data = Element::new(
                 namespace,
                 prefix,
-                local_name.clone(),
+                local_name,
                 ElementCustomState::Uncustomized,
                 None,
                 is,
             );
             element_data.set_owning_document(document);
 
-            let created_element =
-                create_element_for_interface(&local_name, namespace, element_data);
+            let created_element = create_element_for_interface(local_name, namespace, element_data);
 
             // 3. FIXME: If namespace is the HTML namespace, and either localName is a valid custom element name or is is non-null, then set result’s custom element state to "undefined".
             created_element
@@ -93,8 +93,8 @@ pub fn create_element(
 /// <https://html.spec.whatwg.org/multipage/custom-elements.html#look-up-a-custom-element-definition>
 pub fn lookup_custom_element_definition(
     namespace: Namespace,
-    _local_name: &str,
-    _is: Option<&str>,
+    _local_name: InternedString,
+    _is: Option<InternedString>,
 ) -> Option<()> {
     // 1. If namespace is not the HTML namespace, return null.
     if namespace != Namespace::HTML {
@@ -114,7 +114,7 @@ pub fn lookup_custom_element_definition(
 }
 
 fn create_element_for_interface(
-    local_name: &str,
+    local_name: InternedString,
     namespace: Namespace,
     element_data: Element,
 ) -> DOMPtr<Element> {
@@ -123,40 +123,56 @@ fn create_element_for_interface(
     }
 
     match local_name {
-        "a" => DOMPtr::new(HTMLAnchorElement::new(HTMLElement::new(element_data)))
-            .into_type::<Element>(),
-        "body" => {
+        static_interned!("a") => {
+            DOMPtr::new(HTMLAnchorElement::new(HTMLElement::new(element_data)))
+                .into_type::<Element>()
+        },
+        static_interned!("body") => {
             DOMPtr::new(HTMLBodyElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
-        "button" => DOMPtr::new(HTMLButtonElement::new(HTMLElement::new(element_data)))
-            .into_type::<Element>(),
-        "div" => {
+        static_interned!("button") => {
+            DOMPtr::new(HTMLButtonElement::new(HTMLElement::new(element_data)))
+                .into_type::<Element>()
+        },
+        static_interned!("div") => {
             DOMPtr::new(HTMLDivElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
-        "head" => {
+        static_interned!("head") => {
             DOMPtr::new(HTMLHeadElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
-        "html" => {
+        static_interned!("html") => {
             DOMPtr::new(HTMLHtmlElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
-        "link" => {
+        static_interned!("link") => {
             DOMPtr::new(HTMLLinkElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
-        "meta" => {
+        static_interned!("meta") => {
             DOMPtr::new(HTMLMetaElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
-        "noscript" => DOMPtr::new(HTMLNoscriptElement::new(HTMLElement::new(element_data)))
-            .into_type::<Element>(),
-        "p" => DOMPtr::new(HTMLParagraphElement::new(HTMLElement::new(element_data)))
-            .into_type::<Element>(),
-        "script" => DOMPtr::new(HTMLScriptElement::new(HTMLElement::new(element_data)))
-            .into_type::<Element>(),
-        "style" => DOMPtr::new(HTMLStyleElement::new(HTMLElement::new(element_data)))
-            .into_type::<Element>(),
-        "template" => DOMPtr::new(HTMLTemplateElement::new(HTMLElement::new(element_data)))
-            .into_type::<Element>(),
-        "title" => DOMPtr::new(HTMLTitleElement::new(HTMLElement::new(element_data)))
-            .into_type::<Element>(),
+        static_interned!("noscript") => {
+            DOMPtr::new(HTMLNoscriptElement::new(HTMLElement::new(element_data)))
+                .into_type::<Element>()
+        },
+        static_interned!("p") => {
+            DOMPtr::new(HTMLParagraphElement::new(HTMLElement::new(element_data)))
+                .into_type::<Element>()
+        },
+        static_interned!("script") => {
+            DOMPtr::new(HTMLScriptElement::new(HTMLElement::new(element_data)))
+                .into_type::<Element>()
+        },
+        static_interned!("style") => {
+            DOMPtr::new(HTMLStyleElement::new(HTMLElement::new(element_data)))
+                .into_type::<Element>()
+        },
+        static_interned!("template") => {
+            DOMPtr::new(HTMLTemplateElement::new(HTMLElement::new(element_data)))
+                .into_type::<Element>()
+        },
+        static_interned!("title") => {
+            DOMPtr::new(HTMLTitleElement::new(HTMLElement::new(element_data)))
+                .into_type::<Element>()
+        },
         _ => {
             log::warn!("Failed to create element for interface {local_name:?}");
             DOMPtr::new(element_data)

@@ -35,6 +35,8 @@ impl BrowsingContext {
             parse_end.duration_since(parse_start).as_millis()
         );
 
+        // Build a layout tree for the parsed document
+
         log::info!("{:?}", document.debug());
         Ok(Self)
     }
