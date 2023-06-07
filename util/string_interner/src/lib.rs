@@ -8,24 +8,132 @@ use std::{
 };
 
 use perfect_hash::{perfect_set, str_hash};
-
 #[macro_export]
 macro_rules! static_interned {
-    ($value: expr) => {
-        ::$crate::InternedString::Static(static_str!($value))
+    ($value: tt) => {
+        $crate::InternedString::Static(static_str!($value))
     };
 }
 
 // TODO: might want to figure out a nice way to define this outside of this crate later
 // That way, users that don't want to write a browser engine could also use it :)
+#[rustfmt::skip]
 perfect_set!(
     const STATIC_SET = [
+        "",
+
         // html tags
-        "html",
-        "head",
+        "a",
+        "address",
+        "area",
+        "article",
+        "applet",
+        "aside",
+        "b",
+        "base",
+        "basefont",
+        "bgsound",
+        "big",
+        "blockquote",
         "body",
+        "br",
+        "button",
+        "caption",
+        "center",
+        "code",
+        "col",
+        "colgroup",
+        "dd",
+        "details",
+        "dialog",
+        "dir",
+        "div",
+        "dl",
+        "dt",
+        "em",
+        "embed",
+        "fieldset",
+        "figcaption",
+        "figure",
+        "font",
+        "footer",
+        "form",
+        "frame",
+        "frameset",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "head",
+        "header",
+        "hgroup",
+        "hr",
+        "html",
+        "i",
+        "iframe",
+        "image",
+        "img",
+        "input",
+        "keygen",
+        "li",
+        "link",
+        "listing",
+        "main",
+        "marquee",
+        "math",
+        "menu",
+        "meta",
+        "nav",
+        "nobr",
+        "noembed",
+        "noframes",
+        "noscript",
+        "object",
+        "ol",
+        "optgroup",
+        "option",
+        "p",
+        "param",
+        "plaintext",
+        "pre",
+        "rb",
+        "rtc",
+        "s",
+        "script",
+        "section",
+        "select",
+        "small",
+        "source",
+        "strike",
+        "strong",
+        "style",
+        "summary",
+        "svg",
+        "table",
+        "tbody",
+        "td",
+        "template",
+        "textarea",
+        "tfoot",
+        "th",
+        "thead",
+        "title",
+        "tr",
+        "track",
+        "tt",
+        "u",
+        "ul",
+        "wbr",
+        "xmp",
+
+        // html attributes
+        "is",
+        "type",
 
         // CSS terms
+        "hidden",
         "color",
         "background-color",
     ];
@@ -82,6 +190,12 @@ impl InternedString {
             .lock()
             .expect("String interner was poisoned")
             .get_or_insert(from)
+    }
+}
+
+impl Default for InternedString {
+    fn default() -> Self {
+        static_interned!("")
     }
 }
 
