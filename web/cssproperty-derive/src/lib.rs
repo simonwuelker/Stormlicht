@@ -9,7 +9,9 @@ enum FieldConstraints {
     Unordered,
     OptionalUnordered,
 }
-
+// There is currently a bug in rustfmt that causes formatting to fail in this function
+// https://github.com/rust-lang/rustfmt/issues/5744
+#[rustfmt::skip] 
 #[proc_macro_derive(
     CSSProperty,
     attributes(keyword, ordered, unordered, optional_unordered)
@@ -205,7 +207,7 @@ pub fn cssproperty_derive(input: TokenStream) -> TokenStream {
                             }
                         })
                         .collect::<TokenStream2>();
-                        
+
                     let handle_nothing_parsed_case = if constraint == &FieldConstraints::OptionalUnordered {
                         // If our fields are optional, then we are simply done parsing
                         quote!(
