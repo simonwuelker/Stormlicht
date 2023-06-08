@@ -80,7 +80,6 @@ pub fn perfect_set(input: TokenStream) -> TokenStream {
         let hash = str_hash(string);
         first_level_buckets[hash as usize % size].push(hash);
     }
-
     // Create a way to iterate over the buckets from largest to smallest
     let mut bucket_order: Vec<usize> = (0..size).collect();
     bucket_order.sort_unstable_by_key(|&index| first_level_buckets[index].len());
@@ -89,7 +88,7 @@ pub fn perfect_set(input: TokenStream) -> TokenStream {
     let mut occupied_indices = vec![false; size];
     let mut secondary_hash_functions = vec![0; size];
 
-    for bucket_index in bucket_order {
+    for bucket_index in bucket_order.iter().rev().copied() {
         for secondary_hash_fn in 0.. {
             let mut tmp = occupied_indices.clone();
             if hash_fn_does_not_have_collisions(
