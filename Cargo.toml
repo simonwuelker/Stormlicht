@@ -10,6 +10,7 @@ members = [
     "graphics/font",
     "graphics/math",
     "compression",
+    "tests/runners/text-rendering",
     "util/bignum",
     "util/cli",
     "util/cli-derive",

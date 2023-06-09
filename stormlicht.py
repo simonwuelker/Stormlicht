@@ -17,8 +17,6 @@ def build_documentation(args):
 
 
 def run(args):
-    ensure_submodules_are_downloaded()
-
     cmd = ["cargo", "run"]
     if args.release:
         cmd.append("--release")
@@ -26,8 +24,6 @@ def run(args):
 
 
 def build(args):
-    ensure_submodules_are_downloaded()
-
     cmd = ["cargo", "build"]
     if args.release:
         cmd.append("--release")
@@ -45,14 +41,14 @@ def test_font_rendering(args):
     ensure_submodules_are_downloaded()
 
     # Build the testrunner
-    subprocess.run(["cargo", "build", "--bin=font-unicode-test", "--features=cli"])
+    subprocess.run(["cargo", "build", "--bin=text-rendering"])
 
     # Execute the test suite
     subprocess.run(
         [
             "python3",
             "tests/text-rendering-tests/check.py",
-            "--engine=target/debug/font-unicode-test",
+            "--engine=target/debug/text-rendering",
             "--output=target/text-rendering-tests.html",
             "--testcases=tests/text-rendering-tests/testcases",
             "--font=tests/text-rendering-tests/fonts",
@@ -67,7 +63,7 @@ def test_font_rendering(args):
 # Main parser
 parser = argparse.ArgumentParser(
     prog="Stormlicht",
-    description="What the program does",
+    description="Build system for the Stormlicht browser engine",
     epilog="Thank you for playing around with Stormlicht!",
 )
 
