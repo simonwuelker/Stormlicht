@@ -1,0 +1,3 @@
+[submodule "tests/text-rendering-tests"]
+	path = tests/text-rendering-tests
+	url = https://github.com/Wuelle/text-rendering-tests
