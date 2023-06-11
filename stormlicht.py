@@ -5,6 +5,7 @@ import subprocess
 import webbrowser
 import os
 import json
+import re
 
 
 def ensure_submodules_are_downloaded():
@@ -63,6 +64,17 @@ def test_font_rendering(args):
 
 
 def test_html_parser(args):
+    def verbose_print(initial_state, testdata, out, stderr):
+        print("Initial state:", initial_state)
+        print(
+            "Input:         '{}'".format(
+                testdata["input"].encode("unicode_escape").decode("utf-8")
+            )
+        )
+        print("Expected:       {}".format(testdata["output"]))
+        print("Got:            {}".format(out))
+        print(f"stderr:         {stderr}")
+
     ensure_submodules_are_downloaded()
 
     # Build the testrunner
@@ -76,8 +88,12 @@ def test_html_parser(args):
                 os.path.join("tests/html5lib-tests/tokenizer", test_name), "r"
             ) as testfile:
                 testdata = json.load(testfile)
-            print(test_name)
+
             for test in testdata["tests"]:
+                if args.filter != None:
+                    if args.filter not in test["description"]:
+                        continue
+
                 if "initialStates" in test:
                     initial_states = test["initialStates"]
                 else:
@@ -111,6 +127,9 @@ def test_html_parser(args):
                     except:
                         print("Fail")
                         tests_failed += 1
+
+                        if args.verbose:
+                            verbose_print(initial_state, test, out, p.stderr)
                         continue
 
                     if out == test["output"]:
@@ -119,9 +138,12 @@ def test_html_parser(args):
                         print("Fail")
                         tests_failed += 1
 
+                        if args.verbose:
+                            verbose_print(initial_state, test, out, p.stderr)
+
     print()
     print(
-        f"{tests_failed}/{total_tests} failed ({tests_failed/total_tests * 100:.2f}%)"
+        f"{tests_failed}/{total_tests} tests failed ({tests_failed/total_tests * 100:.2f}%)"
     )
 
 
@@ -176,10 +198,17 @@ parser_test_text_rendering.add_argument(
 )
 parser_test_text_rendering.set_defaults(handler=test_font_rendering)
 
-parser_test_text_rendering = test_subparsers.add_parser(
-    "html", help="test html parsing"
+parser_test_html = test_subparsers.add_parser("html", help="test html parsing")
+parser_test_html.add_argument(
+    "filter", nargs="?", default=None, help="filter test cases by name"
 )
-parser_test_text_rendering.set_defaults(handler=test_html_parser)
+parser_test_html.add_argument(
+    "-v",
+    "--verbose",
+    action="store_true",
+    help="print detailed information about each failed test",
+)
+parser_test_html.set_defaults(handler=test_html_parser)
 
 args = parser.parse_args()
 args.handler(args)
