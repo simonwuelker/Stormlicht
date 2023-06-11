@@ -56,7 +56,7 @@ fn main() -> Result<(), Error> {
         let last_start_tag = args
             .last_start_tag
             .clone()
-            .map(|t| t[1..args.t.len() - 1].to_string());
+            .map(|t| t[1..t.len() - 1].to_string());
 
         // our commandline parser doesnt handle quotes very well...
         let initial_state =
