@@ -11,6 +11,7 @@ members = [
     "graphics/math",
     "compression",
     "tests/runners/text-rendering",
+    "tests/runners/html5lib",
     "util/bignum",
     "util/cli",
     "util/cli-derive",

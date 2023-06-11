@@ -3,6 +3,8 @@
 import argparse
 import subprocess
 import webbrowser
+import os
+import json
 
 
 def ensure_submodules_are_downloaded():
@@ -60,6 +62,69 @@ def test_font_rendering(args):
         webbrowser.open("target/text-rendering-tests.html")
 
 
+def test_html_parser(args):
+    ensure_submodules_are_downloaded()
+
+    # Build the testrunner
+    subprocess.run(["cargo", "build", "--bin=html5lib-testrunner"])
+
+    total_tests = 0
+    tests_failed = 0
+    for test_name in os.listdir("tests/html5lib-tests/tokenizer"):
+        if test_name.endswith(".test") and test_name != "xmlViolation.test":
+            with open(
+                os.path.join("tests/html5lib-tests/tokenizer", test_name), "r"
+            ) as testfile:
+                testdata = json.load(testfile)
+            print(test_name)
+            for test in testdata["tests"]:
+                if "initialStates" in test:
+                    initial_states = test["initialStates"]
+                else:
+                    initial_states = ["Data state"]
+
+                for initial_state in initial_states:
+                    total_tests += 1
+
+                    if len(initial_states) == 1:
+                        print(f'Testing: {test["description"]} - ', end="")
+                    else:
+                        print(
+                            f'Testing: {test["description"]}({initial_state}) - ',
+                            end="",
+                        )
+
+                    try:
+                        p = subprocess.run(
+                            [
+                                "./target/debug/html5lib-testrunner",
+                                '--state="{}"'.format(initial_state),
+                                '--input="{}"'.format(test["input"]),
+                                "--testcases=tests/text-rendering-tests/testcases",
+                                "--font=tests/text-rendering-tests/fonts",
+                            ],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                        )
+
+                        out = json.loads(p.stdout.decode("utf-8"))
+                    except:
+                        print("Fail")
+                        tests_failed += 1
+                        continue
+
+                    if out == test["output"]:
+                        print("Success")
+                    else:
+                        print("Fail")
+                        tests_failed += 1
+
+    print()
+    print(
+        f"{tests_failed}/{total_tests} failed ({tests_failed/total_tests * 100:.2f}%)"
+    )
+
+
 # Main parser
 parser = argparse.ArgumentParser(
     prog="Stormlicht",
@@ -111,6 +176,10 @@ parser_test_text_rendering.add_argument(
 )
 parser_test_text_rendering.set_defaults(handler=test_font_rendering)
 
+parser_test_text_rendering = test_subparsers.add_parser(
+    "html", help="test html parsing"
+)
+parser_test_text_rendering.set_defaults(handler=test_html_parser)
 
 args = parser.parse_args()
 args.handler(args)
