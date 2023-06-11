@@ -70,8 +70,8 @@ pub enum FramesetOkFlag {
     NotOk,
 }
 
-pub struct Parser<'source> {
-    tokenizer: Tokenizer<'source>,
+pub struct Parser {
+    tokenizer: Tokenizer,
     document: DOMPtr<Document>,
     /// When the insertion mode is switched to "text" or "in table text", the original insertion
     /// mode is also set. This is the insertion mode to which the tree construction stage will
@@ -88,8 +88,8 @@ pub struct Parser<'source> {
     done: bool,
 }
 
-impl<'source> Parser<'source> {
-    pub fn new(source: &'source str) -> Self {
+impl Parser {
+    pub fn new(source: &str) -> Self {
         let document = DOMPtr::new(Document::default());
         // TODO: judging from the spec behaviour, it appears that document's document's
         // point to themselves. We should find a note for that somewhere in a spec.

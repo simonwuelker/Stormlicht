@@ -1,10 +1,10 @@
 //! The [HTML Tokenizer](https://html.spec.whatwg.org/multipage/parsing.html#tokenization)
-
 use super::{
     lookup_character_reference,
     token::{CurrentToken, TagBuilder, TokenBuilder},
     TagData, Token,
 };
+use crate::infra;
 use std::collections::VecDeque;
 
 // Characters that are hard to read
@@ -258,9 +258,9 @@ pub enum TokenizerState {
     NumericCharacterReferenceEndState,
 }
 
-pub struct Tokenizer<'source> {
+pub struct Tokenizer {
     /// The source code that is being tokenized
-    source: &'source str,
+    source: String,
 
     /// The current state of the state machine
     state: TokenizerState,
@@ -285,8 +285,12 @@ pub struct Tokenizer<'source> {
     character_reference_code: u32,
 }
 
-impl<'source> Tokenizer<'source> {
-    pub fn new(source: &'source str) -> Self {
+impl Tokenizer {
+    pub fn new(source: &str) -> Self {
+        // Normalize newlines
+        // https://infra.spec.whatwg.org/#normalize-newlines
+        let source = infra::normalize_newlines(source);
+
         Self {
             source: source,
             state: TokenizerState::DataState,
@@ -3147,7 +3151,7 @@ impl<'source> Tokenizer<'source> {
     }
 }
 
-impl Iterator for Tokenizer<'_> {
+impl Iterator for Tokenizer {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {

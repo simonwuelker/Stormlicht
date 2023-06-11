@@ -22,3 +22,8 @@ pub enum Namespace {
     /// <https://infra.spec.whatwg.org/#xmlns-namespace>
     XMLNS,
 }
+
+/// <https://infra.spec.whatwg.org/#normalize-newlines>
+pub fn normalize_newlines(source: &str) -> String {
+    source.replace("\r\n", "\n").replace('\r', "\n")
+}
