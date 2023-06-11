@@ -263,7 +263,7 @@ pub struct Tokenizer<'source> {
     source: &'source str,
 
     /// The current state of the state machine
-    pub state: TokenizerState,
+    state: TokenizerState,
 
     /// Index of the next character to be fed to the tokenizer
     ptr: usize,
@@ -321,6 +321,14 @@ impl<'source> Tokenizer<'source> {
     fn reconsume_in(&mut self, new_state: TokenizerState) {
         self.ptr -= 1;
         self.state = new_state;
+    }
+
+    pub fn set_state(&mut self, state: TokenizerState) {
+        self.state = state;
+    }
+
+    pub fn set_last_start_tag(&mut self, last_start_tag: Option<String>) {
+        self.last_emitted_start_tag_name = last_start_tag;
     }
 
     /// Whether the current token is an [Token::EndTag] token whose name matches

@@ -877,7 +877,7 @@ impl<'source> Parser<'source> {
                         self.open_elements.push(element);
 
                         // 8. Switch the tokenizer to the script data state.
-                        self.tokenizer.state = TokenizerState::ScriptDataState;
+                        self.tokenizer.set_state(TokenizerState::ScriptDataState);
 
                         // 9. Let the original insertion mode be the current insertion mode.
                         self.original_insertion_mode = Some(self.insertion_mode);
