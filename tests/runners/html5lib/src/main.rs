@@ -1,7 +1,11 @@
 //! A runner for [html5 tokenizer tests](https://github.com/html5lib/html5lib-tests)
-//!
+
+mod escape;
+
 use cli::CommandLineArgumentParser;
 use core::html::tokenization::{Token, Tokenizer, TokenizerState};
+
+use crate::escape::{unescape_str, unicode_escape};
 
 #[derive(Debug, Default, CommandLineArgumentParser)]
 struct ArgumentParser {
@@ -58,10 +62,13 @@ fn main() -> Result<(), Error> {
             .clone()
             .map(|t| t[1..t.len() - 1].to_string());
 
+        let source =
+            unescape_str(&args.input[1..args.input.len() - 1]).expect("Invalid input text");
+
         // our commandline parser doesnt handle quotes very well...
         let initial_state =
             parse_initial_state(&args.initial_state[1..args.initial_state.len() - 1])?;
-        let mut tokenizer = Tokenizer::new(&args.input[1..args.input.len() - 1]);
+        let mut tokenizer = Tokenizer::new(&source);
         tokenizer.set_state(initial_state);
         tokenizer.set_last_start_tag(last_start_tag);
 
@@ -110,7 +117,10 @@ fn serialize_token(
             let force_quirks = doctype.force_quirks;
 
             serialized_tokens.push(format!(
-                "[\"DOCTYPE\", {name:?}, {public_id:?}, {system_id:?}, {force_quirks:?}]"
+                "[\"DOCTYPE\", {:?}, {:?}, {:?}, {force_quirks:?}]",
+                unicode_escape(&name),
+                unicode_escape(&public_id),
+                unicode_escape(&system_id)
             ));
         },
         Token::Tag(tagdata) if tagdata.opening => {
@@ -123,21 +133,24 @@ fn serialize_token(
             let serialized_token = if tagdata.self_closing {
                 format!(
                     "[\"StartTag\", {}, {{{attributes}}}, true]",
-                    tagdata.name.to_string()
+                    unicode_escape(&tagdata.name.to_string()),
                 )
             } else {
                 format!(
                     "[\"StartTag\", {}, {{{attributes}}}]",
-                    tagdata.name.to_string()
+                    unicode_escape(&tagdata.name.to_string()),
                 )
             };
             serialized_tokens.push(serialized_token);
         },
         Token::Tag(tagdata) if !tagdata.opening => {
-            serialized_tokens.push(format!("[\"EndTag\", {}]", tagdata.name.to_string()));
+            serialized_tokens.push(format!(
+                "[\"EndTag\", {}]",
+                unicode_escape(&tagdata.name.to_string()),
+            ));
         },
         Token::Comment(comment) => {
-            serialized_tokens.push(format!("[\"Comment\", {comment:?}]"));
+            serialized_tokens.push(format!("[\"Comment\", {:?}]", unicode_escape(&comment)));
         },
         Token::EOF => {
             return true;
@@ -149,7 +162,8 @@ fn serialize_token(
                 match tokenizer.next() {
                     Some(Token::Character(c)) => data.push(c),
                     Some(other) => {
-                        serialized_tokens.push(format!("[\"Character\", {data:?}]"));
+                        serialized_tokens
+                            .push(format!("[\"Character\", {:?}]", unicode_escape(&data)));
                         return serialize_token(other, tokenizer, serialized_tokens);
                     },
                     None => {

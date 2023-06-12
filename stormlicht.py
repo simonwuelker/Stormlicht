@@ -129,7 +129,7 @@ def test_html_parser(args):
                         tests_failed += 1
 
                         if args.verbose:
-                            verbose_print(initial_state, test, out, p.stderr)
+                            verbose_print(initial_state, test, p.stdout, p.stderr)
                         continue
 
                     if out == test["output"]:
@@ -142,9 +142,12 @@ def test_html_parser(args):
                             verbose_print(initial_state, test, out, p.stderr)
 
     print()
-    print(
-        f"{tests_failed}/{total_tests} tests failed ({tests_failed/total_tests * 100:.2f}%)"
-    )
+    if total_tests != 0:
+        print(
+            f"{tests_failed}/{total_tests} tests failed ({tests_failed/total_tests * 100:.2f}%)"
+        )
+    else:
+        print("No tests were run.")
 
 
 # Main parser
