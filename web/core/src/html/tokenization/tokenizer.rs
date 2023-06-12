@@ -2971,10 +2971,15 @@ impl Tokenizer {
                 match self.read_next() {
                     Some(c @ ('0'..='9' | 'a'..='f' | 'A'..='F')) => {
                         // Multiply the character reference code by 16.
-                        self.character_reference_code *= 16;
+                        self.character_reference_code =
+                            self.character_reference_code.saturating_mul(16);
 
                         // Add a numeric version of the current input character to the character reference code.
-                        self.character_reference_code += c.to_digit(16).unwrap();
+                        self.character_reference_code =
+                            self.character_reference_code.saturating_add(
+                                c.to_digit(16)
+                                    .expect("characters 0-9, a-f, A-F are valid hex digits"),
+                            );
                     },
                     Some(';') => {
                         // Switch to the numeric character reference end state.
@@ -2993,12 +2998,17 @@ impl Tokenizer {
                 match self.read_next() {
                     Some(c @ '0'..='9') => {
                         // Multiply the character reference code by 10.
-                        self.character_reference_code *= 10;
+                        self.character_reference_code =
+                            self.character_reference_code.saturating_mul(10);
 
                         // Add a numeric version of
                         // the current input character (subtract 0x0030 from the character's code
                         // point) to the character reference code.
-                        self.character_reference_code += c.to_digit(10).unwrap();
+                        self.character_reference_code =
+                            self.character_reference_code.saturating_add(
+                                c.to_digit(10)
+                                    .expect("characters 0-9 are valid decimal digits"),
+                            );
                     },
                     Some(';') => {
                         // Switch to the numeric character reference end state.
