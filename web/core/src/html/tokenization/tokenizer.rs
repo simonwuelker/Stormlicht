@@ -358,6 +358,34 @@ impl Tokenizer {
         }
     }
 
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#flush-code-points-consumed-as-a-character-reference>
+    fn flush_code_points_consumed_as_character_reference(&mut self) {
+        if let Some(temporary_buffer) = &self.buffer {
+            if self.is_inside_attribute() {
+                temporary_buffer
+                    .chars()
+                    .for_each(|c| self.current_token.append_to_attribute_value(c));
+            } else {
+                temporary_buffer
+                    .clone() // Not actually necessary but rust doesn't allow the second borrow
+                    .chars()
+                    .for_each(|c| self.emit(Token::Character(c)));
+            }
+        }
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#charref-in-attribute>
+    fn is_inside_attribute(&self) -> bool {
+        matches!(
+            self.return_state,
+            Some(
+                TokenizerState::AttributeValueDoublequotedState
+                    | TokenizerState::AttributeValueSinglequotedState
+                    | TokenizerState::AttributeValueUnquotedState
+            )
+        )
+    }
+
     fn add_to_buffer(&mut self, c: char) {
         match &mut self.buffer {
             Some(ref mut buffer) => {
@@ -2807,10 +2835,9 @@ impl Tokenizer {
                     },
                     _ => {
                         // Flush code points consumed as a character reference.
-
-                        // we are supposed to flush the buffer as tokens - but we just set it to "&".
-                        // Let's just emit a single '&' token i guess?
-                        // Sorry to future me if this causes any bugs :^)
+                        // NOTE: we are supposed to flush the buffer as tokens - but we just set it to "&".
+                        //       Let's just emit a single '&' token i guess?
+                        //       Sorry to future me if this causes any bugs :^)
                         self.emit(Token::Character('&'));
 
                         // Reconsume in the return state.
@@ -2847,10 +2874,10 @@ impl Tokenizer {
                     },
                     None => {
                         // Flush code points consumed as a character reference.
+                        self.flush_code_points_consumed_as_character_reference();
 
                         // Switch to the ambiguous ampersand state.
                         self.switch_to(TokenizerState::AmbiguousAmpersandState);
-                        todo!("flush code points consumed as character reference");
                     },
                 }
             },
@@ -2859,9 +2886,8 @@ impl Tokenizer {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(c @ ('a'..='z' | 'A'..='Z' | '0'..='9')) => {
-                        let was_consumed_as_part_of_attr = false; // TODO
-                                                                  // If the character reference was consumed as part of an attribute,
-                        if was_consumed_as_part_of_attr {
+                        // If the character reference was consumed as part of an attribute,
+                        if self.is_inside_attribute() {
                             // then append the current input character to the current attribute's
                             // value.
                             self.current_token.append_to_attribute_value(c);
@@ -2914,9 +2940,10 @@ impl Tokenizer {
                     _ => {
                         // This is an absence-of-digits-in-numeric-character-reference parse error.
                         // Flush code points consumed as a character reference.
+                        self.flush_code_points_consumed_as_character_reference();
+
                         // Reconsume in the return state.
                         self.reconsume_in(self.return_state.unwrap());
-                        todo!("Flush code points consumed as a character reference.");
                     },
                 }
             },
@@ -2932,9 +2959,10 @@ impl Tokenizer {
                         // This is an absence-of-digits-in-numeric-character-reference parse
                         // error.
                         // Flush code points consumed as a character reference.
+                        self.flush_code_points_consumed_as_character_reference();
+
                         // Reconsume in the return state.
                         self.reconsume_in(self.return_state.unwrap());
-                        todo!("Flush code points consumed as a character reference.");
                     },
                 }
             },
@@ -3144,8 +3172,8 @@ impl Tokenizer {
                         .unwrap()
                         .to_string(),
                 );
+                self.flush_code_points_consumed_as_character_reference();
                 self.switch_to(self.return_state.unwrap());
-                todo!(); // flush, again
             },
         }
     }
