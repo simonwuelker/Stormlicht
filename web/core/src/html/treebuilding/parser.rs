@@ -1,19 +1,20 @@
 //! Implements the [Tree Construction Stage](https://html.spec.whatwg.org/multipage/parsing.html#tree-construction)
 
 use crate::{
+    css::{self, Stylesheet},
     dom::{
         self,
         dom_objects::{
             Comment, Document, DocumentType, Element, HTMLElement, HTMLHtmlElement,
             HTMLParagraphElement, HTMLScriptElement, Node, Text,
         },
-        DOMPtr, DOMType,
+        DOMPtr, DOMType, DOMTyped,
     },
     html::tokenization::{TagData, Token, Tokenizer, TokenizerState},
     infra::Namespace,
 };
 
-use super::{ActiveFormattingElements, StackOfOpenElements};
+use super::ActiveFormattingElements;
 
 use string_interner::{static_interned, static_str};
 
@@ -78,7 +79,7 @@ pub struct Parser {
     /// return.
     original_insertion_mode: Option<InsertionMode>,
     insertion_mode: InsertionMode,
-    open_elements: StackOfOpenElements,
+    open_elements: Vec<DOMPtr<Node>>,
     head: Option<DOMPtr<Node>>,
     frameset_ok: FramesetOkFlag,
 
@@ -86,6 +87,8 @@ pub struct Parser {
     active_formatting_elements: ActiveFormattingElements,
     execute_script: bool,
     done: bool,
+
+    stylesheets: Vec<Stylesheet>,
 }
 
 impl Parser {
@@ -102,16 +105,62 @@ impl Parser {
             document: document,
             original_insertion_mode: None,
             insertion_mode: InsertionMode::Initial,
-            open_elements: StackOfOpenElements::default(),
+            open_elements: vec![],
             head: None,
             frameset_ok: FramesetOkFlag::default(),
             active_formatting_elements: ActiveFormattingElements::default(),
             execute_script: false,
             done: false,
+            stylesheets: vec![],
         }
     }
 
-    pub fn parse(mut self) -> DOMPtr<Node> {
+    #[must_use]
+    fn open_elements_top_node(&self) -> Option<DOMPtr<Node>> {
+        self.open_elements.first().cloned()
+    }
+
+    #[must_use]
+    fn open_elements_bottommost_node(&self) -> Option<DOMPtr<Node>> {
+        self.open_elements.last().cloned()
+    }
+
+    #[must_use]
+    fn find_in_open_elements<T: DOMTyped>(&self, needle: &DOMPtr<T>) -> Option<usize> {
+        self.open_elements
+            .iter()
+            .enumerate()
+            .find(|(_, node)| node.ptr_eq(needle))
+            .map(|(i, _)| i)
+    }
+
+    fn remove_from_open_elements<T: DOMTyped>(&mut self, to_remove: &DOMPtr<T>) {
+        self.open_elements
+            .retain_mut(|element| !DOMPtr::ptr_eq(to_remove, element))
+    }
+
+    fn pop_from_open_elements(&mut self) -> Option<DOMPtr<Node>> {
+        let popped_node = self.open_elements.pop();
+
+        // Check if we just popped a <style> element, if so, register a new stylesheet
+        if let Some(node) = popped_node.as_ref() {
+            if node.underlying_type() == DOMType::HTMLStyleElement {
+                if let Some(first_child) = node.borrow().children().first() {
+                    if let Some(text_node) = first_child.try_into_type::<Text>() {
+                        if let Ok(stylesheet) =
+                            css::Parser::new(text_node.borrow().content(), css::Origin::Author)
+                                .parse_stylesheet()
+                        {
+                            self.stylesheets.push(stylesheet);
+                        }
+                    }
+                }
+            }
+        }
+        popped_node
+    }
+
+    pub fn parse(mut self) -> (DOMPtr<Node>, Vec<Stylesheet>) {
         while let Some(token) = self.tokenizer.next() {
             self.consume(token);
 
@@ -120,16 +169,17 @@ impl Parser {
             }
         }
 
-        self.open_elements
-            .top_node()
-            .expect("HTML parser did not produce a root node")
+        (
+            self.open_elements_top_node()
+                .expect("HTML parser did not produce a root node"),
+            self.stylesheets,
+        )
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#current-node>
     fn current_node(&self) -> DOMPtr<Node> {
         // The current node is the bottommost node in this stack of open elements.
-        self.open_elements
-            .bottommost_node()
+        self.open_elements_bottommost_node()
             .expect("Stack of open elements is empty")
     }
 
@@ -452,7 +502,7 @@ impl Parser {
                     .iter()
                     .any(|node| DOMPtr::ptr_eq(node, &current_node))
             {
-                self.open_elements.pop();
+                self.pop_from_open_elements();
                 return;
             }
         }
@@ -488,7 +538,7 @@ impl Parser {
             // 4. If formatting element is not in the stack of open elements,
             //    then this is a parse error; remove the element from the list, and return.
             // NOTE: we need the index later, this is why this is more complicated than it needs to be.
-            let index_in_open_elements = match self.open_elements.find(&formatting_element) {
+            let index_in_open_elements = match self.find_in_open_elements(&formatting_element) {
                 Some(i) => i,
                 None => {
                     self.active_formatting_elements
@@ -507,7 +557,7 @@ impl Parser {
 
             // 7. Let furthest block be the topmost node in the stack of open elements that is lower in the stack than formatting element,
             //    and is an element in the special category. There might not be one.
-            let furthest_block = self.open_elements.list()[..index_in_open_elements]
+            let furthest_block = self.open_elements[..index_in_open_elements]
                 .iter()
                 .rev()
                 .find(|node| {
@@ -523,7 +573,7 @@ impl Parser {
                     //    from the current node up to and including formatting element, then remove formatting element from the
                     //    list of active formatting elements, and finally return.
                     while self.open_elements.len() != index_in_open_elements {
-                        self.open_elements.pop();
+                        self.pop_from_open_elements();
                     }
 
                     self.active_formatting_elements
@@ -568,7 +618,7 @@ impl Parser {
 
                         // 5. If node is not in the list of active formatting elements, then remove node from the stack of open elements and continue.
                         if !self.active_formatting_elements.contains(&node) {
-                            self.open_elements.remove(&node);
+                            self.remove_from_open_elements(&node);
                             continue;
                         }
 
@@ -584,8 +634,7 @@ impl Parser {
     fn consume_in_mode(&mut self, mode: InsertionMode, token: Token) {
         log::trace!(
             "Consuming {token:?} in {mode:?}.\nThe current token is a {:?}",
-            self.open_elements
-                .bottommost_node()
+            self.open_elements_bottommost_node()
                 .as_ref()
                 .map(DOMPtr::underlying_type)
         );
@@ -785,7 +834,7 @@ impl Parser {
                         self.insert_html_element_for_token(&tagdata);
 
                         // Immediately pop the current node off the stack of open elements.
-                        self.open_elements.pop();
+                        self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
                         // NOTE: this is a no-op
@@ -797,7 +846,7 @@ impl Parser {
                         self.insert_html_element_for_token(tagdata);
 
                         // Immediately pop the current node off the stack of open elements.
-                        self.open_elements.pop();
+                        self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
 
@@ -889,7 +938,7 @@ impl Parser {
                         if !tagdata.opening && tagdata.name == static_interned!("head") =>
                     {
                         // Pop the current node (which will be the head element) off the stack of open elements.
-                        let current_node = self.open_elements.pop();
+                        let current_node = self.pop_from_open_elements();
                         assert_eq!(
                             current_node.as_ref().map(DOMPtr::underlying_type),
                             Some(DOMType::HTMLHeadElement)
@@ -956,7 +1005,7 @@ impl Parser {
                     },
                     other => {
                         // Pop the current node (which will be the head element) off the stack of open elements.
-                        let popped_node = self.open_elements.pop();
+                        let popped_node = self.pop_from_open_elements();
                         debug_assert_eq!(
                             popped_node.map(|n| n.underlying_type()),
                             Some(DOMType::HTMLHeadElement)
@@ -987,7 +1036,7 @@ impl Parser {
                         if !tagdata.opening && tagdata.name == static_interned!("noscript") =>
                     {
                         // Pop the current node (which will be a noscript element) from the stack of open elements; the new current node will be a head element.
-                        let popped_node = self.open_elements.pop();
+                        let popped_node = self.pop_from_open_elements();
                         debug_assert_eq!(
                             popped_node.map(|n| n.underlying_type()),
                             Some(DOMType::HTMLNoscriptElement)
@@ -1028,7 +1077,7 @@ impl Parser {
                         // Parse error.
 
                         // Pop the current node (which will be a noscript element) from the stack of open elements; the new current node will be a head element.
-                        let popped_node = self.open_elements.pop();
+                        let popped_node = self.pop_from_open_elements();
                         debug_assert_eq!(
                             popped_node.map(|n| n.underlying_type()),
                             Some(DOMType::HTMLNoscriptElement)
@@ -1111,7 +1160,7 @@ impl Parser {
                         self.consume_in_mode(InsertionMode::InHead, token);
 
                         // Remove the node pointed to by the head element pointer from the stack of open elements. (It might not be the current node at this point.)
-                        self.open_elements.remove(&head);
+                        self.remove_from_open_elements(&head);
                     },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening && tagdata.name == static_interned!("template") =>
@@ -1428,7 +1477,7 @@ impl Parser {
                             // and the stack of open elements if the adoption agency algorithm didn't already remove it
                             // (it might not have if the element is not in table scope).
                             self.active_formatting_elements.remove(&element);
-                            self.open_elements.remove(&element);
+                            self.remove_from_open_elements(&element);
                             log::warn!("FIXME: adoption agency algorithm for invalid <a> tag");
                         }
 
@@ -1552,7 +1601,7 @@ impl Parser {
                         self.insert_html_element_for_token(&tagdata);
 
                         // Immediately pop the current node off the stack of open elements.
-                        self.open_elements.pop();
+                        self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
 
@@ -1575,7 +1624,7 @@ impl Parser {
                         self.insert_html_element_for_token(&tagdata);
 
                         // Immediately pop the current node off the stack of open elements.
-                        self.open_elements.pop();
+                        self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
 
@@ -1592,7 +1641,7 @@ impl Parser {
                         self.insert_html_element_for_token(&tagdata);
 
                         // Immediately pop the current node off the stack of open elements.
-                        self.open_elements.pop();
+                        self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
 
@@ -1616,7 +1665,7 @@ impl Parser {
                         self.insert_html_element_for_token(&tagdata);
 
                         // Immediately pop the current node off the stack of open elements.
-                        self.open_elements.pop();
+                        self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
                     },
@@ -1632,7 +1681,7 @@ impl Parser {
                         self.insert_html_element_for_token(&tagdata);
 
                         // Immediately pop the current node off the stack of open elements.
-                        self.open_elements.pop();
+                        self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
 
@@ -1884,7 +1933,7 @@ impl Parser {
                         // FIXME: If the current node is a script element, then set its already started to true.
 
                         // Pop the current node off the stack of open elements.
-                        self.open_elements.pop();
+                        self.pop_from_open_elements();
 
                         // Switch the insertion mode to the original insertion mode and reprocess the token.
                         self.switch_back_to_original_insertion_mode();
@@ -1903,7 +1952,7 @@ impl Parser {
                         script.into_type::<HTMLScriptElement>();
 
                         // Pop the current node off the stack of open elements.
-                        self.open_elements.pop();
+                        self.pop_from_open_elements();
 
                         // Switch the insertion mode to the original insertion mode.
                         self.switch_back_to_original_insertion_mode();
@@ -1912,7 +1961,7 @@ impl Parser {
                     },
                     Token::Tag(ref tagdata) if !tagdata.opening => {
                         // Pop the current node off the stack of open elements.
-                        self.open_elements.pop();
+                        self.pop_from_open_elements();
 
                         // Switch the insertion mode to the original insertion mode.
                         self.insertion_mode = self.original_insertion_mode.unwrap();

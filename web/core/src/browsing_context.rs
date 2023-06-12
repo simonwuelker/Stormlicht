@@ -27,7 +27,7 @@ impl BrowsingContext {
         // Parse the data into a html document
         let parse_start = time::Instant::now();
         let parser = crate::html::Parser::new(&html_source);
-        let document = parser.parse();
+        let (document, stylesheets) = parser.parse();
         let parse_end = time::Instant::now();
 
         log::info!(
@@ -38,6 +38,7 @@ impl BrowsingContext {
         // Build a layout tree for the parsed document
 
         log::info!("{:?}", document.debug());
+        log::info!("Found {} stylesheets", stylesheets.len());
         Ok(Self)
     }
 }
