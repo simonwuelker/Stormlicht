@@ -2896,7 +2896,6 @@ impl Tokenizer {
                             // token.
                             self.emit(Token::Character(c));
                         }
-                        todo!();
                     },
                     Some(';') => {
                         // This is an unknown-named-character-reference parse error.
