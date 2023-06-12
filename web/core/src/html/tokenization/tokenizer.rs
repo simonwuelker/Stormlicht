@@ -324,11 +324,7 @@ impl Tokenizer {
 
     fn reconsume_in(&mut self, new_state: TokenizerState) {
         self.ptr -= 1;
-        self.state = new_state;
-    }
-
-    pub fn set_state(&mut self, state: TokenizerState) {
-        self.state = state;
+        self.switch_to(new_state)
     }
 
     pub fn set_last_start_tag(&mut self, last_start_tag: Option<String>) {
@@ -1121,21 +1117,8 @@ impl Tokenizer {
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-end-tag-name-state
             TokenizerState::ScriptDataEscapedEndTagNameState => {
                 // Consume the next input character:
-                match (self.read_next(), self.is_appropriate_end_token()) {
-                    (Some(TAB | LINE_FEED | FORM_FEED | SPACE), true) => {
-                        // Switch to the before attribute name state.
-                        self.switch_to(TokenizerState::BeforeAttributeNameState);
-                    },
-                    (Some('/'), true) => {
-                        // Switch to the self-closing start tag state.
-                        self.switch_to(TokenizerState::SelfClosingStartTagState);
-                    },
-                    (Some('>'), true) => {
-                        // Switch to the data state and emit the current tag token.
-                        self.switch_to(TokenizerState::DataState);
-                        self.emit_current_token();
-                    },
-                    (Some(c @ 'A'..='Z'), _) => {
+                match self.read_next() {
+                    Some(c @ 'A'..='Z') => {
                         // Append the lowercase version of the current input character (add 0x0020
                         // to the character's code point) to the current tag token's tag name.
                         self.current_token
@@ -1144,25 +1127,42 @@ impl Tokenizer {
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
                     },
-                    (Some(c @ 'a'..='z'), _) => {
+                    Some(c @ 'a'..='z') => {
                         // Append the current input character to the current tag token's tag name.
                         self.current_token.append_to_tag_name(c);
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
                     },
-                    _ => {
-                        // Emit a U+003C LESS-THAN SIGN character token, a U+002F SOLIDUS character
-                        // token, and a character token for each of the characters in the temporary
-                        // buffer (in the order they were added to the buffer).
-                        self.emit(Token::Character('<'));
-                        self.emit(Token::Character('/'));
-                        for c in self.buffer.take().unwrap().chars() {
-                            self.emit(Token::Character(c));
-                        }
+                    other => {
+                        match (other, self.is_appropriate_end_token()) {
+                            (Some(TAB | LINE_FEED | FORM_FEED | SPACE), true) => {
+                                // Switch to the before attribute name state.
+                                self.switch_to(TokenizerState::BeforeAttributeNameState);
+                            },
+                            (Some('/'), true) => {
+                                // Switch to the self-closing start tag state.
+                                self.switch_to(TokenizerState::SelfClosingStartTagState);
+                            },
+                            (Some('>'), true) => {
+                                // Switch to the data state and emit the current tag token.
+                                self.switch_to(TokenizerState::DataState);
+                                self.emit_current_token();
+                            },
+                            _ => {
+                                // Emit a U+003C LESS-THAN SIGN character token, a U+002F SOLIDUS character
+                                // token, and a character token for each of the characters in the temporary
+                                // buffer (in the order they were added to the buffer).
+                                self.emit(Token::Character('<'));
+                                self.emit(Token::Character('/'));
+                                for c in self.buffer.take().unwrap().chars() {
+                                    self.emit(Token::Character(c));
+                                }
 
-                        // Reconsume in the script data escaped state.
-                        self.reconsume_in(TokenizerState::ScriptDataEscapedState);
+                                // Reconsume in the script data escaped state.
+                                self.reconsume_in(TokenizerState::ScriptDataEscapedState);
+                            },
+                        }
                     },
                 }
             },
