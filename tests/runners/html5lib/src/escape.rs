@@ -65,10 +65,7 @@ pub fn unicode_escape(text: &str) -> String {
     let mut result = String::new();
     for c in text.chars() {
         match c {
-            '\x00' => result.push_str("\\u0000"),
-            char::REPLACEMENT_CHARACTER => result.push_str("\\\\uFFFD"),
             '\x20'..='\x7e' => result.push(c),
-            '\n' => result.push_str("\\n"),
             ..='\u{FFFF}' => {
                 let code = c as u32;
                 result.push_str(&format!("\\u{:04X}", code));

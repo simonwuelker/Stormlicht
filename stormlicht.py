@@ -86,10 +86,9 @@ def test_html_parser(args):
     for test_name in os.listdir("tests/html5lib-tests/tokenizer"):
         if test_name.endswith(".test") and test_name != "xmlViolation.test":
             with open(
-                os.path.join("tests/html5lib-tests/tokenizer", test_name), "rb"
+                os.path.join("tests/html5lib-tests/tokenizer", test_name), "r"
             ) as testfile:
-                contents = testfile.read().decode("utf-8")
-                testdata = json.loads(contents)
+                testdata = json.load(testfile)
 
             for test in testdata["tests"]:
                 if args.filter != None:
@@ -130,7 +129,11 @@ def test_html_parser(args):
                             stderr=subprocess.PIPE,
                         )
 
-                        out = json.loads(p.stdout.decode("utf-8"))
+                        out_text = p.stdout.decode("utf-8")
+                        if "doubleEscaped" in test and test["doubleEscaped"]:
+                            out_text = out_text.encode("unicode_escape").decode("utf-8")
+
+                        out = json.loads(out_text)
                     except:
                         print("Fail")
                         tests_failed += 1
