@@ -3044,7 +3044,6 @@ impl Tokenizer {
                         // reference code to 0xFFFD.
                         self.character_reference_code = 0xFFFD;
                     },
-                    // check for noncharacters
                     0xFDD0..=0xFDEF
                     | 0x0FFFE
                     | 0x0FFFF
@@ -3081,9 +3080,6 @@ impl Tokenizer {
                     | 0x10FFFE
                     | 0x10FFFF => {
                         // This is a noncharacter-character-reference parse error.
-                        //
-                        // (the spec doesn't seem to specify how those should be handled)
-                        self.character_reference_code = 0xFFFD;
                     },
                     c @ (0x0D | 0xC0 | 0x007F..=0x009F) => {
                         if c != TAB as u32
