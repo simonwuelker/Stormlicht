@@ -78,7 +78,9 @@ fn main() -> Result<(), Error> {
                 break;
             }
         }
-        println!("[{}]", serialized_tokens.join(","))
+
+        let result = format!("[{}]", serialized_tokens.join(","));
+        println!("{result}");
     }
     Ok(())
 }
@@ -117,7 +119,7 @@ fn serialize_token(
             let force_quirks = doctype.force_quirks;
 
             serialized_tokens.push(format!(
-                "[\"DOCTYPE\", {:?}, {:?}, {:?}, {force_quirks:?}]",
+                "[\"DOCTYPE\", \"{}\", \"{}\", \"{}\", {force_quirks:?}]",
                 unicode_escape(&name),
                 unicode_escape(&public_id),
                 unicode_escape(&system_id)
@@ -127,17 +129,23 @@ fn serialize_token(
             let attributes = tagdata
                 .attributes
                 .iter()
-                .map(|(key, value)| format!("{:?}: {:?}", key.to_string(), value.to_string()))
+                .map(|(key, value)| {
+                    format!(
+                        "{}: {}",
+                        unicode_escape(&key.to_string()),
+                        unicode_escape(&value.to_string())
+                    )
+                })
                 .collect::<Vec<String>>()
                 .join(",");
             let serialized_token = if tagdata.self_closing {
                 format!(
-                    "[\"StartTag\", {}, {{{attributes}}}, true]",
+                    "[\"StartTag\", \"{}\", {{{attributes}}}, true]",
                     unicode_escape(&tagdata.name.to_string()),
                 )
             } else {
                 format!(
-                    "[\"StartTag\", {}, {{{attributes}}}]",
+                    "[\"StartTag\", \"{}\", {{{attributes}}}]",
                     unicode_escape(&tagdata.name.to_string()),
                 )
             };
@@ -145,12 +153,12 @@ fn serialize_token(
         },
         Token::Tag(tagdata) if !tagdata.opening => {
             serialized_tokens.push(format!(
-                "[\"EndTag\", {}]",
+                "[\"EndTag\", \"{}\"]",
                 unicode_escape(&tagdata.name.to_string()),
             ));
         },
         Token::Comment(comment) => {
-            serialized_tokens.push(format!("[\"Comment\", {:?}]", unicode_escape(&comment)));
+            serialized_tokens.push(format!("[\"Comment\", \"{}\"]", unicode_escape(&comment)));
         },
         Token::EOF => {
             return true;
@@ -163,7 +171,7 @@ fn serialize_token(
                     Some(Token::Character(c)) => data.push(c),
                     Some(other) => {
                         serialized_tokens
-                            .push(format!("[\"Character\", {:?}]", unicode_escape(&data)));
+                            .push(format!("[\"Character\", \"{}\"]", unicode_escape(&data)));
                         return serialize_token(other, tokenizer, serialized_tokens);
                     },
                     None => {

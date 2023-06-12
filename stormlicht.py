@@ -74,6 +74,7 @@ def test_html_parser(args):
         print("Expected:       {}".format(testdata["output"]))
         print("Got:            {}".format(out))
         print(f"stderr:         {stderr}")
+        print()
 
     ensure_submodules_are_downloaded()
 
@@ -85,9 +86,10 @@ def test_html_parser(args):
     for test_name in os.listdir("tests/html5lib-tests/tokenizer"):
         if test_name.endswith(".test") and test_name != "xmlViolation.test":
             with open(
-                os.path.join("tests/html5lib-tests/tokenizer", test_name), "r"
+                os.path.join("tests/html5lib-tests/tokenizer", test_name), "rb"
             ) as testfile:
-                testdata = json.load(testfile)
+                contents = testfile.read().decode("utf-8")
+                testdata = json.loads(contents)
 
             for test in testdata["tests"]:
                 if args.filter != None:
@@ -131,7 +133,6 @@ def test_html_parser(args):
                         if args.verbose:
                             verbose_print(initial_state, test, p.stdout, p.stderr)
                         continue
-
                     if out == test["output"]:
                         print("Success")
                     else:

@@ -64,12 +64,16 @@ pub fn unescape_str(text: &str) -> Result<String, UnescapeStringError> {
 pub fn unicode_escape(text: &str) -> String {
     let mut result = String::new();
     for c in text.chars() {
-        let code = c as u32;
-        // Escape any non ascii-printable chars except \n, \t and <space>
-        if (0x20..=0x7e).contains(&code) || c == '\n' || c == '\t' || c == ' ' {
-            result.push(c);
-        } else {
-            result.push_str(&format!("\\u{:04X}", code));
+        match c {
+            '\x00' => result.push_str("\\u0000"),
+            char::REPLACEMENT_CHARACTER => result.push_str("\\\\uFFFD"),
+            '\x20'..='\x7e' => result.push(c),
+            '\n' => result.push_str("\\n"),
+            ..='\u{FFFF}' => {
+                let code = c as u32;
+                result.push_str(&format!("\\u{:04X}", code));
+            },
+            _ => result.push(c),
         }
     }
     result
