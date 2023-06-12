@@ -18,244 +18,244 @@ const SPACE: char = '\u{0020}';
 #[derive(Debug, Clone, Copy)]
 pub enum TokenizerState {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#data-state>
-    DataState,
+    Data,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#rcdata-state>
-    RCDATAState,
+    RCDATA,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#rawtext-state>
-    RAWTEXTState,
+    RAWTEXT,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-state>
-    ScriptDataState,
+    ScriptData,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#plaintext-state>
-    PLAINTEXTState,
+    PLAINTEXT,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#tag-open-state>
-    TagOpenState,
+    TagOpen,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#end-tag-open-state>
-    EndTagOpenState,
+    EndTagOpen,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#tag-name-state>
-    TagNameState,
+    TagName,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#rcdata-less-than-sign-state>
-    RCDATALessThanSignState,
+    RCDATALessThanSign,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#rcdata-end-tag-open-state>
-    RCDATAEndTagOpenState,
+    RCDATAEndTagOpen,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#rcdata-end-tag-name-state>
-    RCDATAEndTagNameState,
+    RCDATAEndTagName,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#rawtext-less-than-sign-state>
-    RAWTEXTLessThanSignState,
+    RAWTEXTLessThanSign,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#rawtext-end-tag-open-state>
-    RAWTEXTEndTagOpenState,
+    RAWTEXTEndTagOpen,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#rawtext-end-tag-name-state>
-    RAWTEXTEndTagNameState,
+    RAWTEXTEndTagName,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-less-than-sign-state>
-    ScriptDataLessThanSignState,
+    ScriptDataLessThanSign,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-end-tag-open-state>
-    ScriptDataEndTagOpenState,
+    ScriptDataEndTagOpen,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-end-tag-name-state>
-    ScriptDataEndTagNameState,
+    ScriptDataEndTagName,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escape-start-state>
-    ScriptDataEscapeStartState,
+    ScriptDataEscapeStart,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escape-start-dash-state>
-    ScriptDataEscapeStartDashState,
+    ScriptDataEscapeStartDash,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-state>
-    ScriptDataEscapedState,
+    ScriptDataEscaped,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-dash-state>
-    ScriptDataEscapedDashState,
+    ScriptDataEscapedDash,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-dash-dash-state>
-    ScriptDataEscapedDashDashState,
+    ScriptDataEscapedDashDash,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-less-than-sign-state>
-    ScriptDataEscapedLessThanSignState,
+    ScriptDataEscapedLessThanSign,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-end-tag-open-state>
-    ScriptDataEscapedEndTagOpenState,
+    ScriptDataEscapedEndTagOpen,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-end-tag-name-state>
-    ScriptDataEscapedEndTagNameState,
+    ScriptDataEscapedEndTagName,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escape-start-state>
-    ScriptDataDoubleEscapeStartState,
+    ScriptDataDoubleEscapeStart,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escaped-state>
-    ScriptDataDoubleEscapedState,
+    ScriptDataDoubleEscaped,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escaped-dash-state>
-    ScriptDataDoubleEscapedDashState,
+    ScriptDataDoubleEscapedDash,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escaped-dash-dash-state>
-    ScriptDataDoubleEscapedDashDashState,
+    ScriptDataDoubleEscapedDashDash,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escaped-less-than-sign-state>
-    ScriptDataDoubleEscapedLessThanSignState,
+    ScriptDataDoubleEscapedLessThanSign,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escape-end-state>
-    ScriptDataDoubleEscapeEndState,
+    ScriptDataDoubleEscapeEnd,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#before-attribute-name-state>
-    BeforeAttributeNameState,
+    BeforeAttributeName,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#attribute-name-state>
-    AttributeNameState,
+    AttributeName,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#after-attribute-name-state>
-    AfterAttributeNameState,
+    AfterAttributeName,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#before-attribute-value-state>
-    BeforeAttributeValueState,
+    BeforeAttributeValue,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#attribute-value-(double-quoted)-state>
-    AttributeValueDoublequotedState,
+    AttributeValueDoublequoted,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#attribute-value-(single-quoted)-state>
-    AttributeValueSinglequotedState,
+    AttributeValueSinglequoted,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#attribute-value-(unquoted)-state>
-    AttributeValueUnquotedState,
+    AttributeValueUnquoted,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#after-attribute-value-(quoted)-state>
-    AfterAttributeValueQuotedState,
+    AfterAttributeValueQuoted,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#self-closing-start-tag-state>
-    SelfClosingStartTagState,
+    SelfClosingStartTag,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#bogus-comment-state>
-    BogusCommentState,
+    BogusComment,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#markup-declaration-open-state>
-    MarkupDeclarationOpenState,
+    MarkupDeclarationOpen,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-start-state>
-    CommentStartState,
+    CommentStart,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-start-dash-state>
-    CommentStartDashState,
+    CommentStartDash,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-state>
-    CommentState,
+    Comment,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-less-than-sign-state>
-    CommentLessThanSignState,
+    CommentLessThanSign,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-less-than-sign-bang-state>
-    CommentLessThanSignBangState,
+    CommentLessThanSignBang,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-less-than-sign-bang-dash-state>
-    CommentLessThanSignBangDashState,
+    CommentLessThanSignBangDash,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-less-than-sign-bang-dash-dash-state>
-    CommentLessThanSignBangDashDashState,
+    CommentLessThanSignBangDashDash,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-end-dash-state>
-    CommentEndDashState,
+    CommentEndDash,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-end-state>
-    CommentEndState,
+    CommentEnd,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#comment-end-bang-state>
-    CommentEndBangState,
+    CommentEndBang,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#doctype-state>
-    DOCTYPEState,
+    DOCTYPE,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#before-doctype-name-state>
-    BeforeDOCTYPENameState,
+    BeforeDOCTYPEName,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#doctype-name-state>
-    DOCTYPENameState,
+    DOCTYPEName,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-name-state>
-    AfterDOCTYPENameState,
+    AfterDOCTYPEName,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-public-keyword-state>
-    AfterDOCTYPEPublicKeywordState,
+    AfterDOCTYPEPublicKeyword,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#before-doctype-public-identifier-state>
-    BeforeDOCTYPEPublicIdentifierState,
+    BeforeDOCTYPEPublicIdentifier,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#doctype-public-identifier-(double-quoted)-state>
-    DOCTYPEPublicIdentifierDoublequotedState,
+    DOCTYPEPublicIdentifierDoublequoted,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#doctype-public-identifier-(single-quoted)-state>
-    DOCTYPEPublicIdentifierSinglequotedState,
+    DOCTYPEPublicIdentifierSinglequoted,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-public-identifier-state>
-    AfterDOCTYPEPublicIdentifierState,
+    AfterDOCTYPEPublicIdentifier,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#between-doctype-public-and-system-identifiers-state>
-    BetweenDOCTYPEPublicAndSystemIdentifiersState,
+    BetweenDOCTYPEPublicAndSystemIdentifiers,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-system-keyword-state>
-    AfterDOCTYPESystemKeywordState,
+    AfterDOCTYPESystemKeyword,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#before-doctype-system-identifier-state>
-    BeforeDOCTYPESystemIdentifierState,
+    BeforeDOCTYPESystemIdentifier,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#doctype-system-identifier-(double-quoted)-state>
-    DOCTYPESystemIdentifierDoublequotedState,
+    DOCTYPESystemIdentifierDoublequoted,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#doctype-system-identifier-(single-quoted)-state>
-    DOCTYPESystemIdentifierSinglequotedState,
+    DOCTYPESystemIdentifierSinglequoted,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-system-identifier-state>
-    AfterDOCTYPESystemIdentifierState,
+    AfterDOCTYPESystemIdentifier,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#bogus-doctype-state>
-    BogusDOCTYPEState,
+    BogusDOCTYPE,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#cdata-section-state>
-    CDATASectionState,
+    CDATASection,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#cdata-section-bracket-state>
-    CDATASectionBracketState,
+    CDATASectionBracket,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#cdata-section-end-state>
-    CDATASectionEndState,
+    CDATASectionEnd,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#character-reference-state>
-    CharacterReferenceState,
+    CharacterReference,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#named-character-reference-state>
-    NamedCharacterReferenceState,
+    NamedCharacterReference,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#ambiguous-ampersand-state>
-    AmbiguousAmpersandState,
+    AmbiguousAmpersand,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-state>
-    NumericCharacterReferenceState,
+    NumericCharacterReference,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#hexadecimal-character-reference-start-state>
-    HexadecimalCharacterReferenceStartState,
+    HexadecimalCharacterReferenceStart,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#decimal-character-reference-start-state>
-    DecimalCharacterReferenceStartState,
+    DecimalCharacterReferenceStart,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#hexadecimal-character-reference-state>
-    HexadecimalCharacterReferenceState,
+    HexadecimalCharacterReference,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#decimal-character-reference-state>
-    DecimalCharacterReferenceState,
+    DecimalCharacterReference,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-end-state>
-    NumericCharacterReferenceEndState,
+    NumericCharacterReferenceEnd,
 }
 
 pub struct Tokenizer {
@@ -274,7 +274,7 @@ pub struct Tokenizer {
     /// The tokens produced by the [Tokenizer]
     token_buffer: VecDeque<Token>,
 
-    /// Used by [TokenizerState::CharacterReferenceState]
+    /// Used by [TokenizerState::CharacterReference]
     return_state: Option<TokenizerState>,
     last_emitted_start_tag_name: Option<String>,
 
@@ -293,7 +293,7 @@ impl Tokenizer {
 
         Self {
             source: source,
-            state: TokenizerState::DataState,
+            state: TokenizerState::Data,
             return_state: None,
             current_token: CurrentToken::default(),
             last_emitted_start_tag_name: None,
@@ -375,9 +375,9 @@ impl Tokenizer {
         matches!(
             self.return_state,
             Some(
-                TokenizerState::AttributeValueDoublequotedState
-                    | TokenizerState::AttributeValueSinglequotedState
-                    | TokenizerState::AttributeValueUnquotedState
+                TokenizerState::AttributeValueDoublequoted
+                    | TokenizerState::AttributeValueSinglequoted
+                    | TokenizerState::AttributeValueUnquoted
             )
         )
     }
@@ -411,18 +411,18 @@ impl Tokenizer {
     pub fn step(&mut self) {
         match self.state {
             // https://html.spec.whatwg.org/multipage/parsing.html#data-state
-            TokenizerState::DataState => {
+            TokenizerState::Data => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('&') => {
                         // Set the return state to the data state. Switch to the character
                         // reference state.
-                        self.return_state = Some(TokenizerState::DataState);
-                        self.switch_to(TokenizerState::CharacterReferenceState);
+                        self.return_state = Some(TokenizerState::Data);
+                        self.switch_to(TokenizerState::CharacterReference);
                     },
                     Some('<') => {
                         // Switch to the tag open state.
-                        self.switch_to(TokenizerState::TagOpenState);
+                        self.switch_to(TokenizerState::TagOpen);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -440,18 +440,18 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#rcdata-state
-            TokenizerState::RCDATAState => {
+            TokenizerState::RCDATA => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('&') => {
                         // Set the return state to the RCDATA state. Switch to the character
                         // reference state.
-                        self.return_state = Some(TokenizerState::RCDATAState);
-                        self.switch_to(TokenizerState::CharacterReferenceState);
+                        self.return_state = Some(TokenizerState::RCDATA);
+                        self.switch_to(TokenizerState::CharacterReference);
                     },
                     Some('<') => {
                         // Switch to the RCDATA less-than sign state.
-                        self.switch_to(TokenizerState::RCDATALessThanSignState);
+                        self.switch_to(TokenizerState::RCDATALessThanSign);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -469,12 +469,12 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#rawtext-state
-            TokenizerState::RAWTEXTState => {
+            TokenizerState::RAWTEXT => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('<') => {
                         // Switch to the RAWTEXT less-than sign state.
-                        self.switch_to(TokenizerState::RAWTEXTLessThanSignState);
+                        self.switch_to(TokenizerState::RAWTEXTLessThanSign);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -492,12 +492,12 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-state
-            TokenizerState::ScriptDataState => {
+            TokenizerState::ScriptData => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('<') => {
                         // Switch to the script data less-than sign state.
-                        self.switch_to(TokenizerState::ScriptDataLessThanSignState);
+                        self.switch_to(TokenizerState::ScriptDataLessThanSign);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -515,7 +515,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#plaintext-state
-            TokenizerState::PLAINTEXTState => {
+            TokenizerState::PLAINTEXT => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('\0') => {
@@ -534,23 +534,23 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#tag-open-state
-            TokenizerState::TagOpenState => {
+            TokenizerState::TagOpen => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('!') => {
                         // Switch to the markup declaration open state.
-                        self.switch_to(TokenizerState::MarkupDeclarationOpenState);
+                        self.switch_to(TokenizerState::MarkupDeclarationOpen);
                     },
                     Some('/') => {
                         //     Switch to the end tag open state.
-                        self.switch_to(TokenizerState::EndTagOpenState);
+                        self.switch_to(TokenizerState::EndTagOpen);
                     },
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new start tag token, set its tag name to the empty string.
                         self.current_token.create_start_tag();
 
                         // Reconsume in the tag name state.
-                        self.reconsume_in(TokenizerState::TagNameState);
+                        self.reconsume_in(TokenizerState::TagName);
                     },
                     Some('?') => {
                         // This is an unexpected-question-mark-instead-of-tag-name parse error.
@@ -558,7 +558,7 @@ impl Tokenizer {
                         self.current_token.create_comment();
 
                         // Reconsume in the bogus comment state.
-                        self.reconsume_in(TokenizerState::BogusCommentState);
+                        self.reconsume_in(TokenizerState::BogusComment);
                     },
                     Some(_) => {
                         // This is an invalid-first-character-of-tag-name parse error.
@@ -566,7 +566,7 @@ impl Tokenizer {
                         self.emit(Token::Character('<'));
 
                         // Reconsume in the data state.
-                        self.reconsume_in(TokenizerState::DataState);
+                        self.reconsume_in(TokenizerState::Data);
                     },
                     None => {
                         // This is an eof-before-tag-name parse error.
@@ -578,7 +578,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#end-tag-open-state
-            TokenizerState::EndTagOpenState => {
+            TokenizerState::EndTagOpen => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
@@ -586,12 +586,12 @@ impl Tokenizer {
                         self.current_token.create_end_tag();
 
                         // Reconsume in the tag name state.
-                        self.reconsume_in(TokenizerState::TagNameState);
+                        self.reconsume_in(TokenizerState::TagName);
                     },
                     Some('>') => {
                         // This is a missing-end-tag-name parse error.
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                     },
                     Some(_) => {
                         // This is an invalid-first-character-of-tag-name parse error.
@@ -599,7 +599,7 @@ impl Tokenizer {
                         self.current_token.create_comment();
 
                         // Reconsume in the bogus comment state.
-                        self.reconsume_in(TokenizerState::BogusCommentState);
+                        self.reconsume_in(TokenizerState::BogusComment);
                     },
                     None => {
                         // This is an eof-before-tag-name parse error.
@@ -613,20 +613,20 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#tag-name-state
-            TokenizerState::TagNameState => {
+            TokenizerState::TagName => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {
                         // Switch to the before attribute name state.
-                        self.switch_to(TokenizerState::BeforeAttributeNameState);
+                        self.switch_to(TokenizerState::BeforeAttributeName);
                     },
                     Some('/') => {
                         // Switch to the self-closing start tag state.
-                        self.switch_to(TokenizerState::SelfClosingStartTagState);
+                        self.switch_to(TokenizerState::SelfClosingStartTag);
                     },
                     Some('>') => {
                         // Switch to the data state. Emit the current tag token.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     Some(mut c @ 'A'..='Z') => {
@@ -652,26 +652,26 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#rcdata-less-than-sign-state
-            TokenizerState::RCDATALessThanSignState => {
+            TokenizerState::RCDATALessThanSign => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('/') => {
                         // Set the temporary buffer to the empty string. Switch to the RCDATA end
                         // tag open state.
                         self.buffer = Some(String::new());
-                        self.switch_to(TokenizerState::RCDATAEndTagOpenState);
+                        self.switch_to(TokenizerState::RCDATAEndTagOpen);
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token.
                         self.emit(Token::Character('<'));
 
                         // Reconsume in the RCDATA state.
-                        self.reconsume_in(TokenizerState::RCDATAState);
+                        self.reconsume_in(TokenizerState::RCDATA);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#rcdata-end-tag-open-state
-            TokenizerState::RCDATAEndTagOpenState => {
+            TokenizerState::RCDATAEndTagOpen => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
@@ -679,7 +679,7 @@ impl Tokenizer {
                         self.current_token.create_end_tag();
 
                         // Reconsume in the RCDATA end tag name state.
-                        self.reconsume_in(TokenizerState::RCDATAEndTagNameState);
+                        self.reconsume_in(TokenizerState::RCDATAEndTagName);
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token and a U+002F SOLIDUS
@@ -688,25 +688,25 @@ impl Tokenizer {
                         self.emit(Token::Character('/'));
 
                         // Reconsume in the RCDATA state.
-                        self.reconsume_in(TokenizerState::RCDATAState);
+                        self.reconsume_in(TokenizerState::RCDATA);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#rcdata-end-tag-name-state
-            TokenizerState::RCDATAEndTagNameState => {
+            TokenizerState::RCDATAEndTagName => {
                 // Consume the next input character:
                 match (self.read_next(), self.is_appropriate_end_token()) {
                     (Some(TAB | LINE_FEED | FORM_FEED | SPACE), true) => {
                         // Switch to the before attribute name state.
-                        self.switch_to(TokenizerState::BeforeAttributeNameState);
+                        self.switch_to(TokenizerState::BeforeAttributeName);
                     },
                     (Some('/'), true) => {
                         // Switch to the self-closing start tag state.
-                        self.switch_to(TokenizerState::SelfClosingStartTagState);
+                        self.switch_to(TokenizerState::SelfClosingStartTag);
                     },
                     (Some('>'), true) => {
                         // Switch to the data state and emit the current tag token
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     (Some(mut c @ 'A'..='Z'), _) => {
@@ -734,31 +734,31 @@ impl Tokenizer {
                         }
 
                         // Reconsume in the RCDATA state.
-                        self.reconsume_in(TokenizerState::RCDATAState);
+                        self.reconsume_in(TokenizerState::RCDATA);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#rawtext-less-than-sign-state
-            TokenizerState::RAWTEXTLessThanSignState => {
+            TokenizerState::RAWTEXTLessThanSign => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('/') => {
                         // Set the temporary buffer to the empty string.
                         // Switch to the RAWTEXT end tag open state.
                         self.buffer = Some(String::new());
-                        self.switch_to(TokenizerState::RAWTEXTEndTagOpenState);
+                        self.switch_to(TokenizerState::RAWTEXTEndTagOpen);
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token.
                         self.emit(Token::Character('<'));
 
                         // Reconsume in the RAWTEXT state.
-                        self.reconsume_in(TokenizerState::RAWTEXTState);
+                        self.reconsume_in(TokenizerState::RAWTEXT);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#rawtext-end-tag-open-state
-            TokenizerState::RAWTEXTEndTagOpenState => {
+            TokenizerState::RAWTEXTEndTagOpen => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
@@ -766,7 +766,7 @@ impl Tokenizer {
                         self.current_token.create_end_tag();
 
                         // Reconsume in the RAWTEXT end tag name state.
-                        self.reconsume_in(TokenizerState::RAWTEXTEndTagNameState);
+                        self.reconsume_in(TokenizerState::RAWTEXTEndTagName);
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token and a U+002F SOLIDUS
@@ -775,25 +775,25 @@ impl Tokenizer {
                         self.emit(Token::Character('/'));
 
                         // Reconsume in the RAWTEXT state.
-                        self.reconsume_in(TokenizerState::RAWTEXTState);
+                        self.reconsume_in(TokenizerState::RAWTEXT);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#rawtext-end-tag-name-state
-            TokenizerState::RAWTEXTEndTagNameState => {
+            TokenizerState::RAWTEXTEndTagName => {
                 // Consume the next input character:
                 match (self.read_next(), self.is_appropriate_end_token()) {
                     (Some(TAB | LINE_FEED | FORM_FEED | SPACE), true) => {
                         // Switch to the before attribute name state
-                        self.switch_to(TokenizerState::BeforeAttributeNameState);
+                        self.switch_to(TokenizerState::BeforeAttributeName);
                     },
                     (Some('/'), true) => {
                         // Switch to the self-closing start tag state
-                        self.switch_to(TokenizerState::SelfClosingStartTagState);
+                        self.switch_to(TokenizerState::SelfClosingStartTag);
                     },
                     (Some('>'), true) => {
                         // Switch to the data state and emit the current tag token
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     (Some(c @ 'A'..='Z'), _) => {
@@ -822,12 +822,12 @@ impl Tokenizer {
                         }
 
                         // Reconsume in the RAWTEXT state.
-                        self.reconsume_in(TokenizerState::RAWTEXTState);
+                        self.reconsume_in(TokenizerState::RAWTEXT);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-less-than-sign-state
-            TokenizerState::ScriptDataLessThanSignState => {
+            TokenizerState::ScriptDataLessThanSign => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('/') => {
@@ -835,11 +835,11 @@ impl Tokenizer {
                         self.buffer = Some(String::new());
 
                         // Switch to the script data end tag open state.
-                        self.switch_to(TokenizerState::ScriptDataEndTagOpenState);
+                        self.switch_to(TokenizerState::ScriptDataEndTagOpen);
                     },
                     Some('!') => {
                         // Switch to the script data escape start state.
-                        self.switch_to(TokenizerState::ScriptDataEscapeStartState);
+                        self.switch_to(TokenizerState::ScriptDataEscapeStart);
 
                         // Emit a U+003C LESS-THAN SIGN character token and a
                         // U+0021 EXCLAMATION MARK character token.
@@ -851,12 +851,12 @@ impl Tokenizer {
                         self.emit(Token::Character('<'));
 
                         // Reconsume in the script data state.
-                        self.reconsume_in(TokenizerState::ScriptDataState);
+                        self.reconsume_in(TokenizerState::ScriptData);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-end-tag-open-state
-            TokenizerState::ScriptDataEndTagOpenState => {
+            TokenizerState::ScriptDataEndTagOpen => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
@@ -864,7 +864,7 @@ impl Tokenizer {
                         self.current_token.create_end_tag();
 
                         // Reconsume in the script data end tag name state.
-                        self.reconsume_in(TokenizerState::ScriptDataEndTagNameState);
+                        self.reconsume_in(TokenizerState::ScriptDataEndTagName);
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token and a U+002F SOLIDUS
@@ -873,25 +873,25 @@ impl Tokenizer {
                         self.emit(Token::Character('/'));
 
                         // Reconsume in the script data state.
-                        self.reconsume_in(TokenizerState::ScriptDataState);
+                        self.reconsume_in(TokenizerState::ScriptData);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-end-tag-name-state
-            TokenizerState::ScriptDataEndTagNameState => {
+            TokenizerState::ScriptDataEndTagName => {
                 // Consume the next input character:
                 match (self.read_next(), self.is_appropriate_end_token()) {
                     (Some(TAB | LINE_FEED | FORM_FEED | SPACE), true) => {
                         // Switch to the before attribute name state
-                        self.switch_to(TokenizerState::BeforeAttributeNameState);
+                        self.switch_to(TokenizerState::BeforeAttributeName);
                     },
                     (Some('/'), true) => {
                         // Switch to the self-closing start tag state
-                        self.switch_to(TokenizerState::SelfClosingStartTagState);
+                        self.switch_to(TokenizerState::SelfClosingStartTag);
                     },
                     (Some('>'), true) => {
                         // Switch to the data state and emit the current tag token
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     (Some(c @ 'A'..='Z'), _) => {
@@ -922,58 +922,58 @@ impl Tokenizer {
                         }
 
                         // Reconsume in the script data state.
-                        self.reconsume_in(TokenizerState::ScriptDataState);
+                        self.reconsume_in(TokenizerState::ScriptData);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-escape-start-state
-            TokenizerState::ScriptDataEscapeStartState => {
+            TokenizerState::ScriptDataEscapeStart => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
                         // Switch to the script data escape start dash state.
-                        self.switch_to(TokenizerState::ScriptDataEscapeStartDashState);
+                        self.switch_to(TokenizerState::ScriptDataEscapeStartDash);
 
                         // Emit a U+002D HYPHEN-MINUS character token.
                         self.emit(Token::Character('-'));
                     },
                     _ => {
                         // Reconsume in the script data state.
-                        self.reconsume_in(TokenizerState::ScriptDataState);
+                        self.reconsume_in(TokenizerState::ScriptData);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-escape-start-dash-state
-            TokenizerState::ScriptDataEscapeStartDashState => {
+            TokenizerState::ScriptDataEscapeStartDash => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
                         // Switch to the script data escaped dash dash state.
-                        self.switch_to(TokenizerState::ScriptDataEscapedDashDashState);
+                        self.switch_to(TokenizerState::ScriptDataEscapedDashDash);
 
                         // Emit a U+002D HYPHEN-MINUS character token.
                         self.emit(Token::Character('-'));
                     },
                     _ => {
                         // Reconsume in the script data state.
-                        self.reconsume_in(TokenizerState::ScriptDataState);
+                        self.reconsume_in(TokenizerState::ScriptData);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-state
-            TokenizerState::ScriptDataEscapedState => {
+            TokenizerState::ScriptDataEscaped => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
                         // Switch to the script data escaped dash state.
-                        self.switch_to(TokenizerState::ScriptDataEscapedDashState);
+                        self.switch_to(TokenizerState::ScriptDataEscapedDash);
 
                         // Emit a U+002D HYPHEN-MINUS character token.
                         self.emit(Token::Character('-'));
                     },
                     Some('<') => {
                         // Switch to the script data escaped less-than sign state.
-                        self.switch_to(TokenizerState::ScriptDataEscapedLessThanSignState);
+                        self.switch_to(TokenizerState::ScriptDataEscapedLessThanSign);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -992,19 +992,19 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-dash-state
-            TokenizerState::ScriptDataEscapedDashState => {
+            TokenizerState::ScriptDataEscapedDash => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
                         // Switch to the script data escaped dash dash state.
-                        self.switch_to(TokenizerState::ScriptDataEscapedDashDashState);
+                        self.switch_to(TokenizerState::ScriptDataEscapedDashDash);
 
                         // Emit a U+002D HYPHEN-MINUS character token.
                         self.emit(Token::Character('-'));
                     },
                     Some('<') => {
                         // Switch to the script data escaped less-than sign state.
-                        self.switch_to(TokenizerState::ScriptDataEscapedLessThanSignState);
+                        self.switch_to(TokenizerState::ScriptDataEscapedLessThanSign);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -1013,7 +1013,7 @@ impl Tokenizer {
                     },
                     Some(c) => {
                         // Switch to the script data escaped state.
-                        self.switch_to(TokenizerState::ScriptDataEscapedState);
+                        self.switch_to(TokenizerState::ScriptDataEscaped);
 
                         // Emit the current input character as a character token.
                         self.emit(Token::Character(c));
@@ -1026,7 +1026,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-dash-dash-state
-            TokenizerState::ScriptDataEscapedDashDashState => {
+            TokenizerState::ScriptDataEscapedDashDash => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
@@ -1035,11 +1035,11 @@ impl Tokenizer {
                     },
                     Some('<') => {
                         // Switch to the script data escaped less-than sign state.
-                        self.switch_to(TokenizerState::ScriptDataEscapedLessThanSignState);
+                        self.switch_to(TokenizerState::ScriptDataEscapedLessThanSign);
                     },
                     Some('>') => {
                         // Switch to the script data state.
-                        self.switch_to(TokenizerState::ScriptDataState);
+                        self.switch_to(TokenizerState::ScriptData);
 
                         // Emit a U+003E GREATER-THAN SIGN character token.
                         self.emit(Token::Character('>'));
@@ -1051,7 +1051,7 @@ impl Tokenizer {
                     },
                     Some(c) => {
                         // Switch to the script data escaped state.
-                        self.switch_to(TokenizerState::ScriptDataEscapedState);
+                        self.switch_to(TokenizerState::ScriptDataEscaped);
 
                         // Emit the current input character as a character token.
                         self.emit(Token::Character(c));
@@ -1064,7 +1064,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-less-than-sign-state
-            TokenizerState::ScriptDataEscapedLessThanSignState => {
+            TokenizerState::ScriptDataEscapedLessThanSign => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('/') => {
@@ -1072,7 +1072,7 @@ impl Tokenizer {
                         self.buffer = Some(String::new());
 
                         // Switch to the script data escaped end tag open state.
-                        self.switch_to(TokenizerState::ScriptDataEscapedEndTagOpenState);
+                        self.switch_to(TokenizerState::ScriptDataEscapedEndTagOpen);
                     },
                     Some('a'..='z' | 'A'..='Z') => {
                         // Set the temporary buffer to the empty string. Emit a U+003C LESS-THAN
@@ -1081,19 +1081,19 @@ impl Tokenizer {
                         self.emit(Token::Character('<'));
 
                         // Reconsume in the script data double escape start state.
-                        self.reconsume_in(TokenizerState::ScriptDataDoubleEscapeStartState);
+                        self.reconsume_in(TokenizerState::ScriptDataDoubleEscapeStart);
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token.
                         self.emit(Token::Character('<'));
 
                         // Reconsume in the script data escaped state.
-                        self.reconsume_in(TokenizerState::ScriptDataEscapedState);
+                        self.reconsume_in(TokenizerState::ScriptDataEscaped);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-end-tag-open-state
-            TokenizerState::ScriptDataEscapedEndTagOpenState => {
+            TokenizerState::ScriptDataEscapedEndTagOpen => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
@@ -1101,7 +1101,7 @@ impl Tokenizer {
                         self.current_token.create_end_tag();
 
                         // Reconsume in the script data escaped end tag name state.
-                        self.reconsume_in(TokenizerState::ScriptDataEscapedEndTagNameState);
+                        self.reconsume_in(TokenizerState::ScriptDataEscapedEndTagName);
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token and a U+002F SOLIDUS
@@ -1110,12 +1110,12 @@ impl Tokenizer {
                         self.emit(Token::Character('/'));
 
                         // Reconsume in the script data escaped state.
-                        self.reconsume_in(TokenizerState::ScriptDataEscapedState);
+                        self.reconsume_in(TokenizerState::ScriptDataEscaped);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-escaped-end-tag-name-state
-            TokenizerState::ScriptDataEscapedEndTagNameState => {
+            TokenizerState::ScriptDataEscapedEndTagName => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(c @ 'A'..='Z') => {
@@ -1138,15 +1138,15 @@ impl Tokenizer {
                         match (other, self.is_appropriate_end_token()) {
                             (Some(TAB | LINE_FEED | FORM_FEED | SPACE), true) => {
                                 // Switch to the before attribute name state.
-                                self.switch_to(TokenizerState::BeforeAttributeNameState);
+                                self.switch_to(TokenizerState::BeforeAttributeName);
                             },
                             (Some('/'), true) => {
                                 // Switch to the self-closing start tag state.
-                                self.switch_to(TokenizerState::SelfClosingStartTagState);
+                                self.switch_to(TokenizerState::SelfClosingStartTag);
                             },
                             (Some('>'), true) => {
                                 // Switch to the data state and emit the current tag token.
-                                self.switch_to(TokenizerState::DataState);
+                                self.switch_to(TokenizerState::Data);
                                 self.emit_current_token();
                             },
                             _ => {
@@ -1160,14 +1160,14 @@ impl Tokenizer {
                                 }
 
                                 // Reconsume in the script data escaped state.
-                                self.reconsume_in(TokenizerState::ScriptDataEscapedState);
+                                self.reconsume_in(TokenizerState::ScriptDataEscaped);
                             },
                         }
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escape-start-state
-            TokenizerState::ScriptDataDoubleEscapeStartState => {
+            TokenizerState::ScriptDataDoubleEscapeStart => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(c @ ('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}' | '/' | '>')) => {
@@ -1178,10 +1178,10 @@ impl Tokenizer {
                             .is_some_and(|buffer| buffer == "script")
                         {
                             // then switch to the script data double escaped state.
-                            self.switch_to(TokenizerState::ScriptDataDoubleEscapedState);
+                            self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
                         } else {
                             // Otherwise, switch to the script data escaped state.
-                            self.switch_to(TokenizerState::ScriptDataEscapedState);
+                            self.switch_to(TokenizerState::ScriptDataEscaped);
                         }
                         // Emit the current input character as a character token.
                         self.emit(Token::Character(c));
@@ -1203,24 +1203,24 @@ impl Tokenizer {
                     },
                     _ => {
                         // Reconsume in the script data escaped state.
-                        self.reconsume_in(TokenizerState::ScriptDataEscapedState);
+                        self.reconsume_in(TokenizerState::ScriptDataEscaped);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escaped-state
-            TokenizerState::ScriptDataDoubleEscapedState => {
+            TokenizerState::ScriptDataDoubleEscaped => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
                         // Switch to the script data double escaped dash state.
-                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedDashState);
+                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedDash);
 
                         // Emit a U+002D HYPHEN-MINUS character token.
                         self.emit(Token::Character('-'));
                     },
                     Some('<') => {
                         // Switch to the script data double escaped less-than sign state.
-                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedLessThanSignState);
+                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedLessThanSign);
 
                         // Emit a U+003C LESS-THAN SIGN character token.
                         self.emit(Token::Character('<'));
@@ -1242,12 +1242,12 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escaped-dash-state
-            TokenizerState::ScriptDataDoubleEscapedDashState => {
+            TokenizerState::ScriptDataDoubleEscapedDash => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
                         // Switch to the script data double escaped dash dash state.
-                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedDashDashState);
+                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedDashDash);
 
                         // Emit a U+002D HYPHEN-MINUS character token.
                         self.emit(Token::Character('-'));
@@ -1255,7 +1255,7 @@ impl Tokenizer {
                     Some('<') => {
                         // This is an unexpected-null-character parse error.
                         // Switch to the script data double escaped state.
-                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedState);
+                        self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
 
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
                         self.emit(Token::Character('<'));
@@ -1263,14 +1263,14 @@ impl Tokenizer {
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         // Switch to the script data double escaped state.
-                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedState);
+                        self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
 
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
                         self.emit(Token::Character(UNICODE_REPLACEMENT));
                     },
                     Some(c) => {
                         // Switch to the script data double escaped state.
-                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedState);
+                        self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
 
                         // Emit the current input character as a character token.
                         self.emit(Token::Character(c));
@@ -1283,7 +1283,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escaped-dash-dash-state
-            TokenizerState::ScriptDataDoubleEscapedDashDashState => {
+            TokenizerState::ScriptDataDoubleEscapedDashDash => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
@@ -1292,14 +1292,14 @@ impl Tokenizer {
                     },
                     Some('<') => {
                         // Switch to the script data double escaped less-than sign state.
-                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedLessThanSignState);
+                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedLessThanSign);
 
                         // Emit a U+003C LESS-THAN SIGN character token.
                         self.emit(Token::Character('<'));
                     },
                     Some('>') => {
                         // Switch to the script data state.
-                        self.switch_to(TokenizerState::ScriptDataState);
+                        self.switch_to(TokenizerState::ScriptData);
 
                         // Emit a U+003E GREATER-THAN SIGN character token.
                         self.emit(Token::Character('>'));
@@ -1307,14 +1307,14 @@ impl Tokenizer {
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         // Switch to the script data double escaped state.
-                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedState);
+                        self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
 
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
                         self.emit(Token::Character(UNICODE_REPLACEMENT));
                     },
                     Some(c) => {
                         // Switch to the script data double escaped state.
-                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedState);
+                        self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
 
                         // Emit the current input character as a character token.
                         self.emit(Token::Character(c));
@@ -1327,7 +1327,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escaped-less-than-sign-state
-            TokenizerState::ScriptDataDoubleEscapedLessThanSignState => {
+            TokenizerState::ScriptDataDoubleEscapedLessThanSign => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('/') => {
@@ -1335,19 +1335,19 @@ impl Tokenizer {
                         self.buffer = Some(String::new());
 
                         // Switch to the script data double escape end state.
-                        self.switch_to(TokenizerState::ScriptDataDoubleEscapeEndState);
+                        self.switch_to(TokenizerState::ScriptDataDoubleEscapeEnd);
 
                         // Emit a U+002F SOLIDUS character token.
                         self.emit(Token::Character('/'));
                     },
                     _ => {
                         // Reconsume in the script data double escaped state.
-                        self.reconsume_in(TokenizerState::ScriptDataDoubleEscapedState);
+                        self.reconsume_in(TokenizerState::ScriptDataDoubleEscaped);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#script-data-double-escape-end-state
-            TokenizerState::ScriptDataDoubleEscapeEndState => {
+            TokenizerState::ScriptDataDoubleEscapeEnd => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(c @ ('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}' | '/' | '>')) => {
@@ -1358,10 +1358,10 @@ impl Tokenizer {
                             .is_some_and(|buffer| buffer == "script")
                         {
                             // then switch to the script data escaped state.
-                            self.switch_to(TokenizerState::ScriptDataEscapedState);
+                            self.switch_to(TokenizerState::ScriptDataEscaped);
                         } else {
                             // Otherwise, switch to the script data double escaped state.
-                            self.switch_to(TokenizerState::ScriptDataDoubleEscapedState);
+                            self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
                         }
                         // Emit the current input character as a character token.
                         self.emit(Token::Character(c));
@@ -1383,18 +1383,18 @@ impl Tokenizer {
                     },
                     _ => {
                         // Reconsume in the script data double escaped state.
-                        self.reconsume_in(TokenizerState::ScriptDataDoubleEscapedState);
+                        self.reconsume_in(TokenizerState::ScriptDataDoubleEscaped);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#before-attribute-name-state
-            TokenizerState::BeforeAttributeNameState => {
+            TokenizerState::BeforeAttributeName => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
                     Some('/' | '>') | None => {
                         // Reconsume in the after attribute name state.
-                        self.reconsume_in(TokenizerState::AfterAttributeNameState);
+                        self.reconsume_in(TokenizerState::AfterAttributeName);
                     },
                     Some('=') => {
                         // This is an unexpected-equals-sign-before-attribute-name parse error.
@@ -1405,7 +1405,7 @@ impl Tokenizer {
                         self.current_token.append_to_attribute_name('=');
 
                         // Switch to the attribute name state.
-                        self.switch_to(TokenizerState::AttributeNameState);
+                        self.switch_to(TokenizerState::AttributeName);
                     },
                     _ => {
                         // Start a new attribute in the current tag token. Set that attribute name
@@ -1413,13 +1413,13 @@ impl Tokenizer {
                         self.current_token.start_new_attribute();
 
                         // Reconsume in the attribute name state.
-                        self.reconsume_in(TokenizerState::AttributeNameState);
+                        self.reconsume_in(TokenizerState::AttributeName);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#attribute-name-state
-            TokenizerState::AttributeNameState => {
-                // TODO: when leaving the AttributeNameState, we need to check
+            TokenizerState::AttributeName => {
+                // TODO: when leaving the AttributeName, we need to check
                 // for duplicate attribute names.
                 // https://html.spec.whatwg.org/multipage/parsing.html#attribute-name-state
                 //
@@ -1427,11 +1427,11 @@ impl Tokenizer {
                 match self.read_next() {
                     Some('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}' | '/' | '>') | None => {
                         // Reconsume in the after attribute name state.
-                        self.reconsume_in(TokenizerState::AfterAttributeNameState);
+                        self.reconsume_in(TokenizerState::AfterAttributeName);
                     },
                     Some('=') => {
                         // Switch to the before attribute value state.
-                        self.switch_to(TokenizerState::BeforeAttributeValueState);
+                        self.switch_to(TokenizerState::BeforeAttributeValue);
                     },
                     Some(c @ 'A'..='Z') => {
                         // Append the lowercase version of the current input character (add 0x0020
@@ -1457,21 +1457,21 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#after-attribute-name-state
-            TokenizerState::AfterAttributeNameState => {
+            TokenizerState::AfterAttributeName => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
                     Some('/') => {
                         // Switch to the self-closing start tag state.
-                        self.switch_to(TokenizerState::SelfClosingStartTagState);
+                        self.switch_to(TokenizerState::SelfClosingStartTag);
                     },
                     Some('=') => {
                         // Switch to the before attribute value state.
-                        self.switch_to(TokenizerState::BeforeAttributeValueState);
+                        self.switch_to(TokenizerState::BeforeAttributeValue);
                     },
                     Some('>') => {
                         // Switch to the data state. Emit the current tag token.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     Some(_) => {
@@ -1480,7 +1480,7 @@ impl Tokenizer {
                         self.current_token.start_new_attribute();
 
                         // Reconsume in the attribute name state.
-                        self.reconsume_in(TokenizerState::AttributeNameState);
+                        self.reconsume_in(TokenizerState::AttributeName);
                     },
                     None => {
                         // This is an eof-in-tag parse error.
@@ -1490,46 +1490,46 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#before-attribute-value-state
-            TokenizerState::BeforeAttributeValueState => {
+            TokenizerState::BeforeAttributeValue => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
                     Some('"') => {
                         // Switch to the attribute value (double-quoted) state.
-                        self.switch_to(TokenizerState::AttributeValueDoublequotedState);
+                        self.switch_to(TokenizerState::AttributeValueDoublequoted);
                     },
                     Some('\'') => {
                         // Switch to the attribute value (single-quoted) state.
-                        self.switch_to(TokenizerState::AttributeValueSinglequotedState);
+                        self.switch_to(TokenizerState::AttributeValueSinglequoted);
                     },
                     Some('>') => {
                         // This is a missing-attribute-value parse error.
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current tag token.
                         self.emit_current_token();
                     },
                     _ => {
                         // Reconsume in the attribute value (unquoted) state.
-                        self.reconsume_in(TokenizerState::AttributeValueUnquotedState);
+                        self.reconsume_in(TokenizerState::AttributeValueUnquoted);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#attribute-value-(double-quoted)-state
-            TokenizerState::AttributeValueDoublequotedState => {
+            TokenizerState::AttributeValueDoublequoted => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('"') => {
                         // Switch to the after attribute value (quoted) state.
-                        self.switch_to(TokenizerState::AfterAttributeValueQuotedState);
+                        self.switch_to(TokenizerState::AfterAttributeValueQuoted);
                     },
                     Some('&') => {
                         // Set the return state to the attribute value (double-quoted) state.
-                        self.return_state = Some(TokenizerState::AttributeValueDoublequotedState);
+                        self.return_state = Some(TokenizerState::AttributeValueDoublequoted);
 
                         // Switch to the character reference state.
-                        self.switch_to(TokenizerState::CharacterReferenceState);
+                        self.switch_to(TokenizerState::CharacterReference);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -1549,19 +1549,19 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#attribute-value-(single-quoted)-state
-            TokenizerState::AttributeValueSinglequotedState => {
+            TokenizerState::AttributeValueSinglequoted => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('\'') => {
                         // Switch to the after attribute value (quoted) state.
-                        self.switch_to(TokenizerState::AfterAttributeValueQuotedState);
+                        self.switch_to(TokenizerState::AfterAttributeValueQuoted);
                     },
                     Some('&') => {
                         // Set the return state to the attribute value (single-quoted) state.
-                        self.return_state = Some(TokenizerState::AttributeValueSinglequotedState);
+                        self.return_state = Some(TokenizerState::AttributeValueSinglequoted);
 
                         // Switch to the character reference state.
-                        self.switch_to(TokenizerState::CharacterReferenceState);
+                        self.switch_to(TokenizerState::CharacterReference);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -1581,23 +1581,23 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#attribute-value-(unquoted)-state
-            TokenizerState::AttributeValueUnquotedState => {
+            TokenizerState::AttributeValueUnquoted => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {
                         // Switch to the before attribute name state.
-                        self.switch_to(TokenizerState::BeforeAttributeNameState);
+                        self.switch_to(TokenizerState::BeforeAttributeName);
                     },
                     Some('&') => {
                         // Set the return state to the attribute value (unquoted) state.
-                        self.return_state = Some(TokenizerState::AttributeValueUnquotedState);
+                        self.return_state = Some(TokenizerState::AttributeValueUnquoted);
 
                         // Switch to the character reference state.
-                        self.switch_to(TokenizerState::CharacterReferenceState);
+                        self.switch_to(TokenizerState::CharacterReference);
                     },
                     Some('>') => {
                         // Switch to the data state. Emit the current tag token.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     Some('\0') => {
@@ -1622,26 +1622,26 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#after-attribute-value-(quoted)-state
-            TokenizerState::AfterAttributeValueQuotedState => {
+            TokenizerState::AfterAttributeValueQuoted => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {
                         // Switch to the before attribute name state.
-                        self.switch_to(TokenizerState::BeforeAttributeNameState);
+                        self.switch_to(TokenizerState::BeforeAttributeName);
                     },
                     Some('/') => {
                         // Switch to the self-closing start tag state.
-                        self.switch_to(TokenizerState::SelfClosingStartTagState);
+                        self.switch_to(TokenizerState::SelfClosingStartTag);
                     },
                     Some('>') => {
                         // Switch to the data state. Emit the current tag token.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     Some(_) => {
                         // This is a missing-whitespace-between-attributes parse error.
                         // Reconsume in the before attribute name state.
-                        self.reconsume_in(TokenizerState::BeforeAttributeNameState);
+                        self.reconsume_in(TokenizerState::BeforeAttributeName);
                     },
                     None => {
                         // This is an eof-in-tag parse error.
@@ -1651,7 +1651,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#self-closing-start-tag-state
-            TokenizerState::SelfClosingStartTagState => {
+            TokenizerState::SelfClosingStartTag => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('>') => {
@@ -1659,7 +1659,7 @@ impl Tokenizer {
                         self.current_token.set_self_closing();
 
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current tag token.
                         self.emit_current_token();
@@ -1667,7 +1667,7 @@ impl Tokenizer {
                     Some(_) => {
                         // This is an unexpected-solidus-in-tag parse error.
                         // Reconsume in the before attribute name state.
-                        self.reconsume_in(TokenizerState::BeforeAttributeNameState);
+                        self.reconsume_in(TokenizerState::BeforeAttributeName);
                     },
                     None => {
                         // This is an eof-in-tag parse error.
@@ -1677,12 +1677,12 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#bogus-comment-state
-            TokenizerState::BogusCommentState => {
+            TokenizerState::BogusComment => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('>') => {
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current comment token.
                         self.emit_current_token();
@@ -1706,18 +1706,18 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#markup-declaration-open-state
-            TokenizerState::MarkupDeclarationOpenState => {
+            TokenizerState::MarkupDeclarationOpen => {
                 // If the next few characters are:
                 if &self.source[self.ptr..self.ptr + 2] == "--" {
                     // Consume those two characters, create a comment token whose data is the empty
                     // string, and switch to the comment start state.
                     self.ptr += 2;
                     self.current_token.create_comment();
-                    self.switch_to(TokenizerState::CommentStartState);
+                    self.switch_to(TokenizerState::CommentStart);
                 } else if self.source[self.ptr..self.ptr + 7].eq_ignore_ascii_case("DOCTYPE") {
                     // Consume those characters and switch to the DOCTYPE state.
                     self.ptr += 7;
-                    self.switch_to(TokenizerState::DOCTYPEState);
+                    self.switch_to(TokenizerState::DOCTYPE);
                 } else if &self.source[self.ptr..self.ptr + 7] == "[CDATA[" {
                     // Consume those characters. If there is an adjusted current node and it is not
                     // an element in the HTML namespace, then switch to the CDATA section state.
@@ -1731,43 +1731,43 @@ impl Tokenizer {
                     self.current_token.create_comment();
 
                     // Switch to the bogus comment state (don't consume anything in the current state).
-                    self.switch_to(TokenizerState::BogusCommentState);
+                    self.switch_to(TokenizerState::BogusComment);
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#comment-start-state
-            TokenizerState::CommentStartState => {
+            TokenizerState::CommentStart => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
                         // Switch to the comment start dash state.
-                        self.switch_to(TokenizerState::CommentStartDashState);
+                        self.switch_to(TokenizerState::CommentStartDash);
                     },
                     Some('>') => {
                         // This is an abrupt-closing-of-empty-comment parse error.
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current comment token.
                         self.emit_current_token();
                     },
                     _ => {
                         // Reconsume in the comment state.
-                        self.reconsume_in(TokenizerState::CommentState);
+                        self.reconsume_in(TokenizerState::Comment);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#comment-start-dash-state
-            TokenizerState::CommentStartDashState => {
+            TokenizerState::CommentStartDash => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
                         // Switch to the comment end state.
-                        self.switch_to(TokenizerState::CommentEndState);
+                        self.switch_to(TokenizerState::CommentEnd);
                     },
                     Some('>') => {
                         // This is an abrupt-closing-of-empty-comment parse error.
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current comment token.
                         self.emit_current_token();
@@ -1777,7 +1777,7 @@ impl Tokenizer {
                         self.current_token.append_to_comment('-');
 
                         // Reconsume in the comment state.
-                        self.reconsume_in(TokenizerState::CommentState);
+                        self.reconsume_in(TokenizerState::Comment);
                     },
                     None => {
                         // This is an eof-in-comment parse error.
@@ -1790,7 +1790,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#comment-state
-            TokenizerState::CommentState => {
+            TokenizerState::Comment => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('>') => {
@@ -1798,11 +1798,11 @@ impl Tokenizer {
                         self.current_token.append_to_comment('<');
 
                         // Switch to the comment less-than sign state.
-                        self.switch_to(TokenizerState::CommentLessThanSignState);
+                        self.switch_to(TokenizerState::CommentLessThanSign);
                     },
                     Some('-') => {
                         // Switch to the comment end dash state.
-                        self.switch_to(TokenizerState::CommentEndDashState);
+                        self.switch_to(TokenizerState::CommentEndDash);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error. Append a U+FFFD
@@ -1824,7 +1824,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#comment-less-than-sign-state
-            TokenizerState::CommentLessThanSignState => {
+            TokenizerState::CommentLessThanSign => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('!') => {
@@ -1832,7 +1832,7 @@ impl Tokenizer {
                         self.current_token.append_to_comment('!');
 
                         // Switch to the comment less-than sign bang state.
-                        self.switch_to(TokenizerState::CommentLessThanSignBangState);
+                        self.switch_to(TokenizerState::CommentLessThanSignBang);
                     },
                     Some('<') => {
                         // Append the current input character to the comment token's data.
@@ -1840,67 +1840,67 @@ impl Tokenizer {
                     },
                     _ => {
                         // Reconsume in the comment state.
-                        self.reconsume_in(TokenizerState::CommentState);
+                        self.reconsume_in(TokenizerState::Comment);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#comment-less-than-sign-bang-state
-            TokenizerState::CommentLessThanSignBangState => {
+            TokenizerState::CommentLessThanSignBang => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
                         // Switch to the comment less-than sign bang dash state.
-                        self.switch_to(TokenizerState::CommentLessThanSignBangDashState);
+                        self.switch_to(TokenizerState::CommentLessThanSignBangDash);
                     },
                     _ => {
                         // Reconsume in the comment state.
-                        self.reconsume_in(TokenizerState::CommentState);
+                        self.reconsume_in(TokenizerState::Comment);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#comment-less-than-sign-bang-dash-state
-            TokenizerState::CommentLessThanSignBangDashState => {
+            TokenizerState::CommentLessThanSignBangDash => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
                         // Switch to the comment less-than sign bang dash dash state.
-                        self.switch_to(TokenizerState::CommentLessThanSignBangDashDashState);
+                        self.switch_to(TokenizerState::CommentLessThanSignBangDashDash);
                     },
                     _ => {
                         // Reconsume in the comment end dash state.
-                        self.reconsume_in(TokenizerState::CommentEndDashState);
+                        self.reconsume_in(TokenizerState::CommentEndDash);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#comment-less-than-sign-bang-dash-dash-state
-            TokenizerState::CommentLessThanSignBangDashDashState => {
+            TokenizerState::CommentLessThanSignBangDashDash => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('>') | None => {
                         // Reconsume in the comment end state.
-                        self.reconsume_in(TokenizerState::CommentEndState);
+                        self.reconsume_in(TokenizerState::CommentEnd);
                     },
                     Some(_) => {
                         // This is a nested-comment parse error.
                         // Reconsume in the comment end state.
-                        self.reconsume_in(TokenizerState::CommentEndState);
+                        self.reconsume_in(TokenizerState::CommentEnd);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#comment-end-dash-state
-            TokenizerState::CommentEndDashState => {
+            TokenizerState::CommentEndDash => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
                         // Switch to the comment end state.
-                        self.switch_to(TokenizerState::CommentEndState);
+                        self.switch_to(TokenizerState::CommentEnd);
                     },
                     Some(_) => {
                         // Append a U+002D HYPHEN-MINUS character (-) to the comment token's data.
                         self.current_token.append_to_comment('-');
 
                         // Reconsume in the comment state.
-                        self.reconsume_in(TokenizerState::CommentState);
+                        self.reconsume_in(TokenizerState::Comment);
                     },
                     None => {
                         // This is an eof-in-comment parse error.
@@ -1913,17 +1913,17 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#comment-end-state
-            TokenizerState::CommentEndState => {
+            TokenizerState::CommentEnd => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('>') => {
                         // Switch to the data state. Emit the current comment token.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     Some('!') => {
                         // Switch to the comment end bang state.
-                        self.switch_to(TokenizerState::CommentEndBangState);
+                        self.switch_to(TokenizerState::CommentEndBang);
                     },
                     Some('-') => {
                         // Append a U+002D HYPHEN-MINUS character (-) to the comment token's data.
@@ -1936,7 +1936,7 @@ impl Tokenizer {
                         self.current_token.append_to_comment('-');
 
                         // Reconsume in the comment state.
-                        self.reconsume_in(TokenizerState::CommentState);
+                        self.reconsume_in(TokenizerState::Comment);
                     },
                     None => {
                         // This is an eof-in-comment parse error.
@@ -1949,7 +1949,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#comment-end-bang-state
-            TokenizerState::CommentEndBangState => {
+            TokenizerState::CommentEndBang => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('-') => {
@@ -1960,12 +1960,12 @@ impl Tokenizer {
                         self.current_token.append_to_comment('!');
 
                         // Switch to the comment end dash state.
-                        self.switch_to(TokenizerState::CommentEndDashState);
+                        self.switch_to(TokenizerState::CommentEndDash);
                     },
                     Some('>') => {
                         // This is an incorrectly-closed-comment parse error.
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current comment token.
                         self.emit_current_token();
@@ -1978,7 +1978,7 @@ impl Tokenizer {
                         self.current_token.append_to_comment('!');
 
                         // Reconsume in the comment state.
-                        self.reconsume_in(TokenizerState::CommentState);
+                        self.reconsume_in(TokenizerState::Comment);
                     },
                     None => {
                         // This is an eof-in-comment parse error.
@@ -1991,21 +1991,21 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#doctype-state
-            TokenizerState::DOCTYPEState => {
+            TokenizerState::DOCTYPE => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {
                         // Switch to the before DOCTYPE name state.
-                        self.switch_to(TokenizerState::BeforeDOCTYPENameState);
+                        self.switch_to(TokenizerState::BeforeDOCTYPEName);
                     },
                     Some('>') => {
                         // Reconsume in the before DOCTYPE name state.
-                        self.reconsume_in(TokenizerState::BeforeDOCTYPENameState);
+                        self.reconsume_in(TokenizerState::BeforeDOCTYPEName);
                     },
                     Some(_) => {
                         // This is a missing-whitespace-before-doctype-name parse error.
                         // Reconsume in the before DOCTYPE name state.
-                        self.reconsume_in(TokenizerState::BeforeDOCTYPENameState);
+                        self.reconsume_in(TokenizerState::BeforeDOCTYPEName);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
@@ -2024,7 +2024,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#before-doctype-name-state
-            TokenizerState::BeforeDOCTYPENameState => {
+            TokenizerState::BeforeDOCTYPEName => {
                 // Note: this code potentially emits tokens *without* modifying self.current_token!
 
                 // Consume the next input character:
@@ -2040,7 +2040,7 @@ impl Tokenizer {
                             .append_to_doctype_name(c.to_ascii_lowercase());
 
                         // Switch to the DOCTYPE name state.
-                        self.switch_to(TokenizerState::DOCTYPENameState);
+                        self.switch_to(TokenizerState::DOCTYPEName);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -2053,7 +2053,7 @@ impl Tokenizer {
                             .append_to_doctype_name(UNICODE_REPLACEMENT);
 
                         // Switch to the DOCTYPE name state.
-                        self.switch_to(TokenizerState::DOCTYPENameState);
+                        self.switch_to(TokenizerState::DOCTYPEName);
                     },
                     Some('>') => {
                         // This is a missing-doctype-name parse error.
@@ -2065,7 +2065,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current token.
                         self.emit_current_token();
@@ -2078,7 +2078,7 @@ impl Tokenizer {
                         self.current_token.append_to_doctype_name(c);
 
                         // Switch to the DOCTYPE name state.
-                        self.switch_to(TokenizerState::DOCTYPENameState);
+                        self.switch_to(TokenizerState::DOCTYPEName);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
@@ -2098,16 +2098,16 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#doctype-name-state
-            TokenizerState::DOCTYPENameState => {
+            TokenizerState::DOCTYPEName => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {
                         // Switch to the after DOCTYPE name state.
-                        self.switch_to(TokenizerState::AfterDOCTYPENameState);
+                        self.switch_to(TokenizerState::AfterDOCTYPEName);
                     },
                     Some('>') => {
                         // Switch to the data state. Emit the current DOCTYPE token.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     Some(c @ 'A'..='Z') => {
@@ -2142,13 +2142,13 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-name-state
-            TokenizerState::AfterDOCTYPENameState => {
+            TokenizerState::AfterDOCTYPEName => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
                     Some('>') => {
                         // Switch to the data state. Emit the current DOCTYPE token.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     None => {
@@ -2172,9 +2172,8 @@ impl Tokenizer {
                                 // then consume those characters and switch
                                 // to the after DOCTYPE public keyword state.
                                 self.ptr += 6;
-                                self.switch_to(TokenizerState::AfterDOCTYPEPublicKeywordState);
+                                self.switch_to(TokenizerState::AfterDOCTYPEPublicKeyword);
                             }
-                            
                             // Otherwise, if the six characters starting from the current input
                             // character are an ASCII case-insensitive match for the word
                             // "SYSTEM",
@@ -2182,10 +2181,9 @@ impl Tokenizer {
                                 // then consume those characters and switch to the after
                                 // DOCTYPE system keyword state.
                                 self.ptr += 6;
-                                self.switch_to(TokenizerState::AfterDOCTYPESystemKeywordState);
+                                self.switch_to(TokenizerState::AfterDOCTYPESystemKeyword);
                             }
                         }
-                        
                         // Otherwise, this is an
                         // invalid-character-sequence-after-doctype-name parse error.
                         else {
@@ -2195,18 +2193,18 @@ impl Tokenizer {
 
                             // Note: we reconsume, but because we already decremented
                             // self.ptr (above) we don't need to do it again
-                            self.switch_to(TokenizerState::BogusDOCTYPEState);
+                            self.switch_to(TokenizerState::BogusDOCTYPE);
                         }
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-public-keyword-state
-            TokenizerState::AfterDOCTYPEPublicKeywordState => {
+            TokenizerState::AfterDOCTYPEPublicKeyword => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {
                         // Switch to the before DOCTYPE public identifier state.
-                        self.switch_to(TokenizerState::BeforeDOCTYPEPublicIdentifierState);
+                        self.switch_to(TokenizerState::BeforeDOCTYPEPublicIdentifier);
                     },
                     Some('"') => {
                         // This is a missing-whitespace-after-doctype-public-keyword parse error.
@@ -2215,7 +2213,7 @@ impl Tokenizer {
                         self.current_token.init_doctype_public_ident();
 
                         // then switch to the DOCTYPE public identifier (double-quoted) state.
-                        self.switch_to(TokenizerState::DOCTYPEPublicIdentifierDoublequotedState);
+                        self.switch_to(TokenizerState::DOCTYPEPublicIdentifierDoublequoted);
                     },
                     Some('\'') => {
                         // This is a missing-whitespace-after-doctype-public-keyword parse error.
@@ -2224,7 +2222,7 @@ impl Tokenizer {
                         self.current_token.init_doctype_public_ident();
 
                         // then switch to the DOCTYPE public identifier (single-quoted) state.
-                        self.switch_to(TokenizerState::DOCTYPEPublicIdentifierSinglequotedState);
+                        self.switch_to(TokenizerState::DOCTYPEPublicIdentifierSinglequoted);
                     },
                     Some('>') => {
                         // This is a missing-doctype-public-identifier parse error. Set the current
@@ -2232,7 +2230,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2243,7 +2241,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
-                        self.reconsume_in(TokenizerState::BogusDOCTYPEState);
+                        self.reconsume_in(TokenizerState::BogusDOCTYPE);
                     },
                     None => {
                         // This is an eof-in-doctype parse error. Set the current DOCTYPE token's
@@ -2259,7 +2257,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#before-doctype-public-identifier-state
-            TokenizerState::BeforeDOCTYPEPublicIdentifierState => {
+            TokenizerState::BeforeDOCTYPEPublicIdentifier => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
@@ -2269,7 +2267,7 @@ impl Tokenizer {
                         self.current_token.init_doctype_public_ident();
 
                         // then switch to the DOCTYPE public identifier (double-quoted) state.
-                        self.switch_to(TokenizerState::DOCTYPEPublicIdentifierDoublequotedState);
+                        self.switch_to(TokenizerState::DOCTYPEPublicIdentifierDoublequoted);
                     },
                     Some('\'') => {
                         // Set the current DOCTYPE token's public identifier to the empty string
@@ -2277,7 +2275,7 @@ impl Tokenizer {
                         self.current_token.init_doctype_public_ident();
 
                         // then switch to the DOCTYPE public identifier (single-quoted) state.
-                        self.switch_to(TokenizerState::DOCTYPEPublicIdentifierSinglequotedState);
+                        self.switch_to(TokenizerState::DOCTYPEPublicIdentifierSinglequoted);
                     },
                     Some('>') => {
                         // This is a missing-doctype-public-identifier parse error. Set the current
@@ -2285,7 +2283,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2296,7 +2294,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
-                        self.reconsume_in(TokenizerState::BogusDOCTYPEState);
+                        self.reconsume_in(TokenizerState::BogusDOCTYPE);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
@@ -2312,12 +2310,12 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#doctype-public-identifier-(double-quoted)-state
-            TokenizerState::DOCTYPEPublicIdentifierDoublequotedState => {
+            TokenizerState::DOCTYPEPublicIdentifierDoublequoted => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('"') => {
                         // Switch to the after DOCTYPE public identifier state.
-                        self.switch_to(TokenizerState::AfterDOCTYPEPublicIdentifierState);
+                        self.switch_to(TokenizerState::AfterDOCTYPEPublicIdentifier);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -2334,7 +2332,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2359,12 +2357,12 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#doctype-public-identifier-(single-quoted)-state
-            TokenizerState::DOCTYPEPublicIdentifierSinglequotedState => {
+            TokenizerState::DOCTYPEPublicIdentifierSinglequoted => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('\'') => {
                         // Switch to the after DOCTYPE public identifier state.
-                        self.switch_to(TokenizerState::AfterDOCTYPEPublicIdentifierState);
+                        self.switch_to(TokenizerState::AfterDOCTYPEPublicIdentifier);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -2380,7 +2378,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2404,18 +2402,16 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-public-identifier-state
-            TokenizerState::AfterDOCTYPEPublicIdentifierState => {
+            TokenizerState::AfterDOCTYPEPublicIdentifier => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {
                         // Switch to the between DOCTYPE public and system identifiers state.
-                        self.switch_to(
-                            TokenizerState::BetweenDOCTYPEPublicAndSystemIdentifiersState,
-                        );
+                        self.switch_to(TokenizerState::BetweenDOCTYPEPublicAndSystemIdentifiers);
                     },
                     Some('>') => {
                         // Switch to the data state. Emit the current DOCTYPE token.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     Some('"') => {
@@ -2428,7 +2424,7 @@ impl Tokenizer {
                         self.current_token.init_doctype_system_ident();
 
                         // then switch to the DOCTYPE system identifier (double-quoted) state.
-                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequotedState);
+                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequoted);
                     },
                     Some('\'') => {
                         // This is a missing-whitespace-between-doctype-public-and-system-identifiers
@@ -2439,7 +2435,7 @@ impl Tokenizer {
                         self.current_token.init_doctype_system_ident();
 
                         // then switch to the DOCTYPE system identifier (single-quoted) state.
-                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequotedState);
+                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequoted);
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-system-identifier parse error.
@@ -2448,7 +2444,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
-                        self.reconsume_in(TokenizerState::BogusDOCTYPEState);
+                        self.reconsume_in(TokenizerState::BogusDOCTYPE);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
@@ -2465,13 +2461,13 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#between-doctype-public-and-system-identifiers-state
-            TokenizerState::BetweenDOCTYPEPublicAndSystemIdentifiersState => {
+            TokenizerState::BetweenDOCTYPEPublicAndSystemIdentifiers => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
                     Some('>') => {
                         // Switch to the data state. Emit the current DOCTYPE token.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     Some('"') => {
@@ -2479,14 +2475,14 @@ impl Tokenizer {
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (double-quoted) state.
                         self.current_token.init_doctype_system_ident();
-                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequotedState);
+                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequoted);
                     },
                     Some('\'') => {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (single-quoted) state.
                         self.current_token.init_doctype_system_ident();
-                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequotedState);
+                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequoted);
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-system-identifier parse error.
@@ -2495,7 +2491,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
-                        self.reconsume_in(TokenizerState::BogusDOCTYPEState);
+                        self.reconsume_in(TokenizerState::BogusDOCTYPE);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
@@ -2512,12 +2508,12 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-system-keyword-state
-            TokenizerState::AfterDOCTYPESystemKeywordState => {
+            TokenizerState::AfterDOCTYPESystemKeyword => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {
                         // Switch to the before DOCTYPE system identifier state.
-                        self.switch_to(TokenizerState::BeforeDOCTYPESystemIdentifierState);
+                        self.switch_to(TokenizerState::BeforeDOCTYPESystemIdentifier);
                     },
                     Some('"') => {
                         // This is a missing-whitespace-after-doctype-system-keyword parse error.
@@ -2525,7 +2521,7 @@ impl Tokenizer {
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (double-quoted) state.
                         self.current_token.init_doctype_system_ident();
-                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequotedState);
+                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequoted);
                     },
                     Some('\'') => {
                         // This is a missing-whitespace-after-doctype-system-keyword parse error.
@@ -2533,7 +2529,7 @@ impl Tokenizer {
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (single-quoted) state.
                         self.current_token.init_doctype_system_ident();
-                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequotedState);
+                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequoted);
                     },
                     Some('>') => {
                         // This is a missing-doctype-system-identifier parse error.
@@ -2541,7 +2537,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2552,7 +2548,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
-                        self.reconsume_in(TokenizerState::BogusDOCTYPEState);
+                        self.reconsume_in(TokenizerState::BogusDOCTYPE);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
@@ -2568,7 +2564,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#before-doctype-system-identifier-state
-            TokenizerState::BeforeDOCTYPESystemIdentifierState => {
+            TokenizerState::BeforeDOCTYPESystemIdentifier => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, //     Ignore the character.
@@ -2577,14 +2573,14 @@ impl Tokenizer {
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (double-quoted) state.
                         self.current_token.init_doctype_system_ident();
-                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequotedState);
+                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequoted);
                     },
                     Some('\'') => {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (single-quoted) state.
                         self.current_token.init_doctype_system_ident();
-                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequotedState);
+                        self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequoted);
                     },
                     Some('>') => {
                         // This is a missing-doctype-system-identifier parse error.
@@ -2592,7 +2588,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2603,7 +2599,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
-                        self.reconsume_in(TokenizerState::BogusDOCTYPEState);
+                        self.reconsume_in(TokenizerState::BogusDOCTYPE);
                     },
                     None => {
                         // This is an eof-in-doctype parse error. Set the current DOCTYPE token's
@@ -2619,12 +2615,12 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#doctype-system-identifier-(double-quoted)-state
-            TokenizerState::DOCTYPESystemIdentifierDoublequotedState => {
+            TokenizerState::DOCTYPESystemIdentifierDoublequoted => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('"') => {
                         // Switch to the after DOCTYPE system identifier state.
-                        self.switch_to(TokenizerState::AfterDOCTYPESystemIdentifierState);
+                        self.switch_to(TokenizerState::AfterDOCTYPESystemIdentifier);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -2639,7 +2635,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2663,12 +2659,12 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#doctype-system-identifier-(single-quoted)-state
-            TokenizerState::DOCTYPESystemIdentifierSinglequotedState => {
+            TokenizerState::DOCTYPESystemIdentifierSinglequoted => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('\'') => {
                         // Switch to the after DOCTYPE system identifier state.
-                        self.switch_to(TokenizerState::AfterDOCTYPESystemIdentifierState);
+                        self.switch_to(TokenizerState::AfterDOCTYPESystemIdentifier);
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -2683,7 +2679,7 @@ impl Tokenizer {
                         self.current_token.set_force_quirks();
 
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2707,13 +2703,13 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#after-doctype-system-identifier-state
-            TokenizerState::AfterDOCTYPESystemIdentifierState => {
+            TokenizerState::AfterDOCTYPESystemIdentifier => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
                     Some('>') => {
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
                         self.emit_current_token();
@@ -2723,7 +2719,7 @@ impl Tokenizer {
                         // error.
                         // Reconsume in the bogus DOCTYPE state. (This does not set the
                         // current DOCTYPE token's force-quirks flag to on.)
-                        self.reconsume_in(TokenizerState::BogusDOCTYPEState);
+                        self.reconsume_in(TokenizerState::BogusDOCTYPE);
                     },
                     None => {
                         // This is an eof-in-doctype parse error. Set the current DOCTYPE
@@ -2739,12 +2735,12 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#bogus-doctype-state
-            TokenizerState::BogusDOCTYPEState => {
+            TokenizerState::BogusDOCTYPE => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('>') => {
                         // Switch to the data state. Emit the DOCTYPE token.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                         self.emit_current_token();
                     },
                     Some('\0') => {
@@ -2761,12 +2757,12 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#cdata-section-state
-            TokenizerState::CDATASectionState => {
+            TokenizerState::CDATASection => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(']') => {
                         // Switch to the CDATA section bracket state.
-                        self.switch_to(TokenizerState::CDATASectionBracketState);
+                        self.switch_to(TokenizerState::CDATASectionBracket);
                     },
                     Some(c) => {
                         // Emit the current input character as a character token.
@@ -2780,24 +2776,24 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#cdata-section-bracket-state
-            TokenizerState::CDATASectionBracketState => {
+            TokenizerState::CDATASectionBracket => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(']') => {
                         // Switch to the CDATA section end state.
-                        self.switch_to(TokenizerState::CDATASectionEndState);
+                        self.switch_to(TokenizerState::CDATASectionEnd);
                     },
                     _ => {
                         // Emit a U+005D RIGHT SQUARE BRACKET character token.
                         self.emit(Token::Character(']'));
 
                         // Reconsume in the CDATA section state.
-                        self.reconsume_in(TokenizerState::CDATASectionState);
+                        self.reconsume_in(TokenizerState::CDATASection);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#cdata-section-end-state
-            TokenizerState::CDATASectionEndState => {
+            TokenizerState::CDATASectionEnd => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(']') => {
@@ -2806,7 +2802,7 @@ impl Tokenizer {
                     },
                     Some('>') => {
                         // Switch to the data state.
-                        self.switch_to(TokenizerState::DataState);
+                        self.switch_to(TokenizerState::Data);
                     },
                     _ => {
                         // Emit two U+005D RIGHT SQUARE BRACKET character tokens.
@@ -2814,12 +2810,12 @@ impl Tokenizer {
                         self.emit(Token::Character(']'));
 
                         // Reconsume in the CDATA section state.
-                        self.reconsume_in(TokenizerState::CDATASectionState);
+                        self.reconsume_in(TokenizerState::CDATASection);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#character-reference-state
-            TokenizerState::CharacterReferenceState => {
+            TokenizerState::CharacterReference => {
                 // Set the temporary buffer to the empty string.
                 // Append a U+0026 AMPERSAND (&) character to the temporary buffer.
                 self.buffer = Some("&".to_string());
@@ -2828,14 +2824,14 @@ impl Tokenizer {
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z' | '0'..='9') => {
                         // Reconsume in the named character reference state.
-                        self.reconsume_in(TokenizerState::NamedCharacterReferenceState);
+                        self.reconsume_in(TokenizerState::NamedCharacterReference);
                     },
                     Some('#') => {
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer('#');
 
                         // Switch to the numeric character reference state.
-                        self.switch_to(TokenizerState::NumericCharacterReferenceState);
+                        self.switch_to(TokenizerState::NumericCharacterReference);
                     },
                     _ => {
                         // Flush code points consumed as a character reference.
@@ -2850,7 +2846,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#named-character-reference-state
-            TokenizerState::NamedCharacterReferenceState => {
+            TokenizerState::NamedCharacterReference => {
                 match lookup_character_reference(&self.source[self.ptr..]) {
                     Some(unicode_val) => {
                         // If the character reference was consumed as part of an attribute, and
@@ -2881,12 +2877,12 @@ impl Tokenizer {
                         self.flush_code_points_consumed_as_character_reference();
 
                         // Switch to the ambiguous ampersand state.
-                        self.switch_to(TokenizerState::AmbiguousAmpersandState);
+                        self.switch_to(TokenizerState::AmbiguousAmpersand);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#ambiguous-ampersand-state
-            TokenizerState::AmbiguousAmpersandState => {
+            TokenizerState::AmbiguousAmpersand => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(c @ ('a'..='z' | 'A'..='Z' | '0'..='9')) => {
@@ -2913,7 +2909,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-state
-            TokenizerState::NumericCharacterReferenceState => {
+            TokenizerState::NumericCharacterReference => {
                 // Set the character reference code to zero (0).
                 self.character_reference_code = 0;
 
@@ -2924,21 +2920,21 @@ impl Tokenizer {
                         self.add_to_buffer(c);
 
                         // Switch to the hexadecimal character reference start state.
-                        self.switch_to(TokenizerState::HexadecimalCharacterReferenceStartState);
+                        self.switch_to(TokenizerState::HexadecimalCharacterReferenceStart);
                     },
                     _ => {
                         // Reconsume in the decimal character reference start state.
-                        self.reconsume_in(TokenizerState::DecimalCharacterReferenceStartState);
+                        self.reconsume_in(TokenizerState::DecimalCharacterReferenceStart);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#hexadecimal-character-reference-start-state
-            TokenizerState::HexadecimalCharacterReferenceStartState => {
+            TokenizerState::HexadecimalCharacterReferenceStart => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('0'..='9' | 'a'..='f' | 'A'..='F') => {
                         // Reconsume in the hexadecimal character reference state.
-                        self.reconsume_in(TokenizerState::HexadecimalCharacterReferenceState);
+                        self.reconsume_in(TokenizerState::HexadecimalCharacterReference);
                     },
                     _ => {
                         // This is an absence-of-digits-in-numeric-character-reference parse error.
@@ -2951,12 +2947,12 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#decimal-character-reference-start-state
-            TokenizerState::DecimalCharacterReferenceStartState => {
+            TokenizerState::DecimalCharacterReferenceStart => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('0'..='9') => {
                         // Reconsume in the decimal character reference state.
-                        self.reconsume_in(TokenizerState::DecimalCharacterReferenceState);
+                        self.reconsume_in(TokenizerState::DecimalCharacterReference);
                     },
                     _ => {
                         // This is an absence-of-digits-in-numeric-character-reference parse
@@ -2970,7 +2966,7 @@ impl Tokenizer {
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#hexadecimal-character-reference-state
-            TokenizerState::HexadecimalCharacterReferenceState => {
+            TokenizerState::HexadecimalCharacterReference => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(c @ ('0'..='9' | 'a'..='f' | 'A'..='F')) => {
@@ -2987,17 +2983,17 @@ impl Tokenizer {
                     },
                     Some(';') => {
                         // Switch to the numeric character reference end state.
-                        self.switch_to(TokenizerState::NumericCharacterReferenceEndState);
+                        self.switch_to(TokenizerState::NumericCharacterReferenceEnd);
                     },
                     _ => {
                         // This is a missing-semicolon-after-character-reference parse error.
                         // Reconsume in the numeric character reference end state.
-                        self.reconsume_in(TokenizerState::NumericCharacterReferenceEndState);
+                        self.reconsume_in(TokenizerState::NumericCharacterReferenceEnd);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#decimal-character-reference-state
-            TokenizerState::DecimalCharacterReferenceState => {
+            TokenizerState::DecimalCharacterReference => {
                 // Consume the next input character:
                 match self.read_next() {
                     Some(c @ '0'..='9') => {
@@ -3016,17 +3012,17 @@ impl Tokenizer {
                     },
                     Some(';') => {
                         // Switch to the numeric character reference end state.
-                        self.switch_to(TokenizerState::NumericCharacterReferenceEndState);
+                        self.switch_to(TokenizerState::NumericCharacterReferenceEnd);
                     },
                     _ => {
                         // This is a missing-semicolon-after-character-reference parse error.
                         // Reconsume in the numeric character reference end state.
-                        self.reconsume_in(TokenizerState::NumericCharacterReferenceEndState);
+                        self.reconsume_in(TokenizerState::NumericCharacterReferenceEnd);
                     },
                 }
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-end-state
-            TokenizerState::NumericCharacterReferenceEndState => {
+            TokenizerState::NumericCharacterReferenceEnd => {
                 // Check the character reference code:
                 match self.character_reference_code {
                     0x00 => {

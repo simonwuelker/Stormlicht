@@ -295,12 +295,8 @@ impl Parser {
         // otherwise the algorithm invoked was the generic RCDATA element parsing algorithm,
         // switch the tokenizer to the RCDATA state.
         match algorithm {
-            GenericParsingAlgorithm::RawText => {
-                self.tokenizer.switch_to(TokenizerState::RAWTEXTState)
-            },
-            GenericParsingAlgorithm::RCDATA => {
-                self.tokenizer.switch_to(TokenizerState::RCDATAState)
-            },
+            GenericParsingAlgorithm::RawText => self.tokenizer.switch_to(TokenizerState::RAWTEXT),
+            GenericParsingAlgorithm::RCDATA => self.tokenizer.switch_to(TokenizerState::RCDATA),
         }
 
         // Let the original insertion mode be the current insertion mode.
@@ -926,7 +922,7 @@ impl Parser {
                         self.open_elements.push(element);
 
                         // 8. Switch the tokenizer to the script data state.
-                        self.tokenizer.switch_to(TokenizerState::ScriptDataState);
+                        self.tokenizer.switch_to(TokenizerState::ScriptData);
 
                         // 9. Let the original insertion mode be the current insertion mode.
                         self.original_insertion_mode = Some(self.insertion_mode);
@@ -1708,7 +1704,7 @@ impl Parser {
                         log::warn!("FIXME: ignore newlines at start of <textarea>");
 
                         // 3. Switch the tokenizer to the RCDATA state.
-                        self.tokenizer.switch_to(TokenizerState::RCDATAState);
+                        self.tokenizer.switch_to(TokenizerState::RCDATA);
 
                         // 4. Let the original insertion mode be the current insertion mode.
                         self.original_insertion_mode = Some(self.insertion_mode);

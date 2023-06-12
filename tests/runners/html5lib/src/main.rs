@@ -88,12 +88,12 @@ fn main() -> Result<(), Error> {
 
 fn parse_initial_state(initial_state: &str) -> Result<TokenizerState, Error> {
     match initial_state {
-        "Data state" => Ok(TokenizerState::DataState),
-        "PLAINTEXT state" => Ok(TokenizerState::PLAINTEXTState),
-        "RCDATA state" => Ok(TokenizerState::RCDATAState),
-        "RAWTEXT state" => Ok(TokenizerState::RAWTEXTState),
-        "Script data state" => Ok(TokenizerState::ScriptDataState),
-        "CDATA section state" => Ok(TokenizerState::CDATASectionState),
+        "Data state" => Ok(TokenizerState::Data),
+        "PLAINTEXT state" => Ok(TokenizerState::PLAINTEXT),
+        "RCDATA state" => Ok(TokenizerState::RCDATA),
+        "RAWTEXT state" => Ok(TokenizerState::RAWTEXT),
+        "Script data state" => Ok(TokenizerState::ScriptData),
+        "CDATA section state" => Ok(TokenizerState::CDATASection),
         _ => Err(Error::InvalidInitialState),
     }
 }
