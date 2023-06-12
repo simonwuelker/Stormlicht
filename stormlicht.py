@@ -113,14 +113,19 @@ def test_html_parser(args):
                         )
 
                     try:
+                        runner_args = [
+                            "./target/debug/html5lib-testrunner",
+                            '--state="{}"'.format(initial_state),
+                            '--input="{}"'.format(test["input"]),
+                        ]
+
+                        if "lastStartTag" in test:
+                            runner_args.append(
+                                '--last-start-tag="{}"'.format(test["lastStartTag"])
+                            )
+
                         p = subprocess.run(
-                            [
-                                "./target/debug/html5lib-testrunner",
-                                '--state="{}"'.format(initial_state),
-                                '--input="{}"'.format(test["input"]),
-                                "--testcases=tests/text-rendering-tests/testcases",
-                                "--font=tests/text-rendering-tests/fonts",
-                            ],
+                            runner_args,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                         )

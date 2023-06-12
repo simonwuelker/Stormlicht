@@ -68,13 +68,14 @@ fn main() -> Result<(), Error> {
         // our commandline parser doesnt handle quotes very well...
         let initial_state =
             parse_initial_state(&args.initial_state[1..args.initial_state.len() - 1])?;
+
         let mut tokenizer = Tokenizer::new(&source);
-        tokenizer.set_state(initial_state);
+        tokenizer.switch_to(initial_state);
         tokenizer.set_last_start_tag(last_start_tag);
 
         let mut serialized_tokens = vec![];
         while let Some(token) = tokenizer.next() {
-            if !serialize_token(token, &mut tokenizer, &mut serialized_tokens) {
+            if serialize_token(token, &mut tokenizer, &mut serialized_tokens) {
                 break;
             }
         }
