@@ -1306,13 +1306,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit(Token::Character('-'));
                     },
                     Some('<') => {
-                        // This is an unexpected-null-character parse error.
-                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+                        // Switch to the script data double escaped less-than sign state.
+                        self.switch_to(TokenizerState::ScriptDataDoubleEscapedLessThanSign);
 
-                        // Switch to the script data double escaped state.
-                        self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
-
-                        // Emit a U+FFFD REPLACEMENT CHARACTER character token.
+                        // Emit a U+003C LESS-THAN SIGN character token.
                         self.emit(Token::Character('<'));
                     },
                     Some('\0') => {
