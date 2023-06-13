@@ -1,4 +1,4 @@
-use crate::dom::{dom_objects::Node, DOMPtr, DOMTyped};
+use crate::dom::{dom_objects::Node, DOMPtr, DOMType, DOMTyped};
 
 #[derive(Clone, Default)]
 /// <https://html.spec.whatwg.org/multipage/parsing.html#stack-of-open-elements>
@@ -26,7 +26,13 @@ impl StackOfOpenElements {
     }
 
     pub fn pop(&mut self) -> Option<DOMPtr<Node>> {
-        self.open_elements.pop()
+        let popped_element_or_none = self.open_elements.pop();
+        if let Some(popped_element) = &popped_element_or_none {
+            if popped_element.underlying_type() == DOMType::HTMLStyleElement {
+                log::info!("popping style element");
+            }
+        }
+        popped_element_or_none
     }
 
     #[must_use]

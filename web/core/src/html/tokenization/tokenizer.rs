@@ -2166,22 +2166,26 @@ impl Tokenizer {
                         self.ptr -= 1;
                         // If the six characters starting from the current input character are
                         // an ASCII case-insensitive match for the word "PUBLIC",
-                        let next_six_chars = &self.source[self.ptr..self.ptr + 6];
-                        if next_six_chars.eq_ignore_ascii_case("PUBLIC") {
-                            // then consume those characters and switch
-                            // to the after DOCTYPE public keyword state.
-                            self.ptr += 6;
-                            self.switch_to(TokenizerState::AfterDOCTYPEPublicKeywordState);
+                        if self.source.len() > self.ptr + 6 {
+                            let next_six_chars = &self.source[self.ptr..self.ptr + 6];
+                            if next_six_chars.eq_ignore_ascii_case("PUBLIC") {
+                                // then consume those characters and switch
+                                // to the after DOCTYPE public keyword state.
+                                self.ptr += 6;
+                                self.switch_to(TokenizerState::AfterDOCTYPEPublicKeywordState);
+                            }
+                            
+                            // Otherwise, if the six characters starting from the current input
+                            // character are an ASCII case-insensitive match for the word
+                            // "SYSTEM",
+                            else if next_six_chars.eq_ignore_ascii_case("SYSTEM") {
+                                // then consume those characters and switch to the after
+                                // DOCTYPE system keyword state.
+                                self.ptr += 6;
+                                self.switch_to(TokenizerState::AfterDOCTYPESystemKeywordState);
+                            }
                         }
-                        // Otherwise, if the six characters starting from the current input
-                        // character are an ASCII case-insensitive match for the word
-                        // "SYSTEM",
-                        else if next_six_chars.eq_ignore_ascii_case("SYSTEM") {
-                            // then consume those characters and switch to the after
-                            // DOCTYPE system keyword state.
-                            self.ptr += 6;
-                            self.switch_to(TokenizerState::AfterDOCTYPESystemKeywordState);
-                        }
+                        
                         // Otherwise, this is an
                         // invalid-character-sequence-after-doctype-name parse error.
                         else {
