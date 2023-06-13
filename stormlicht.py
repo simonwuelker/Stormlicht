@@ -12,35 +12,37 @@ def ensure_submodules_are_downloaded():
     subprocess.run(["git", "submodule", "update", "--init", "--recursive"])
 
 
-def build_documentation(args):
+def build_documentation(args, unknown_args):
     cmd = ["cargo", "doc"]
     if args.open:
         cmd.append("--open")
     subprocess.run(cmd)
 
 
-def run(args):
+def run(args, unknown_args):
     cmd = ["cargo", "run"]
     if args.release:
         cmd.append("--release")
+    cmd.append("--")
+    cmd.extend(unknown_args)
     subprocess.run(cmd)
 
 
-def build(args):
+def build(args, unknown_args):
     cmd = ["cargo", "build"]
     if args.release:
         cmd.append("--release")
     subprocess.run(cmd)
 
 
-def test(args):
+def test(args, unknown_args):
     ensure_submodules_are_downloaded()
 
     cmd = ["cargo", "t"]
     subprocess.run(cmd)
 
 
-def test_font_rendering(args):
+def test_font_rendering(args, unknown_args):
     ensure_submodules_are_downloaded()
 
     # Build the testrunner
@@ -63,7 +65,7 @@ def test_font_rendering(args):
         webbrowser.open("target/text-rendering-tests.html")
 
 
-def test_html_parser(args):
+def test_html_parser(args, unknown_args):
     def verbose_print(initial_state, testdata, out, stderr):
         print("Initial state:", initial_state)
         print(
@@ -222,5 +224,5 @@ parser_test_html.add_argument(
 )
 parser_test_html.set_defaults(handler=test_html_parser)
 
-args = parser.parse_args()
-args.handler(args)
+args, unknown_args = parser.parse_known_args()
+args.handler(args, unknown_args)
