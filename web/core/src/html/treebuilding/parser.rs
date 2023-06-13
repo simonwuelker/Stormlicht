@@ -10,7 +10,7 @@ use crate::{
         },
         DOMPtr, DOMType, DOMTyped,
     },
-    html::tokenization::{TagData, Token, Tokenizer, TokenizerState},
+    html::tokenization::{ParseErrorHandler, TagData, Token, Tokenizer, TokenizerState},
     infra::Namespace,
 };
 
@@ -71,8 +71,8 @@ pub enum FramesetOkFlag {
     NotOk,
 }
 
-pub struct Parser {
-    tokenizer: Tokenizer,
+pub struct Parser<P: ParseErrorHandler> {
+    tokenizer: Tokenizer<P>,
     document: DOMPtr<Document>,
     /// When the insertion mode is switched to "text" or "in table text", the original insertion
     /// mode is also set. This is the insertion mode to which the tree construction stage will
@@ -91,7 +91,7 @@ pub struct Parser {
     stylesheets: Vec<Stylesheet>,
 }
 
-impl Parser {
+impl<P: ParseErrorHandler> Parser<P> {
     pub fn new(source: &str) -> Self {
         let document = DOMPtr::new(Document::default());
         // TODO: judging from the spec behaviour, it appears that document's document's

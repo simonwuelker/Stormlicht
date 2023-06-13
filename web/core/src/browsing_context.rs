@@ -1,5 +1,7 @@
 use std::time;
 
+use crate::html::{self, tokenization::IgnoreParseErrors};
+
 /// The Browsing Context takes care of coordinating loads, layout calculations and paints
 pub struct BrowsingContext;
 
@@ -26,7 +28,7 @@ impl BrowsingContext {
 
         // Parse the data into a html document
         let parse_start = time::Instant::now();
-        let parser = crate::html::Parser::new(&html_source);
+        let parser: html::Parser<IgnoreParseErrors> = html::Parser::new(&html_source);
         let (document, stylesheets) = parser.parse();
         let parse_end = time::Instant::now();
 

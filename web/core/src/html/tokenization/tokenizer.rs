@@ -2,10 +2,10 @@
 use super::{
     lookup_character_reference,
     token::{CurrentToken, TagBuilder, TokenBuilder},
-    TagData, Token,
+    HtmlParseError, ParseErrorHandler, TagData, Token,
 };
 use crate::infra;
-use std::collections::VecDeque;
+use std::{collections::VecDeque, marker::PhantomData};
 
 // Characters that are hard to read
 const UNICODE_REPLACEMENT: char = '\u{FFFD}';
@@ -258,7 +258,7 @@ pub enum TokenizerState {
     NumericCharacterReferenceEnd,
 }
 
-pub struct Tokenizer {
+pub struct Tokenizer<P: ParseErrorHandler> {
     /// The source code that is being tokenized
     source: String,
 
@@ -283,9 +283,10 @@ pub struct Tokenizer {
 
     current_token: CurrentToken,
     character_reference_code: u32,
+    phantom_data: PhantomData<P>,
 }
 
-impl Tokenizer {
+impl<P: ParseErrorHandler> Tokenizer<P> {
     pub fn new(source: &str) -> Self {
         // Normalize newlines
         // https://infra.spec.whatwg.org/#normalize-newlines
@@ -302,7 +303,13 @@ impl Tokenizer {
             ptr: 0,
             done: false,
             token_buffer: VecDeque::new(),
+            phantom_data: PhantomData,
         }
+    }
+
+    #[inline]
+    fn parse_error(&mut self, variant: HtmlParseError) {
+        P::handle(variant)
     }
 
     fn emit(&mut self, token: Token) {
@@ -415,9 +422,10 @@ impl Tokenizer {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('&') => {
-                        // Set the return state to the data state. Switch to the character
-                        // reference state.
+                        // Set the return state to the data state.
                         self.return_state = Some(TokenizerState::Data);
+
+                        // Switch to the character reference state.
                         self.switch_to(TokenizerState::CharacterReference);
                     },
                     Some('<') => {
@@ -426,6 +434,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Emit the current input character as a character token.
                         self.emit(Token::Character(UNICODE_REPLACEMENT));
                     },
@@ -455,6 +465,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Emit the current input character as a character token.
                         self.emit(Token::Character(UNICODE_REPLACEMENT));
                     },
@@ -478,6 +490,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Emit the current input character as a character token.
                         self.emit(Token::Character(UNICODE_REPLACEMENT));
                     },
@@ -501,6 +515,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Emit the current input character as a character token.
                         self.emit(Token::Character(UNICODE_REPLACEMENT));
                     },
@@ -520,6 +536,8 @@ impl Tokenizer {
                 match self.read_next() {
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Emit the current input character as a character token.
                         self.emit(Token::Character(UNICODE_REPLACEMENT));
                     },
@@ -562,6 +580,8 @@ impl Tokenizer {
                     },
                     Some(_) => {
                         // This is an invalid-first-character-of-tag-name parse error.
+                        self.parse_error(HtmlParseError::InvalidFirstCharacterOfTagName);
+
                         // Emit a U+003C LESS-THAN SIGN character token.
                         self.emit(Token::Character('<'));
 
@@ -570,6 +590,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-before-tag-name parse error.
+                        self.parse_error(HtmlParseError::EOFBeforeTagName);
+
                         // Emit a U+003C LESS-THAN SIGN
                         // character token and an end-of-file token.
                         self.emit(Token::Character('<'));
@@ -590,11 +612,15 @@ impl Tokenizer {
                     },
                     Some('>') => {
                         // This is a missing-end-tag-name parse error.
+                        self.parse_error(HtmlParseError::MissingEndTagName);
+
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
                     },
                     Some(_) => {
                         // This is an invalid-first-character-of-tag-name parse error.
+                        self.parse_error(HtmlParseError::InvalidFirstCharacterOfTagName);
+
                         // Create a comment token whose data is the empty string.
                         self.current_token.create_comment();
 
@@ -603,6 +629,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-before-tag-name parse error.
+                        self.parse_error(HtmlParseError::EOFBeforeTagName);
+
                         // Emit a U+003C LESS-THAN SIGN character token,
                         // a U+002F SOLIDUS character token and an end-of-file
                         // token.
@@ -637,8 +665,10 @@ impl Tokenizer {
                         self.current_token.append_to_tag_name(c);
                     },
                     Some('\0') => {
-                        // This is an unexpected-null-character parse error. Append a U+FFFD
-                        // REPLACEMENT CHARACTER character to the current tag token's tag name.
+                        // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
+                        // Append a U+FFFD REPLACEMENT CHARACTER character to the current tag token's tag name.
                         self.current_token.append_to_tag_name(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
@@ -646,7 +676,10 @@ impl Tokenizer {
                         self.current_token.append_to_tag_name(c);
                     },
                     None => {
-                        // This is an eof-in-tag parse error. Emit an end-of-file token.
+                        // This is an eof-in-tag parse error.
+                        self.parse_error(HtmlParseError::EOFInTag);
+
+                        // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
                 }
@@ -656,9 +689,10 @@ impl Tokenizer {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('/') => {
-                        // Set the temporary buffer to the empty string. Switch to the RCDATA end
-                        // tag open state.
+                        // Set the temporary buffer to the empty string.
                         self.buffer = Some(String::new());
+
+                        // Switch to the RCDATA end tag open state.
                         self.switch_to(TokenizerState::RCDATAEndTagOpen);
                     },
                     _ => {
@@ -719,9 +753,10 @@ impl Tokenizer {
                     },
                     (Some(c @ 'a'..='z'), _) => {
                         // Append the current input character to the current tag token's tag name.
+                        self.current_token.append_to_tag_name(c);
+
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
-                        self.current_token.append_to_tag_name(c);
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token, a U+002F SOLIDUS character
@@ -807,9 +842,10 @@ impl Tokenizer {
                     },
                     (Some(c @ 'a'..='z'), _) => {
                         // Append the current input character to the current tag token's tag name.
+                        self.current_token.append_to_tag_name(c);
+
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
-                        self.current_token.append_to_tag_name(c);
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token, a U+002F SOLIDUS character
@@ -977,6 +1013,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
                         self.emit(Token::Character(UNICODE_REPLACEMENT));
                     },
@@ -985,8 +1023,10 @@ impl Tokenizer {
                         self.emit(Token::Character(c));
                     },
                     None => {
-                        // This is an eof-in-script-html-comment-like-text parse error. Emit an
-                        // end-of-file token.
+                        // This is an eof-in-script-html-comment-like-text parse error.
+                        self.parse_error(HtmlParseError::EOFInScriptHtmlCommentLikeText);
+
+                        // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
                 }
@@ -1008,6 +1048,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
                         self.emit(Token::Character(UNICODE_REPLACEMENT));
                     },
@@ -1020,6 +1062,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-script-html-comment-like-text parse error.
+                        self.parse_error(HtmlParseError::EOFInScriptHtmlCommentLikeText);
+
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
@@ -1046,6 +1090,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
                         self.emit(Token::Character(UNICODE_REPLACEMENT));
                     },
@@ -1057,8 +1103,10 @@ impl Tokenizer {
                         self.emit(Token::Character(c));
                     },
                     None => {
-                        // This is an eof-in-script-html-comment-like-text parse error. Emit an
-                        // end-of-file token.
+                        // This is an eof-in-script-html-comment-like-text parse error.
+                        self.parse_error(HtmlParseError::EOFInScriptHtmlCommentLikeText);
+
+                        // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
                 }
@@ -1075,9 +1123,10 @@ impl Tokenizer {
                         self.switch_to(TokenizerState::ScriptDataEscapedEndTagOpen);
                     },
                     Some('a'..='z' | 'A'..='Z') => {
-                        // Set the temporary buffer to the empty string. Emit a U+003C LESS-THAN
-                        // SIGN character token.
+                        // Set the temporary buffer to the empty string.
                         self.buffer = Some(String::new());
+
+                        // Emit a U+003C LESS-THAN SIGN character token.
                         self.emit(Token::Character('<'));
 
                         // Reconsume in the script data double escape start state.
@@ -1227,6 +1276,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
                         self.emit(Token::Character(UNICODE_REPLACEMENT));
                     },
@@ -1236,6 +1287,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-script-html-comment-like-text parse error.
+                        self.parse_error(HtmlParseError::EOFInScriptHtmlCommentLikeText);
+
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
@@ -1254,6 +1307,8 @@ impl Tokenizer {
                     },
                     Some('<') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Switch to the script data double escaped state.
                         self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
 
@@ -1262,6 +1317,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Switch to the script data double escaped state.
                         self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
 
@@ -1277,6 +1334,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-script-html-comment-like-text parse error.
+                        self.parse_error(HtmlParseError::EOFInScriptHtmlCommentLikeText);
+
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
@@ -1306,6 +1365,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Switch to the script data double escaped state.
                         self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
 
@@ -1321,6 +1382,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-script-html-comment-like-text parse error.
+                        self.parse_error(HtmlParseError::EOFInScriptHtmlCommentLikeText);
+
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
@@ -1398,6 +1461,8 @@ impl Tokenizer {
                     },
                     Some('=') => {
                         // This is an unexpected-equals-sign-before-attribute-name parse error.
+                        self.parse_error(HtmlParseError::UnexpectedEqualsSignBeforeAttributeName);
+
                         // Start a new attribute in the current tag token.
                         self.current_token.start_new_attribute();
 
@@ -1441,12 +1506,16 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current attribute's name.
                         self.current_token
                             .append_to_attribute_name(UNICODE_REPLACEMENT);
                     },
                     Some(c @ ('"' | '\'' | '<')) => {
                         // This is an unexpected-character-in-attribute-name parse error.
+                        self.parse_error(HtmlParseError::UnexpectedCharacterInAttributeName);
+
                         // Treat it as per the "anything else" entry below.
                         self.current_token.append_to_attribute_name(c);
                     },
@@ -1484,6 +1553,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-tag parse error.
+                        self.parse_error(HtmlParseError::EOFInTag);
+
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
@@ -1504,6 +1575,8 @@ impl Tokenizer {
                     },
                     Some('>') => {
                         // This is a missing-attribute-value parse error.
+                        self.parse_error(HtmlParseError::MissingAttributeValue);
+
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
@@ -1533,6 +1606,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current attribute's value.
                         self.current_token
                             .append_to_attribute_value(UNICODE_REPLACEMENT);
@@ -1543,6 +1618,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-tag parse error.
+                        self.parse_error(HtmlParseError::EOFInTag);
+
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
@@ -1565,6 +1642,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current attribute's value.
                         self.current_token
                             .append_to_attribute_value(UNICODE_REPLACEMENT);
@@ -1575,6 +1654,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-tag parse error.
+                        self.parse_error(HtmlParseError::EOFInTag);
+
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
@@ -1608,6 +1689,10 @@ impl Tokenizer {
                     },
                     Some(c @ ('"' | '\'' | '<' | '=' | '`')) => {
                         // This is an unexpected-character-in-unquoted-attribute-value parse error.
+                        self.parse_error(
+                            HtmlParseError::UnexpectedCharacterInUnquotedAttributeValue,
+                        );
+
                         // Treat it as per the "anything else" entry below.
                         self.current_token.append_to_attribute_value(c);
                     },
@@ -1616,7 +1701,10 @@ impl Tokenizer {
                         self.current_token.append_to_attribute_value(c);
                     },
                     None => {
-                        // This is an eof-in-tag parse error. Emit an end-of-file token.
+                        // This is an eof-in-tag parse error.
+                        self.parse_error(HtmlParseError::EOFInTag);
+
+                        // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
                 }
@@ -1640,11 +1728,15 @@ impl Tokenizer {
                     },
                     Some(_) => {
                         // This is a missing-whitespace-between-attributes parse error.
+                        self.parse_error(HtmlParseError::MissingWhitespaceBetweenAttributes);
+
                         // Reconsume in the before attribute name state.
                         self.reconsume_in(TokenizerState::BeforeAttributeName);
                     },
                     None => {
                         // This is an eof-in-tag parse error.
+                        self.parse_error(HtmlParseError::EOFInTag);
+
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
@@ -1666,11 +1758,15 @@ impl Tokenizer {
                     },
                     Some(_) => {
                         // This is an unexpected-solidus-in-tag parse error.
+                        self.parse_error(HtmlParseError::UnexpectedSolidusInTag);
+
                         // Reconsume in the before attribute name state.
                         self.reconsume_in(TokenizerState::BeforeAttributeName);
                     },
                     None => {
                         // This is an eof-in-tag parse error.
+                        self.parse_error(HtmlParseError::EOFInTag);
+
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
@@ -1688,8 +1784,10 @@ impl Tokenizer {
                         self.emit_current_token();
                     },
                     Some('\0') => {
-                        // This is an unexpected-null-character parse error. Append a U+FFFD
-                        // REPLACEMENT CHARACTER character to the comment token's data.
+                        // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
+                        // Append a U+FFFD REPLACEMENT CHARACTER character to the comment token's data.
                         self.current_token.append_to_comment(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
@@ -1727,6 +1825,8 @@ impl Tokenizer {
                     todo!();
                 } else {
                     // This is an incorrectly-opened-comment parse error.
+                    self.parse_error(HtmlParseError::IncorrectlyOpenedComment);
+
                     // Create a comment token whose data is the empty string.
                     self.current_token.create_comment();
 
@@ -1744,6 +1844,8 @@ impl Tokenizer {
                     },
                     Some('>') => {
                         // This is an abrupt-closing-of-empty-comment parse error.
+                        self.parse_error(HtmlParseError::AbruptClosingOfEmptyComment);
+
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
@@ -1766,6 +1868,8 @@ impl Tokenizer {
                     },
                     Some('>') => {
                         // This is an abrupt-closing-of-empty-comment parse error.
+                        self.parse_error(HtmlParseError::AbruptClosingOfEmptyComment);
+
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
@@ -1781,6 +1885,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-comment parse error.
+                        self.parse_error(HtmlParseError::EOFInComment);
+
                         // Emit the current comment token.
                         self.emit_current_token();
 
@@ -1805,8 +1911,10 @@ impl Tokenizer {
                         self.switch_to(TokenizerState::CommentEndDash);
                     },
                     Some('\0') => {
-                        // This is an unexpected-null-character parse error. Append a U+FFFD
-                        // REPLACEMENT CHARACTER character to the comment token's data.
+                        // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
+                        // Append a U+FFFD REPLACEMENT CHARACTER character to the comment token's data.
                         self.current_token.append_to_comment(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
@@ -1815,6 +1923,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-comment parse error.
+                        self.parse_error(HtmlParseError::EOFInComment);
+
                         // Emit the current comment token.
                         self.emit_current_token();
 
@@ -1882,6 +1992,8 @@ impl Tokenizer {
                     },
                     Some(_) => {
                         // This is a nested-comment parse error.
+                        self.parse_error(HtmlParseError::NestedComment);
+
                         // Reconsume in the comment end state.
                         self.reconsume_in(TokenizerState::CommentEnd);
                     },
@@ -1904,6 +2016,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-comment parse error.
+                        self.parse_error(HtmlParseError::EOFInComment);
+
                         // Emit the current comment token.
                         self.emit_current_token();
 
@@ -1940,6 +2054,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-comment parse error.
+                        self.parse_error(HtmlParseError::EOFInComment);
+
                         // Emit the current comment token.
                         self.emit_current_token();
 
@@ -1964,6 +2080,8 @@ impl Tokenizer {
                     },
                     Some('>') => {
                         // This is an incorrectly-closed-comment parse error.
+                        self.parse_error(HtmlParseError::IncorrectlyClosedComment);
+
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
@@ -1982,6 +2100,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-comment parse error.
+                        self.parse_error(HtmlParseError::EOFInComment);
+
                         // Emit the current comment token.
                         self.emit_current_token();
 
@@ -2004,11 +2124,15 @@ impl Tokenizer {
                     },
                     Some(_) => {
                         // This is a missing-whitespace-before-doctype-name parse error.
+                        self.parse_error(HtmlParseError::MissingWhitespaceBeforeDoctypeName);
+
                         // Reconsume in the before DOCTYPE name state.
                         self.reconsume_in(TokenizerState::BeforeDOCTYPEName);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
+
                         // Create a new DOCTYPE token.
                         self.current_token.create_doctype();
 
@@ -2044,6 +2168,7 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Create a new DOCTYPE token.
                         self.current_token.create_doctype();
@@ -2057,6 +2182,7 @@ impl Tokenizer {
                     },
                     Some('>') => {
                         // This is a missing-doctype-name parse error.
+                        self.parse_error(HtmlParseError::MissingDoctypeName);
 
                         // Create a new DOCTYPE token.
                         self.current_token.create_doctype();
@@ -2082,6 +2208,7 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Create a new DOCTYPE token.
                         self.current_token.create_doctype();
@@ -2118,6 +2245,7 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's name.
                         self.current_token
@@ -2129,6 +2257,7 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
@@ -2153,6 +2282,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2183,10 +2314,12 @@ impl Tokenizer {
                                 self.ptr += 6;
                                 self.switch_to(TokenizerState::AfterDOCTYPESystemKeyword);
                             }
-                        }
-                        // Otherwise, this is an
-                        // invalid-character-sequence-after-doctype-name parse error.
-                        else {
+                        } else {
+                            // Otherwise, this is an invalid-character-sequence-after-doctype-name parse error.
+                            self.parse_error(
+                                HtmlParseError::InvalidCharacterSequenceAfterDoctypeName,
+                            );
+
                             // Set the current DOCTYPE token's force-quirks flag to on.
                             // Reconsume in the bogus DOCTYPE state.
                             self.current_token.set_force_quirks();
@@ -2208,6 +2341,10 @@ impl Tokenizer {
                     },
                     Some('"') => {
                         // This is a missing-whitespace-after-doctype-public-keyword parse error.
+                        self.parse_error(
+                            HtmlParseError::MissingWhitespaceAfterDoctypePublicKeyword,
+                        );
+
                         // Set the current DOCTYPE token's public identifier to the empty string
                         // (not missing),
                         self.current_token.init_doctype_public_ident();
@@ -2217,6 +2354,10 @@ impl Tokenizer {
                     },
                     Some('\'') => {
                         // This is a missing-whitespace-after-doctype-public-keyword parse error.
+                        self.parse_error(
+                            HtmlParseError::MissingWhitespaceAfterDoctypePublicKeyword,
+                        );
+
                         // Set the current DOCTYPE token's public identifier to the empty string
                         // (not missing),
                         self.current_token.init_doctype_public_ident();
@@ -2225,8 +2366,10 @@ impl Tokenizer {
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierSinglequoted);
                     },
                     Some('>') => {
-                        // This is a missing-doctype-public-identifier parse error. Set the current
-                        // DOCTYPE token's force-quirks flag to on.
+                        // This is a missing-doctype-public-identifier parse error.
+                        self.parse_error(HtmlParseError::MissingDoctypePublicIdentifier);
+
+                        // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
                         // Switch to the data state.
@@ -2237,6 +2380,8 @@ impl Tokenizer {
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-public-identifier parse error.
+                        self.parse_error(HtmlParseError::MissingQuoteBeforeDoctypePublicIdentifier);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2244,8 +2389,10 @@ impl Tokenizer {
                         self.reconsume_in(TokenizerState::BogusDOCTYPE);
                     },
                     None => {
-                        // This is an eof-in-doctype parse error. Set the current DOCTYPE token's
-                        // force-quirks flag to on.
+                        // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
+
+                        // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
@@ -2278,8 +2425,10 @@ impl Tokenizer {
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierSinglequoted);
                     },
                     Some('>') => {
-                        // This is a missing-doctype-public-identifier parse error. Set the current
-                        // DOCTYPE token's force-quirks flag to on.
+                        // This is a missing-doctype-public-identifier parse error.
+                        self.parse_error(HtmlParseError::MissingDoctypePublicIdentifier);
+
+                        // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
                         // Switch to the data state.
@@ -2290,6 +2439,8 @@ impl Tokenizer {
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-public-identifier parse error.
+                        self.parse_error(HtmlParseError::MissingQuoteBeforeDoctypePublicIdentifier);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2298,6 +2449,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2319,6 +2472,7 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's public
                         // identifier.
@@ -2327,6 +2481,7 @@ impl Tokenizer {
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-public-identifier parse error.
+                        self.parse_error(HtmlParseError::AbruptDoctypePublicIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
@@ -2344,6 +2499,7 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
@@ -2366,6 +2522,7 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's public
                         // identifier.
@@ -2374,6 +2531,8 @@ impl Tokenizer {
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-public-identifier parse error.
+                        self.parse_error(HtmlParseError::AbruptDoctypePublicIdentifier);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2390,6 +2549,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2418,6 +2579,7 @@ impl Tokenizer {
                         // This is a
                         // missing-whitespace-between-doctype-public-and-system-identifiers parse
                         // error.
+                        self.parse_error(HtmlParseError::MissingWhitespaceBetweenDoctypePublicAndSystemIdentifier);
 
                         // Set the current DOCTYPE token's system identifier to the empty
                         // string (not missing),
@@ -2429,6 +2591,7 @@ impl Tokenizer {
                     Some('\'') => {
                         // This is a missing-whitespace-between-doctype-public-and-system-identifiers
                         // parse error.
+                        self.parse_error(HtmlParseError::MissingWhitespaceBetweenDoctypePublicAndSystemIdentifier);
 
                         // Set the current DOCTYPE token's system identifier to
                         // the empty string (not missing),
@@ -2439,6 +2602,7 @@ impl Tokenizer {
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-system-identifier parse error.
+                        self.parse_error(HtmlParseError::MissingQuoteBeforeDoctypeSystemIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
@@ -2448,6 +2612,7 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
@@ -2486,6 +2651,7 @@ impl Tokenizer {
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-system-identifier parse error.
+                        self.parse_error(HtmlParseError::MissingQuoteBeforeDoctypeSystemIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
@@ -2495,6 +2661,7 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
@@ -2517,6 +2684,10 @@ impl Tokenizer {
                     },
                     Some('"') => {
                         // This is a missing-whitespace-after-doctype-system-keyword parse error.
+                        self.parse_error(
+                            HtmlParseError::MissingWhitespaceAfterDoctypeSystemKeyword,
+                        );
+
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (double-quoted) state.
@@ -2525,6 +2696,10 @@ impl Tokenizer {
                     },
                     Some('\'') => {
                         // This is a missing-whitespace-after-doctype-system-keyword parse error.
+                        self.parse_error(
+                            HtmlParseError::MissingWhitespaceAfterDoctypeSystemKeyword,
+                        );
+
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (single-quoted) state.
@@ -2533,6 +2708,8 @@ impl Tokenizer {
                     },
                     Some('>') => {
                         // This is a missing-doctype-system-identifier parse error.
+                        self.parse_error(HtmlParseError::MissingDoctypeSystemIdentifier);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2544,6 +2721,8 @@ impl Tokenizer {
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-system-identifier parse error.
+                        self.parse_error(HtmlParseError::MissingQuoteBeforeDoctypeSystemIdentifier);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2552,6 +2731,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2584,6 +2765,8 @@ impl Tokenizer {
                     },
                     Some('>') => {
                         // This is a missing-doctype-system-identifier parse error.
+                        self.parse_error(HtmlParseError::MissingDoctypeSystemIdentifier);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2595,6 +2778,8 @@ impl Tokenizer {
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-system-identifier parse error.
+                        self.parse_error(HtmlParseError::MissingQuoteBeforeDoctypeSystemIdentifier);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2602,8 +2787,10 @@ impl Tokenizer {
                         self.reconsume_in(TokenizerState::BogusDOCTYPE);
                     },
                     None => {
-                        // This is an eof-in-doctype parse error. Set the current DOCTYPE token's
-                        // force-quirks flag to on.
+                        // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
+
+                        // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
@@ -2624,6 +2811,8 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current
                         // DOCTYPE token's system identifier.
                         self.current_token
@@ -2631,6 +2820,8 @@ impl Tokenizer {
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-system-identifier parse error.
+                        self.parse_error(HtmlParseError::AbruptDoctypeSystemIdentifier);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2647,6 +2838,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2668,14 +2861,18 @@ impl Tokenizer {
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's system
                         // identifier.
                         self.current_token
                             .append_to_doctype_system_ident(UNICODE_REPLACEMENT);
                     },
                     Some('>') => {
-                        // This is an abrupt-doctype-system-identifier parse error. Set the current
-                        // DOCTYPE token's force-quirks flag to on.
+                        // This is an abrupt-doctype-system-identifier parse error.
+                        self.parse_error(HtmlParseError::AbruptDoctypeSystemIdentifier);
+
+                        // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
                         // Switch to the data state.
@@ -2691,6 +2888,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
+
                         // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
@@ -2717,13 +2916,19 @@ impl Tokenizer {
                     Some(_) => {
                         // This is an unexpected-character-after-doctype-system-identifier parse
                         // error.
+                        self.parse_error(
+                            HtmlParseError::UnexpectedCharacterAfterDoctypeSystemIdentifier,
+                        );
+
                         // Reconsume in the bogus DOCTYPE state. (This does not set the
                         // current DOCTYPE token's force-quirks flag to on.)
                         self.reconsume_in(TokenizerState::BogusDOCTYPE);
                     },
                     None => {
-                        // This is an eof-in-doctype parse error. Set the current DOCTYPE
-                        // token's force-quirks flag to on.
+                        // This is an eof-in-doctype parse error.
+                        self.parse_error(HtmlParseError::EOFInDoctype);
+
+                        // Set the current DOCTYPE token's force-quirks flag to on.
                         self.current_token.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
@@ -2739,14 +2944,20 @@ impl Tokenizer {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('>') => {
-                        // Switch to the data state. Emit the DOCTYPE token.
+                        // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
+                        // Emit the DOCTYPE token.
                         self.emit_current_token();
                     },
                     Some('\0') => {
-                        // This is an unexpected-null-character parse error. Ignore the character.
+                        // This is an unexpected-null-character parse error.
+                        self.parse_error(HtmlParseError::UnexpectedNullCharacter);
+
+                        // Ignore the character.
                     },
-                    Some(_) => {}, // Ignore the character.
+                    Some(_) => {
+                        // Ignore the character.
+                    },
                     None => {
                         // Emit the DOCTYPE token.
                         self.emit_current_token();
@@ -2770,6 +2981,8 @@ impl Tokenizer {
                     },
                     None => {
                         // This is an eof-in-cdata parse error.
+                        self.parse_error(HtmlParseError::EOFInCDATA);
+
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
                     },
@@ -2899,6 +3112,8 @@ impl Tokenizer {
                     },
                     Some(';') => {
                         // This is an unknown-named-character-reference parse error.
+                        self.parse_error(HtmlParseError::UnknownNamedCharacterReference);
+
                         // Reconsume in the return state.
                         self.reconsume_in(self.return_state.unwrap());
                     },
@@ -2938,6 +3153,10 @@ impl Tokenizer {
                     },
                     _ => {
                         // This is an absence-of-digits-in-numeric-character-reference parse error.
+                        self.parse_error(
+                            HtmlParseError::AbsenceOfDigitsInNumericCharacterReference,
+                        );
+
                         // Flush code points consumed as a character reference.
                         self.flush_code_points_consumed_as_character_reference();
 
@@ -2957,6 +3176,10 @@ impl Tokenizer {
                     _ => {
                         // This is an absence-of-digits-in-numeric-character-reference parse
                         // error.
+                        self.parse_error(
+                            HtmlParseError::AbsenceOfDigitsInNumericCharacterReference,
+                        );
+
                         // Flush code points consumed as a character reference.
                         self.flush_code_points_consumed_as_character_reference();
 
@@ -2987,6 +3210,8 @@ impl Tokenizer {
                     },
                     _ => {
                         // This is a missing-semicolon-after-character-reference parse error.
+                        self.parse_error(HtmlParseError::MissingSemicolonAfterCharacterReference);
+
                         // Reconsume in the numeric character reference end state.
                         self.reconsume_in(TokenizerState::NumericCharacterReferenceEnd);
                     },
@@ -3016,6 +3241,8 @@ impl Tokenizer {
                     },
                     _ => {
                         // This is a missing-semicolon-after-character-reference parse error.
+                        self.parse_error(HtmlParseError::MissingSemicolonAfterCharacterReference);
+
                         // Reconsume in the numeric character reference end state.
                         self.reconsume_in(TokenizerState::NumericCharacterReferenceEnd);
                     },
@@ -3026,18 +3253,24 @@ impl Tokenizer {
                 // Check the character reference code:
                 match self.character_reference_code {
                     0x00 => {
-                        // This is a null-character-reference parse error. Set the character
-                        // reference code to 0xFFFD.
+                        // This is a null-character-reference parse error.
+                        self.parse_error(HtmlParseError::NullCharacterReference);
+
+                        // Set the character reference code to 0xFFFD.
                         self.character_reference_code = 0xFFFD;
                     },
                     0x110000.. => {
-                        // This is a character-reference-outside-unicode-range parse error. Set the
-                        // character reference code to 0xFFFD.
+                        // This is a character-reference-outside-unicode-range parse error.
+                        self.parse_error(HtmlParseError::CharacterReferenceOutsideOfUnicodeRange);
+
+                        // Set the character reference code to 0xFFFD.
                         self.character_reference_code = 0xFFFD;
                     },
                     0xD800..=0xDFFF => {
-                        // This is a surrogate-character-reference parse error. Set the character
-                        // reference code to 0xFFFD.
+                        // This is a surrogate-character-reference parse error.
+                        self.parse_error(HtmlParseError::SurrogateCharacterReference);
+
+                        // Set the character reference code to 0xFFFD.
                         self.character_reference_code = 0xFFFD;
                     },
                     0xFDD0..=0xFDEF
@@ -3076,6 +3309,7 @@ impl Tokenizer {
                     | 0x10FFFE
                     | 0x10FFFF => {
                         // This is a noncharacter-character-reference parse error.
+                        self.parse_error(HtmlParseError::NoncharacterCharacterReference);
                     },
                     c @ (0x0D | 0xC0 | 0x007F..=0x009F) => {
                         if c != TAB as u32
@@ -3083,7 +3317,8 @@ impl Tokenizer {
                             || c != FORM_FEED as u32
                             || c != SPACE as u32
                         {
-                            // control character reference parse error
+                            // This is a control character reference parse error
+                            self.parse_error(HtmlParseError::ControlCharacterReference);
                             match c {
                                 0x80 => {
                                     self.character_reference_code = 0x20AC;
@@ -3184,7 +3419,7 @@ impl Tokenizer {
     }
 }
 
-impl Iterator for Tokenizer {
+impl<P: ParseErrorHandler> Iterator for Tokenizer<P> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
