@@ -133,7 +133,7 @@ fn serialize_token(
                 .iter()
                 .map(|(key, value)| {
                     format!(
-                        "{}: {}",
+                        "\"{}\": \"{}\"",
                         unicode_escape(&key.to_string()),
                         unicode_escape(&value.to_string())
                     )
