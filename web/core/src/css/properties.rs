@@ -37,7 +37,7 @@ impl StyleProperty {
             },
             static_interned!("display") => Self::Display(DisplayValue::parse(parser)?),
             _ => {
-                log::warn!("Unknown CSS property name: {property_name:?}");
+                log::warn!("Unknown CSS property name: {:?}", property_name.to_string());
                 return Err(ParseError);
             },
         };
