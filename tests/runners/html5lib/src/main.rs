@@ -120,10 +120,11 @@ fn serialize_token(
             let force_quirks = doctype.force_quirks;
 
             serialized_tokens.push(format!(
-                "[\"DOCTYPE\", \"{}\", \"{}\", \"{}\", {force_quirks:?}]",
+                "[\"DOCTYPE\", \"{}\", \"{}\", \"{}\", {:?}]",
                 unicode_escape(&name),
                 unicode_escape(&public_id),
-                unicode_escape(&system_id)
+                unicode_escape(&system_id),
+                !force_quirks,
             ));
         },
         Token::Tag(tagdata) if tagdata.opening => {
