@@ -107,20 +107,20 @@ fn serialize_token(
         Token::DOCTYPE(doctype) => {
             let name = doctype
                 .name
-                .map(|s| s.to_string())
+                .map(|s| format!("\"{s}\""))
                 .unwrap_or("null".to_string());
             let public_id = doctype
                 .public_ident
-                .map(|s| s.to_string())
+                .map(|s| format!("\"{s}\""))
                 .unwrap_or("null".to_string());
             let system_id = doctype
                 .system_ident
-                .map(|s| s.to_string())
+                .map(|s| format!("\"{s}\""))
                 .unwrap_or("null".to_string());
             let force_quirks = doctype.force_quirks;
 
             serialized_tokens.push(format!(
-                "[\"DOCTYPE\", \"{}\", \"{}\", \"{}\", {:?}]",
+                "[\"DOCTYPE\", {}, {}, {}, {:?}]",
                 unicode_escape(&name),
                 unicode_escape(&public_id),
                 unicode_escape(&system_id),
