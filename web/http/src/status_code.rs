@@ -21,7 +21,7 @@ macro_rules! u32_to_enum {
 }
 
 u32_to_enum! {
-    #[derive(Debug, PartialEq)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum StatusCode {
         // information
         Continue = 100,

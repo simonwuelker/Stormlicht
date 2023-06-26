@@ -13,7 +13,7 @@ pub enum HTTPError {
     DNS(DNSError),
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Header {
     UserAgent,
     Other(String),
@@ -28,11 +28,13 @@ impl Header {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Method {
     GET,
     POST,
 }
 
+#[derive(Clone, Debug)]
 pub struct Request {
     method: Method,
     path: String,
@@ -40,7 +42,7 @@ pub struct Request {
     host: Host,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CreateRequestError {
     NotHTTP,
     MissingHost,

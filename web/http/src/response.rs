@@ -8,7 +8,7 @@ use parser_combinators::{
 
 use crate::status_code::StatusCode;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Response {
     pub status: StatusCode,
     pub headers: HashMap<String, String>,
