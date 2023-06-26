@@ -168,7 +168,11 @@ impl<'a> Deserializer for JsonDeserializer<'a> {
         self.expect_next_token(Token::String(name.to_string()))?;
         self.expect_next_token(Token::Colon)?;
         let value = T::deserialize(self)?;
-        self.expect_next_token(Token::Comma)?;
+        // Not entirely json compliant: the comma is always optional
+        let old_position = self.position;
+        if self.next_token() != Some(Token::Comma) {
+            self.position = old_position;
+        }
         Ok(value)
     }
 
@@ -182,6 +186,8 @@ impl<'a> Deserializer for JsonDeserializer<'a> {
             values.add_item(value);
         }
         while self.peek_token() == Some(Token::Comma) {
+            self.next_token(); // discard the comma
+
             values.add_item(S::Item::deserialize(self)?);
         }
         self.expect_next_token(Token::BracketClose)?;
@@ -192,6 +198,8 @@ impl<'a> Deserializer for JsonDeserializer<'a> {
     where
         M::Value: Deserialize,
     {
+        self.start_struct()?;
+
         let mut map = M::default();
         if let Ok(key) = self.deserialize_string() {
             self.expect_next_token(Token::Colon)?;
@@ -200,11 +208,15 @@ impl<'a> Deserializer for JsonDeserializer<'a> {
         }
 
         while self.peek_token() == Some(Token::Comma) {
+            _ = self.next_token(); // discard the comma
+
             let key = self.deserialize_string()?;
             self.expect_next_token(Token::Colon)?;
             let value = M::Value::deserialize(self)?;
-            map.add_key_value(key, value);
+            map.add_key_value(key.clone(), value);
         }
+
+        self.end_struct()?;
 
         Ok(map)
     }

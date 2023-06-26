@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[cfg(feature = "derive")]
 pub use serialize_derive::Deserialize;
 
@@ -34,5 +36,34 @@ pub trait Deserializer {
 impl<T: Deserialize> Deserialize for Vec<T> {
     fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
         deserializer.deserialize_sequence()
+    }
+}
+
+impl<T: Deserialize> Deserialize for HashMap<String, T> {
+    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+        deserializer.deserialize_map()
+    }
+}
+
+macro_rules! deserialize_int {
+    ($t: ident) => {
+        impl Deserialize for $t {
+            fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+                deserializer.deserialize_usize().map(|v| v as $t)
+            }
+        }
+    };
+}
+
+deserialize_int!(u8);
+deserialize_int!(u16);
+deserialize_int!(u32);
+deserialize_int!(u64);
+deserialize_int!(u128);
+deserialize_int!(usize);
+
+impl Deserialize for String {
+    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+        deserializer.deserialize_string()
     }
 }
