@@ -85,7 +85,7 @@ impl Request {
 
         Self {
             method: Method::GET,
-            path: "/".to_string(),
+            path: format!("/{}", url.path.join("/")),
             headers: HashMap::new(),
             host: url.host.expect("URL does not have a host"),
         }
