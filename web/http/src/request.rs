@@ -6,6 +6,8 @@ use url::{Host, URL};
 
 use crate::response::{parse_response, Response};
 
+const USER_AGENT: &str = "Stormlicht";
+
 #[derive(Debug)]
 pub enum HTTPError {
     InvalidResponse,
@@ -16,6 +18,7 @@ pub enum HTTPError {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Header {
     UserAgent,
+    Host,
     Other(String),
 }
 
@@ -23,6 +26,7 @@ impl Header {
     pub fn as_bytes(&self) -> &[u8] {
         match self {
             Self::UserAgent => b"User-Agent".as_slice(),
+            Self::Host => b"host".as_slice(),
             Self::Other(name) => name.as_bytes(),
         }
     }
@@ -75,19 +79,24 @@ fn read_until<R: Read>(reader: &mut BufReader<R>, needle: &[u8]) -> Result<Vec<u
 }
 
 impl Request {
-    /// Send a `GET` request to the specified URL
+    /// Create a `GET` request for the specified URL
     ///
     /// # Panics
     /// This function panics if the url scheme is not `http`
     /// or the url does not have a `host`.
     pub fn get(url: URL) -> Self {
         assert_eq!(url.scheme, "http", "URL is not http");
+        let host = url.host.expect("URL does not have a host");
+
+        let mut headers = HashMap::new();
+        headers.insert(Header::UserAgent, USER_AGENT.to_string());
+        headers.insert(Header::Host, host.to_string());
 
         Self {
             method: Method::GET,
             path: format!("/{}", url.path.join("/")),
-            headers: HashMap::new(),
-            host: url.host.expect("URL does not have a host"),
+            headers,
+            host,
         }
     }
 
