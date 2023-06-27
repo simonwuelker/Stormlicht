@@ -3,7 +3,9 @@
 mod escape;
 
 use cli::CommandLineArgumentParser;
-use core::html::tokenization::{Token, Tokenizer, TokenizerState};
+use core::html::tokenization::{
+    IgnoreParseErrors, ParseErrorHandler, Token, Tokenizer, TokenizerState,
+};
 
 use crate::escape::{unescape_str, unicode_escape};
 
@@ -69,7 +71,7 @@ fn main() -> Result<(), Error> {
         let initial_state =
             parse_initial_state(&args.initial_state[1..args.initial_state.len() - 1])?;
 
-        let mut tokenizer = Tokenizer::new(&source);
+        let mut tokenizer: Tokenizer<IgnoreParseErrors> = Tokenizer::new(&source);
         tokenizer.switch_to(initial_state);
         tokenizer.set_last_start_tag(last_start_tag);
 
@@ -98,9 +100,9 @@ fn parse_initial_state(initial_state: &str) -> Result<TokenizerState, Error> {
     }
 }
 
-fn serialize_token(
+fn serialize_token<P: ParseErrorHandler>(
     token: Token,
-    tokenizer: &mut Tokenizer,
+    tokenizer: &mut Tokenizer<P>,
     serialized_tokens: &mut Vec<String>,
 ) -> bool {
     match token {
