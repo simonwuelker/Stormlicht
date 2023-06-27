@@ -3058,7 +3058,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
             // https://html.spec.whatwg.org/multipage/parsing.html#named-character-reference-state
             TokenizerState::NamedCharacterReference => {
                 match lookup_character_reference(&self.source[self.ptr..]) {
-                    Some(unicode_val) => {
+                    Some((resolved_reference, matched_str)) => {
+                        self.ptr += matched_str.len();
+
+                        // FIXME:
                         // If the character reference was consumed as part of an attribute, and
                         // the last character matched is not a U+003B SEMICOLON character (;),
                         // and the next input character is either a U+003D EQUALS SIGN
@@ -3070,17 +3073,19 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // If the last character matched is not a U+003B SEMICOLON
                         // character (;), then this is a
                         // missing-semicolon-after-character-reference parse error.
-                        //
+
                         // Set the temporary buffer to the empty string.
                         // Append one or two characters corresponding to
                         // the character reference name (as given by the
                         // second column of the named character references
                         // table) to the temporary buffer.
-                        // Flush code points consumed as a
-                        // character reference. Switch to the
-                        // return state.
-                        _ = unicode_val;
-                        todo!();
+                        self.buffer = Some(resolved_reference.to_string());
+
+                        // Flush code points consumed as a character reference.
+                        self.flush_code_points_consumed_as_character_reference();
+
+                        // Switch to the return state.
+                        self.switch_to(self.return_state.expect("No return state"));
                     },
                     None => {
                         // Flush code points consumed as a character reference.
