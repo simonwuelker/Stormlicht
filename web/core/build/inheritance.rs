@@ -109,7 +109,7 @@ fn find_path(
 const DOM_OBJECT_PATH: &str = "src/dom/dom_objects";
 const DOM_OBJECT_MODULE_PATH: &str = "crate::dom::dom_objects";
 
-fn main() -> Result<(), io::Error> {
+pub fn generate() -> Result<(), io::Error> {
     // Rerun if any DOM object changes
     // TODO: Since this is probably going to take a considerable amount of time
     // if the number of DOM object grows, we should consider caching and only updating

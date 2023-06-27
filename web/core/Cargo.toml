@@ -2,6 +2,7 @@
 name = "core"
 version = "0.1.0"
 edition = "2021"
+build = "build/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,3 +16,4 @@ string_interner = { path = "../../util/string_interner" }
 [build-dependencies]
 syn = "1"
 proc-macro2 = "1"
+serialize = { path = "../../util/serialization/serialize" }
