@@ -46,7 +46,7 @@ def test_font_rendering(args, unknown_args):
     ensure_submodules_are_downloaded()
 
     # Build the testrunner
-    subprocess.run(["cargo", "build", "--bin=text-rendering"])
+    subprocess.run(["cargo", "build", "--bin=text-rendering"], check=True)
 
     # Execute the test suite
     subprocess.run(
@@ -57,7 +57,8 @@ def test_font_rendering(args, unknown_args):
             "--output=target/text-rendering-tests.html",
             "--testcases=tests/text-rendering-tests/testcases",
             "--font=tests/text-rendering-tests/fonts",
-        ]
+        ],
+        timeout=30,
     )
 
     if args.open:
@@ -81,7 +82,7 @@ def test_html_parser(args, unknown_args):
     ensure_submodules_are_downloaded()
 
     # Build the testrunner
-    subprocess.run(["cargo", "build", "--bin=html5lib-testrunner"])
+    subprocess.run(["cargo", "build", "--bin=html5lib-testrunner"], check=True)
 
     total_tests = 0
     tests_failed = 0
@@ -129,6 +130,7 @@ def test_html_parser(args, unknown_args):
                             runner_args,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
+                            timeout=3,
                         )
 
                         out_text = p.stdout.decode("utf-8")
@@ -136,6 +138,12 @@ def test_html_parser(args, unknown_args):
                             out_text = out_text.encode("unicode_escape").decode("utf-8")
 
                         out = json.loads(out_text)
+                    except subprocess.TimeoutExpired:
+                        print("Timed out")
+                        tests_failed += 1
+                        if args.verbose:
+                            verbose_print(initial_state, test, "", "")
+                        continue
                     except:
                         print("Fail")
                         tests_failed += 1
