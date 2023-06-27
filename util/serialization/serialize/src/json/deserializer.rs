@@ -21,14 +21,16 @@ pub enum Token {
 }
 
 pub struct JsonDeserializer<'a> {
-    source: &'a str,
-    position: usize,
+    /// Internally, JSON is *always* stored in UTF-8
+    /// but handling the bytes individually is simpler.
+    source: &'a [u8],
+    pub position: usize,
 }
 
 impl<'a> JsonDeserializer<'a> {
     pub fn new(json: &'a str) -> Self {
         Self {
-            source: json,
+            source: json.as_bytes(),
             position: 0,
         }
     }
@@ -51,8 +53,8 @@ impl<'a> JsonDeserializer<'a> {
         }
     }
 
-    fn peek_char(&self) -> Option<char> {
-        self.source.chars().nth(self.position)
+    fn peek(&self) -> Option<u8> {
+        self.source.get(self.position).copied()
     }
 
     fn bump(&mut self) {
@@ -61,59 +63,61 @@ impl<'a> JsonDeserializer<'a> {
 
     fn next_token(&mut self) -> Option<Token> {
         loop {
-            match self.peek_char() {
-                Some('{') => {
+            match self.peek() {
+                Some(b'{') => {
                     self.bump();
                     return Some(Token::CurlyBraceOpen);
                 },
-                Some('}') => {
+                Some(b'}') => {
                     self.bump();
                     return Some(Token::CurlyBraceClose);
                 },
-                Some('[') => {
+                Some(b'[') => {
                     self.bump();
                     return Some(Token::BracketOpen);
                 },
-                Some(']') => {
+                Some(b']') => {
                     self.bump();
                     return Some(Token::BracketClose);
                 },
-                Some(',') => {
+                Some(b',') => {
                     self.bump();
                     return Some(Token::Comma);
                 },
-                Some(':') => {
+                Some(b':') => {
                     self.bump();
                     return Some(Token::Colon);
                 },
-                Some('"') => {
+                Some(b'"') => {
                     // Parse a string
-                    let mut s = String::new();
+                    let mut string_bytes = vec![];
                     self.bump();
-                    while let Some(c) = self.peek_char() {
+                    while let Some(c) = self.peek() {
                         self.bump();
-                        if c == '"' {
-                            return Some(Token::String(s));
+                        if c == b'"' {
+                            // SAFETY: The internal byte buffer came from &str which is guaranteed to be utf-8
+                            let string = unsafe { String::from_utf8_unchecked(string_bytes) };
+                            return Some(Token::String(string));
                         } else {
-                            s.push(c);
+                            string_bytes.push(c);
                         }
                     }
 
                     // EOF in string
                     return None;
                 },
-                Some(' ' | '\t' | '\r' | '\n') => {
+                Some(b' ' | b'\t' | b'\r' | b'\n') => {
                     // whitespace is skipped
                     self.bump();
                 },
-                Some(c @ ('0'..='9')) => {
+                Some(c @ (b'0'..=b'9')) => {
                     // Parse a numeric value
-                    let mut num = c.to_digit(10).expect("Digits 0-9 are valid base 10 digits");
+                    let mut num = (c - b'0') as u32;
                     self.bump();
-                    while let Some(c) = self.peek_char() {
+                    while let Some(c) = self.peek() {
                         if c.is_ascii_digit() {
                             num *= 10;
-                            num += c.to_digit(10).expect("Digits 0-9 are valid base 10 digits");
+                            num += (c - b'0') as u32;
                             self.bump();
                         } else {
                             break;
@@ -122,25 +126,25 @@ impl<'a> JsonDeserializer<'a> {
 
                     return Some(Token::Numeric(num));
                 },
-                Some(c) => {
+                Some(c @ (b't' | b'f' | b'n')) => {
                     // Parse an identifier
-                    let mut s = c.to_string();
+                    let mut ident_bytes = vec![c];
                     self.bump();
-                    while let Some(c) = self.peek_char() {
+                    while let Some(c) = self.peek() {
                         if c.is_ascii_alphabetic() {
-                            s.push(c);
+                            ident_bytes.push(c);
                             self.bump();
                         } else {
-                            return match s.as_ref() {
-                                "true" => Some(Token::True),
-                                "false" => Some(Token::False),
-                                "null" => Some(Token::Null),
+                            return match ident_bytes.as_slice() {
+                                b"true" => Some(Token::True),
+                                b"false" => Some(Token::False),
+                                b"null" => Some(Token::Null),
                                 _ => None,
                             };
                         }
                     }
                 },
-                None => return None,
+                Some(_) | None => return None,
             }
         }
     }
