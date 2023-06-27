@@ -2292,6 +2292,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     },
                     Some(_) => {
                         self.ptr -= 1;
+
                         // If the six characters starting from the current input character are
                         // an ASCII case-insensitive match for the word "PUBLIC",
                         if self.source.len() > self.ptr + 6 {
@@ -2301,6 +2302,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                                 // to the after DOCTYPE public keyword state.
                                 self.ptr += 6;
                                 self.switch_to(TokenizerState::AfterDOCTYPEPublicKeyword);
+                                return;
                             }
                             // Otherwise, if the six characters starting from the current input
                             // character are an ASCII case-insensitive match for the word
@@ -2310,21 +2312,22 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                                 // DOCTYPE system keyword state.
                                 self.ptr += 6;
                                 self.switch_to(TokenizerState::AfterDOCTYPESystemKeyword);
+                                return;
                             }
-                        } else {
-                            // Otherwise, this is an invalid-character-sequence-after-doctype-name parse error.
-                            self.parse_error(
-                                HtmlParseError::InvalidCharacterSequenceAfterDoctypeName,
-                            );
-
-                            // Set the current DOCTYPE token's force-quirks flag to on.
-                            // Reconsume in the bogus DOCTYPE state.
-                            self.current_token.set_force_quirks();
-
-                            // Note: we reconsume, but because we already decremented
-                            // self.ptr (above) we don't need to do it again
-                            self.switch_to(TokenizerState::BogusDOCTYPE);
                         }
+
+                        // Otherwise, this is an invalid-character-sequence-after-doctype-name parse error.
+                        self.parse_error(HtmlParseError::InvalidCharacterSequenceAfterDoctypeName);
+
+                        // Set the current DOCTYPE token's force-quirks flag to on.
+                        self.current_token.set_force_quirks();
+
+                        // Reconsume in the bogus DOCTYPE state.
+                        self.current_token.set_force_quirks();
+
+                        // Note: we reconsume, but because we already decremented
+                        // self.ptr (above) we don't need to do it again
+                        self.switch_to(TokenizerState::BogusDOCTYPE);
                     },
                 }
             },
