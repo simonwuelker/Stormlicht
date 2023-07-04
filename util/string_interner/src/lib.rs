@@ -149,6 +149,7 @@ perfect_set!(
         "important",
         "inherit",
         "inline",
+        "list-item",
         "rgb",
         "rgba",
         "ruby",
