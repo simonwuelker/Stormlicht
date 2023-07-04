@@ -1,3 +1,7 @@
+mod display;
+
+pub use display::Display;
+
 use super::{syntax::Token, values::color::Color, CSSParse, ParseError, Parser};
 use cssproperty_derive::CSSProperty;
 use string_interner::{static_interned, static_str, InternedString};
@@ -12,7 +16,7 @@ pub enum StyleProperty {
     BackgroundColor(BackgroundColorValue),
 
     /// <https://drafts.csswg.org/css-display/#the-display-properties>
-    Display(DisplayValue),
+    Display(Display),
 }
 
 #[derive(Clone, Debug)]
@@ -35,7 +39,7 @@ impl StyleProperty {
             static_interned!("background-color") => {
                 Self::BackgroundColor(BackgroundColorValue::parse(parser)?)
             },
-            static_interned!("display") => Self::Display(DisplayValue::parse(parser)?),
+            static_interned!("display") => Self::Display(Display::parse(parser)?),
             _ => {
                 log::warn!("Unknown CSS property name: {:?}", property_name.to_string());
                 return Err(ParseError);
@@ -64,17 +68,6 @@ pub enum BackgroundColorValue {
 
     #[keyword = "inherit"]
     Inherit,
-}
-
-/// <https://drafts.csswg.org/css-display/#the-display-properties>
-#[derive(Clone, Debug, CSSProperty)]
-pub enum DisplayValue {
-    // FIXME: missing values
-    #[unordered]
-    InsideOutside {
-        outside: DisplayOutside,
-        inside: DisplayInside,
-    },
 }
 
 /// <https://drafts.csswg.org/css-display/#typedef-display-outside>
