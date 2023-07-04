@@ -378,7 +378,6 @@ dependencies = [
 name = "core"
 version = "0.1.0"
 dependencies = [
- "cssproperty-derive",
  "dom-derive",
  "log",
  "mime",
@@ -506,15 +505,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c063cd8cc95f5c377ed0d4b49a4b21f632396ff690e8470c29b3359b346984b"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "cssproperty-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.15",
 ]
 
 [[package]]

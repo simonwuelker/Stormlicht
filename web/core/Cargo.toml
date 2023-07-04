@@ -10,7 +10,6 @@ build = "build/main.rs"
 dom-derive = { path = "../dom-derive"}
 log = "0.4"
 mime = { path = "../../util/mime" }
-cssproperty-derive = { path = "../cssproperty-derive" }
 string_interner = { path = "../../util/string_interner" }
 
 [build-dependencies]

@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "web/core",
-    "web/cssproperty-derive",
     "web/http", 
     "web/url",
     "web/dns",
