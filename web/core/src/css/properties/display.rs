@@ -56,7 +56,7 @@ pub enum DisplayBox {
 
 /// <https://drafts.csswg.org/css-display/#the-display-properties>
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Display {
+pub enum DisplayValue {
     InsideOutside(DisplayInsideOutside),
     Internal(DisplayInternal),
     Box(DisplayBox),
@@ -83,7 +83,7 @@ pub enum Short {
     InlineTable,
 }
 
-impl Display {
+impl DisplayValue {
     pub fn from_short(short: Short) -> Self {
         match short {
             Short::None => Self::Box(DisplayBox::None),
@@ -157,7 +157,7 @@ impl Display {
     }
 }
 
-impl<'a> CSSParse<'a> for Display {
+impl<'a> CSSParse<'a> for DisplayValue {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         // A display value always consists of up to three identifiers
         let mut idents = vec![];

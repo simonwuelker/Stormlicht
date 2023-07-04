@@ -1,9 +1,13 @@
+mod background_color;
+mod color;
 mod display;
 
-pub use display::Display;
+pub use background_color::BackgroundColorValue;
+pub use color::ColorValue;
+pub use display::DisplayValue;
 
-use super::{syntax::Token, values::color::Color, CSSParse, ParseError, Parser};
-use cssproperty_derive::CSSProperty;
+use super::{CSSParse, ParseError, Parser};
+
 use string_interner::{static_interned, static_str, InternedString};
 
 /// Enumerates the CSS properties supported by the user agent
@@ -16,7 +20,7 @@ pub enum StyleProperty {
     BackgroundColor(BackgroundColorValue),
 
     /// <https://drafts.csswg.org/css-display/#the-display-properties>
-    Display(Display),
+    Display(DisplayValue),
 }
 
 #[derive(Clone, Debug)]
@@ -39,7 +43,7 @@ impl StyleProperty {
             static_interned!("background-color") => {
                 Self::BackgroundColor(BackgroundColorValue::parse(parser)?)
             },
-            static_interned!("display") => Self::Display(Display::parse(parser)?),
+            static_interned!("display") => Self::Display(DisplayValue::parse(parser)?),
             _ => {
                 log::warn!("Unknown CSS property name: {:?}", property_name.to_string());
                 return Err(ParseError);
@@ -47,60 +51,4 @@ impl StyleProperty {
         };
         Ok(property)
     }
-}
-
-/// <https://drafts.csswg.org/css2/#colors>
-#[derive(Clone, Debug, CSSProperty)]
-pub enum ColorValue {
-    Color(Color),
-
-    #[keyword = "inherit"]
-    Inherit,
-}
-
-/// <https://drafts.csswg.org/css2/#background-properties>
-#[derive(Clone, Debug, CSSProperty)]
-pub enum BackgroundColorValue {
-    Color(Color),
-
-    #[keyword = "transparent"]
-    Transparent,
-
-    #[keyword = "inherit"]
-    Inherit,
-}
-
-/// <https://drafts.csswg.org/css-display/#typedef-display-outside>
-#[derive(Clone, Copy, Debug, PartialEq, Eq, CSSProperty)]
-pub enum DisplayOutside {
-    #[keyword = "block"]
-    Block,
-
-    #[keyword = "inline"]
-    Inline,
-
-    #[keyword = "run-in"]
-    RunIn,
-}
-
-/// <https://drafts.csswg.org/css-display/#typedef-display-inside>
-#[derive(Clone, Copy, Debug, PartialEq, Eq, CSSProperty)]
-pub enum DisplayInside {
-    #[keyword = "flow"]
-    Flow,
-
-    #[keyword = "flow-root"]
-    FlowRoot,
-
-    #[keyword = "table"]
-    Table,
-
-    #[keyword = "flex"]
-    Flex,
-
-    #[keyword = "grid"]
-    Grid,
-
-    #[keyword = "ruby"]
-    Ruby,
 }
