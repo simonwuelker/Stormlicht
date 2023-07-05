@@ -24,6 +24,9 @@ def download(url):
     return response.content
 
 
+if not os.path.exists(BASE_DIR):
+    os.makedirs(BASE_DIR)
+
 if not os.path.exists(os.path.join(BASE_DIR, "html_named_entities.json")):
     print("Downloading html named entities list...")
     named_entities = download(HTML_NAMED_ENTITIES_URL)
