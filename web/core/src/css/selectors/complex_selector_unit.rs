@@ -1,5 +1,8 @@
-use super::{CSSValidateSelector, CompoundSelector, PseudoCompoundSelector};
-use crate::css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser};
+use super::{CSSValidateSelector, CompoundSelector, PseudoCompoundSelector, Selector, Specificity};
+use crate::{
+    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser},
+    dom::{dom_objects::Element, DOMPtr},
+};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-complex-selector-unit>
 #[derive(Clone, Debug, PartialEq)]
@@ -35,5 +38,23 @@ impl CSSValidateSelector for ComplexSelectorUnit {
             return false;
         }
         self.pseudo_compound_selectors.is_valid()
+    }
+}
+
+impl Selector for ComplexSelectorUnit {
+    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
+        todo!()
+    }
+
+    fn specificity(&self) -> Specificity {
+        self.compound_selector
+            .as_ref()
+            .map(Selector::specificity)
+            .unwrap_or(Specificity::ZERO)
+            + self
+                .pseudo_compound_selectors
+                .iter()
+                .map(Selector::specificity)
+                .sum()
     }
 }

@@ -1,5 +1,10 @@
-use super::{CSSValidateSelector, PseudoClassSelector, PseudoElementSelector};
-use crate::css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser};
+use super::{
+    CSSValidateSelector, PseudoClassSelector, PseudoElementSelector, Selector, Specificity,
+};
+use crate::{
+    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser},
+    dom::{dom_objects::Element, DOMPtr},
+};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-compound-selector>
 #[derive(Clone, Debug, PartialEq)]
@@ -25,5 +30,20 @@ impl<'a> CSSParse<'a> for PseudoCompoundSelector {
 impl CSSValidateSelector for PseudoCompoundSelector {
     fn is_valid(&self) -> bool {
         self.pseudo_element_selector.is_valid() && self.pseudo_class_selectors.is_valid()
+    }
+}
+
+impl Selector for PseudoCompoundSelector {
+    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
+        todo!()
+    }
+
+    fn specificity(&self) -> Specificity {
+        self.pseudo_element_selector.specificity()
+            + self
+                .pseudo_class_selectors
+                .iter()
+                .map(Selector::specificity)
+                .sum()
     }
 }

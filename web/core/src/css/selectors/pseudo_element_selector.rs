@@ -1,5 +1,10 @@
-use super::{CSSValidateSelector, LegacyPseudoElementSelector, PseudoClassSelector};
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use super::{
+    CSSValidateSelector, LegacyPseudoElementSelector, PseudoClassSelector, Selector, Specificity,
+};
+use crate::{
+    css::{syntax::Token, CSSParse, ParseError, Parser},
+    dom::{dom_objects::Element, DOMPtr},
+};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-element-selector>
 #[derive(Clone, Debug, PartialEq)]
@@ -35,6 +40,21 @@ impl CSSValidateSelector for PseudoElementSelector {
             Self::PseudoClass(pseudo_class_selector) => pseudo_class_selector.is_valid(),
             Self::Legacy(legacy_pseudo_element_selector) => {
                 legacy_pseudo_element_selector.is_valid()
+            },
+        }
+    }
+}
+
+impl Selector for PseudoElementSelector {
+    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
+        todo!()
+    }
+
+    fn specificity(&self) -> Specificity {
+        match self {
+            Self::PseudoClass(pseudo_class_selector) => pseudo_class_selector.specificity(),
+            Self::Legacy(legacy_pseudo_element_selector) => {
+                legacy_pseudo_element_selector.specificity()
             },
         }
     }

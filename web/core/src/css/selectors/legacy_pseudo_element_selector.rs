@@ -1,7 +1,10 @@
 use string_interner::{static_interned, static_str};
 
-use super::CSSValidateSelector;
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use super::{CSSValidateSelector, Selector, Specificity};
+use crate::{
+    css::{syntax::Token, CSSParse, ParseError, Parser},
+    dom::{dom_objects::Element, DOMPtr},
+};
 
 /// <https://drafts.csswg.org/selectors/#typedef-legacy-pseudo-element-selector>
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -42,6 +45,16 @@ impl CSSValidateSelector for LegacyPseudoElementSelector {
         // We don't support *any* legacy pseudo element selectors
         // As per spec, we therefore treat them as invalid
         false
+    }
+}
+
+impl Selector for LegacyPseudoElementSelector {
+    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
+        todo!()
+    }
+
+    fn specificity(&self) -> Specificity {
+        Specificity::new(0, 0, 1)
     }
 }
 

@@ -1,4 +1,7 @@
-use std::ops::{Add, AddAssign};
+use std::{
+    iter::Sum,
+    ops::{Add, AddAssign},
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct Specificity {
@@ -36,6 +39,16 @@ impl Add for Specificity {
 impl AddAssign for Specificity {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
+    }
+}
+
+impl Sum<Specificity> for Specificity {
+    fn sum<I: Iterator<Item = Specificity>>(iter: I) -> Self {
+        let mut specificity = Self::ZERO;
+        for s in iter {
+            specificity += s;
+        }
+        specificity
     }
 }
 
