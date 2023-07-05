@@ -18,19 +18,46 @@ pub enum Origin {
 #[derive(Clone, Debug)]
 pub struct Stylesheet {
     /// Where the stylesheet came from
-    pub origin: Origin,
+    origin: Origin,
 
     /// The rules contained in the stylesheet
-    pub rules: Vec<StyleRule>,
+    rules: Vec<StyleRule>,
+}
+
+impl Stylesheet {
+    pub fn new(origin: Origin, rules: Vec<StyleRule>) -> Self {
+        Self { origin, rules }
+    }
+
+    #[must_use]
+    pub fn origin(&self) -> Origin {
+        self.origin
+    }
+
+    #[must_use]
+    pub fn rules(&self) -> &[StyleRule] {
+        &self.rules
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct StyleRule {
-    pub selectors: SelectorList,
-    pub properties: Vec<StylePropertyDeclaration>,
+    selector: SelectorList,
+    properties: Vec<StylePropertyDeclaration>,
 }
 
 impl StyleRule {
+    pub fn new(selector: SelectorList, properties: Vec<StylePropertyDeclaration>) -> Self {
+        Self {
+            selector,
+            properties,
+        }
+    }
+    #[must_use]
+    pub fn selector(&self) -> &SelectorList {
+        &self.selector
+    }
+
     #[must_use]
     pub fn properties(&self) -> &[StylePropertyDeclaration] {
         &self.properties

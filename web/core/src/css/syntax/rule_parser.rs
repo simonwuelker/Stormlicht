@@ -36,9 +36,6 @@ impl RuleParser {
             parser.skip_whitespace();
         }
 
-        Ok(StyleRule {
-            selectors,
-            properties,
-        })
+        Ok(StyleRule::new(selectors, properties))
     }
 }

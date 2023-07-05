@@ -368,10 +368,7 @@ impl<'a> Parser<'a> {
             rules.push(rule);
         }
 
-        Ok(Stylesheet {
-            origin: self.origin,
-            rules,
-        })
+        Ok(Stylesheet::new(self.origin, rules))
     }
 
     /// Applies a parser as often as possible, seperating individual parser calls by
