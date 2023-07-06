@@ -10,6 +10,6 @@ pub mod values;
 
 pub use matching_rule::MatchingRule;
 pub use properties::{StyleProperty, StylePropertyDeclaration};
-pub use stylecomputer::collect_matching_rules;
+pub use stylecomputer::StyleComputer;
 pub use stylesheet::{Origin, StyleRule, Stylesheet};
 pub use syntax::parser::{CSSParse, ParseError, Parser};

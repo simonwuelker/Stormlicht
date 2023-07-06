@@ -10,6 +10,13 @@ use super::{CSSParse, ParseError, Parser};
 
 use string_interner::{static_interned, static_str, InternedString};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Important {
+    Yes,
+    #[default]
+    No,
+}
+
 /// Enumerates the CSS properties supported by the user agent
 #[derive(Clone, Debug)]
 pub enum StyleProperty {
@@ -30,7 +37,7 @@ pub struct StylePropertyDeclaration {
     /// Whether or not the property was declared with `!important`.
     ///
     /// For example: `color: red!important;`
-    pub is_important: bool,
+    pub important: Important,
 }
 
 impl StyleProperty {

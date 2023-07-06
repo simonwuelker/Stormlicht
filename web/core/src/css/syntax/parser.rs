@@ -22,7 +22,8 @@ use super::{
 };
 
 use crate::css::{
-    values::Number, Origin, StyleProperty, StylePropertyDeclaration, StyleRule, Stylesheet,
+    properties::Important, values::Number, Origin, StyleProperty, StylePropertyDeclaration,
+    StyleRule, Stylesheet,
 };
 use std::fmt::Debug;
 
@@ -290,7 +291,7 @@ impl<'a> Parser<'a> {
     ) -> Option<StylePropertyDeclaration> {
         // Let decl be a new declaration, with an initially empty name and a value set to an empty list.
         // NOTE: We don't construct declarations like this.
-        let mut is_important = false;
+        let mut important = Important::No;
 
         // 1. If the next token is an <ident-token>, consume a token from input and set decl’s name to the token’s value.
         //    Otherwise, consume the remnants of a bad declaration from input, with nested, and return nothing.
@@ -330,7 +331,7 @@ impl<'a> Parser<'a> {
             self.next_token();
             match self.next_token() {
                 Some(Token::Ident(i)) if i == static_interned!("important") => {
-                    is_important = true;
+                    important = Important::Yes;
                     self.skip_whitespace();
                 },
                 _ => {
@@ -340,10 +341,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Some(StylePropertyDeclaration {
-            value,
-            is_important,
-        })
+        Some(StylePropertyDeclaration { value, important })
     }
 
     /// <https://drafts.csswg.org/css-syntax-3/#consume-the-remnants-of-a-bad-declaration>
