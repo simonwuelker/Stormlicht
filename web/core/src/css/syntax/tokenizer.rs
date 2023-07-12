@@ -12,6 +12,13 @@ const BACKSLASH: char = '\\';
 const REPLACEMENT: char = '\u{FFFD}';
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+enum MakeAsciiLowercase {
+    Yes,
+    #[default]
+    No,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum HashFlag {
     #[default]
     Unrestricted,
@@ -177,7 +184,10 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// <https://drafts.csswg.org/css-syntax/#consume-an-ident-sequence>
-    fn consume_ident_sequence(&mut self) -> InternedString {
+    /// Often, identifiers are treated as ascii-case insensitive (for example, CSS keywords)
+    /// To simplify this, we support converting them to lowercase at parse time via the `make_lowercase`
+    /// parameter.
+    fn consume_ident_sequence(&mut self, make_lowercase: MakeAsciiLowercase) -> InternedString {
         // Let result initially be an empty string.
         let mut result = String::new();
 
@@ -190,7 +200,11 @@ impl<'a> Tokenizer<'a> {
                     // ident code point:
                     if is_ident_code_point(c) {
                         // Append the code point to result.
-                        result.push(c);
+                        if make_lowercase == MakeAsciiLowercase::Yes {
+                            result.push(c.to_ascii_lowercase());
+                        } else {
+                            result.push(c);
+                        }
                     }
                     // the stream starts with a valid escape:
                     else if self.is_valid_escape_start() {
@@ -198,7 +212,11 @@ impl<'a> Tokenizer<'a> {
                         let c = self.consume_escaped_codepoint();
 
                         // Append the returned code point to result.
-                        result.push(c);
+                        if make_lowercase == MakeAsciiLowercase::Yes {
+                            result.push(c.to_ascii_lowercase());
+                        } else {
+                            result.push(c);
+                        }
                     }
                     // anything else
                     else {
@@ -358,7 +376,8 @@ impl<'a> Tokenizer<'a> {
             // Create a <dimension-token> with the same value and type flag as number, and a unit set initially to the empty string.
 
             // Consume an ident sequence. Set the <dimension-token>’s unit to the returned value.
-            let unit = self.consume_ident_sequence();
+            // NOTE: Dimension units are ascii case-insensitive.
+            let unit = self.consume_ident_sequence(MakeAsciiLowercase::Yes);
 
             // Return the <dimension-token>.
             Token::Dimension(number, unit)
@@ -495,7 +514,7 @@ impl<'a> Tokenizer<'a> {
     /// <https://drafts.csswg.org/css-syntax/#consume-an-ident-like-token>
     fn consume_ident_like_token(&mut self) -> Token {
         // Consume an ident sequence, and let string be the result.
-        let ident = self.consume_ident_sequence();
+        let ident = self.consume_ident_sequence(MakeAsciiLowercase::No);
 
         // If string’s value is an ASCII case-insensitive match for "url", and the next input code point is U+0028 LEFT PARENTHESIS (()
         if ident.to_string().eq_ignore_ascii_case("url") && self.peek_codepoint(0) == Some('(') {
@@ -682,7 +701,7 @@ impl<'a> Tokenizer<'a> {
                         }
 
                         // Consume an ident sequence, and set the <hash-token>’s value to the returned string.
-                        let value = self.consume_ident_sequence();
+                        let value = self.consume_ident_sequence(MakeAsciiLowercase::No);
 
                         // Return the <hash-token>.
                         Some(Token::Hash(value, hash_flag))
@@ -813,7 +832,7 @@ impl<'a> Tokenizer<'a> {
                 // If the next 3 input code points would start an ident sequence
                 if self.is_valid_ident_start() {
                     // consume an ident sequence,
-                    let value = self.consume_ident_sequence();
+                    let value = self.consume_ident_sequence(MakeAsciiLowercase::Yes);
 
                     // create an <at-keyword-token> with its value set to the returned value, and return it.
                     Some(Token::AtKeyword(value))
