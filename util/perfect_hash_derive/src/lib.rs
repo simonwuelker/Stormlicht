@@ -123,9 +123,14 @@ pub fn perfect_set(input: TokenStream) -> TokenStream {
         .iter()
         .enumerate()
         .map(|(index, s)| {
-            let token_stream: TokenStream = format!("pub const STATIC_STRING_{s}: u32 = {index};")
-                .parse()
-                .unwrap();
+            let token_stream: TokenStream = format!(
+                "
+                #[allow(clippy::non_upper_case_globals)]
+                pub const STATIC_STRING_{s}: u32 = {index};
+                "
+            )
+            .parse()
+            .unwrap();
             token_stream.into()
         })
         .collect();
