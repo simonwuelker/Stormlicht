@@ -384,7 +384,7 @@ impl<'a> Tokenizer<'a> {
         }
         // Otherwise, if the next input code point is U+0025 PERCENTAGE SIGN (%)
         else if self.peek_codepoint(0) == Some('%') {
-            //	consume it.
+            // consume it.
             self.advance(1);
 
             // Create a <percentage-token> with the same value as number, and return it.

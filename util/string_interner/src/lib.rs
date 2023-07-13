@@ -134,6 +134,7 @@ perfect_set!(
 
         // CSS terms
         "after",
+        "auto",
         "background-color",
         "before",
         "block",
@@ -150,6 +151,10 @@ perfect_set!(
         "inherit",
         "inline",
         "list-item",
+        "margin-bottom",
+        "margin-left",
+        "margin-right",
+        "margin-top",
         "rgb",
         "rgba",
         "ruby",
