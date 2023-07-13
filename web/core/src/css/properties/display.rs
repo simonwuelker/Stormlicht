@@ -62,6 +62,16 @@ pub enum DisplayValue {
     Box(DisplayBox),
 }
 
+impl Default for DisplayValue {
+    fn default() -> Self {
+        Self::InsideOutside(DisplayInsideOutside {
+            outside: DisplayOutside::Inline,
+            inside: DisplayInside::Flow,
+            list_item_flag: ListItemFlag::No,
+        })
+    }
+}
+
 /// Different ways of specifying a display property with just a single
 /// keyword, eg `display: none;`
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -83,8 +93,40 @@ pub enum Short {
     InlineTable,
 }
 
+impl TryFrom<InternedString> for Short {
+    type Error = ParseError;
+
+    fn try_from(value: InternedString) -> Result<Self, Self::Error> {
+        match value {
+            static_interned!("none") => Ok(Self::None),
+            static_interned!("contents") => Ok(Self::Contents),
+            static_interned!("block") => Ok(Self::Block),
+            static_interned!("flow-root") => Ok(Self::FlowRoot),
+            static_interned!("inline") => Ok(Self::Inline),
+            static_interned!("inline-block") => Ok(Self::InlineBlock),
+            static_interned!("run-in") => Ok(Self::RunIn),
+            static_interned!("list-item") => Ok(Self::ListItem),
+            static_interned!("flex") => Ok(Self::Flex),
+            static_interned!("inline-flex") => Ok(Self::InlineFlex),
+            static_interned!("grid") => Ok(Self::Grid),
+            static_interned!("inline-grid") => Ok(Self::InlineGrid),
+            static_interned!("ruby") => Ok(Self::Ruby),
+            static_interned!("table") => Ok(Self::Table),
+            static_interned!("inline-table") => Ok(Self::InlineTable),
+            _ => Err(ParseError),
+        }
+    }
+}
+
 impl DisplayValue {
-    pub fn from_short(short: Short) -> Self {
+    #[inline]
+    pub fn is_none(&self) -> bool {
+        self.eq(&Self::Box(DisplayBox::None))
+    }
+}
+
+impl From<Short> for DisplayValue {
+    fn from(short: Short) -> Self {
         match short {
             Short::None => Self::Box(DisplayBox::None),
             Short::Contents => Self::Box(DisplayBox::Contents),
@@ -171,7 +213,9 @@ impl<'a> CSSParse<'a> for DisplayValue {
         }
 
         if idents.len() == 1 {
-            todo!()
+            let ident = idents[0];
+            let short = Short::try_from(ident)?;
+            Ok(Self::from(short))
         } else {
             let mut list_item_flag = ListItemFlag::No;
             let mut outside = DisplayOutside::Block;
@@ -231,5 +275,23 @@ impl DisplayInside {
             static_interned!("ruby") => Some(Self::Ruby),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DisplayBox, DisplayValue};
+    use crate::css::CSSParse;
+
+    #[test]
+    fn parse_box() {
+        assert_eq!(
+            DisplayValue::parse_from_str("none"),
+            Ok(DisplayValue::Box(DisplayBox::None))
+        );
+        assert_eq!(
+            DisplayValue::parse_from_str("contents"),
+            Ok(DisplayValue::Box(DisplayBox::Contents))
+        );
     }
 }
