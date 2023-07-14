@@ -24,3 +24,18 @@ impl Rectangle<f32> {
         }
     }
 }
+
+impl<T: PartialEq> PartialEq for Rectangle<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.top_left == other.top_left && self.bottom_right == other.bottom_right
+    }
+}
+
+impl<T: PartialOrd> Rectangle<T> {
+    pub fn contains(&self, other: Self) -> bool {
+        self.top_left.x <= other.top_left.x
+            && self.top_left.y <= other.top_left.y
+            && other.bottom_right.x <= self.bottom_right.x
+            && other.bottom_right.y <= self.bottom_right.y
+    }
+}
