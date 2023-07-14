@@ -7,6 +7,7 @@ mod stylecomputer;
 mod stylesheet;
 pub mod syntax;
 pub mod values;
+pub mod layout;
 
 pub use matching_rule::MatchingRule;
 pub use properties::{StyleProperty, StylePropertyDeclaration};

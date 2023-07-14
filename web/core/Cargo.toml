@@ -11,6 +11,7 @@ dom-derive = { path = "../dom-derive"}
 log = "0.4"
 mime = { path = "../../util/mime" }
 string_interner = { path = "../../util/string_interner" }
+math = { path = "../../graphics/math" }
 
 [build-dependencies]
 syn = "1"

@@ -380,6 +380,7 @@ version = "0.1.0"
 dependencies = [
  "dom-derive",
  "log",
+ "math",
  "mime",
  "proc-macro2",
  "serialize",
