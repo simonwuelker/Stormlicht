@@ -1,6 +1,6 @@
 use string_interner::{static_interned, static_str, InternedString};
 
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use crate::css::{layout::CSSPixels, syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://www.w3.org/TR/css-values-4/#length-value>
 #[derive(Clone, Copy, Debug)]
@@ -105,20 +105,15 @@ enum Unit {
 }
 
 impl Length {
-    pub const ZERO: Self = Self::from_pixels(0.);
-
-    #[must_use]
-    pub const fn from_pixels(value: f32) -> Self {
-        Self {
-            value,
-            unit: Unit::Px,
-        }
-    }
+    pub const ZERO: Self = Self {
+        value: 0.,
+        unit: Unit::Px,
+    };
 
     /// Return the length in pixels
     #[must_use]
-    pub fn absolutize(&self) -> f32 {
-        match self.unit {
+    pub fn absolutize(&self) -> CSSPixels {
+        let absolute_value = match self.unit {
             Unit::Cm => self.value * 96. / 2.54,
             Unit::Mm => self.value * 96. / 2.54 / 10.,
             Unit::Q => self.value * 96. / 2.54 / 40.,
@@ -127,6 +122,16 @@ impl Length {
             Unit::Pt => self.value * 96. / 72.,
             Unit::Px => self.value,
             _ => todo!("absolutize non-absolute length"),
+        };
+        CSSPixels(absolute_value)
+    }
+}
+
+impl From<CSSPixels> for Length {
+    fn from(value: CSSPixels) -> Self {
+        Self {
+            value: value.0,
+            unit: Unit::Px,
         }
     }
 }

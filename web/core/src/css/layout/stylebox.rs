@@ -1,9 +1,13 @@
 //! <https://drafts.csswg.org/css2/#box-model>
+//! 
+pub trait CSSBox {
+    fn dimensions(&self) -> BoxDimensions;
+}
 
 use math::Rectangle;
 
 #[derive(Clone, Copy, Debug)]
-pub struct CSSBox {
+pub struct BoxDimensions {
     margin_area: Rectangle,
     border_area: Rectangle,
     padding_area: Rectangle,
@@ -49,7 +53,7 @@ macro_rules! segment_getters {
     };
 }
 
-impl CSSBox {
+impl BoxDimensions {
     /// Create a new box from the different areas.
     /// 
     /// # Panic
@@ -141,7 +145,7 @@ impl CSSBox {
 
 #[cfg(test)]
 mod tests {
-    use super::CSSBox;
+    use super::BoxDimensions;
     use math::{Rectangle, Vec2D};
 
     #[test]
@@ -162,7 +166,7 @@ mod tests {
             top_left: Vec2D::new(-30., -50.),
             bottom_right: Vec2D::new(10., 40.),
         };
-        let cssbox = CSSBox::new(margin_area, border_area, padding_area, content_area);
+        let cssbox = BoxDimensions::new(margin_area, border_area, padding_area, content_area);
 
         assert_eq!(cssbox.margin_area(), margin_area);
         assert_eq!(cssbox.border_area(), border_area);

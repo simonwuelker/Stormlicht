@@ -1,15 +1,19 @@
-pub mod box_model;
+mod pixels;
+mod stylebox;
 mod styled_element;
 
 use crate::{
-    css::{values::LengthPercentage, StyleComputer, Stylesheet},
+    css::{StyleComputer, Stylesheet},
     dom::{dom_objects, DOMPtr},
 };
+pub use pixels::CSSPixels;
+pub use stylebox::BoxDimensions;
 pub use styled_element::StyledElement;
 
 pub fn build_layout_tree_for_element(
     element: DOMPtr<dom_objects::Element>,
     stylesheets: &[Stylesheet],
+    containing_block: ContainingBlock,
 ) {
     let style_computer = StyleComputer::new(stylesheets);
     let computed_style = style_computer.get_computed_style(element.clone().into_type());
@@ -28,34 +32,60 @@ pub fn build_layout_tree_for_element(
             .iter()
             .filter_map(DOMPtr::try_into_type::<dom_objects::Element>)
         {
-            build_layout_tree_for_element(child, stylesheets)
+            build_layout_tree_for_element(child, stylesheets, containing_block)
         }
     } else {
         // FIXME: respect the actual display value
         // We currently assume everything to be flow layout
         let styled_element = StyledElement::new(element, &computed_style);
-        let width = compute_used_widths_and_margins(styled_element);
+        let width = compute_used_widths_and_margins(styled_element, containing_block);
         _ = width;
     }
     todo!()
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct ComputedWidthsAndMargins {
-    pub width: Option<LengthPercentage>,
-    pub margin_left: LengthPercentage,
-    pub margin_right: LengthPercentage,
+pub struct UsedWidthsAndMargins {
+    pub width: Option<CSSPixels>,
+    pub margin_left: CSSPixels,
+    pub margin_right: CSSPixels,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum ContainingBlock {
+    Viewport(math::Rectangle),
+    Block(math::Rectangle),
+}
+
+impl ContainingBlock {
+    #[must_use]
+    pub fn width(&self) -> f32 {
+        match self {
+            Self::Viewport(rect) => rect.width(),
+            Self::Block(rect) => rect.width(),
+        }
+    }
 }
 
 /// <https://drafts.csswg.org/css2/#Computing_widths_and_margins>
-fn compute_used_widths_and_margins(element: StyledElement) -> ComputedWidthsAndMargins {
+fn compute_used_widths_and_margins(
+    element: StyledElement,
+    containing_block: ContainingBlock,
+) -> UsedWidthsAndMargins {
     if element.style().display().is_inline() {
         if !element.element().borrow().is_replaced() {
             // 1. inline, non-replaced elements
-            element.inline_width()
+            element.inline_width(containing_block)
         } else {
             // 2. inline, replaced elements
-            element.inline_replaced_width()
+            element.inline_replaced_width(containing_block)
+        }
+    } else if element.style().display().is_block() {
+        if !element.element().borrow().is_replaced() {
+            // 3. https://drafts.csswg.org/css2/#blockwidth
+            element.block_width(containing_block)
+        } else {
+            element.block_replaced_width(containing_block)
         }
     } else {
         todo!()

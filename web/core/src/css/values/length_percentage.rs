@@ -1,4 +1,4 @@
-use crate::css::{syntax::Token, values::Length, CSSParse, ParseError, Parser};
+use crate::css::{layout::CSSPixels, syntax::Token, values::Length, CSSParse, ParseError, Parser};
 
 #[derive(Clone, Copy, Debug)]
 pub enum LengthPercentage {
@@ -8,6 +8,14 @@ pub enum LengthPercentage {
 
 impl LengthPercentage {
     pub const ZERO: Self = Self::Length(Length::ZERO);
+
+    #[must_use]
+    pub fn resolve_percent(&self, percent_of: CSSPixels) -> Length {
+        match self {
+            Self::Length(length) => *length,
+            Self::Percent(p) => Length::from(percent_of * *p),
+        }
+    }
 }
 
 impl<'a> CSSParse<'a> for LengthPercentage {
@@ -26,5 +34,11 @@ impl<'a> CSSParse<'a> for LengthPercentage {
 impl From<Length> for LengthPercentage {
     fn from(value: Length) -> Self {
         Self::Length(value)
+    }
+}
+
+impl From<CSSPixels> for LengthPercentage {
+    fn from(value: CSSPixels) -> Self {
+        Self::Length(value.into())
     }
 }

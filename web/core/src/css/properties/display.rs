@@ -130,6 +130,17 @@ impl DisplayValue {
         )
     }
 
+    #[must_use]
+    pub fn is_block(&self) -> bool {
+        matches!(
+            self,
+            DisplayValue::InsideOutside(DisplayInsideOutside {
+                outside: DisplayOutside::Block,
+                ..
+            })
+        )
+    }
+
     #[inline]
     #[must_use]
     pub fn is_none(&self) -> bool {
