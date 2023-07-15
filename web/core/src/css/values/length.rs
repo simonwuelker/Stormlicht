@@ -105,7 +105,18 @@ enum Unit {
 }
 
 impl Length {
+    pub const ZERO: Self = Self::from_pixels(0.);
+
+    #[must_use]
+    pub const fn from_pixels(value: f32) -> Self {
+        Self {
+            value,
+            unit: Unit::Px,
+        }
+    }
+
     /// Return the length in pixels
+    #[must_use]
     pub fn absolutize(&self) -> f32 {
         match self.unit {
             Unit::Cm => self.value * 96. / 2.54,

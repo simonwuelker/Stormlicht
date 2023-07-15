@@ -1,11 +1,11 @@
 use string_interner::{static_interned, static_str};
 
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser, values::LengthPercentage};
+use crate::css::{syntax::Token, values::LengthPercentage, CSSParse, ParseError, Parser};
 
 #[derive(Clone, Copy, Debug)]
 pub enum MarginValue {
     Auto,
-    LengthPercentage(LengthPercentage)
+    LengthPercentage(LengthPercentage),
 }
 
 impl<'a> CSSParse<'a> for MarginValue {
@@ -16,5 +16,21 @@ impl<'a> CSSParse<'a> for MarginValue {
             let length_percentage = LengthPercentage::parse(parser)?;
             Ok(Self::LengthPercentage(length_percentage))
         }
+    }
+}
+
+impl MarginValue {
+    #[must_use]
+    pub fn resolve_auto(&self, resolve_auto_to: LengthPercentage) -> LengthPercentage {
+        match self {
+            Self::Auto => resolve_auto_to,
+            Self::LengthPercentage(lp) => *lp,
+        }
+    }
+}
+
+impl Default for MarginValue {
+    fn default() -> Self {
+        Self::LengthPercentage(LengthPercentage::ZERO)
     }
 }

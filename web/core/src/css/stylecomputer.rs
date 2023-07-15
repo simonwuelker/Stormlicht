@@ -3,7 +3,9 @@ use std::{collections::HashSet, mem::Discriminant};
 use crate::dom::{dom_objects::Element, DOMPtr};
 
 use super::{
-    properties::Important, selectors::Selector, MatchingRule, Origin, StyleProperty, Stylesheet,
+    properties::{DisplayValue, Important, MarginValue, WidthValue},
+    selectors::Selector,
+    MatchingRule, Origin, StyleProperty, Stylesheet,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -96,6 +98,19 @@ pub struct ComputedStyle {
     properties: Vec<StyleProperty>,
 }
 
+macro_rules! add_property_lookup {
+    ($fn_name: ident, $value_type: ident, $variant_name: ident) => {
+        pub fn $fn_name(&self) -> $value_type {
+            for property in &self.properties {
+                if let StyleProperty::$variant_name(v) = property {
+                    return *v;
+                }
+            }
+            $value_type::default()
+        }
+    };
+}
+
 impl ComputedStyle {
     pub fn add_properties(&mut self, properties: &[StyleProperty]) {
         for property in properties {
@@ -105,6 +120,14 @@ impl ComputedStyle {
             }
         }
     }
+
+    add_property_lookup!(display, DisplayValue, Display);
+    add_property_lookup!(margin_top, MarginValue, MarginTop);
+    add_property_lookup!(margin_right, MarginValue, MarginRight);
+    add_property_lookup!(margin_bottom, MarginValue, MarginBottom);
+    add_property_lookup!(margin_left, MarginValue, MarginLeft);
+    add_property_lookup!(width, WidthValue, Width);
+    add_property_lookup!(height, WidthValue, Height);
 }
 
 fn filter_matching_rules(

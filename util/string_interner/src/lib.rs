@@ -147,6 +147,7 @@ perfect_set!(
         "flow",
         "flow-root",
         "grid",
+        "height",
         "hidden",
         "important",
         "inherit",
@@ -166,6 +167,7 @@ perfect_set!(
         "ruby",
         "run-in",
         "transparent",
+        "width",
 
         // CSS Colors
         "aliceblue",

@@ -27,9 +27,9 @@ pub enum DisplayInside {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DisplayInsideOutside {
-    outside: DisplayOutside,
-    inside: DisplayInside,
-    list_item_flag: ListItemFlag,
+    pub outside: DisplayOutside,
+    pub inside: DisplayInside,
+    pub list_item_flag: ListItemFlag,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -119,9 +119,27 @@ impl TryFrom<InternedString> for Short {
 }
 
 impl DisplayValue {
+    #[must_use]
+    pub fn is_inline(&self) -> bool {
+        matches!(
+            self,
+            DisplayValue::InsideOutside(DisplayInsideOutside {
+                outside: DisplayOutside::Inline,
+                ..
+            })
+        )
+    }
+
     #[inline]
+    #[must_use]
     pub fn is_none(&self) -> bool {
         self.eq(&Self::Box(DisplayBox::None))
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn is_contents(&self) -> bool {
+        self.eq(&Self::Box(DisplayBox::Contents))
     }
 }
 

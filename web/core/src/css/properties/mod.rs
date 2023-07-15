@@ -2,11 +2,15 @@ mod background_color;
 mod color;
 mod display;
 mod margin;
+mod width;
 
-pub use margin::MarginValue;
 pub use background_color::BackgroundColorValue;
 pub use color::ColorValue;
-pub use display::DisplayValue;
+pub use display::{
+    DisplayBox, DisplayInside, DisplayInsideOutside, DisplayInternal, DisplayOutside, DisplayValue,
+};
+pub use margin::MarginValue;
+pub use width::WidthValue;
 
 use super::{CSSParse, ParseError, Parser};
 
@@ -42,6 +46,12 @@ pub enum StyleProperty {
 
     /// <https://drafts.csswg.org/css-box-3/#propdef-margin-left>
     MarginLeft(MarginValue),
+
+    /// <https://drafts.csswg.org/css2/#propdef-width>
+    Width(WidthValue),
+
+    /// <https://drafts.csswg.org/css2/#propdef-height>
+    Height(WidthValue),
 }
 
 #[derive(Clone, Debug)]
@@ -69,6 +79,8 @@ impl StyleProperty {
             static_interned!("margin-right") => Self::MarginRight(MarginValue::parse(parser)?),
             static_interned!("margin-bottom") => Self::MarginBottom(MarginValue::parse(parser)?),
             static_interned!("margin-left") => Self::MarginLeft(MarginValue::parse(parser)?),
+            static_interned!("width") => Self::Width(WidthValue::parse(parser)?),
+            static_interned!("height") => Self::Width(WidthValue::parse(parser)?),
             _ => {
                 log::warn!("Unknown CSS property name: {:?}", property_name.to_string());
                 return Err(ParseError);
