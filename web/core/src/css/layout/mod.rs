@@ -1,13 +1,14 @@
+mod box_dimensions;
+pub mod flow;
 mod pixels;
-mod stylebox;
 mod styled_element;
 
 use crate::{
     css::{StyleComputer, Stylesheet},
     dom::{dom_objects, DOMPtr},
 };
+pub use box_dimensions::BoxDimensions;
 pub use pixels::CSSPixels;
-pub use stylebox::BoxDimensions;
 pub use styled_element::StyledElement;
 
 pub fn build_layout_tree_for_element(
