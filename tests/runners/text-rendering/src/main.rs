@@ -29,7 +29,7 @@ struct ArgumentParser {
         long_name = "testcase",
         description = "The name of the current test case"
     )]
-    _testcase: Option<String>,
+    testcase: Option<String>,
 
     #[argument(
         flag,
@@ -61,7 +61,10 @@ fn main() -> Result<(), Error> {
         let font_bytes =
             fs::read(arguments.font_path.expect("No font path provided")).map_err(Error::IO)?;
         let font = Font::new(&font_bytes).map_err(Error::Font)?;
-        let svg = font.render_as_svg(&arguments.text.expect("No text provided"));
+        let svg = font.render_as_svg(
+            &arguments.text.expect("No text provided"),
+            &arguments.testcase.expect("No testcase name provided"),
+        );
         println!("{svg}");
     }
     Ok(())

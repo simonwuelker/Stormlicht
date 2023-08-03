@@ -237,7 +237,7 @@ impl<'a> Font<'a> {
         (value.into() * font_size) / self.units_per_em() as f32
     }
 
-    pub fn render_as_svg(&self, text: &str) -> String {
+    pub fn render_as_svg(&self, text: &str, id_prefix: &str) -> String {
         let mut min_x = 0;
         let mut max_x = 0;
         let mut min_y = 0;
@@ -258,7 +258,6 @@ impl<'a> Font<'a> {
             max_y = max_y.max(glyph.position.y + glyph.metrics.max_y);
         }
 
-        let flip = |y| max_y - y + min_y;
         for (index, glyph) in path_objects.into_iter().enumerate() {
             symbol_positions.push(glyph.position);
 
@@ -266,23 +265,23 @@ impl<'a> Font<'a> {
                 .path_operations
                 .map(|operation| match operation {
                     Operation::MoveTo(math::Vec2D { x, y }) => {
-                        format!("M{x} {}", flip(y))
+                        format!("M{x} {}", y)
                     },
                     Operation::LineTo(math::Vec2D { x, y }) => {
-                        format!("L{x} {}", flip(y))
+                        format!("L{x} {}", y)
                     },
                     Operation::QuadBezTo(
                         math::Vec2D { x: x1, y: y1 },
                         math::Vec2D { x: x2, y: y2 },
                     ) => {
-                        format!("Q{} {} {} {}", x1, flip(y1), x2, flip(y2))
+                        format!("Q{} {} {} {}", x1, y1, x2, y2)
                     },
                 })
                 .collect::<Vec<String>>()
                 .join(" ");
             glyph_path.push_str(" Z");
             symbols.push(format!(
-                "<symbol id=\"{index}\" overflow=\"visible\"><path d=\"{glyph_path}\"></path></symbol>"
+                "<symbol id=\"{id_prefix}/{index}\" overflow=\"visible\"><path d=\"{glyph_path}\"></path></symbol>"
             ));
         }
 
@@ -290,7 +289,7 @@ impl<'a> Font<'a> {
             .iter()
             .enumerate()
             .map(|(index, math::Vec2D { x, y })| {
-                format!("<use xlink:href=\"#{index}\" x=\"{x}\" y=\"{y}\"/>")
+                format!("<use xlink:href=\"#{id_prefix}/{index}\" x=\"{x}\" y=\"{y}\"/>")
             })
             .collect::<Vec<String>>()
             .join("");
