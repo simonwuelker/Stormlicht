@@ -245,28 +245,37 @@ impl<'a> Font<'a> {
 
         let mut symbols = Vec::with_capacity(text.len());
         let mut symbol_positions = Vec::with_capacity(text.len());
-        for (index, glyph) in self.path_objects(text).enumerate() {
+        let path_objects: Vec<RenderedGlyph<'_>> = self.path_objects(text).collect();
+
+        // SVG uses a different coordinate space than our font renderer
+        // We therefore have to create run two passes over the text:
+        // First pass calculates the textbox dimensions
+        // Second pass renders the actual glyphs
+        for glyph in &path_objects {
             min_x = min_x.min(glyph.position.x + glyph.metrics.min_x);
             min_y = min_y.min(glyph.position.y + glyph.metrics.min_y);
             max_x = max_x.max(glyph.position.x + glyph.metrics.max_x);
             max_y = max_y.max(glyph.position.y + glyph.metrics.max_y);
+        }
 
+        let flip = |y| max_y - y + min_y;
+        for (index, glyph) in path_objects.into_iter().enumerate() {
             symbol_positions.push(glyph.position);
 
             let mut glyph_path = glyph
                 .path_operations
                 .map(|operation| match operation {
                     Operation::MoveTo(math::Vec2D { x, y }) => {
-                        format!("M{x} {y}")
+                        format!("M{x} {}", flip(y))
                     },
                     Operation::LineTo(math::Vec2D { x, y }) => {
-                        format!("L{x} {y}")
+                        format!("L{x} {}", flip(y))
                     },
                     Operation::QuadBezTo(
                         math::Vec2D { x: x1, y: y1 },
                         math::Vec2D { x: x2, y: y2 },
                     ) => {
-                        format!("Q{} {} {} {}", x1, y1, x2, y2)
+                        format!("Q{} {} {} {}", x1, flip(y1), x2, flip(y2))
                     },
                 })
                 .collect::<Vec<String>>()
@@ -293,7 +302,6 @@ impl<'a> Font<'a> {
         <svg version=\"1.1\"
             xmlns=\"http://www.w3.org/2000/svg\"
             xmlns:xlink=\"http://www.w3.org/1999/xlink\"
-            transform=\"scale(1, -1)\"
             viewBox=\"{min_x} {min_y} {width} {height}\">
           {} {}
         </svg>",
