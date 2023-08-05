@@ -174,7 +174,7 @@ fn create_element_for_interface(
                 .into_type::<Element>()
         },
         _ => {
-            log::warn!("Failed to create element for interface {local_name:?}");
+            log::warn!("Failed to create element for interface {:?}", local_name.to_string());
             DOMPtr::new(element_data)
         },
     }
