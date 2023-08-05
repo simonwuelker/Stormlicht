@@ -1,5 +1,5 @@
 //! <https://drafts.csswg.org/css2/#box-model>
-//! 
+//!
 pub trait CSSBox {
     fn dimensions(&self) -> BoxDimensions;
 }
@@ -17,14 +17,14 @@ pub struct BoxDimensions {
 macro_rules! segment_getters {
     (
         #[$fn_top_doc: meta]
-        $fn_top: ident, 
+        $fn_top: ident,
         #[$fn_right_doc: meta]
-        $fn_right: ident, 
+        $fn_right: ident,
         #[$fn_bottom_doc: meta]
-        $fn_bottom: ident, 
+        $fn_bottom: ident,
         #[$fn_left_doc: meta]
-        $fn_left: ident, 
-        $outer_rect: ident, 
+        $fn_left: ident,
+        $outer_rect: ident,
         $inner_rect: ident
     ) => {
         #[inline]
@@ -55,7 +55,7 @@ macro_rules! segment_getters {
 
 impl BoxDimensions {
     /// Create a new box from the different areas.
-    /// 
+    ///
     /// # Panic
     /// This function panics if the outer rectangles do not
     /// fully contain the inner ones.

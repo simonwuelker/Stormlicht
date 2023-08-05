@@ -191,7 +191,7 @@ pub fn generate() -> Result<(), io::Error> {
             format!(
                 "DOMType::{typename} => {{ 
                 let downcast_ptr = dom_ptr.clone().into_type::<crate::dom::dom_objects::{typename}>(); 
-                downcast_ptr.borrow().format(f)?;
+                downcast_ptr.borrow().format(writer)?;
             }}"
             )
         })
@@ -223,8 +223,8 @@ pub fn generate() -> Result<(), io::Error> {
             fn as_type() -> DOMType;
         }}
 
-        use crate::dom::dom_display::DOMDisplay;
-        pub fn display_domtype(dom_ptr: &crate::dom::DOMPtr<crate::dom::dom_objects::Node>, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {{
+        use crate::dom::display::DOMDisplay;
+        pub fn display_domtype<W: ::std::fmt::Write>(dom_ptr: &crate::dom::DOMPtr<crate::dom::dom_objects::Node>, writer: &mut W) -> ::std::fmt::Result {{
             match dom_ptr.underlying_type() {{
                 {dom_display_code}
             }}

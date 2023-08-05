@@ -967,14 +967,17 @@ fn is_valid_escape(c1: Option<char>, c2: Option<char>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::css::values::Number;
     use super::{Token, Tokenizer};
+    use crate::css::values::Number;
 
     #[test]
     fn tokenize_integer() {
         let source = "3";
         let mut tokenizer = Tokenizer::new(source);
-        assert_eq!(tokenizer.next_token(), Some(Token::Number(Number::Integer(3))));
+        assert_eq!(
+            tokenizer.next_token(),
+            Some(Token::Number(Number::Integer(3)))
+        );
         assert!(tokenizer.next_token().is_none());
     }
 
@@ -982,7 +985,10 @@ mod tests {
     fn tokenize_percent() {
         let source = "3%";
         let mut tokenizer = Tokenizer::new(source);
-        assert_eq!(tokenizer.next_token(), Some(Token::Percentage(Number::Integer(3))));
+        assert_eq!(
+            tokenizer.next_token(),
+            Some(Token::Percentage(Number::Integer(3)))
+        );
         assert!(tokenizer.next_token().is_none());
     }
 }

@@ -1,12 +1,12 @@
 //! <https://dom.spec.whatwg.org/>
 
 mod codegen;
-mod dom_display;
+mod display;
 pub mod dom_objects;
 mod dom_ptr;
 
 pub use codegen::{DOMType, DOMTyped};
-pub use dom_display::DOMDisplay;
+pub use display::DOMDisplay;
 pub use dom_ptr::{DOMPtr, WeakDOMPtr};
 use string_interner::{static_interned, static_str, InternedString};
 

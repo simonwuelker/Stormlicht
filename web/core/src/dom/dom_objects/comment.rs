@@ -17,10 +17,10 @@ impl Comment {
 }
 
 impl DOMDisplay for Comment {
-    fn format(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "<!-- ")?;
-        self.format_text(f, &self.content)?;
-        write!(f, " -->")?;
+    fn format<W: fmt::Write>(&self, mut writer: &mut W) -> fmt::Result {
+        write!(writer, "<!-- ")?;
+        self.format_text(&mut writer, &self.content)?;
+        write!(writer, " -->")?;
         Ok(())
     }
 }

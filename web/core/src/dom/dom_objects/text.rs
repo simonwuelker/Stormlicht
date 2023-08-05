@@ -19,7 +19,7 @@ impl Text {
 }
 
 impl crate::dom::DOMDisplay for Text {
-    fn format(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.format_text(f, &self.content)
+    fn format<W: fmt::Write>(&self, writer: &mut W) -> fmt::Result {
+        self.format_text(writer, &self.content.escape_default().collect::<String>())
     }
 }

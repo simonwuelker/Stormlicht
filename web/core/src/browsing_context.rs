@@ -39,7 +39,7 @@ impl BrowsingContext {
 
         // Build a layout tree for the parsed document
 
-        log::info!("{:?}", document.debug());
+        log::info!("{:?}", document);
         log::info!("Found {} stylesheets", stylesheets.len());
         Ok(Self)
     }

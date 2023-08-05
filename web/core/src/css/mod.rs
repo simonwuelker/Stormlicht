@@ -1,5 +1,6 @@
 //! Cascading Style Sheets
 
+pub mod layout;
 mod matching_rule;
 mod properties;
 pub mod selectors;
@@ -7,7 +8,6 @@ mod stylecomputer;
 mod stylesheet;
 pub mod syntax;
 pub mod values;
-pub mod layout;
 
 pub use matching_rule::MatchingRule;
 pub use properties::{StyleProperty, StylePropertyDeclaration};
