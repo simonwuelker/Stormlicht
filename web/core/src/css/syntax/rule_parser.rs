@@ -10,14 +10,14 @@ pub struct RuleParser;
 
 impl RuleParser {
     pub fn parse_qualified_rule_prelude(
-        &self,
+        &mut self,
         parser: &mut Parser<'_>,
     ) -> Result<SelectorList, ParseError> {
         SelectorList::parse_complete(parser)
     }
 
     pub fn parse_qualified_rule_block(
-        &self,
+        &mut self,
         parser: &mut Parser<'_>,
         selectors: SelectorList,
     ) -> Result<StyleRule, ParseError> {
