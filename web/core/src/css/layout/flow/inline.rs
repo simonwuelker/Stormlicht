@@ -19,12 +19,24 @@ pub struct InlineBox;
 /// <https://drafts.csswg.org/css2/#inline-formatting>
 #[derive(Clone, Debug)]
 pub struct InlineFormattingContext {
-    contents: Vec<InlineLevelBox>,
+    elements: Vec<InlineLevelBox>,
+}
+
+impl InlineFormattingContext {
+    #[inline]
+    pub fn elements(&self) -> &[InlineLevelBox] {
+        &self.elements
+    }
+
+    #[inline]
+    pub fn push(&mut self, inline_level_box: InlineLevelBox) {
+        self.elements.push(inline_level_box)
+    }
 }
 
 impl From<Vec<InlineLevelBox>> for InlineFormattingContext {
-    fn from(contents: Vec<InlineLevelBox>) -> Self {
-        Self { contents }
+    fn from(elements: Vec<InlineLevelBox>) -> Self {
+        Self { elements }
     }
 }
 
@@ -35,3 +47,4 @@ impl InlineLevelBox {
         todo!()
     }
 }
+

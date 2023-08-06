@@ -29,11 +29,18 @@ pub struct BlockLevelBox {
 }
 
 /// Elements contained in a [BlockLevelBox]
+/// 
 /// <https://drafts.csswg.org/css2/#block-container-box>
 #[derive(Clone)]
 pub enum BlockContainer {
     BlockLevelBoxes(Vec<BlockLevelBox>),
     InlineFormattingContext(InlineFormattingContext),
+}
+
+impl Default for BlockContainer {
+    fn default() -> Self {
+        Self::InlineFormattingContext(vec![].into())
+    }
 }
 
 impl BlockLevelBox {
@@ -56,12 +63,6 @@ impl From<Vec<BlockLevelBox>> for BlockFormattingContext {
     }
 }
 
-#[derive(Clone)]
-enum BlockContainerBuilder {
-    NoBlockLevelBoxesSoFar(Vec<InlineLevelBox>),
-    FoundBlockLevelBox(Vec<BlockLevelBox>),
-}
-
 impl BlockLevelBox {
     pub fn from_element(
         element: DOMPtr<dom_objects::Element>,
@@ -71,13 +72,37 @@ impl BlockLevelBox {
         debug_assert!(style.display().is_block());
 
         let node: DOMPtr<dom_objects::Node> = element.into_type();
-        let contents =
-            BlockContainer::from_children(node.borrow().children().iter().cloned(), style_computer);
-        Self {
+
+        let mut block_box = Self {
+            node: Some(node.clone()),
             style,
-            node: Some(node),
-            contents,
+            contents: BlockContainer::default(),
+        };
+        
+        for child in node.borrow().children() {
+            if let Some(element) = child.try_into_type() {
+                // Compute the style for the child
+                let style = Rc::new(style_computer.get_computed_style(element.clone()));
+
+                // If the child has display:none then it does not generate any boxes
+                if style.display().is_none() {
+                    continue;
+                }
+
+                // FIXME: display: contents
+
+                if style.display().is_inline() {
+                    let inline_level_box = InlineLevelBox::from_element(element, style.clone());
+                    block_box.push_inline_box(inline_level_box)
+                } else {
+                    let block_level_box =
+                        BlockLevelBox::from_element(element, style.clone(), style_computer);
+                    block_box.push_block_box(block_level_box);
+                }
+            }
         }
+
+        block_box
     }
 
     pub fn create_anonymous_wrapper_around(
@@ -90,93 +115,69 @@ impl BlockLevelBox {
             contents: BlockContainer::InlineFormattingContext(vec![inline_box].into()),
         }
     }
-}
-
-impl Default for BlockContainerBuilder {
-    fn default() -> Self {
-        Self::NoBlockLevelBoxesSoFar(vec![])
+    /// Appends a block-level child to the box
+    /// 
+    /// The boxes contents are adjusted as necessary.
+    #[inline]
+    pub fn push_block_box(&mut self, block_level_box: BlockLevelBox) {
+        self.contents.push_block_box(block_level_box, self.style.clone())
+    }
+    
+    /// Appends a inline-level child to the box
+    /// 
+    /// The boxes contents are adjusted as necessary.
+    #[inline]
+    pub fn push_inline_box(&mut self, inline_level_box: InlineLevelBox) {
+        self.contents.push_inline_box(inline_level_box, self.style.clone())
     }
 }
 
 impl BlockContainer {
-    fn from_children<I: Iterator<Item = DOMPtr<dom_objects::Node>>>(
-        children: I,
-        style_computer: StyleComputer<'_>,
-    ) -> Self {
-        // There are two possible results from constructing a block container:
-        // Either all children were inline, in which case we put them all into an inline formatting
-        // context - Or at least one of them was block-level, in which case we wrap any inline boxes in
-        // anonymous block boxes
-        let mut state = BlockContainerBuilder::default();
+    /// Appends a block-level child box to the container
+    /// 
+    /// If the block previously only contained inline elements,
+    /// all of those are wrapped in anonymous block boxes.
+    /// 
+    /// You'll likely want to use [BlockLevelBox::push_block_box] instead.
+    fn push_block_box(&mut self, block_level_box: BlockLevelBox, containing_box_style: Rc<ComputedStyle>) {
+        match self {
+            Self::BlockLevelBoxes(block_level_boxes) => {
+                block_level_boxes.push(block_level_box);
+            },
+            Self::InlineFormattingContext(inline_formatting_context) => {
+                // Once *one* child is block-level, all of them need to be block-level too.
+                let mut block_level_boxes: Vec<_> = inline_formatting_context.elements()
+                    .iter()
+                    .map(|inline_box| {
+                        BlockLevelBox::create_anonymous_wrapper_around(
+                            inline_box.clone(),
+                            containing_box_style.clone(),
+                        )
+                    })
+                    .collect();
 
-        for child in children {
-            if let Some(element) = child.try_into_type() {
-                // Compute the style for the child
-                let style = Rc::new(style_computer.get_computed_style(element.clone()));
+                // Add the current element to the list of block boxes
+                block_level_boxes.push(block_level_box);
 
-                // If the child has display:none then it does not generate any boxes
-                if style.display().is_none() {
-                    continue;
-                }
-
-                // FIXME: display: contents
-
-                match state {
-                    BlockContainerBuilder::FoundBlockLevelBox(ref mut block_level_boxes) => {
-                        if style.display().is_inline() {
-                            // Wrap an anonymous block-level box around the inline box
-                            let inline_box = InlineLevelBox::from_element(element, style.clone());
-                            let block_level_box =
-                                BlockLevelBox::create_anonymous_wrapper_around(inline_box, style);
-                            block_level_boxes.push(block_level_box);
-                        } else {
-                            let block_level_box =
-                                BlockLevelBox::from_element(element, style.clone(), style_computer);
-                            block_level_boxes.push(block_level_box);
-                        }
-                    },
-                    BlockContainerBuilder::NoBlockLevelBoxesSoFar(ref mut inline_level_boxes) => {
-                        if style.display().is_block() {
-                            // Once *one* child is block-level, all of them need to be block-level too.
-                            let mut block_boxes: Vec<_> = inline_level_boxes
-                                .iter()
-                                .map(|inline_box| {
-                                    BlockLevelBox::create_anonymous_wrapper_around(
-                                        inline_box.clone(),
-                                        style.clone(),
-                                    )
-                                })
-                                .collect();
-
-                            // Add the current element to the list of block boxes
-                            block_boxes.push(BlockLevelBox::from_element(
-                                element,
-                                style,
-                                style_computer,
-                            ));
-                            state = BlockContainerBuilder::FoundBlockLevelBox(block_boxes);
-                        } else {
-                            let inline_box = InlineLevelBox::from_element(element, style.clone());
-                            inline_level_boxes.push(inline_box);
-                        }
-                    },
-                }
+                *self = Self::BlockLevelBoxes(block_level_boxes);
             }
         }
-
-        state.into()
     }
-}
 
-impl From<BlockContainerBuilder> for BlockContainer {
-    fn from(value: BlockContainerBuilder) -> Self {
-        match value {
-            BlockContainerBuilder::FoundBlockLevelBox(block_level_boxes) => {
-                Self::BlockLevelBoxes(block_level_boxes)
+    /// Appends a inline-level child box to the container
+    /// 
+    /// You'll likely want to use [BlockLevelBox::push_inline_box]
+    fn push_inline_box(&mut self, inline_level_box: InlineLevelBox, containing_box_style: Rc<ComputedStyle>) {
+        match self {
+            Self::BlockLevelBoxes(block_level_boxes) => {
+                // Wrap an anonymous block-level box around the inline box
+                let block_level_box =
+                    BlockLevelBox::create_anonymous_wrapper_around(inline_level_box, containing_box_style.clone());
+                block_level_boxes.push(block_level_box);
             },
-            BlockContainerBuilder::NoBlockLevelBoxesSoFar(inline_level_boxes) => {
-                Self::InlineFormattingContext(inline_level_boxes.into())
-            },
+            Self::InlineFormattingContext(inline_formatting_context) => {
+                inline_formatting_context.push(inline_level_box)
+            }
         }
     }
 }
