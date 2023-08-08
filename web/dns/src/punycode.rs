@@ -2,7 +2,7 @@
 //!
 //! Also [IDNA](https://de.wikipedia.org/wiki/Internationalizing_Domain_Names_in_Applications)
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PunyCodeError {
     /// Integer overflows are explicitly forbidden in punycode
     IntegerOverflow,
@@ -10,6 +10,7 @@ pub enum PunyCodeError {
     InvalidPunycode,
     InvalidCharacterCode,
 }
+
 const BASE: u32 = 36;
 const TMIN: u32 = 1;
 const TMAX: u32 = 26;
@@ -18,6 +19,7 @@ const DAMP: u32 = 700;
 const INITIAL_BIAS: u32 = 72;
 const INITIAL_N: u32 = 128;
 
+#[must_use]
 fn encode_digit(c: u32) -> char {
     debug_assert!(c < BASE);
     if c < 26 {
@@ -30,6 +32,7 @@ fn encode_digit(c: u32) -> char {
 }
 
 /// Panics if the character is not a valid lowercase base-36 digit
+#[must_use]
 fn decode_digit(c: char) -> u32 {
     match c {
         'a'..='z' => c as u32 - 'a' as u32,
@@ -39,6 +42,7 @@ fn decode_digit(c: char) -> u32 {
     }
 }
 
+#[must_use]
 fn adapt(mut delta: u32, num_points: u32, is_first: bool) -> u32 {
     delta /= if is_first { DAMP } else { 2 };
 

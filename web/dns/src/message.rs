@@ -4,7 +4,7 @@ use random::RNG;
 use crate::{domain::Domain, ResourceRecordClass, ResourceRecordType};
 use std::{fmt, net::IpAddr, vec};
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum QueryType {
     Standard = 0,
     Inverse = 1,
@@ -51,7 +51,7 @@ pub struct Resource {
 
 #[derive(Debug)]
 pub enum ResponseCode {
-    ///  No error condition
+    /// No error condition
     Ok,
 
     /// Format error - The name server was unable to interpret the query.
@@ -130,6 +130,7 @@ impl Header {
 }
 
 impl Question {
+    #[must_use]
     pub fn new(domain: Domain) -> Self {
         Self {
             domain: domain,
@@ -138,6 +139,7 @@ impl Question {
         }
     }
 
+    #[must_use]
     fn size(&self) -> usize {
         self.domain.encode().len() + 4
     }
@@ -158,6 +160,7 @@ impl Question {
 }
 
 impl Message {
+    #[must_use]
     pub fn new(domain: &Domain) -> Self {
         Self {
             header: Header::new(1),
@@ -168,6 +171,7 @@ impl Message {
         }
     }
 
+    #[must_use]
     pub fn size(&self) -> usize {
         16 + self.question.iter().map(|q| q.size()).sum::<usize>()
     }

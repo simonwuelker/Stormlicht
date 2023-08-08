@@ -1,8 +1,9 @@
-use crate::{domain::Domain, message::Consume};
 use std::net::Ipv4Addr;
 
-#[derive(Debug)]
+use crate::{domain::Domain, message::Consume};
+
 /// See <https://en.wikipedia.org/wiki/List_of_DNS_record_types>
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum ResourceRecordType {
     A { ipv4: Ipv4Addr },
     AAAA,
@@ -138,8 +139,8 @@ impl TryFrom<(&[u8], usize)> for ResourceRecordType {
     }
 }
 
-#[derive(Debug)]
 /// [Specification](https://datatracker.ietf.org/doc/html/rfc1035#section-3.2.4)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ResourceRecordClass {
     /// The Internet
     IN,

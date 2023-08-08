@@ -97,6 +97,7 @@ impl LockedCache {
         }
     }
 
+    #[must_use]
     fn len(&self) -> usize {
         self.0.len()
     }

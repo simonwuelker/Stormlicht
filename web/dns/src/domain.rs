@@ -14,6 +14,7 @@ impl fmt::Debug for Domain {
 }
 
 impl Domain {
+    #[must_use]
     pub fn new(source: &str) -> Self {
         let mut segments = vec![];
         for segment in source.split('.') {
