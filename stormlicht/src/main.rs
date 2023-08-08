@@ -73,16 +73,5 @@ pub fn main() {
         return;
     }
 
-    let src = "
-    #foo {
-        display: block flow!important;
-        color: red
-    }
-    ";
-    log::info!(
-        "{:?}",
-        core::css::Parser::new(src, core::css::Origin::Author).parse_stylesheet()
-    );
-
     BrowserApplication::new(arguments.url.as_deref()).run()
 }
