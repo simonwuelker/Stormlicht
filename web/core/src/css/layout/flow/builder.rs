@@ -91,8 +91,7 @@ impl<'a> BoxTreeBuilder<'a> {
             top_box.push(text_box);
         } else {
             // inline box stack is empty
-            self.current_inline_formatting_context
-                .push(text_box);
+            self.current_inline_formatting_context.push(text_box);
         }
     }
 
@@ -110,7 +109,7 @@ impl<'a> BoxTreeBuilder<'a> {
                 .pop()
                 .expect("stack of open inline boxes should not be empty"),
         );
-        
+
         if let Some(top_box) = self.inline_stack.last_mut() {
             top_box.push(populated_inline_box);
         } else {

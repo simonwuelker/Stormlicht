@@ -1,4 +1,4 @@
-use std::{fmt::Write, fmt};
+use std::{fmt, fmt::Write};
 
 const WHITESPACE_PER_INDENT_LEVEL: usize = 2;
 const MAX_TEXT_LEN: usize = 16;

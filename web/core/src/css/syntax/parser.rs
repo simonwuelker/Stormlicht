@@ -329,6 +329,8 @@ impl<'a> Parser<'a> {
         // Check for !important
         if matches!(self.peek_token(), Some(Token::Delim('!'))) {
             self.next_token();
+
+            #[allow(clippy::redundant_guards)] // In this case, the guard helps with readability
             match self.next_token() {
                 Some(Token::Ident(i)) if i == static_interned!("important") => {
                     important = Important::Yes;

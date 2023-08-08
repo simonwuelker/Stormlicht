@@ -2,7 +2,8 @@ use std::{fmt, fmt::Write, rc::Rc};
 
 use crate::{
     css::{stylecomputer::ComputedStyle, StyleComputer},
-    dom::{dom_objects, DOMPtr}, TreeDebug, TreeFormatter,
+    dom::{dom_objects, DOMPtr},
+    TreeDebug, TreeFormatter,
 };
 
 use super::{BoxTreeBuilder, InlineFormattingContext, InlineLevelBox};
@@ -249,7 +250,7 @@ impl TreeDebug for BlockLevelBox {
             },
             BlockContainer::InlineFormattingContext(inline_formatting_context) => {
                 inline_formatting_context.tree_fmt(formatter)?;
-            }
+            },
         }
         formatter.decrease_indent();
         Ok(())
