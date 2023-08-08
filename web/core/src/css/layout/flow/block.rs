@@ -1,8 +1,8 @@
-use std::rc::Rc;
+use std::{fmt, fmt::Write, rc::Rc};
 
 use crate::{
     css::{stylecomputer::ComputedStyle, StyleComputer},
-    dom::{dom_objects, DOMPtr},
+    dom::{dom_objects, DOMPtr}, TreeDebug, TreeFormatter,
 };
 
 use super::{BoxTreeBuilder, InlineFormattingContext, InlineLevelBox};
@@ -215,5 +215,43 @@ impl BlockContainer {
                 inline_formatting_context.push(inline_level_box)
             },
         }
+    }
+}
+
+impl fmt::Debug for BlockFormattingContext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut tree_formatter = TreeFormatter::new(f);
+        self.tree_fmt(&mut tree_formatter)
+    }
+}
+
+impl TreeDebug for BlockFormattingContext {
+    fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> std::fmt::Result {
+        writeln!(formatter, "Block Formatting Context")?;
+        formatter.increase_indent();
+        for child in &self.contents {
+            child.tree_fmt(formatter)?;
+        }
+        Ok(())
+    }
+}
+
+impl TreeDebug for BlockLevelBox {
+    fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> std::fmt::Result {
+        writeln!(formatter, "Block Box")?;
+
+        formatter.increase_indent();
+        match &self.contents {
+            BlockContainer::BlockLevelBoxes(block_level_boxes) => {
+                for block_box in block_level_boxes {
+                    block_box.tree_fmt(formatter)?;
+                }
+            },
+            BlockContainer::InlineFormattingContext(inline_formatting_context) => {
+                inline_formatting_context.tree_fmt(formatter)?;
+            }
+        }
+        formatter.decrease_indent();
+        Ok(())
     }
 }

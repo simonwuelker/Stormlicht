@@ -70,7 +70,7 @@ impl<'a> BoxTreeBuilder<'a> {
     fn end_inline_formatting_context(&mut self) {
         debug_assert!(!self.current_inline_formatting_context.is_empty());
 
-        let mut formatting_context = std::mem::take(&mut self.current_inline_formatting_context);
+        let formatting_context = std::mem::take(&mut self.current_inline_formatting_context);
         self.block_level_boxes
             .push(BlockLevelBox::create_anonymous_box(
                 BlockContainer::InlineFormattingContext(formatting_context),

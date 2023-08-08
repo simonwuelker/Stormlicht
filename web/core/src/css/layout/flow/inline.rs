@@ -1,6 +1,6 @@
-use std::rc::Rc;
+use std::{fmt::Write, rc::Rc};
 
-use crate::css::stylecomputer::ComputedStyle;
+use crate::{css::stylecomputer::ComputedStyle, TreeDebug, TreeFormatter};
 
 /// <https://drafts.csswg.org/css2/#inline-level-boxes>
 #[derive(Clone, Debug)]
@@ -72,5 +72,33 @@ impl InlineBox {
             style: self.style.clone(),
             contents: vec![],
         }
+    }
+}
+
+impl TreeDebug for InlineFormattingContext {
+    fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> std::fmt::Result {
+        writeln!(formatter, "Inline Formatting Context")?;
+        formatter.increase_indent();
+        for child in &self.elements {
+            child.tree_fmt(formatter)?;
+        }
+        Ok(())
+    }
+}
+
+impl TreeDebug for InlineLevelBox {
+    fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> std::fmt::Result {
+        match self {
+            Self::TextRun(text) => writeln!(formatter, "{:?}", text)?,
+            Self::InlineBox(inline_box) => {
+                writeln!(formatter, "Inline Box");
+                formatter.increase_indent();
+                for child in &inline_box.contents {
+                    child.tree_fmt(formatter)?;
+                }
+                formatter.decrease_indent();
+            }
+        }
+        Ok(())
     }
 }

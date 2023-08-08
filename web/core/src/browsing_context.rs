@@ -44,8 +44,9 @@ impl BrowsingContext {
         let style_computer = StyleComputer::new(&stylesheets);
 
         // Build a box tree for the parsed document
-        let _box_tree = BlockFormattingContext::root(document, style_computer);
-
+        let box_tree = BlockFormattingContext::root(document, style_computer);
+        log::info!("box tree: \n{box_tree:?}");
+        
         Ok(Self)
     }
 }
