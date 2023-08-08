@@ -235,7 +235,7 @@ impl<'a> CSSParse<'a> for DisplayValue {
         for _ in 0..3 {
             match parser.next_token() {
                 Some(Token::Ident(ident)) => idents.push(ident),
-                None | Some(Token::Semicolon) => break,
+                None => break,
                 _ => return Err(ParseError),
             }
             parser.skip_whitespace();

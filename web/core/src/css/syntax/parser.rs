@@ -319,12 +319,15 @@ impl<'a> Parser<'a> {
         self.skip_whitespace();
 
         // NOTE: At this point we deviate from the spec because the spec gets a little silly
-        let value = if let Ok(value) = StyleProperty::parse_value(self, declaration_name) {
-            value
-        } else {
-            self.consume_remnants_of_bad_declaration(nested);
-            return None;
-        };
+        let mut property_parser = self.create_limited(ParserDelimiter::SEMICOLON);
+        let value =
+            if let Ok(value) = StyleProperty::parse_value(&mut property_parser, declaration_name) {
+                value
+            } else {
+                self.consume_remnants_of_bad_declaration(nested);
+                return None;
+            };
+        self.set_state(property_parser.state());
 
         // Check for !important
         if matches!(self.peek_token(), Some(Token::Delim('!'))) {
@@ -342,6 +345,7 @@ impl<'a> Parser<'a> {
                 },
             }
         }
+        self.skip_whitespace();
 
         Some(StylePropertyDeclaration { value, important })
     }
