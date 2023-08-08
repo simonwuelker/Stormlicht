@@ -111,7 +111,7 @@ impl<P: ParseErrorHandler> Parser<P> {
             active_formatting_elements: ActiveFormattingElements::default(),
             execute_script: false,
             done: false,
-            stylesheets: vec![],
+            stylesheets: vec![Stylesheet::user_agent_rules()],
         }
     }
 

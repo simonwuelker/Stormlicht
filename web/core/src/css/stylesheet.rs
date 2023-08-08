@@ -1,4 +1,4 @@
-use super::{selectors::SelectorList, StylePropertyDeclaration};
+use super::{selectors::SelectorList, Parser, StylePropertyDeclaration};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Origin {
@@ -25,8 +25,17 @@ pub struct Stylesheet {
 }
 
 impl Stylesheet {
+    #[must_use]
     pub fn new(origin: Origin, rules: Vec<StyleRule>) -> Self {
         Self { origin, rules }
+    }
+
+    #[must_use]
+    pub fn user_agent_rules() -> Self {
+        let default_css = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/default.css"));
+        Parser::new(default_css, Origin::UserAgent)
+            .parse_stylesheet()
+            .expect("Parsing user agent CSS should never fail")
     }
 
     #[must_use]

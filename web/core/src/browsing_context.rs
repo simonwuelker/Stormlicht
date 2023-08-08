@@ -40,13 +40,13 @@ impl BrowsingContext {
             parse_end.duration_since(parse_start).as_millis()
         );
         log::info!("{:?}", document);
-        log::info!("Found {} stylesheets", stylesheets.len());
+        log::info!("Found {} stylesheets, {stylesheets:?}", stylesheets.len());
         let style_computer = StyleComputer::new(&stylesheets);
 
         // Build a box tree for the parsed document
         let box_tree = BlockFormattingContext::root(document, style_computer);
         log::info!("box tree: \n{box_tree:?}");
-        
+
         Ok(Self)
     }
 }
