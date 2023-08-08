@@ -89,15 +89,17 @@ impl TreeDebug for InlineFormattingContext {
 impl TreeDebug for InlineLevelBox {
     fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> std::fmt::Result {
         match self {
-            Self::TextRun(text) => writeln!(formatter, "{:?}", text)?,
+            Self::TextRun(text) => {
+                formatter.write_text(text)?;
+            },
             Self::InlineBox(inline_box) => {
-                writeln!(formatter, "Inline Box");
+                writeln!(formatter, "Inline Box")?;
                 formatter.increase_indent();
                 for child in &inline_box.contents {
                     child.tree_fmt(formatter)?;
                 }
                 formatter.decrease_indent();
-            }
+            },
         }
         Ok(())
     }

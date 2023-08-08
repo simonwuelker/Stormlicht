@@ -57,11 +57,18 @@ impl<'a> BoxTreeBuilder<'a> {
         for child in node.borrow().children() {
             if let Some(element) = child.try_into_type::<dom_objects::Element>() {
                 let computed_style = Rc::new(self.style_computer.get_computed_style(element));
+
+                if computed_style.display().is_none() {
+                    continue;
+                }
+
                 if computed_style.display().is_inline() {
                     self.push_inline_box(child.clone(), computed_style);
                 } else {
                     self.push_block_box()
                 }
+            } else if let Some(text) = child.try_into_type::<dom_objects::Text>() {
+                self.push_text(text.borrow().content());
             }
         }
     }
@@ -78,6 +85,17 @@ impl<'a> BoxTreeBuilder<'a> {
             ));
     }
 
+    fn push_text(&mut self, text: &str) {
+        let text_box = InlineLevelBox::TextRun(text.to_owned());
+        if let Some(top_box) = self.inline_stack.last_mut() {
+            top_box.push(text_box);
+        } else {
+            // inline box stack is empty
+            self.current_inline_formatting_context
+                .push(text_box);
+        }
+    }
+
     fn push_inline_box(&mut self, node: DOMPtr<dom_objects::Node>, style: Rc<ComputedStyle>) {
         self.inline_stack.push(InlineBox::new(style));
 
@@ -92,6 +110,7 @@ impl<'a> BoxTreeBuilder<'a> {
                 .pop()
                 .expect("stack of open inline boxes should not be empty"),
         );
+        
         if let Some(top_box) = self.inline_stack.last_mut() {
             top_box.push(populated_inline_box);
         } else {
