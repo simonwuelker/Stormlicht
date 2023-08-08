@@ -27,7 +27,7 @@ use crate::css::{
 };
 use std::fmt::Debug;
 
-const MAX_ITERATIONS: usize = 20;
+const MAX_ITERATIONS: usize = 128;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum MixedWithDeclarations {
