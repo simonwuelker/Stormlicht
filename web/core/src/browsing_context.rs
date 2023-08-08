@@ -1,6 +1,9 @@
 use std::time;
 
-use crate::html::{self, tokenization::IgnoreParseErrors};
+use crate::{
+    css::{layout::flow::BlockFormattingContext, StyleComputer},
+    html::{self, tokenization::IgnoreParseErrors},
+};
 
 /// The Browsing Context takes care of coordinating loads, layout calculations and paints
 pub struct BrowsingContext;
@@ -36,11 +39,13 @@ impl BrowsingContext {
             "Parsed document in {}ms",
             parse_end.duration_since(parse_start).as_millis()
         );
-
-        // Build a layout tree for the parsed document
-
         log::info!("{:?}", document);
         log::info!("Found {} stylesheets", stylesheets.len());
+        let style_computer = StyleComputer::new(&stylesheets);
+
+        // Build a box tree for the parsed document
+        let _box_tree = BlockFormattingContext::root(document, style_computer);
+
         Ok(Self)
     }
 }
