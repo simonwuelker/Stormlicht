@@ -68,6 +68,7 @@ impl From<Vec<BlockLevelBox>> for BlockFormattingContext {
 }
 
 impl BlockLevelBox {
+    #[must_use]
     pub fn new(
         style: Rc<ComputedStyle>,
         node: Option<DOMPtr<dom_objects::Node>>,
@@ -78,6 +79,12 @@ impl BlockLevelBox {
             node,
             contents,
         }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn is_anonymous(&self) -> bool {
+        self.node.is_none()
     }
 
     pub fn from_element(
@@ -121,6 +128,7 @@ impl BlockLevelBox {
         block_box
     }
 
+    #[must_use]
     pub fn create_anonymous_box(contents: BlockContainer, style: Rc<ComputedStyle>) -> Self {
         Self {
             style,
@@ -129,6 +137,7 @@ impl BlockLevelBox {
         }
     }
 
+    #[must_use]
     pub fn create_anonymous_wrapper_around(
         inline_box: InlineLevelBox,
         style: Rc<ComputedStyle>,
