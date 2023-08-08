@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{resolve, DNSError, Domain};
+use crate::{DNSError, Domain};
 
 const MAX_CACHE_SIZE: usize = 1000;
 
@@ -43,7 +43,7 @@ impl Cache {
                 drop(locked_cache);
 
                 // We need to resolve the domain and put it in the cache
-                let (ip, ttl) = resolve(domain)?;
+                let (ip, ttl) = domain.resolve()?;
 
                 // A ttl of 0 means we shouldn't cache the entry at all
                 if ttl == 0 {

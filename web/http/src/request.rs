@@ -133,9 +133,9 @@ impl Request {
     pub fn send(self) -> Result<Response, HTTPError> {
         // resolve the hostname
         let ip = match &self.host {
-            Host::Domain(host_str) | Host::OpaqueHost(host_str) => {
-                dns::lookup(&dns::Domain::new(host_str)).map_err(HTTPError::DNS)?
-            },
+            Host::Domain(host_str) | Host::OpaqueHost(host_str) => dns::Domain::new(host_str)
+                .lookup()
+                .map_err(HTTPError::DNS)?,
             Host::IPv4(_ip) => todo!(),
             Host::IPv6(_ip) => todo!(),
             Host::EmptyHost => todo!(),

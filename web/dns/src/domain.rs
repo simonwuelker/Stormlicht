@@ -1,6 +1,13 @@
-use crate::{message::Consume, punycode::idna_encode, DNSError};
+use crate::{
+    message::{Consume, Message},
+    punycode::idna_encode,
+    DNSError, DNS_CACHE, MAX_DATAGRAM_SIZE, MAX_RESOLUTION_STEPS, ROOT_SERVER, UDP_SOCKET,
+};
 
-use std::fmt;
+use std::{
+    fmt,
+    net::{IpAddr, UdpSocket},
+};
 
 const DOMAIN_MAX_SEGMENTS: u8 = 10;
 
@@ -100,6 +107,78 @@ impl Domain {
         }
 
         Ok(domain)
+    }
+
+    /// Resolve a domain name.
+    ///
+    /// If the domain name is inside the DNS cache, no actual resolution
+    /// is performed.
+    #[inline]
+    pub fn lookup(&self) -> Result<IpAddr, DNSError> {
+        DNS_CACHE.get(self)
+    }
+
+    /// Resolve a domain name by contacting the DNS server.
+    ///
+    /// Returns a tuple of `(resolved IP, TTL in seconds)`.
+    ///
+    /// This function **does not** make use of a cache.
+    /// You should prefer [lookup] instead.
+    pub fn resolve(&self) -> Result<(IpAddr, u32), DNSError> {
+        let mut nameserver = ROOT_SERVER;
+
+        // incrementally resolve segments
+        // www.ecosia.com will be resolved in the following order
+        // 1) com
+        // 2) ecosia.com
+        // 3) www.ecosia.com
+        for _ in 0..MAX_RESOLUTION_STEPS {
+            let message = self.try_resolve_from(nameserver)?;
+
+            // Check if the response contains our answer
+            if let Some((ip, ttl)) = message.get_answer(self) {
+                return Ok((ip, ttl));
+            }
+
+            // Check if the response contains the domain name of an authoritative nameserver
+            if let Some(ns_domain) = message.get_authority(self) {
+                // resolve that nameserver's domain and then
+                // continue trying to resolve from that ns
+                nameserver = DNS_CACHE.get(&ns_domain)?;
+                continue;
+            }
+
+            // We did not make any progress
+            return Err(DNSError::CouldNotResolve(self.clone()));
+        }
+        Err(DNSError::MaxResolutionStepsExceeded)
+    }
+
+    fn try_resolve_from(&self, nameserver: IpAddr) -> Result<Message, DNSError> {
+        // Bind a UDP socket
+        let socket = UdpSocket::bind(UDP_SOCKET).map_err(DNSError::IO)?;
+        socket.connect((nameserver, 53)).map_err(DNSError::IO)?;
+
+        // Send a DNS query
+        let message = Message::new(self);
+        let expected_id = message.header.id;
+
+        let mut bytes = vec![0; message.size()];
+        message.write_to_buffer(&mut bytes);
+        socket.send(&bytes).map_err(DNSError::IO)?;
+
+        // Read the DNS response
+        let mut response = [0; MAX_DATAGRAM_SIZE];
+        let response_length = socket.recv(&mut response).map_err(DNSError::IO)?;
+
+        let (parsed_message, _) = Message::read(&response[..response_length], 0)
+            .map_err(|_| DNSError::InvalidResponse)?;
+
+        if parsed_message.header.id != expected_id {
+            return Err(DNSError::UnexpectedID);
+        }
+
+        Ok(parsed_message)
     }
 }
 
