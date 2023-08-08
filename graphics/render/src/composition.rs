@@ -20,7 +20,7 @@ impl Composition {
     /// If there is no layer at the current index, a default layer is created and
     /// returned.
     pub fn get_or_insert_layer(&mut self, at_index: u16) -> &mut Layer {
-        self.layers.entry(at_index).or_insert_with(Layer::default)
+        self.layers.entry(at_index).or_default()
     }
 
     pub fn layers(&self) -> Iter<'_, u16, Layer> {
