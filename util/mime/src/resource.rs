@@ -17,7 +17,9 @@ pub enum NoSniff {
     No,
 }
 
-/// Whether or not the user agent should check for an apache bug
+/// Whether or not the user agent should check for an [apache bug](https://issues.apache.org/bugzilla/show_bug.cgi?id=13986)
+/// that caused apache to send unexpected `Content-Type` HTTP Headers when serving files with an unknown
+/// MIME Type
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum CheckForApacheBug {
     Yes,
