@@ -4,7 +4,7 @@ use crate::{domain::Domain, message::Consume};
 
 /// See <https://en.wikipedia.org/wiki/List_of_DNS_record_types>
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum ResourceRecordType {
+pub enum ResourceRecordType {
     A { ipv4: Ipv4Addr },
     AAAA,
     AFSDB,

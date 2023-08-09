@@ -47,10 +47,10 @@ pub struct Question {
 /// <https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.3>
 #[derive(Clone, Debug)]
 pub struct Resource {
-    domain: Domain,
-    resource_type: ResourceRecordType,
-    _class: ResourceRecordClass,
-    time_to_live: u32,
+    pub domain: Domain,
+    pub resource_type: ResourceRecordType,
+    pub class: ResourceRecordClass,
+    pub time_to_live: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -157,6 +157,12 @@ impl Message {
     #[must_use]
     pub fn size(&self) -> usize {
         16 + self.question.iter().map(|q| q.size()).sum::<usize>()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn additional_records(&self) -> &[Resource] {
+        &self.additional
     }
 
     /// Serialize `self` into the provided byte buffer,
@@ -346,7 +352,7 @@ impl Consume for Resource {
             Self {
                 domain: domain,
                 resource_type: rtype,
-                _class: class,
+                class,
                 time_to_live: ttl,
             },
             domain_length + 10 + rdlength,

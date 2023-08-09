@@ -24,6 +24,17 @@ pub struct Cache {
 pub struct LockedCache(HashMap<Domain, CacheEntry>);
 
 impl Cache {
+    pub fn insert(&self, domain: Domain, ip: IpAddr, ttl: u32) {
+        if ttl == 0 {
+            return;
+        }
+
+        self.cache
+            .lock()
+            .expect("DNS Cache lock was poisoned")
+            .insert(domain, ip, ttl);
+    }
+
     /// Try to get an entry from the cache.
     ///
     /// If the entry is present but expired, it is deleted and `None` is returned.
@@ -61,14 +72,7 @@ impl Cache {
                     }
                 }
 
-                locked_cache.0.insert(
-                    domain.clone(),
-                    CacheEntry {
-                        expires_at: Instant::now() + Duration::from_secs(ttl as u64),
-                        last_accessed: Instant::now(),
-                        ip: ip,
-                    },
-                );
+                locked_cache.insert(domain.clone(), ip, ttl);
                 Ok(ip)
             },
         }
@@ -97,6 +101,17 @@ impl LockedCache {
         }
     }
 
+    fn insert(&mut self, domain: Domain, ip: IpAddr, ttl: u32) {
+        self.0.insert(
+            domain,
+            CacheEntry {
+                expires_at: Instant::now() + Duration::from_secs(ttl as u64),
+                last_accessed: Instant::now(),
+                ip: ip,
+            },
+        );
+    }
+
     #[must_use]
     fn len(&self) -> usize {
         self.0.len()
@@ -107,5 +122,6 @@ impl LockedCache {
 pub struct CacheEntry {
     expires_at: Instant,
     last_accessed: Instant,
+    // In the future we might want to differentiate between IPv4 and IPv6 here
     ip: IpAddr,
 }

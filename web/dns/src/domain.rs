@@ -1,6 +1,7 @@
 use crate::{
     message::{Consume, Message},
     punycode::idna_encode,
+    resource_type::{ResourceRecordClass, ResourceRecordType},
     DNSError, DNS_CACHE, MAX_DATAGRAM_SIZE, MAX_RESOLUTION_STEPS, ROOT_SERVER, UDP_SOCKET,
 };
 
@@ -140,7 +141,21 @@ impl Domain {
                 return Ok((ip, ttl));
             }
 
-            log::info!("response: {message:#?}");
+            // Insert any additional records provided by the server into our cache
+            message
+                .additional_records()
+                .iter()
+                .filter(|record| record.class == ResourceRecordClass::IN)
+                .for_each(|record| {
+                    if let ResourceRecordType::A { ipv4 } = record.resource_type {
+                        DNS_CACHE.insert(
+                            record.domain.clone(),
+                            IpAddr::V4(ipv4),
+                            record.time_to_live,
+                        );
+                    }
+                });
+
             // Check if the response contains the domain name of an authoritative nameserver
             if let Some(ns_domain) = message.get_authority(self) {
                 // resolve that nameserver's domain and then
@@ -149,7 +164,6 @@ impl Domain {
                 continue;
             }
 
-            log::warn!("did not recieve any authoritative namyserver");
             // We did not make any progress
             return Err(DNSError::CouldNotResolve(self.clone()));
         }
