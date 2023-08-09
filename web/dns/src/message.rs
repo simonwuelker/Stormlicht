@@ -6,42 +6,46 @@ use std::{fmt, net::IpAddr, vec};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum QueryType {
-    Standard = 0,
-    Inverse = 1,
-    Status = 2,
+    Standard,
+    Inverse,
+    Status,
     Reserved,
 }
 
-#[derive(Debug)]
-// https://datatracker.ietf.org/doc/html/rfc1035#section-4.1
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub struct Flags(u16);
+
+/// <https://datatracker.ietf.org/doc/html/rfc1035#section-4.1>
+#[derive(Clone, Debug)]
 pub(crate) struct Message {
-    pub(crate) header: Header,
-    pub(crate) question: Vec<Question>,
-    pub(crate) answer: Vec<Resource>,
-    pub(crate) authority: Vec<Resource>,
-    pub(crate) additional: Vec<Resource>,
+    header: Header,
+    question: Vec<Question>,
+    answer: Vec<Resource>,
+    authority: Vec<Resource>,
+    additional: Vec<Resource>,
 }
 
-// https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
+/// <https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1>
+#[derive(Clone, Copy)]
 pub struct Header {
-    pub(crate) id: u16,
-    flags: u16,
+    id: u16,
+    flags: Flags,
     num_questions: u16,
     num_answers: u16,
     num_authorities: u16,
     num_additional: u16,
 }
 
-#[derive(Debug)]
-// https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.2
+/// <https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.2>
+#[derive(Clone, Debug)]
 pub struct Question {
     domain: Domain,
     _query_type: QueryType,
     _query_class: (),
 }
 
-#[derive(Debug)]
-// https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.3
+/// <https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.3>
+#[derive(Clone, Debug)]
 pub struct Resource {
     domain: Domain,
     resource_type: ResourceRecordType,
@@ -49,7 +53,7 @@ pub struct Resource {
     time_to_live: u32,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ResponseCode {
     /// No error condition
     Ok,
@@ -80,10 +84,11 @@ pub enum ResponseCode {
 }
 
 impl Header {
+    #[must_use]
     pub fn new(num_questions: u16) -> Self {
         Self {
             id: RNG::default().next_u16(),
-            flags: 0x100,
+            flags: Flags::default().set_recursion_desired(true),
             num_questions: num_questions,
             num_answers: 0x0000,
             num_authorities: 0x0000,
@@ -93,39 +98,11 @@ impl Header {
 
     pub fn write_to_buffer(&self, bytes: &mut [u8]) {
         bytes[0..2].copy_from_slice(&self.id.to_be_bytes());
-        bytes[2..4].copy_from_slice(&self.flags.to_be_bytes());
+        bytes[2..4].copy_from_slice(&self.flags.0.to_be_bytes());
         bytes[4..6].copy_from_slice(&self.num_questions.to_be_bytes());
         bytes[6..8].copy_from_slice(&self.num_answers.to_be_bytes());
         bytes[8..10].copy_from_slice(&self.num_authorities.to_be_bytes());
         bytes[10..12].copy_from_slice(&self.num_additional.to_be_bytes());
-    }
-
-    pub fn recursion_available(&self) -> bool {
-        (self.flags >> 8) & 1 != 0
-    }
-
-    pub fn recursion_desired(&self) -> bool {
-        (self.flags >> 9) & 1 != 0
-    }
-
-    pub fn truncated(&self) -> bool {
-        (self.flags >> 10) & 1 != 0
-    }
-
-    pub fn authoritative(&self) -> bool {
-        (self.flags >> 11) & 1 != 0
-    }
-
-    pub fn response_code(&self) -> ResponseCode {
-        match self.flags & 0b1111 {
-            0 => ResponseCode::Ok,
-            1 => ResponseCode::FormatError,
-            2 => ResponseCode::ServerFailure,
-            3 => ResponseCode::NameError,
-            4 => ResponseCode::NotImplemented,
-            5 => ResponseCode::Refused,
-            _ => ResponseCode::Reserved,
-        }
     }
 }
 
@@ -169,6 +146,12 @@ impl Message {
             authority: vec![],
             additional: vec![],
         }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn id(&self) -> u16 {
+        self.header.id
     }
 
     #[must_use]
@@ -315,7 +298,7 @@ impl Consume for Header {
             return Err(());
         }
         let id = u16::from_be_bytes(buffer[0..2].try_into().unwrap());
-        let flags = u16::from_be_bytes(buffer[2..4].try_into().unwrap());
+        let flags = Flags::new(u16::from_be_bytes(buffer[2..4].try_into().unwrap()));
         let num_questions = u16::from_be_bytes(buffer[4..6].try_into().unwrap());
         let num_answers = u16::from_be_bytes(buffer[6..8].try_into().unwrap());
         let num_authorities = u16::from_be_bytes(buffer[8..10].try_into().unwrap());
@@ -379,11 +362,171 @@ impl fmt::Debug for Header {
             .field("num_answers", &self.num_answers)
             .field("num_authorities", &self.num_authorities)
             .field("num_additional", &self.num_additional)
-            .field("response_code", &self.response_code())
-            .field("recursion_available", &self.recursion_available())
+            .field("flags", &self.flags)
+            .finish()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MessageType {
+    Question,
+    Response,
+}
+
+impl Flags {
+    #[inline]
+    #[must_use]
+    pub const fn new(value: u16) -> Self {
+        debug_assert!(
+            value & 0b1110000 == 0,
+            "reserved Z field used in DNS header"
+        );
+
+        Self(value)
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn message_type(&self) -> MessageType {
+        if self.0 & 0x8000 == 0 {
+            MessageType::Question
+        } else {
+            MessageType::Response
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn set_message_type(mut self, message_type: MessageType) -> Self {
+        match message_type {
+            MessageType::Question => self.0 &= !0x8000,
+            MessageType::Response => self.0 |= 0x8000,
+        }
+        self
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn query_type(&self) -> QueryType {
+        match (self.0 & 0x7800) >> 4 {
+            0 => QueryType::Standard,
+            1 => QueryType::Inverse,
+            2 => QueryType::Status,
+            3.. => QueryType::Reserved,
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn set_query_type(mut self, query_type: QueryType) -> Self {
+        self.0 &= !0x7800;
+
+        match query_type {
+            QueryType::Standard => {},
+            QueryType::Inverse => self.0 |= 0x800,
+            QueryType::Status => self.0 |= 0x1000,
+            QueryType::Reserved => self.0 |= 0x1800,
+        }
+        self
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn is_authoritative(&self) -> bool {
+        self.0 & 0x400 != 0
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn set_is_authoritative(mut self, is_authoritative: bool) -> Self {
+        if is_authoritative {
+            self.0 |= 0x400;
+        } else {
+            self.0 &= !0x400;
+        }
+
+        self
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn is_truncated(&self) -> bool {
+        self.0 & 0x200 != 0
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn set_is_truncated(mut self, is_truncated: bool) -> Self {
+        if is_truncated {
+            self.0 |= 0x200;
+        } else {
+            self.0 &= !0x200;
+        }
+
+        self
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn recursion_desired(&self) -> bool {
+        self.0 & 0x100 != 0
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn set_recursion_desired(mut self, recursion_desired: bool) -> Self {
+        if recursion_desired {
+            self.0 |= 0x100;
+        } else {
+            self.0 &= !0x100;
+        }
+
+        self
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn recursion_available(&self) -> bool {
+        self.0 & 0x80 != 0
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn set_recursion_available(mut self, recursion_desired: bool) -> Self {
+        if recursion_desired {
+            self.0 |= 0x80;
+        } else {
+            self.0 &= !0x80;
+        }
+
+        self
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn response_code(&self) -> ResponseCode {
+        match self.0 & 0b1111 {
+            0 => ResponseCode::Ok,
+            1 => ResponseCode::FormatError,
+            2 => ResponseCode::ServerFailure,
+            3 => ResponseCode::NameError,
+            4 => ResponseCode::NotImplemented,
+            5 => ResponseCode::Refused,
+            _ => ResponseCode::Reserved,
+        }
+    }
+}
+
+impl fmt::Debug for Flags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Flags")
+            .field("message_type", &self.message_type())
+            .field("opcode", &self.query_type())
+            .field("is_authoritative", &self.is_authoritative())
+            .field("is_truncated", &self.is_truncated())
             .field("recursion_desired", &self.recursion_desired())
-            .field("truncated", &self.truncated())
-            .field("authoritative", &self.authoritative())
+            .field("recursion_available", &self.recursion_available())
+            .field("response_code", &self.response_code())
             .finish()
     }
 }

@@ -140,6 +140,7 @@ impl Domain {
                 return Ok((ip, ttl));
             }
 
+            log::info!("response: {message:#?}");
             // Check if the response contains the domain name of an authoritative nameserver
             if let Some(ns_domain) = message.get_authority(self) {
                 // resolve that nameserver's domain and then
@@ -148,6 +149,7 @@ impl Domain {
                 continue;
             }
 
+            log::warn!("did not recieve any authoritative namyserver");
             // We did not make any progress
             return Err(DNSError::CouldNotResolve(self.clone()));
         }
@@ -161,7 +163,7 @@ impl Domain {
 
         // Send a DNS query
         let message = Message::new(self);
-        let expected_id = message.header.id;
+        let expected_id = message.id();
 
         let mut bytes = vec![0; message.size()];
         message.write_to_buffer(&mut bytes);
@@ -174,7 +176,7 @@ impl Domain {
         let (parsed_message, _) = Message::read(&response[..response_length], 0)
             .map_err(|_| DNSError::InvalidResponse)?;
 
-        if parsed_message.header.id != expected_id {
+        if parsed_message.id() != expected_id {
             return Err(DNSError::UnexpectedID);
         }
 
