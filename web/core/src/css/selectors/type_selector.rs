@@ -45,10 +45,7 @@ impl Selector for TypeSelector {
         match self {
             Self::NSPrefix(_) => false,
             Self::WQName(wq_name) => {
-                _ = wq_name;
-                // Temporarily disabled due to interned string changes
-                // wq_name.prefix.is_none() && wq_name.ident == element.borrow().local_name()
-                false
+                wq_name.prefix.is_none() && wq_name.ident == element.borrow().local_name()
             },
         }
     }
