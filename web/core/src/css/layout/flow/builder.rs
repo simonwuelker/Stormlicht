@@ -65,7 +65,7 @@ impl<'a> BoxTreeBuilder<'a> {
                 if computed_style.display().is_inline() {
                     self.push_inline_box(child.clone(), computed_style);
                 } else {
-                    self.push_block_box()
+                    self.push_block_box(child.clone(), computed_style);
                 }
             } else if let Some(text) = child.try_into_type::<dom_objects::Text>() {
                 self.push_text(text.borrow().content());
@@ -96,7 +96,7 @@ impl<'a> BoxTreeBuilder<'a> {
     }
 
     fn push_inline_box(&mut self, node: DOMPtr<dom_objects::Node>, style: Rc<ComputedStyle>) {
-        self.inline_stack.push(InlineBox::new(style));
+        self.inline_stack.push(InlineBox::new(node.clone(), style));
 
         // Traverse all children, they will be appended to the inline box we just created
         self.traverse_subtree(node);
@@ -119,7 +119,7 @@ impl<'a> BoxTreeBuilder<'a> {
         }
     }
 
-    fn push_block_box(&mut self) {
+    fn push_block_box(&mut self, node: DOMPtr<dom_objects::Node>, style: Rc<ComputedStyle>) {
         // Split all currently open inline boxes around the block box
         if !self.inline_stack.is_empty() {
             // Split each inline box - these will end up on the "right side" of the block box
@@ -145,5 +145,10 @@ impl<'a> BoxTreeBuilder<'a> {
         if !self.current_inline_formatting_context.is_empty() {
             self.end_inline_formatting_context();
         }
+
+        // Push the actual box
+        let contents = Self::build(node.clone(), self.style_computer, style.clone());
+        self.block_level_boxes
+            .push(BlockLevelBox::new(style, Some(node), contents));
     }
 }

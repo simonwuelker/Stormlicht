@@ -128,7 +128,6 @@ impl TreeDebug for BlockFormattingContext {
         writeln!(formatter, "Block Formatting Context")?;
         formatter.increase_indent();
         for child in &self.contents {
-            formatter.indent()?;
             child.tree_fmt(formatter)?;
         }
         formatter.decrease_indent();
@@ -150,15 +149,11 @@ impl TreeDebug for BlockLevelBox {
         match &self.contents {
             BlockContainer::BlockLevelBoxes(block_level_boxes) => {
                 for block_box in block_level_boxes {
-                    formatter.indent()?;
                     block_box.tree_fmt(formatter)?;
-                    writeln!(formatter)?;
                 }
             },
             BlockContainer::InlineFormattingContext(inline_formatting_context) => {
-                formatter.indent()?;
                 inline_formatting_context.tree_fmt(formatter)?;
-                writeln!(formatter)?;
             },
         }
         formatter.decrease_indent();

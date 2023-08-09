@@ -1,6 +1,10 @@
 use std::{fmt::Write, rc::Rc};
 
-use crate::{css::stylecomputer::ComputedStyle, TreeDebug, TreeFormatter};
+use crate::{
+    css::stylecomputer::ComputedStyle,
+    dom::{dom_objects, DOMPtr},
+    TreeDebug, TreeFormatter,
+};
 
 /// <https://drafts.csswg.org/css2/#inline-level-boxes>
 #[derive(Clone, Debug)]
@@ -12,6 +16,7 @@ pub enum InlineLevelBox {
 /// <https://drafts.csswg.org/css2/#inline-box>
 #[derive(Clone, Debug)]
 pub struct InlineBox {
+    node: DOMPtr<dom_objects::Node>,
     style: Rc<ComputedStyle>,
     contents: Vec<InlineLevelBox>,
 }
@@ -50,8 +55,9 @@ impl From<Vec<InlineLevelBox>> for InlineFormattingContext {
 
 impl InlineBox {
     #[inline]
-    pub fn new(style: Rc<ComputedStyle>) -> Self {
+    pub fn new(node: DOMPtr<dom_objects::Node>, style: Rc<ComputedStyle>) -> Self {
         Self {
+            node,
             style,
             contents: Vec::new(),
         }
@@ -69,6 +75,7 @@ impl InlineBox {
     #[inline]
     pub fn split_off(&self) -> Self {
         Self {
+            node: self.node.clone(),
             style: self.style.clone(),
             contents: vec![],
         }
@@ -78,10 +85,9 @@ impl InlineBox {
 impl TreeDebug for InlineFormattingContext {
     fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> std::fmt::Result {
         formatter.indent()?;
-        write!(formatter, "Inline Formatting Context")?;
+        writeln!(formatter, "Inline Formatting Context")?;
         formatter.increase_indent();
         for child in &self.elements {
-            formatter.indent()?;
             child.tree_fmt(formatter)?;
         }
         Ok(())
@@ -98,10 +104,13 @@ impl TreeDebug for InlineLevelBox {
             },
             Self::InlineBox(inline_box) => {
                 formatter.indent()?;
-                writeln!(formatter, "Inline Box")?;
+                writeln!(
+                    formatter,
+                    "Inline Box ({:?})",
+                    inline_box.node.underlying_type()
+                )?;
                 formatter.increase_indent();
                 for child in &inline_box.contents {
-                    formatter.indent()?;
                     child.tree_fmt(formatter)?;
                     writeln!(formatter)?;
                 }
