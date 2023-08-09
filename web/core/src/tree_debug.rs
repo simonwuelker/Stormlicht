@@ -1,4 +1,4 @@
-use std::{fmt, fmt::Write};
+use std::fmt;
 
 const WHITESPACE_PER_INDENT_LEVEL: usize = 2;
 const MAX_TEXT_LEN: usize = 16;
@@ -26,19 +26,25 @@ impl<'a, 'b> TreeFormatter<'a, 'b> {
         self.indent_level -= 1;
     }
 
+    pub fn indent(&mut self) -> fmt::Result {
+        write!(
+            self.formatter,
+            "{}",
+            " ".repeat(self.indent_level * WHITESPACE_PER_INDENT_LEVEL)
+        )
+    }
+
     pub fn write_text(&mut self, text: &str) -> fmt::Result {
         if text.len() < MAX_TEXT_LEN {
-            self.write_str(&format!("{text:?}"))
+            write!(self.formatter, "{text:?}")
         } else {
-            self.write_str(&format!("\"{} [...]\"", &text[..MAX_TEXT_LEN]))
+            write!(self.formatter, "\"{} [...]\"", &text[..MAX_TEXT_LEN])
         }
     }
 }
 
 impl<'a, 'b> fmt::Write for TreeFormatter<'a, 'b> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        self.formatter
-            .write_str(&" ".repeat(self.indent_level * WHITESPACE_PER_INDENT_LEVEL))?;
         self.formatter.write_str(s)
     }
 }

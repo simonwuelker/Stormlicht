@@ -1,6 +1,6 @@
 //! Utilities for displaying a dom tree
 
-use std::fmt::{self, Write};
+use std::{fmt, fmt::Write};
 
 use crate::{
     dom::{codegen, dom_objects, DOMPtr, DOMTyped},
@@ -59,15 +59,16 @@ where
 {
     fn tree_fmt(&self, formatter: &mut crate::TreeFormatter<'_, '_>) -> std::fmt::Result {
         if let Some(node) = self.try_into_type::<dom_objects::Node>() {
+            formatter.indent()?;
             codegen::display_domtype(&node, formatter)?;
+            writeln!(formatter)?;
 
             let borrowed_node = node.borrow();
             if !borrowed_node.children().is_empty() {
-                formatter.write_char('\n')?;
                 formatter.increase_indent();
                 for child in borrowed_node.children() {
+                    formatter.indent()?;
                     child.tree_fmt(formatter)?;
-                    formatter.write_char('\n')?;
                 }
                 formatter.decrease_indent();
             }

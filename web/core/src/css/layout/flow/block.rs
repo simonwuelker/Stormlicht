@@ -124,28 +124,41 @@ impl fmt::Debug for BlockFormattingContext {
 
 impl TreeDebug for BlockFormattingContext {
     fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> std::fmt::Result {
+        formatter.indent()?;
         writeln!(formatter, "Block Formatting Context")?;
         formatter.increase_indent();
         for child in &self.contents {
+            formatter.indent()?;
             child.tree_fmt(formatter)?;
         }
+        formatter.decrease_indent();
         Ok(())
     }
 }
 
 impl TreeDebug for BlockLevelBox {
     fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> std::fmt::Result {
-        writeln!(formatter, "Block Box")?;
+        formatter.indent()?;
+        write!(formatter, "Block Box")?;
+        if let Some(node) = &self.node {
+            writeln!(formatter, " ({:?})", node.underlying_type())?;
+        } else {
+            writeln!(formatter, " (anonymous)")?;
+        }
 
         formatter.increase_indent();
         match &self.contents {
             BlockContainer::BlockLevelBoxes(block_level_boxes) => {
                 for block_box in block_level_boxes {
+                    formatter.indent()?;
                     block_box.tree_fmt(formatter)?;
+                    writeln!(formatter)?;
                 }
             },
             BlockContainer::InlineFormattingContext(inline_formatting_context) => {
+                formatter.indent()?;
                 inline_formatting_context.tree_fmt(formatter)?;
+                writeln!(formatter)?;
             },
         }
         formatter.decrease_indent();
