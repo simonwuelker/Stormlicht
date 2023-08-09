@@ -16,7 +16,7 @@ use crate::{
 
 use super::ActiveFormattingElements;
 
-use string_interner::{static_interned, static_str};
+use string_interner::{static_interned, static_str, InternedString};
 
 const TAB: char = '\u{0009}';
 const LINE_FEED: char = '\u{000A}';
@@ -371,8 +371,18 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#closing-elements-that-have-implied-end-tags>
-    fn generate_implied_end_tags_excluding(&mut self, _exclude: Option<DOMType>) {
-        todo!()
+    fn generate_implied_end_tags_excluding(&mut self, exclude: Option<DOMType>) {
+        loop {
+            let node_type = self.current_node().underlying_type();
+            if exclude.is_some_and(|to_exclude| to_exclude == node_type) {
+                return;
+            }
+            // FIXME: There are more elements here that aren't yet implemented
+            if node_type != DOMType::HTMLParagraphElement {
+                return;
+            }
+            self.pop_from_open_elements();
+        }
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token>
@@ -1827,15 +1837,40 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.insert_html_element_for_token(&tagdata);
                     },
                     Token::Tag(tagdata) if !tagdata.opening => {
+                        fn is_html_element_with_name(
+                            node: DOMPtr<Node>,
+                            name: InternedString,
+                        ) -> bool {
+                            if let Some(element) = node.try_into_type::<Element>() {
+                                if element.borrow().local_name() == name {
+                                    return node.is_a::<HTMLElement>();
+                                }
+                            }
+                            false
+                        }
                         // Run these steps:
 
                         // 1. Initialize node to be the current node (the bottommost node of the stack).
-                        let _node = self.current_node();
+                        // 2. Loop:
+                        for node in self.open_elements.iter().rev() {
+                            // If node is an HTML element with the same tag name as the token, then:
+                            if is_html_element_with_name(node.clone(), tagdata.name) {
+                                // 1. Generate implied end tags,
+                                // FIXME: except for HTML elements with the same tag name as the token.
+                                self.generate_implied_end_tags_excluding(None);
 
-                        // 2. Loop: If node is an HTML element with the same tag name as the token, then:
-                        log::warn!(
-                            "FIXME: implement remainder of \"any other end tag\" for inbody"
-                        );
+                                // 2. FIXME: If node is not the current node, then this is a parse error.
+
+                                // 3. FIXME: Pop all the nodes from the current node up to node, including node, then stop these steps.
+                                self.open_elements.pop();
+                                break;
+                            }
+                            // 3. FIXME: Otherwise, if node is in the special category, then this is a parse error;
+                            //    ignore the token, and return.
+
+                            // 4. Set node to the previous entry in the stack of open elements.
+                            // 5. Return to the step labeled loop.
+                        }
                     },
 
                     // FIXME a lot of (for now) irrelevant rules are missing here
