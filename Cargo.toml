@@ -21,7 +21,6 @@ members = [
     "util/string_interner",
     "util/perfect_hash",
     "util/perfect_hash_derive",
-    "parser_combinators",
     "taskrunner",
     "sl_std",
     "stormlicht",
