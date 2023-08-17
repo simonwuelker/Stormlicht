@@ -1,12 +1,45 @@
 //! HTTP/1.1 response parser
 
-use std::collections::HashMap;
-
-use parser_combinators::{
-    literal, many, optional, predicate, some, ParseResult, Parser, ParserCombinator,
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader, Read},
 };
 
-use crate::status_code::StatusCode;
+use sl_std::iter::MultiElementSplit;
+
+use crate::{
+    request::{HTTPError, HTTP_NEWLINE},
+    status_code::StatusCode,
+};
+
+/// Like [BufReader::read_until], except the needle may have arbitrary length
+fn read_until<R: std::io::Read>(
+    reader: &mut BufReader<R>,
+    needle: &[u8],
+) -> Result<Vec<u8>, std::io::Error> {
+    let mut result = vec![];
+
+    loop {
+        match reader
+            .buffer()
+            .windows(needle.len())
+            .position(|w| w == needle)
+        {
+            Some(i) => {
+                let bytes_to_consume = i + needle.len();
+
+                result.extend(&reader.buffer()[..bytes_to_consume]);
+                reader.consume(bytes_to_consume);
+                return Ok(result);
+            },
+            None => {
+                result.extend(reader.buffer());
+                reader.consume(reader.capacity());
+                reader.fill_buf()?;
+            },
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Response {
@@ -24,108 +57,115 @@ impl Response {
         }
         None
     }
-}
 
-pub(crate) fn parse_response(input: &[u8]) -> ParseResult<&[u8], Response> {
-    let http_version = literal(b"HTTP/1.1");
-    let whitespace = literal(b" ");
-    let linebreak = literal(b"\r\n");
-    let digit = predicate(|input: &[u8]| {
-        if input.is_empty() {
-            Err(0)
-        } else {
-            let maybe_char = input[0];
-            if (0x30..0x3A).contains(&maybe_char) {
-                Ok((&input[1..], maybe_char - 0x30))
-            } else {
-                Err(0)
+    // FIXME: Requiring a BufReader here is kind of ugly
+    /// Read a [Response] from the given [Reader](std::io::Read)
+    ///
+    /// This requires a [BufReader] because we make direct use of its buffer
+    pub fn receive<R: std::io::Read>(reader: &mut BufReader<R>) -> Result<Self, HTTPError> {
+        // TODO all of this is very insecure - we blindly trust the size in Transfer-Encoding: chunked,
+        // no timeouts, stuff like that.
+        let needle = b"\r\n\r\n";
+        let header_bytes = read_until(reader, needle).map_err(HTTPError::IO)?;
+
+        let mut response_lines =
+            MultiElementSplit::new(&header_bytes, |w: &[u8; 2]| w == HTTP_NEWLINE.as_bytes());
+
+        let mut status_line_words = response_lines
+            .next()
+            .ok_or(HTTPError::InvalidResponse)?
+            .split(|&b| b == b' ')
+            .filter(|word| !word.is_empty());
+
+        if !matches!(status_line_words.next(), Some(b"HTTP/1.1")) {
+            return Err(HTTPError::InvalidResponse);
+        }
+
+        // Parse status code
+        let status: StatusCode =
+            std::str::from_utf8(status_line_words.next().ok_or(HTTPError::InvalidResponse)?)
+                .map_err(|_| HTTPError::InvalidResponse)?
+                .parse()
+                .map_err(|_| HTTPError::InvalidResponse)?;
+
+        // What follows is a textual description of the error code ("OK" for 200) - we don't care about that
+
+        // Parse the response headers
+        let mut headers = HashMap::new();
+        for header_line in response_lines {
+            // An empty header indicates the end of the list of headers
+            if header_line.is_empty() {
+                break;
             }
-        }
-    });
-    let character = predicate(|input: &[u8]| {
-        if input.is_empty() {
-            Err(0)
-        } else {
-            match input[0] {
-                0x20 | 0x41..=0x5A | 0x61..=0x7A => Ok((&input[1..], ())),
-                _ => Err(0),
-            }
-        }
-    });
 
-    let status_code =
-        some(digit).map(|digits| digits.iter().fold(0_u32, |acc, x| 10 * acc + *x as u32));
+            let separator = header_line
+                .iter()
+                .position(|&elem| elem == b':')
+                .ok_or(HTTPError::InvalidResponse)?;
 
-    let status_line = http_version
-        .then(whitespace)
-        .then(status_code)
-        .map(|res| res.1)
-        .then(whitespace)
-        .map(|res| res.0)
-        .then(some(character))
-        .map(|res| res.0)
-        .then(linebreak)
-        .map(|res| res.0);
+            let key = &header_line[..separator];
+            let value = &header_line[separator + 1..];
+            headers.insert(
+                std::str::from_utf8(key)
+                    .map_err(|_| HTTPError::InvalidResponse)?
+                    .trim()
+                    .to_owned(),
+                std::str::from_utf8(value)
+                    .map_err(|_| HTTPError::InvalidResponse)?
+                    .trim()
+                    .to_owned(),
+            );
+        }
 
-    let legal_name_chars = predicate(|input: &[u8]| {
-        if input.is_empty() {
-            Err(0)
-        } else {
-            match input[0] {
-                // ascii printable without colon
-                0x20..=0x39 | 0x3B..=0x7E => Ok((&input[1..], input[0])),
-                _ => Err(0),
-            }
-        }
-    });
-    let legal_value_chars = predicate(|input: &[u8]| {
-        if input.is_empty() {
-            Err(0)
-        } else {
-            match input[0] {
-                // ascii printable
-                0x20..=0x7E => Ok((&input[1..], input[0])),
-                _ => Err(0),
-            }
-        }
-    });
-    let linebreak = literal(b"\r\n");
-    let to_string = |bytes: Vec<u8>| {
-        bytes
-            .iter()
-            .map(|byte| char::from_u32(*byte as u32).unwrap())
-            .collect::<String>()
-            .trim()
-            .to_string()
-    };
-    let colon = literal(b":");
-    let whitespace = literal(b" ");
-    let headers = many(
-        some(legal_name_chars)
-            .map(to_string)
-            .then(colon)
-            .map(|res| res.0)
-            .then(optional(whitespace))
-            .map(|res| res.0)
-            .then(some(legal_value_chars))
-            .map(|(field, value_bytes)| (field, to_string(value_bytes)))
-            .then(linebreak)
-            .map(|res| res.0),
-    )
-    .map(|header_list| {
-        let mut headers = HashMap::with_capacity(header_list.len());
-        for (key, value) in header_list {
-            headers.insert(key, value);
-        }
-        headers
-    });
-
-    status_line
-        .then(headers)
-        .map(|(response_code, headers)| Response {
-            status: StatusCode::try_from(response_code).unwrap(),
-            headers: headers,
+        let mut response = Self {
+            status,
+            headers,
             body: vec![],
-        })
-        .parse(input)
+        };
+
+        // Anything after the headers is the actual response body
+        // The length of the body depends on the headers that were sent
+        if let Some(transfer_encoding) = response.get_header("Transfer-encoding") {
+            match transfer_encoding {
+                "chunked" => loop {
+                    let size_bytes_with_newline =
+                        read_until(reader, HTTP_NEWLINE.as_bytes()).map_err(HTTPError::IO)?;
+                    let size_bytes = &size_bytes_with_newline
+                        [..size_bytes_with_newline.len() - HTTP_NEWLINE.len()];
+
+                    if size_bytes.is_empty() {
+                        break;
+                    }
+
+                    let size = usize::from_str_radix(
+                        std::str::from_utf8(size_bytes).map_err(|_| HTTPError::InvalidResponse)?,
+                        16,
+                    )
+                    .map_err(|_| HTTPError::InvalidResponse)?;
+
+                    if size == 0 {
+                        break;
+                    }
+
+                    let mut buffer = vec![0; size];
+                    reader.read_exact(&mut buffer).map_err(HTTPError::IO)?;
+                    response.body.extend(&buffer)
+                },
+                _ => {
+                    log::warn!("Unknown transfer encoding: {transfer_encoding}");
+                    return Err(HTTPError::InvalidResponse);
+                },
+            }
+        } else if let Some(content_length) = response.get_header("Content-Length") {
+            let mut buffer =
+                vec![0; str::parse(content_length).map_err(|_| HTTPError::InvalidResponse)?];
+            reader.read_exact(&mut buffer).map_err(HTTPError::IO)?;
+            response.body.extend(&buffer)
+        } else {
+            log::warn!("Neither Transfer-Encoding nor Content-Length were provided, we don't know how to decode the body!");
+            return Err(HTTPError::InvalidResponse);
+        }
+
+        Ok(response)
+    }
 }

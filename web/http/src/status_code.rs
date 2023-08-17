@@ -1,5 +1,7 @@
 //! [HTTP status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status)
 
+use std::str::FromStr;
+
 macro_rules! u32_to_enum {
     ($(#[$meta:meta])* $vis:vis enum $name:ident {
         $($(#[$vmeta:meta])* $vname:ident $(= $val:expr)?,)*
@@ -97,5 +99,13 @@ u32_to_enum! {
         NetworkAuthenticationRequired = 511,
 
         Unknown,
+    }
+}
+
+impl FromStr for StatusCode {
+    type Err = <u32 as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(u32::from_str(s)?.into())
     }
 }

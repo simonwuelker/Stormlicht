@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-parser_combinators = { path = "../../parser_combinators" }
+sl_std = { path = "../../sl_std" }
 url = { path = "../url" }
 dns = { path = "../dns" }
 compression = { path = "../../compression" }

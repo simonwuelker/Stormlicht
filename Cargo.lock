@@ -913,7 +913,7 @@ dependencies = [
  "compression",
  "dns",
  "log",
- "parser_combinators",
+ "sl_std",
  "url",
 ]
 

@@ -1,13 +1,13 @@
 use dns::DNSError;
 use std::collections::HashMap;
-use std::io::{self, BufRead, BufReader, Read};
+use std::io::{self, BufReader};
 use std::net::{SocketAddr, TcpStream};
 use url::{Host, URL};
 
-use crate::response::{parse_response, Response};
+use crate::response::Response;
 
 const USER_AGENT: &str = "Stormlicht";
-const HTTP_NEWLINE: &str = "\r\n";
+pub(crate) const HTTP_NEWLINE: &str = "\r\n";
 
 #[derive(Debug)]
 pub enum HTTPError {
@@ -38,32 +38,6 @@ pub struct Request {
     path: String,
     headers: HashMap<String, String>,
     host: Host,
-}
-
-/// Like [BufReader::read_until], except the needle may have arbitrary length
-fn read_until<R: Read>(reader: &mut BufReader<R>, needle: &[u8]) -> Result<Vec<u8>, io::Error> {
-    let mut result = vec![];
-
-    loop {
-        match reader
-            .buffer()
-            .windows(needle.len())
-            .position(|w| w == needle)
-        {
-            Some(i) => {
-                let bytes_to_consume = i + needle.len();
-
-                result.extend(&reader.buffer()[..bytes_to_consume]);
-                reader.consume(bytes_to_consume);
-                return Ok(result);
-            },
-            None => {
-                result.extend(reader.buffer());
-                reader.consume(reader.capacity());
-                reader.fill_buf()?;
-            },
-        }
-    }
 }
 
 impl Request {
@@ -130,53 +104,8 @@ impl Request {
         self.write_to(&mut stream).map_err(HTTPError::IO)?;
 
         // Parse the response
-        // TODO all of this is very insecure - we blindly trust the size in Transfer-Encoding: chunked,
-        // no timeouts, stuff like that.
         let mut reader = BufReader::new(stream);
-        let needle = b"\r\n\r\n";
-        let header_bytes = read_until(&mut reader, needle).map_err(HTTPError::IO)?;
-
-        let mut response = parse_response(&header_bytes)
-            .map_err(|_| HTTPError::InvalidResponse)?
-            .1;
-
-        if let Some(transfer_encoding) = response.get_header("Transfer-encoding") {
-            match transfer_encoding {
-                "chunked" => loop {
-                    let size_bytes_with_newline =
-                        read_until(&mut reader, HTTP_NEWLINE.as_bytes()).map_err(HTTPError::IO)?;
-                    let size_bytes = &size_bytes_with_newline
-                        [..size_bytes_with_newline.len() - HTTP_NEWLINE.len()];
-
-                    if size_bytes.is_empty() {
-                        break;
-                    }
-
-                    let size = usize::from_str_radix(
-                        std::str::from_utf8(size_bytes).map_err(|_| HTTPError::InvalidResponse)?,
-                        16,
-                    )
-                    .map_err(|_| HTTPError::InvalidResponse)?;
-
-                    if size == 0 {
-                        break;
-                    }
-
-                    let mut buffer = vec![0; size];
-                    reader.read_exact(&mut buffer).map_err(HTTPError::IO)?;
-                    response.body.extend(&buffer)
-                },
-                _ => {
-                    log::warn!("Unknown transfer encoding: {transfer_encoding}");
-                    return Err(HTTPError::InvalidResponse);
-                },
-            }
-        } else if let Some(content_length) = response.get_header("Content-Length") {
-            let mut buffer =
-                vec![0; str::parse(content_length).map_err(|_| HTTPError::InvalidResponse)?];
-            reader.read_exact(&mut buffer).map_err(HTTPError::IO)?;
-            response.body.extend(&buffer)
-        }
+        let response = Response::receive(&mut reader)?;
 
         Ok(response)
     }
