@@ -9,7 +9,7 @@ macro_rules! u32_to_enum {
             $($(#[$vmeta])* $vname $(= $val)?,)*
         }
 
-        impl std::convert::From<u32> for $name {
+        impl ::std::convert::From<u32> for $name {
             fn from(v: u32) -> Self {
                 match v {
                     $(x if x == $name::$vname as u32 => $name::$vname,)*

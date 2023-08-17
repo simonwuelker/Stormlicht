@@ -7,6 +7,7 @@ use url::{Host, URL};
 use crate::response::{parse_response, Response};
 
 const USER_AGENT: &str = "Stormlicht";
+const HTTP_NEWLINE: &str = "\r\n";
 
 #[derive(Debug)]
 pub enum HTTPError {
@@ -15,41 +16,28 @@ pub enum HTTPError {
     DNS(DNSError),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Header {
-    UserAgent,
-    Host,
-    Other(String),
-}
-
-impl Header {
-    pub fn as_bytes(&self) -> &[u8] {
-        match self {
-            Self::UserAgent => b"User-Agent".as_slice(),
-            Self::Host => b"host".as_slice(),
-            Self::Other(name) => name.as_bytes(),
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Method {
     GET,
     POST,
 }
 
+impl Method {
+    #[must_use]
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::GET => "GET",
+            Self::POST => "POST",
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Request {
     method: Method,
     path: String,
-    headers: HashMap<Header, String>,
+    headers: HashMap<String, String>,
     host: Host,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CreateRequestError {
-    NotHTTP,
-    MissingHost,
 }
 
 /// Like [BufReader::read_until], except the needle may have arbitrary length
@@ -88,9 +76,9 @@ impl Request {
         assert_eq!(url.scheme, "http", "URL is not http");
         let host = url.host.expect("URL does not have a host");
 
-        let mut headers = HashMap::new();
-        headers.insert(Header::UserAgent, USER_AGENT.to_string());
-        headers.insert(Header::Host, host.to_string());
+        let mut headers = HashMap::with_capacity(2);
+        headers.insert("User-Agent".to_string(), USER_AGENT.to_string());
+        headers.insert("Host".to_string(), host.to_string());
 
         Self {
             method: Method::GET,
@@ -105,33 +93,27 @@ impl Request {
     where
         W: std::io::Write,
     {
-        let method_name = match self.method {
-            Method::GET => b"GET".as_slice(),
-            Method::POST => b"POST".as_slice(),
-        };
-
-        writer.write_all(method_name)?;
-        writer.write_all(b" ")?;
-        writer.write_all(self.path.as_bytes())?;
-        writer.write_all(b" HTTP/1.1\r\n")?;
+        write!(
+            writer,
+            "{method} {path} HTTP/1.1{HTTP_NEWLINE}",
+            method = self.method.as_str(),
+            path = self.path
+        )?;
 
         for (header, value) in &self.headers {
-            writer.write_all(header.as_bytes())?;
-            writer.write_all(b": ")?;
-            writer.write_all(value.as_bytes())?;
-            writer.write_all(b"\r\n")?;
+            write!(writer, "{}: {value}{HTTP_NEWLINE}", header.as_str())?;
         }
-        writer.write_all(b"\r\n")?;
+        write!(writer, "{HTTP_NEWLINE}")?;
 
         Ok(())
     }
 
-    pub fn set_header(&mut self, header: Header, value: &str) {
-        self.headers.insert(header, value.to_string());
+    pub fn set_header(&mut self, header: &str, value: &str) {
+        self.headers.insert(header.to_string(), value.to_string());
     }
 
     pub fn send(self) -> Result<Response, HTTPError> {
-        // resolve the hostname
+        // Resolve the hostname
         let ip = match &self.host {
             Host::Domain(host_str) | Host::OpaqueHost(host_str) => dns::Domain::new(host_str)
                 .lookup()
@@ -141,7 +123,7 @@ impl Request {
             Host::EmptyHost => todo!(),
         };
 
-        // Establish a tcp connection
+        // Establish a TCP connection with the host
         let mut stream = TcpStream::connect(SocketAddr::new(ip, 80)).map_err(HTTPError::IO)?;
 
         // Send our request
@@ -160,25 +142,29 @@ impl Request {
 
         if let Some(transfer_encoding) = response.get_header("Transfer-encoding") {
             match transfer_encoding {
-                "chunked" => {
-                    let needle = b"\r\n";
-                    loop {
-                        let size_bytes_with_newline =
-                            read_until(&mut reader, needle).map_err(HTTPError::IO)?;
-                        let size_bytes = &size_bytes_with_newline
-                            [..size_bytes_with_newline.len() - needle.len()];
-                        let size = size_bytes
-                            .iter()
-                            .fold(0, |acc, x| acc * 16 + hex_digit(*x) as usize);
+                "chunked" => loop {
+                    let size_bytes_with_newline =
+                        read_until(&mut reader, HTTP_NEWLINE.as_bytes()).map_err(HTTPError::IO)?;
+                    let size_bytes = &size_bytes_with_newline
+                        [..size_bytes_with_newline.len() - HTTP_NEWLINE.len()];
 
-                        if size == 0 {
-                            break;
-                        }
-
-                        let mut buffer = vec![0; size];
-                        reader.read_exact(&mut buffer).map_err(HTTPError::IO)?;
-                        response.body.extend(&buffer)
+                    if size_bytes.is_empty() {
+                        break;
                     }
+
+                    let size = usize::from_str_radix(
+                        std::str::from_utf8(size_bytes).map_err(|_| HTTPError::InvalidResponse)?,
+                        16,
+                    )
+                    .map_err(|_| HTTPError::InvalidResponse)?;
+
+                    if size == 0 {
+                        break;
+                    }
+
+                    let mut buffer = vec![0; size];
+                    reader.read_exact(&mut buffer).map_err(HTTPError::IO)?;
+                    response.body.extend(&buffer)
                 },
                 _ => {
                     log::warn!("Unknown transfer encoding: {transfer_encoding}");
@@ -196,26 +182,18 @@ impl Request {
     }
 }
 
-fn hex_digit(byte: u8) -> u8 {
-    match byte {
-        65..=90 => byte - 55,  // ascii lowercase
-        97..=122 => byte - 87, // ascii uppercase
-        48..=57 => byte - 48,  // ascii digit
-        _ => panic!("invalid hex digit"),
-    }
-}
-
+#[cfg(test)]
 mod tests {
+    use super::Request;
 
     #[test]
     fn basic_get_request() {
         let mut tcpstream: Vec<u8> = vec![];
 
-        let mut request =
-            super::Request::get(url::URL::try_from("http://www.example.com").unwrap());
+        let mut request = Request::get(url::URL::try_from("http://www.example.com").unwrap());
         request.headers.clear();
 
-        request.set_header(super::Header::UserAgent, "test");
+        request.set_header("User-Agent", "test");
         request.write_to(&mut tcpstream).unwrap();
         assert_eq!(
             String::from_utf8(tcpstream).unwrap(),
