@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "web/core",
-    "web/http", 
+    "web/http",
     "web/url",
     "web/dns",
     "web/dom-derive",
@@ -21,8 +21,9 @@ members = [
     "util/string_interner",
     "util/perfect_hash",
     "util/perfect_hash_derive",
-    "parser_combinators", 
+    "parser_combinators",
     "taskrunner",
+    "sl_std",
     "stormlicht",
     "crypto/ciphers",
     "crypto/hash",
