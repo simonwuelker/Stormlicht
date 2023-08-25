@@ -5,3 +5,4 @@
 #![feature(array_windows)]
 
 pub mod iter;
+pub mod time;
