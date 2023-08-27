@@ -1,18 +1,17 @@
 mod background_color;
 mod color;
 mod display;
-mod margin;
-mod width;
 
 pub use background_color::BackgroundColorValue;
 pub use color::ColorValue;
 pub use display::{
     DisplayBox, DisplayInside, DisplayInsideOutside, DisplayInternal, DisplayOutside, DisplayValue,
 };
-pub use margin::MarginValue;
-pub use width::WidthValue;
 
-use super::{CSSParse, ParseError, Parser};
+use super::{
+    values::{AutoOr, LengthPercentage},
+    CSSParse, ParseError, Parser,
+};
 
 use string_interner::{static_interned, static_str, InternedString};
 
@@ -36,22 +35,22 @@ pub enum StyleProperty {
     Display(DisplayValue),
 
     /// <https://drafts.csswg.org/css-box-3/#propdef-margin-top>
-    MarginTop(MarginValue),
+    MarginTop(AutoOr<LengthPercentage>),
 
     /// <https://drafts.csswg.org/css-box-3/#propdef-margin-right>
-    MarginRight(MarginValue),
+    MarginRight(AutoOr<LengthPercentage>),
 
     /// <https://drafts.csswg.org/css-box-3/#propdef-margin-bottom>
-    MarginBottom(MarginValue),
+    MarginBottom(AutoOr<LengthPercentage>),
 
     /// <https://drafts.csswg.org/css-box-3/#propdef-margin-left>
-    MarginLeft(MarginValue),
+    MarginLeft(AutoOr<LengthPercentage>),
 
     /// <https://drafts.csswg.org/css2/#propdef-width>
-    Width(WidthValue),
+    Width(AutoOr<LengthPercentage>),
 
     /// <https://drafts.csswg.org/css2/#propdef-height>
-    Height(WidthValue),
+    Height(AutoOr<LengthPercentage>),
 }
 
 #[derive(Clone, Debug)]
@@ -74,13 +73,13 @@ impl StyleProperty {
             static_interned!("background-color") => {
                 Self::BackgroundColor(BackgroundColorValue::parse(parser)?)
             },
-            static_interned!("display") => Self::Display(DisplayValue::parse(parser)?),
-            static_interned!("margin-top") => Self::MarginTop(MarginValue::parse(parser)?),
-            static_interned!("margin-right") => Self::MarginRight(MarginValue::parse(parser)?),
-            static_interned!("margin-bottom") => Self::MarginBottom(MarginValue::parse(parser)?),
-            static_interned!("margin-left") => Self::MarginLeft(MarginValue::parse(parser)?),
-            static_interned!("width") => Self::Width(WidthValue::parse(parser)?),
-            static_interned!("height") => Self::Width(WidthValue::parse(parser)?),
+            static_interned!("display") => Self::Display(CSSParse::parse(parser)?),
+            static_interned!("margin-top") => Self::MarginTop(CSSParse::parse(parser)?),
+            static_interned!("margin-right") => Self::MarginRight(CSSParse::parse(parser)?),
+            static_interned!("margin-bottom") => Self::MarginBottom(CSSParse::parse(parser)?),
+            static_interned!("margin-left") => Self::MarginLeft(CSSParse::parse(parser)?),
+            static_interned!("width") => Self::Width(CSSParse::parse(parser)?),
+            static_interned!("height") => Self::Width(CSSParse::parse(parser)?),
             _ => {
                 log::warn!("Unknown CSS property name: {:?}", property_name.to_string());
                 return Err(ParseError);

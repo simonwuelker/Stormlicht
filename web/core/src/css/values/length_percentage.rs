@@ -9,8 +9,9 @@ pub enum LengthPercentage {
 impl LengthPercentage {
     pub const ZERO: Self = Self::Length(Length::ZERO);
 
+    #[inline]
     #[must_use]
-    pub fn resolve_percent(&self, percent_of: CSSPixels) -> Length {
+    pub fn resolve_against(&self, percent_of: CSSPixels) -> Length {
         match self {
             Self::Length(length) => *length,
             Self::Percent(p) => Length::from(percent_of * *p),

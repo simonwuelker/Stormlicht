@@ -1,7 +1,9 @@
+mod auto;
 pub mod color;
 mod length;
 mod length_percentage;
 
+pub use auto::AutoOr;
 pub use length::Length;
 pub use length_percentage::LengthPercentage;
 

@@ -3,8 +3,9 @@ use std::{collections::HashSet, mem::Discriminant};
 use crate::dom::{dom_objects::Element, DOMPtr};
 
 use super::{
-    properties::{DisplayValue, Important, MarginValue, WidthValue},
+    properties::{DisplayValue, Important},
     selectors::Selector,
+    values::{AutoOr, LengthPercentage},
     MatchingRule, Origin, StyleProperty, Stylesheet,
 };
 
@@ -99,14 +100,14 @@ pub struct ComputedStyle {
 }
 
 macro_rules! add_property_lookup {
-    ($fn_name: ident, $value_type: ident, $variant_name: ident) => {
+    ($fn_name: ident, $value_type: ty, $variant_name: ident) => {
         pub fn $fn_name(&self) -> $value_type {
             for property in &self.properties {
                 if let StyleProperty::$variant_name(v) = property {
                     return *v;
                 }
             }
-            $value_type::default()
+            <$value_type>::default()
         }
     };
 }
@@ -122,12 +123,12 @@ impl ComputedStyle {
     }
 
     add_property_lookup!(display, DisplayValue, Display);
-    add_property_lookup!(margin_top, MarginValue, MarginTop);
-    add_property_lookup!(margin_right, MarginValue, MarginRight);
-    add_property_lookup!(margin_bottom, MarginValue, MarginBottom);
-    add_property_lookup!(margin_left, MarginValue, MarginLeft);
-    add_property_lookup!(width, WidthValue, Width);
-    add_property_lookup!(height, WidthValue, Height);
+    add_property_lookup!(margin_top, AutoOr<LengthPercentage>, MarginTop);
+    add_property_lookup!(margin_right, AutoOr<LengthPercentage>, MarginRight);
+    add_property_lookup!(margin_bottom, AutoOr<LengthPercentage>, MarginBottom);
+    add_property_lookup!(margin_left, AutoOr<LengthPercentage>, MarginLeft);
+    add_property_lookup!(width, AutoOr<LengthPercentage>, Width);
+    add_property_lookup!(height, AutoOr<LengthPercentage>, Height);
 }
 
 fn filter_matching_rules(
