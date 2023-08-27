@@ -325,7 +325,6 @@ impl URL {
         // For each segment of url’s path: append U+002F (/) followed by segment to output.
         // Return output.
         if !self.path.is_empty() {
-            log::info!("path is not empty, theres at least one slash there!°");
             format!("/{}", self.path.join("/"))
         } else {
             String::new()

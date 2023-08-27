@@ -7,7 +7,7 @@
 //! # use crate::url::URL;
 //! let url: URL = "https://google.com".try_into().unwrap();
 //!
-//! assert_eq!(url.scheme, "https");
+//! assert_eq!(url.scheme(), "https");
 //! ```
 
 #![feature(let_chains)]

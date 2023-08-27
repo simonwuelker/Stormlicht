@@ -1,4 +1,4 @@
-// https://url.spec.whatwg.org/#start-with-a-windows-drive-letter
+/// <https://url.spec.whatwg.org/#start-with-a-windows-drive-letter>
 /// A string starts with a Windows drive letter if all of the following are true:
 /// * its length is greater than or equal to 2
 /// * its first two code points are a Windows drive letter
@@ -20,7 +20,7 @@ pub fn starts_with_windows_drive_letter(input: &str) -> bool {
     true
 }
 
-// https://url.spec.whatwg.org/#windows-drive-letter
+/// <https://url.spec.whatwg.org/#windows-drive-letter>
 #[must_use]
 pub fn is_windows_drive_letter(letter: &str) -> bool {
     let mut chars = letter.chars();
@@ -36,7 +36,7 @@ pub fn is_windows_drive_letter(letter: &str) -> bool {
     true
 }
 
-// https://url.spec.whatwg.org/#normalized-windows-drive-letter
+/// <https://url.spec.whatwg.org/#normalized-windows-drive-letter>
 pub fn is_normalized_windows_drive_letter(letter: &str) -> bool {
     let mut chars = letter.chars();
 
@@ -51,7 +51,7 @@ pub fn is_normalized_windows_drive_letter(letter: &str) -> bool {
     true
 }
 
-// https://infra.spec.whatwg.org/#c0-control
+/// <https://infra.spec.whatwg.org/#c0-control>
 #[inline]
 #[must_use]
 pub fn is_c0_or_space(c: char) -> bool {
@@ -64,14 +64,14 @@ pub fn is_ascii_tab_or_newline(c: char) -> bool {
     matches!(c, '\u{0009}' | '\u{000A}' | '\u{000D}')
 }
 
-// https://url.spec.whatwg.org/#single-dot-path-segment
+/// <https://url.spec.whatwg.org/#single-dot-path-segment>
 #[inline]
 #[must_use]
 pub fn is_single_dot_path_segment(input: &str) -> bool {
     input == "." || input.eq_ignore_ascii_case("%2e")
 }
 
-// https://url.spec.whatwg.org/#double-dot-path-segment
+/// <https://url.spec.whatwg.org/#double-dot-path-segment>
 #[inline]
 #[must_use]
 pub fn is_double_dot_path_segment(input: &str) -> bool {
@@ -81,7 +81,7 @@ pub fn is_double_dot_path_segment(input: &str) -> bool {
         || input.eq_ignore_ascii_case("%2e%2e")
 }
 
-// https://url.spec.whatwg.org/#url-code-points
+/// <https://url.spec.whatwg.org/#url-code-points>
 #[must_use]
 pub fn is_url_codepoint(c: char) -> bool {
     c.is_alphanumeric()
