@@ -109,3 +109,40 @@ impl FromStr for StatusCode {
         Ok(u32::from_str(s)?.into())
     }
 }
+
+impl StatusCode {
+    #[must_use]
+    pub fn numeric(&self) -> u32 {
+        *self as u32
+    }
+
+    #[must_use]
+    pub fn is_information(&self) -> bool {
+        (100..200).contains(&self.numeric())
+    }
+
+    #[must_use]
+    pub fn is_okay(&self) -> bool {
+        (200..300).contains(&self.numeric())
+    }
+
+    #[must_use]
+    pub fn is_redirection(&self) -> bool {
+        (300..400).contains(&self.numeric())
+    }
+
+    #[must_use]
+    pub fn is_client_error(&self) -> bool {
+        (400..500).contains(&self.numeric())
+    }
+
+    #[must_use]
+    pub fn is_server_error(&self) -> bool {
+        (500..600).contains(&self.numeric())
+    }
+
+    #[must_use]
+    pub fn is_error(&self) -> bool {
+        self.is_client_error() || self.is_server_error()
+    }
+}

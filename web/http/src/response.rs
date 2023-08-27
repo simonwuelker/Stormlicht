@@ -8,7 +8,7 @@ use std::{
 use sl_std::iter::MultiElementSplit;
 
 use crate::{
-    request::{HTTPError, HTTP_NEWLINE},
+    request::{Context, HTTPError, HTTP_NEWLINE},
     status_code::StatusCode,
 };
 
@@ -46,9 +46,14 @@ pub struct Response {
     pub status: StatusCode,
     pub headers: HashMap<String, String>,
     pub body: Vec<u8>,
+    context: Context,
 }
 
 impl Response {
+    pub fn context(&self) -> &Context {
+        &self.context
+    }
+
     pub fn get_header(&self, header: &str) -> Option<&str> {
         for (key, value) in &self.headers {
             if key.eq_ignore_ascii_case(header) {
@@ -62,7 +67,10 @@ impl Response {
     /// Read a [Response] from the given [Reader](std::io::Read)
     ///
     /// This requires a [BufReader] because we make direct use of its buffer
-    pub fn receive<R: std::io::Read>(reader: &mut BufReader<R>) -> Result<Self, HTTPError> {
+    pub fn receive<R: std::io::Read>(
+        reader: &mut BufReader<R>,
+        context: Context,
+    ) -> Result<Self, HTTPError> {
         // TODO all of this is very insecure - we blindly trust the size in Transfer-Encoding: chunked,
         // no timeouts, stuff like that.
         let needle = b"\r\n\r\n";
@@ -121,6 +129,7 @@ impl Response {
             status,
             headers,
             body: vec![],
+            context,
         };
 
         // Anything after the headers is the actual response body

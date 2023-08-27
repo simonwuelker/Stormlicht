@@ -8,7 +8,7 @@ use crate::{
 };
 
 use http::request::HTTPError;
-use url::URL;
+use url::{ExcludeFragment, URL};
 
 /// Whether or not the user agent should try to guess the computed [MIMEType] of a [Resource].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,6 +78,10 @@ impl Resource {
                 let response = http::request::Request::get(url)
                     .send()
                     .map_err(ResourceLoadError::HTTP)?;
+                log::info!(
+                    "Successfully loaded {}",
+                    response.context().url.serialize(ExcludeFragment::Yes)
+                );
 
                 if let Some(content_type_string) = response.headers.get("Content-Type") {
                     if let Ok(content_type) = MIMEType::from_str(content_type_string) {

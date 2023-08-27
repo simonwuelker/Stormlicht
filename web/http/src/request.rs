@@ -5,15 +5,40 @@ use std::net::{SocketAddr, TcpStream};
 use url::{Host, URL};
 
 use crate::response::Response;
+use crate::status_code::StatusCode;
 
 const USER_AGENT: &str = "Stormlicht";
 pub(crate) const HTTP_NEWLINE: &str = "\r\n";
 
+const MAX_REDIRECTS: usize = 32;
+
 #[derive(Debug)]
 pub enum HTTPError {
     InvalidResponse,
+    Status(StatusCode),
     IO(io::Error),
     DNS(DNSError),
+    RedirectLoop,
+}
+
+#[derive(Clone, Debug)]
+pub struct Context {
+    /// The number of times we were redirected while completing
+    /// the original request
+    pub num_redirections: usize,
+
+    /// The [URL] that is currently being loaded
+    pub url: URL,
+}
+
+impl Context {
+    #[must_use]
+    pub fn new(url: URL) -> Self {
+        Self {
+            num_redirections: 0,
+            url,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,9 +60,8 @@ impl Method {
 #[derive(Clone, Debug)]
 pub struct Request {
     method: Method,
-    path: String,
     headers: HashMap<String, String>,
-    host: Host,
+    context: Context,
 }
 
 impl Request {
@@ -46,32 +70,38 @@ impl Request {
     /// # Panics
     /// This function panics if the url scheme is not `http`
     /// or the url does not have a `host`.
+    #[must_use]
     pub fn get(url: URL) -> Self {
         assert_eq!(url.scheme, "http", "URL is not http");
-        let host = url.host.expect("URL does not have a host");
 
-        let mut headers = HashMap::with_capacity(2);
+        let mut headers = HashMap::with_capacity(3);
         headers.insert("User-Agent".to_string(), USER_AGENT.to_string());
-        headers.insert("Host".to_string(), host.to_string());
+        headers.insert("Accept".to_string(), "*/*".to_string());
+        headers.insert(
+            "Host".to_string(),
+            url.host
+                .as_ref()
+                .expect("URL does not have a host")
+                .to_string(),
+        );
 
         Self {
             method: Method::GET,
-            path: format!("/{}", url.path.join("/")),
             headers,
-            host,
+            context: Context::new(url),
         }
     }
 
     /// Serialize the request to the given [Writer](std::io::Write)
-    fn write_to<W>(self, mut writer: W) -> Result<(), io::Error>
+    fn write_to<W>(&self, mut writer: W) -> Result<(), io::Error>
     where
         W: std::io::Write,
     {
         write!(
             writer,
-            "{method} {path} HTTP/1.1{HTTP_NEWLINE}",
+            "{method} /{path} HTTP/1.1{HTTP_NEWLINE}",
             method = self.method.as_str(),
-            path = self.path
+            path = self.context.url.path.join("/")
         )?;
 
         for (header, value) in &self.headers {
@@ -86,9 +116,15 @@ impl Request {
         self.headers.insert(header.to_string(), value.to_string());
     }
 
-    pub fn send(self) -> Result<Response, HTTPError> {
+    pub fn send(&mut self) -> Result<Response, HTTPError> {
         // Resolve the hostname
-        let ip = match &self.host {
+        let ip = match &self
+            .context
+            .url
+            .host
+            .as_ref()
+            .expect("url does not have a host")
+        {
             Host::Domain(host_str) | Host::OpaqueHost(host_str) => dns::Domain::new(host_str)
                 .lookup()
                 .map_err(HTTPError::DNS)?,
@@ -105,7 +141,46 @@ impl Request {
 
         // Parse the response
         let mut reader = BufReader::new(stream);
-        let response = Response::receive(&mut reader)?;
+        let response = Response::receive(&mut reader, self.context.clone())?;
+
+        if response.status.is_error() {
+            log::warn!("HTTP Request failed: {:?}", response.status);
+            return Err(HTTPError::Status(response.status));
+        }
+
+        if response.status.is_redirection() {
+            if let Some(relocation) = response
+                .get_header("Location")
+                .and_then(|v| URL::try_from(v).ok())
+            {
+                log::info!(
+                    "{current_url} redirects to {redirect_url} ({status_code:?})",
+                    current_url = self.context.url.serialize(url::ExcludeFragment::No),
+                    redirect_url = relocation.serialize(url::ExcludeFragment::No),
+                    status_code = response.status
+                );
+
+                self.context.num_redirections += 1;
+
+                if self.context.num_redirections >= MAX_REDIRECTS {
+                    log::warn!("Too many HTTP redirections ({MAX_REDIRECTS}), stopping");
+                    return Err(HTTPError::RedirectLoop);
+                }
+
+                self.headers.insert(
+                    "Host".to_string(),
+                    relocation
+                        .host
+                        .as_ref()
+                        .expect("relocation url does not have a host")
+                        .to_string(),
+                );
+                self.context.url = relocation;
+                return self.send();
+            } else {
+                log::warn!("HTTP response indicates redirection, but no new URL could be found");
+            }
+        }
 
         Ok(response)
     }
