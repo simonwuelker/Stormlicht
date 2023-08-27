@@ -120,6 +120,7 @@ impl<'a> BoxTreeBuilder<'a> {
     }
 
     fn push_block_box(&mut self, node: DOMPtr<dom_objects::Node>, style: Rc<ComputedStyle>) {
+        log::info!("Pushing a block box: {:?}", node.underlying_type());
         // Split all currently open inline boxes around the block box
         if !self.inline_stack.is_empty() {
             // Split each inline box - these will end up on the "right side" of the block box

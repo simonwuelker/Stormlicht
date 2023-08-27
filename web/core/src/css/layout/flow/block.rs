@@ -1,7 +1,12 @@
 use std::{fmt, fmt::Write, rc::Rc};
 
 use crate::{
-    css::{stylecomputer::ComputedStyle, StyleComputer},
+    css::{
+        layout::{CSSPixels, Layout, Sides, UsedSizeAndMargins},
+        stylecomputer::ComputedStyle,
+        values::{AutoOr, Length},
+        StyleComputer,
+    },
     dom::{dom_objects, DOMPtr},
     TreeDebug, TreeFormatter,
 };
@@ -111,6 +116,102 @@ impl BlockLevelBox {
             style: style,
             node: None,
             contents: BlockContainer::InlineFormattingContext(vec![inline_box].into()),
+        }
+    }
+}
+
+impl Layout for BlockLevelBox {
+    fn compute_dimensions(&self, available_width: CSSPixels) -> UsedSizeAndMargins {
+        // FIXME: replaced elements
+
+        // See https://drafts.csswg.org/css2/#blockwidth for a description of how the width is computed
+
+        // FIXME: Consider padding and borders
+        let available_length = Length::pixels(available_width);
+        let width = self
+            .style()
+            .width()
+            .map(|p| p.resolve_against(available_length))
+            .as_ref()
+            .map(Length::absolutize);
+
+        let mut margin_left = self
+            .style()
+            .margin_left()
+            .map(|p| p.resolve_against(available_length))
+            .as_ref()
+            .map(Length::absolutize);
+
+        let mut margin_right = self
+            .style()
+            .margin_right()
+            .map(|p| p.resolve_against(available_length))
+            .as_ref()
+            .map(Length::absolutize);
+
+        // Margins are treated as zero if the total width exceeds the available width
+        let total_width_is_more_than_available = |width| {
+            let total_width =
+                width + margin_left.unwrap_or_default() + margin_right.unwrap_or_default();
+            total_width > available_width
+        };
+        if width.is_not_auto_and(total_width_is_more_than_available) {
+            margin_left = margin_left.or(AutoOr::NotAuto(CSSPixels::ZERO));
+            margin_right = margin_right.or(AutoOr::NotAuto(CSSPixels::ZERO));
+        }
+
+        // If there is exactly one value specified as auto, its used value follows from the equality.
+        let (width, margin_left, margin_right) = match (width, margin_left, margin_right) {
+            (AutoOr::Auto, _, _) => (available_width, CSSPixels::ZERO, CSSPixels::ZERO),
+            (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::Auto) => {
+                let margin_width = (available_width - width) / 2.;
+                (width, margin_width, margin_width)
+            },
+            (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::Auto) => {
+                let margin_right = available_width - margin_left;
+                (width, margin_left, margin_right)
+            },
+            (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::NotAuto(margin_right)) => {
+                let margin_left = available_width - margin_right;
+                (width, margin_left, margin_right)
+            },
+            (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::NotAuto(_)) => {
+                // The values are overconstrained
+                // FIXME: If the "direction" property is "rtl", we should ignore the margin left instead
+                let margin_right = available_width - margin_left;
+                (width, margin_left, margin_right)
+            },
+        };
+
+        // Compute the height according to https://drafts.csswg.org/css2/#normal-block
+        let margin_top = self
+            .style()
+            .margin_top()
+            .map(|p| p.resolve_against(available_length))
+            .as_ref()
+            .map(Length::absolutize)
+            .unwrap_or_default();
+
+        let margin_bottom = self
+            .style()
+            .margin_bottom()
+            .map(|p| p.resolve_against(available_length))
+            .as_ref()
+            .map(Length::absolutize)
+            .unwrap_or_default();
+
+        // FIXME
+        let height = CSSPixels::ZERO;
+
+        UsedSizeAndMargins {
+            width,
+            height,
+            margin: Sides {
+                top: margin_top,
+                right: margin_right,
+                bottom: margin_bottom,
+                left: margin_left,
+            },
         }
     }
 }

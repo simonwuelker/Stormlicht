@@ -24,3 +24,33 @@ impl ops::Mul<f32> for CSSPixels {
         Self(self.0 * rhs)
     }
 }
+
+impl ops::Div<f32> for CSSPixels {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self(self.0 / rhs)
+    }
+}
+
+impl ops::Add for CSSPixels {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl ops::Sub for CSSPixels {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0)
+    }
+}
+
+impl Default for CSSPixels {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}

@@ -129,6 +129,14 @@ impl Length {
         };
         CSSPixels(absolute_value)
     }
+
+    #[must_use]
+    pub fn pixels(pixels: CSSPixels) -> Self {
+        Self {
+            value: pixels.0,
+            unit: Unit::Px,
+        }
+    }
 }
 
 impl From<CSSPixels> for Length {
@@ -223,5 +231,11 @@ impl Mul<Percentage> for Length {
             value: self.value * rhs.as_fraction(),
             unit: self.unit,
         }
+    }
+}
+
+impl Default for Length {
+    fn default() -> Self {
+        Self::ZERO
     }
 }
