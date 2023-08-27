@@ -5,7 +5,7 @@ use crate::dom::{dom_objects::Element, DOMPtr};
 use super::{
     properties::{DisplayValue, Important},
     selectors::Selector,
-    values::{AutoOr, LengthPercentage},
+    values::{AutoOr, Length, PercentageOr},
     MatchingRule, Origin, StyleProperty, Stylesheet,
 };
 
@@ -123,12 +123,12 @@ impl ComputedStyle {
     }
 
     add_property_lookup!(display, DisplayValue, Display);
-    add_property_lookup!(margin_top, AutoOr<LengthPercentage>, MarginTop);
-    add_property_lookup!(margin_right, AutoOr<LengthPercentage>, MarginRight);
-    add_property_lookup!(margin_bottom, AutoOr<LengthPercentage>, MarginBottom);
-    add_property_lookup!(margin_left, AutoOr<LengthPercentage>, MarginLeft);
-    add_property_lookup!(width, AutoOr<LengthPercentage>, Width);
-    add_property_lookup!(height, AutoOr<LengthPercentage>, Height);
+    add_property_lookup!(margin_top, AutoOr<PercentageOr<Length>>, MarginTop);
+    add_property_lookup!(margin_right, AutoOr<PercentageOr<Length>>, MarginRight);
+    add_property_lookup!(margin_bottom, AutoOr<PercentageOr<Length>>, MarginBottom);
+    add_property_lookup!(margin_left, AutoOr<PercentageOr<Length>>, MarginLeft);
+    add_property_lookup!(width, AutoOr<PercentageOr<Length>>, Width);
+    add_property_lookup!(height, AutoOr<PercentageOr<Length>>, Height);
 }
 
 fn filter_matching_rules(

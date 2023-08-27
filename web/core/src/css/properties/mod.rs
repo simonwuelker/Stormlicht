@@ -9,7 +9,7 @@ pub use display::{
 };
 
 use super::{
-    values::{AutoOr, LengthPercentage},
+    values::{AutoOr, Length, PercentageOr},
     CSSParse, ParseError, Parser,
 };
 
@@ -35,22 +35,22 @@ pub enum StyleProperty {
     Display(DisplayValue),
 
     /// <https://drafts.csswg.org/css-box-3/#propdef-margin-top>
-    MarginTop(AutoOr<LengthPercentage>),
+    MarginTop(AutoOr<PercentageOr<Length>>),
 
     /// <https://drafts.csswg.org/css-box-3/#propdef-margin-right>
-    MarginRight(AutoOr<LengthPercentage>),
+    MarginRight(AutoOr<PercentageOr<Length>>),
 
     /// <https://drafts.csswg.org/css-box-3/#propdef-margin-bottom>
-    MarginBottom(AutoOr<LengthPercentage>),
+    MarginBottom(AutoOr<PercentageOr<Length>>),
 
     /// <https://drafts.csswg.org/css-box-3/#propdef-margin-left>
-    MarginLeft(AutoOr<LengthPercentage>),
+    MarginLeft(AutoOr<PercentageOr<Length>>),
 
     /// <https://drafts.csswg.org/css2/#propdef-width>
-    Width(AutoOr<LengthPercentage>),
+    Width(AutoOr<PercentageOr<Length>>),
 
     /// <https://drafts.csswg.org/css2/#propdef-height>
-    Height(AutoOr<LengthPercentage>),
+    Height(AutoOr<PercentageOr<Length>>),
 }
 
 #[derive(Clone, Debug)]

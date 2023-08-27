@@ -1,11 +1,11 @@
 mod auto;
 pub mod color;
 mod length;
-mod length_percentage;
+mod percentage;
 
 pub use auto::AutoOr;
 pub use length::Length;
-pub use length_percentage::LengthPercentage;
+pub use percentage::{Percentage, PercentageOr};
 
 /// <https://drafts.csswg.org/css-values-4/#number-value>
 #[derive(Clone, Copy, Debug, PartialEq)]

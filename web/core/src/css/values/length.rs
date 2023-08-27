@@ -1,6 +1,10 @@
 use string_interner::{static_interned, static_str, InternedString};
 
-use crate::css::{layout::CSSPixels, syntax::Token, CSSParse, ParseError, Parser};
+use crate::css::{
+    layout::CSSPixels, syntax::Token, values::Percentage, CSSParse, ParseError, Parser,
+};
+
+use std::ops::Mul;
 
 /// <https://www.w3.org/TR/css-values-4/#length-value>
 #[derive(Clone, Copy, Debug)]
@@ -207,6 +211,17 @@ impl<'a> CSSParse<'a> for Length {
                 unit: Unit::Px,
             }),
             _ => Err(ParseError),
+        }
+    }
+}
+
+impl Mul<Percentage> for Length {
+    type Output = Self;
+
+    fn mul(self, rhs: Percentage) -> Self::Output {
+        Self {
+            value: self.value * rhs.as_fraction(),
+            unit: self.unit,
         }
     }
 }

@@ -19,16 +19,21 @@ impl<T> AutoOr<T> {
     ///
     /// # Examples
     ///
+    /// Resolves a `LengthPercentage` inside `AutoOr`, consuming the original:
     /// ```rust
     /// # use core::css::{layout::CSSPixels, values::{LengthPercentage, AutoOr}};
-    /// // Resolves a `LengthPercentage` inside `AutoOr`, consuming the original:
     /// let maybe_lengthpercent = AutoOr::NotAuto(LengthPercentage::Percent(0.2));
     /// // `Option::map` takes self *by value*, consuming `maybe_some_string`
-    /// let maybe_length = maybe_lengthpercent.map(|lp| lp.resolve_against(CSSPixels(100.)).absolutize());
+    /// let maybe_length = maybe_lengthpercent.map(|lp|
+    ///     lp.resolve_against(CSSPixels(100.)).absolutize()
+    /// );
     /// assert_eq!(maybe_length, AutoOr::NotAuto(CSSPixels(20.)));
-
+    ///
     /// let x: AutoOr<LengthPercentage> = AutoOr::Auto;
-    /// assert_eq!(x.map(|lp| lp.resolve_against(CSSPixels(100.)).absolutize()), AutoOr::Auto);
+    /// assert_eq!(
+    ///     x.map(|lp| lp.resolve_against(CSSPixels(100.)).absolutize()),
+    ///     AutoOr::Auto
+    /// );
     /// ```
     #[inline]
     pub fn map<U, F>(self, f: F) -> AutoOr<U>
