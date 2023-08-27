@@ -88,7 +88,7 @@ impl Header {
     pub fn new(num_questions: u16) -> Self {
         Self {
             id: RNG::default().next_u16(),
-            flags: Flags::default().set_recursion_desired(true),
+            flags: Flags::default(),
             num_questions: num_questions,
             num_answers: 0x0000,
             num_authorities: 0x0000,

@@ -18,29 +18,10 @@ const SKEW: u32 = 38;
 const DAMP: u32 = 700;
 const INITIAL_BIAS: u32 = 72;
 const INITIAL_N: u32 = 128;
-
-#[must_use]
-fn encode_digit(c: u32) -> char {
-    debug_assert!(c < BASE);
-    if c < 26 {
-        // a..z
-        char::try_from(c + 97).unwrap()
-    } else {
-        // 0..9
-        char::try_from(c + 22).unwrap()
-    }
-}
-
-/// Panics if the character is not a valid lowercase base-36 digit
-#[must_use]
-fn decode_digit(c: char) -> u32 {
-    match c {
-        'a'..='z' => c as u32 - 'a' as u32,
-        'A'..='Z' => c as u32 - 'A' as u32,
-        '0'..='9' => c as u32 - '0' as u32 + 26,
-        _ => panic!("Invalid base 36 digit: {c}"),
-    }
-}
+const DIGITS: [char; BASE as usize] = [
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+    't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+];
 
 #[must_use]
 fn adapt(mut delta: u32, num_points: u32, is_first: bool) -> u32 {
@@ -102,13 +83,13 @@ pub fn punycode_encode(input: &str) -> Result<String, PunyCodeError> {
                         break;
                     }
                     let codepoint_numeric = threshold + ((q - threshold) % (BASE - threshold));
-                    output.push(encode_digit(codepoint_numeric));
+                    output.push(DIGITS[codepoint_numeric as usize]);
 
                     q = (q - threshold) / (BASE - threshold);
                     k += BASE;
                 }
 
-                output.push(encode_digit(q));
+                output.push(DIGITS[q as usize]);
                 bias = adapt(delta, h + 1, h == num_basic);
                 delta = 0;
                 h += 1;
@@ -149,7 +130,10 @@ pub fn punycode_decode(input: &str) -> Result<String, PunyCodeError> {
         let mut k = BASE;
         loop {
             let code_point = codepoints.next().ok_or(PunyCodeError::IntegerOverflow)?;
-            let digit = decode_digit(code_point);
+            let digit = DIGITS
+                .iter()
+                .position(|&d| d == code_point)
+                .ok_or(PunyCodeError::InvalidPunycode)? as u32;
             i = i
                 .checked_add(
                     digit
