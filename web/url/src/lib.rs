@@ -12,12 +12,12 @@
 
 mod host;
 mod ip;
+mod parser;
 mod url;
 pub mod urlencode;
-mod urlparser;
 mod util;
 
 pub use crate::ip::{IPParseError, Ipv4Address, Ipv6Address};
+pub use crate::parser::*;
 pub use crate::url::*;
-pub use crate::urlparser::*;
 pub use host::Host;

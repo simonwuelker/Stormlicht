@@ -1,8 +1,7 @@
 use std::str::FromStr;
 
 use crate::{
-    urlencode::percent_encode, urlparser::is_c0_control, util, IPParseError, Ipv4Address,
-    Ipv6Address,
+    parser::is_c0_control, urlencode::percent_encode, util, IPParseError, Ipv4Address, Ipv6Address,
 };
 
 /// <https://url.spec.whatwg.org/#forbidden-host-code-point>

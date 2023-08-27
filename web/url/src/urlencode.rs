@@ -1,4 +1,4 @@
-use crate::urlparser::is_c0_control;
+use crate::parser::is_c0_control;
 
 // https://url.spec.whatwg.org/#c0-control-percent-encode-set
 pub(crate) fn is_c0_percent_encode_set(c: char) -> bool {

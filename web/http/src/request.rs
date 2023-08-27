@@ -72,17 +72,14 @@ impl Request {
     /// or the url does not have a `host`.
     #[must_use]
     pub fn get(url: URL) -> Self {
-        assert_eq!(url.scheme, "http", "URL is not http");
+        assert_eq!(url.scheme(), "http", "URL is not http");
 
         let mut headers = HashMap::with_capacity(3);
         headers.insert("User-Agent".to_string(), USER_AGENT.to_string());
         headers.insert("Accept".to_string(), "*/*".to_string());
         headers.insert(
             "Host".to_string(),
-            url.host
-                .as_ref()
-                .expect("URL does not have a host")
-                .to_string(),
+            url.host().expect("URL does not have a host").to_string(),
         );
 
         Self {
@@ -101,7 +98,7 @@ impl Request {
             writer,
             "{method} /{path} HTTP/1.1{HTTP_NEWLINE}",
             method = self.method.as_str(),
-            path = self.context.url.path.join("/")
+            path = self.context.url.path().join("/")
         )?;
 
         for (header, value) in &self.headers {
@@ -118,13 +115,7 @@ impl Request {
 
     pub fn send(&mut self) -> Result<Response, HTTPError> {
         // Resolve the hostname
-        let ip = match &self
-            .context
-            .url
-            .host
-            .as_ref()
-            .expect("url does not have a host")
-        {
+        let ip = match &self.context.url.host().expect("url does not have a host") {
             Host::Domain(host_str) | Host::OpaqueHost(host_str) => dns::Domain::new(host_str)
                 .lookup()
                 .map_err(HTTPError::DNS)?,
@@ -170,8 +161,7 @@ impl Request {
                 self.headers.insert(
                     "Host".to_string(),
                     relocation
-                        .host
-                        .as_ref()
+                        .host()
                         .expect("relocation url does not have a host")
                         .to_string(),
                 );

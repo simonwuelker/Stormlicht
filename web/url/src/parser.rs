@@ -1,6 +1,7 @@
 use crate::{
+    default_port_for_scheme,
     host::{self, host_parse_with_special, Host},
-    scheme_default_port, scheme_is_special,
+    is_special_scheme,
     urlencode::{
         is_c0_percent_encode_set, is_fragment_percent_encode_set, is_path_percent_encode_set,
         is_query_percent_encode_set, is_special_query_percent_encode_set,
@@ -124,18 +125,18 @@ impl<'a> URLParser<'a> {
                     // If state override is given, then:
                     if self.state_override.is_some() {
                         // If url’s scheme is a special scheme and buffer is not a special scheme
-                        if scheme_is_special(&self.url.scheme) && !scheme_is_special(&self.buffer) {
+                        if self.url.scheme().is_special() && !is_special_scheme(&self.buffer) {
                             // then return.
                             return Ok(());
                         }
                         // If url’s scheme is not a special scheme and buffer is a special scheme
-                        if !scheme_is_special(&self.url.scheme) && scheme_is_special(&self.buffer) {
+                        if !&self.url.scheme().is_special() && is_special_scheme(&self.buffer) {
                             // then return.
                             return Ok(());
                         }
 
                         // If url includes credentials or has a non-null port, and buffer is "file"
-                        if (self.url.includes_credentials() || self.url.port.is_some())
+                        if (self.url.includes_credentials() || self.url.port().is_some())
                             && self.buffer == "file"
                         {
                             // then return.
@@ -155,7 +156,7 @@ impl<'a> URLParser<'a> {
                     // If state override is given, then:
                     if self.state_override.is_some() {
                         // If url’s port is url’s scheme’s default port
-                        if self.url.port == scheme_default_port(&self.url.scheme) {
+                        if self.url.port == default_port_for_scheme(&self.url.scheme) {
                             // then set url’s port to null.
                             self.url.port = None;
                         }
@@ -643,7 +644,7 @@ impl<'a> URLParser<'a> {
                         let port = str::parse(&self.buffer).map_err(|_| ())?;
 
                         // Set url’s port to null, if port is url’s scheme’s default port; otherwise to port.
-                        if scheme_default_port(&self.url.scheme) == Some(port) {
+                        if default_port_for_scheme(&self.url.scheme) == Some(port) {
                             self.url.port = None;
                         } else {
                             self.url.port = Some(port);

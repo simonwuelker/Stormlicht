@@ -2,15 +2,17 @@
 
 use crate::{
     host::Host,
-    urlparser::{URLParser, URLParserState},
+    parser::{URLParser, URLParserState},
     util,
 };
 
-pub(crate) fn scheme_is_special(scheme: &str) -> bool {
+pub type Port = u16;
+
+pub(crate) fn is_special_scheme(scheme: &str) -> bool {
     matches!(scheme, "ftp" | "file" | "http" | "https" | "ws" | "wss")
 }
 
-pub(crate) fn scheme_default_port(scheme: &str) -> Option<Port> {
+pub(crate) fn default_port_for_scheme(scheme: &str) -> Option<Port> {
     match scheme {
         "ftp" => Some(21),
         "http" | "ws" => Some(80),
@@ -19,9 +21,36 @@ pub(crate) fn scheme_default_port(scheme: &str) -> Option<Port> {
     }
 }
 
-pub type Port = u16;
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Scheme<'a>(&'a str);
 
-pub type Path = Vec<String>;
+impl<'a> Scheme<'a> {
+    /// <https://url.spec.whatwg.org/#special-scheme>
+    #[inline]
+    #[must_use]
+    pub fn is_special(&self) -> bool {
+        is_special_scheme(self.0)
+    }
+
+    /// <https://url.spec.whatwg.org/#default-port>
+    #[inline]
+    #[must_use]
+    pub fn default_port(&self) -> Option<Port> {
+        default_port_for_scheme(self.0)
+    }
+}
+
+impl<'a> AsRef<str> for Scheme<'a> {
+    fn as_ref(&self) -> &str {
+        self.0
+    }
+}
+
+impl<'a> PartialEq<&str> for Scheme<'a> {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_ref().eq(*other)
+    }
+}
 
 /// A **U**niform **R**esource **L**ocator
 ///
@@ -31,34 +60,34 @@ pub struct URL {
     /// A [URL]’s scheme is an ASCII string that identifies the type of URL
     /// and can be used to dispatch a URL for further processing after parsing.
     /// It is initially the empty string.
-    pub scheme: String,
+    pub(crate) scheme: String,
 
     /// A [URL]’s username is an ASCII string identifying a username.
     /// It is initially the empty string.
-    pub username: String,
+    pub(crate) username: String,
 
     /// A [URL]’s password is an ASCII string identifying a password.
     /// It is initially the empty string.
-    pub password: String,
+    pub(crate) password: String,
 
     /// A [URL]’s host is [None](Option::None) or a [host](Host).
     /// It is initially [None](Option::None).
-    pub host: Option<Host>,
+    pub(crate) host: Option<Host>,
 
     /// A [URL]’s port is either [None](Option::None) or a 16-bit unsigned integer that identifies a networking port.
     /// It is initially [None](Option::None).
-    pub port: Option<Port>,
+    pub(crate) port: Option<Port>,
 
-    pub path: Path,
+    pub(crate) path: Vec<String>,
 
     /// A [URL]’s query is either [None](Option::None) or an ASCII string.
     /// It is initially [None](Option::None).
-    pub query: Option<String>,
+    pub(crate) query: Option<String>,
 
     /// A URL’s fragment is either [None](Option::None) or an ASCII string
     /// that can be used for further processing on the resource the URL’s other components identify.
     /// It is initially [None](Option::None).
-    pub fragment: Option<String>,
+    pub(crate) fragment: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -73,6 +102,38 @@ pub enum ExcludeFragment {
 }
 
 impl URL {
+    pub fn scheme(&self) -> Scheme<'_> {
+        Scheme(&self.scheme)
+    }
+
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn password(&self) -> &str {
+        &self.password
+    }
+
+    pub fn host(&self) -> Option<&Host> {
+        self.host.as_ref()
+    }
+
+    pub fn port(&self) -> Option<Port> {
+        self.port
+    }
+
+    pub fn path(&self) -> &[String] {
+        &self.path
+    }
+
+    pub fn query(&self) -> Option<&str> {
+        self.query.as_deref()
+    }
+
+    pub fn fragment(&self) -> Option<&str> {
+        self.fragment.as_deref()
+    }
+
     /// [Specification](https://url.spec.whatwg.org/#concept-basic-url-parser)
     pub fn parse_with_base(
         mut input: &str,
@@ -150,6 +211,7 @@ impl URL {
     /// [Specification](https://url.spec.whatwg.org/#include-credentials)
     ///
     /// A [URL] includes credentials if its  [username](URL::username) or [password](URL::password) is not the empty string.
+    #[must_use]
     pub fn includes_credentials(&self) -> bool {
         !self.username.is_empty() || !self.password.is_empty()
     }
@@ -157,13 +219,15 @@ impl URL {
     /// [Specification](https://url.spec.whatwg.org/#is-special)
     ///
     /// A [URL] is special if its scheme is a special scheme. A [URL] is not special if its scheme is not a special scheme.
+    #[must_use]
     pub fn is_special(&self) -> bool {
-        scheme_is_special(&self.scheme)
+        self.scheme().is_special()
     }
 
     /// [Specification](https://url.spec.whatwg.org/#url-opaque-path)
     ///
     /// A [URL] has an opaque path if it only consists of a single string
+    #[must_use]
     pub fn has_opaque_path(&self) -> bool {
         self.path.len() == 1
     }
@@ -261,6 +325,7 @@ impl URL {
         // For each segment of url’s path: append U+002F (/) followed by segment to output.
         // Return output.
         if !self.path.is_empty() {
+            log::info!("path is not empty, theres at least one slash there!°");
             format!("/{}", self.path.join("/"))
         } else {
             String::new()

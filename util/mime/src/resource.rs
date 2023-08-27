@@ -72,7 +72,7 @@ impl Resource {
         let mut supplied_type = None;
         let mut check_for_apache_bug = CheckForApacheBug::default();
 
-        let data = match url.scheme.as_str() {
+        let data = match url.scheme().as_ref() {
             "http" => {
                 // Fetch the file via http
                 let response = http::request::Request::get(url)
@@ -103,7 +103,7 @@ impl Resource {
             },
             "file" => {
                 // Fetch the file from the local filesystem
-                let path = url.path.join("/");
+                let path = url.path().join("/");
                 fs::read(path).map_err(ResourceLoadError::File)?
             },
             other => {
