@@ -90,9 +90,9 @@ impl<'a> URLParser<'a> {
             // https://url.spec.whatwg.org/#scheme-start-state
             URLParserState::SchemeStart => {
                 // If c is an ASCII alpha,
-                if self.c().is_some() && self.c().unwrap().is_ascii_alphabetic() {
+                if let Some(c) = self.c() && c.is_ascii_alphabetic() {
                     // Append c, lowercased, to buffer,
-                    self.buffer.push(self.c().unwrap().to_ascii_lowercase());
+                    self.buffer.push(c.to_ascii_lowercase());
 
                     // and set state to scheme state.
                     self.set_state(URLParserState::Scheme);
@@ -116,9 +116,9 @@ impl<'a> URLParser<'a> {
                 let c = self.c();
 
                 // If c is an ASCII alphanumeric, U+002B (+), U+002D (-), or U+002E (.),
-                if matches!(c, Some('a'..='z' | 'A'..='Z' | '0'..='9' | '+' | '-' | '.')) {
+                if let Some(c) = self.c() && matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '+' | '-' | '.') {
                     // Append c, lowercased, to buffer
-                    self.buffer.push(c.unwrap().to_ascii_lowercase());
+                    self.buffer.push(c.to_ascii_lowercase());
                 }
                 // Otherwise, if c is U+003A (:), then:
                 else if c == Some(':') {
@@ -180,11 +180,10 @@ impl<'a> URLParser<'a> {
                     }
                     // Otherwise, if url is special, base is non-null, and base’s scheme is url’s scheme:
                     else if self.url.is_special()
-                        && self.base.is_some()
-                        && self.base.as_ref().unwrap().scheme == self.url.scheme
+                        && self.base.as_ref().map(URL::scheme).is_some_and(|scheme| scheme == self.url.scheme())
                     {
                         // Assert: base is is special (and therefore does not have an opaque path).
-                        assert!(self.base.as_ref().unwrap().is_special());
+                        assert!(self.base.as_ref().is_some_and(URL::is_special));
 
                         // Set state to special relative or authority state.
                         self.set_state(URLParserState::SpecialRelativeOrAuthority);
@@ -230,12 +229,16 @@ impl<'a> URLParser<'a> {
             URLParserState::NoScheme => {
                 // If base is null, or base has an opaque path and c is not U+0023 (#),
                 if self.base.is_none()
-                    || (self.base.as_ref().unwrap().has_opaque_path() && self.c() != Some('#'))
+                    || (self.base.as_ref().is_some_and(URL::has_opaque_path)
+                        && self.c() != Some('#'))
                 {
                     // validation error, return failure.
                     return Err(());
                 }
-                let base = self.base.as_ref().unwrap();
+                let base = self
+                    .base
+                    .as_ref()
+                    .expect("if base is none then we returned a validation error earlier");
 
                 // Otherwise, if base has an opaque path and c is U+0023 (#)
                 if base.has_opaque_path() && self.c() == Some('#') {
@@ -310,9 +313,10 @@ impl<'a> URLParser<'a> {
             // https://url.spec.whatwg.org/#relative-state
             URLParserState::Relative => {
                 // Assert: base’s scheme is not "file".
-                assert!(self.base.is_some());
-                let base = self.base.as_ref().unwrap();
-                assert!(base.scheme != "file");
+                let base = match &self.base {
+                    Some(url) if url.scheme != "file" => url,
+                    _ => panic!("base must exist and have a scheme other than none"),
+                };
 
                 // Set url’s scheme to base’s scheme.
                 self.url.scheme = base.scheme.clone();
@@ -387,7 +391,8 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise
                 else {
-                    let base = self.base.as_ref().unwrap();
+                    let base = self.base.as_ref().expect("no base url");
+
                     // set url’s username to base’s username,
                     self.url.username = base.username.clone();
 
@@ -511,7 +516,8 @@ impl<'a> URLParser<'a> {
                 // Otherwise
                 else {
                     // append c to buffer.
-                    self.buffer.push(self.c().unwrap());
+                    self.buffer
+                        .push(self.c().expect("the previous step catches EOF codepoints"));
                 }
             },
             // https://url.spec.whatwg.org/#host-state
@@ -617,12 +623,16 @@ impl<'a> URLParser<'a> {
                     }
 
                     // Append c to buffer.
-                    self.buffer.push(self.c().unwrap());
+                    self.buffer.push(
+                        self.c()
+                            .expect("the previous step checks for EOF codepoints"),
+                    );
                 }
             },
             // https://url.spec.whatwg.org/#port-state
             URLParserState::Port => {
-                if self.c().is_some() && self.c().unwrap().is_ascii_digit() {
+                // If c is an ASCII digit
+                if self.c().as_ref().is_some_and(char::is_ascii_digit) {
                     // append c to buffer.
                 }
                 // Otherwise, if one of the following is true:
@@ -691,9 +701,7 @@ impl<'a> URLParser<'a> {
                     self.set_state(URLParserState::FileSlash);
                 }
                 // Otherwise, if base is non-null and base’s scheme is "file":
-                else if self.base.is_some() && self.base.as_ref().unwrap().scheme == "file" {
-                    let base = self.base.as_ref().unwrap();
-
+                else if let Some(base) = &self.base && base.scheme == "file" {
                     // Set url’s host to base’s host,
                     self.url.host = base.host.clone();
 
@@ -769,9 +777,7 @@ impl<'a> URLParser<'a> {
                 // Otherwise:
                 else {
                     // If base is non-null and base’s scheme is "file", then:
-                    if self.base.is_some() && self.base.as_ref().unwrap().scheme == "file" {
-                        let base = self.base.as_ref().unwrap();
-
+                    if let Some(base) = &self.base && base.scheme == "file" {
                         // Set url’s host to base’s host.
                         self.url.host = base.host.clone();
 
@@ -851,7 +857,10 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise, append c to buffer.
                 else {
-                    self.buffer.push(self.c().unwrap());
+                    self.buffer.push(
+                        self.c()
+                            .expect("The previous step checks for EOF codepoints"),
+                    );
                 }
             },
 
@@ -952,16 +961,16 @@ impl<'a> URLParser<'a> {
                             && util::is_windows_drive_letter(&self.buffer)
                         {
                             // then replace the second code point in buffer with U+003A (:).
-                            // NOTE: unicode codepoint replace is nontrivial because the length is not known
-                            // https://stackoverflow.com/questions/66661118/how-do-i-change-characters-at-a-specific-index-within-a-string-in-rust
-                            self.buffer.replace_range(
-                                self.buffer
-                                    .char_indices()
-                                    .nth(2)
-                                    .map(|(pos, ch)| (pos..pos + ch.len_utf8()))
-                                    .unwrap(),
-                                ":",
-                            );
+                            // NOTE: The spec doesn't specify what to do if there is no second codepoint (maybe it can't happen?).
+                            // If that happens, we simply do nothing.
+                            if let Some(range) = self
+                                .buffer
+                                .char_indices()
+                                .nth(2)
+                                .map(|(pos, ch)| (pos..pos + ch.len_utf8()))
+                            {
+                                self.buffer.replace_range(range, ":");
+                            }
                         }
 
                         // Append buffer to url’s path.
@@ -991,15 +1000,19 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise, run these steps:
                 else {
+                    let c = self
+                        .c()
+                        .expect("The previous step checks for EOF code points");
+
                     // If c is not a URL code point and not U+0025 (%),
-                    if !util::is_url_codepoint(self.c().unwrap()) && self.c() != Some('%') {
+                    if !util::is_url_codepoint(c) && c != '%' {
                         // validation error.
                     }
 
                     // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
 
                     // UTF-8 percent-encode c using the path percent-encode set and append the result to buffer.
-                    let result = percent_encode_char(self.c().unwrap(), is_path_percent_encode_set);
+                    let result = percent_encode_char(c, is_path_percent_encode_set);
                     self.buffer.push_str(&result);
                 }
             },
@@ -1028,10 +1041,9 @@ impl<'a> URLParser<'a> {
                     // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
 
                     // If c is not the EOF code point
-                    if self.c().is_some() {
+                    if let Some(c) = self.c() {
                         //  UTF-8 percent-encode c using the C0 control percent-encode set
-                        let result =
-                            percent_encode_char(self.c().unwrap(), is_c0_percent_encode_set);
+                        let result = percent_encode_char(c, is_c0_percent_encode_set);
 
                         // and append the result to url’s path.
                         self.url.path.push(result);
@@ -1077,14 +1089,14 @@ impl<'a> URLParser<'a> {
                     }
                 }
                 // Otherwise, if c is not the EOF code point:
-                else if self.c().is_some() {
+                else if let Some(c) = self.c() {
                     // If c is not a URL code point and not U+0025 (%), validation error.
 
                     // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
 
                     // Append c to buffer.
-                    self.buffer.push(self.c().unwrap())
-                }
+                    self.buffer.push(c)
+                };
             },
 
             // https://url.spec.whatwg.org/#fragment-state

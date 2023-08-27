@@ -195,7 +195,7 @@ fn ipv4_parse(input: &str) -> Result<u32, IPParseError> {
     let mut parts: Vec<&str> = input.split('.').collect();
 
     // If the last item in parts is the empty string, then:
-    if parts.last().is_none() || parts.last().as_ref().unwrap().is_empty() {
+    if parts.last().copied().is_some_and(str::is_empty) {
         // Set validationError to true.
         validation_error = true;
 
@@ -249,16 +249,17 @@ fn ipv4_parse(input: &str) -> Result<u32, IPParseError> {
     }
 
     // If the last item in numbers is greater than or equal to 256^(5 − numbers’s size),
-    if *numbers.last().unwrap() > 256_u32.pow(5 - numbers.len() as u32) {
+    if numbers
+        .last()
+        .is_some_and(|&n| n >= 256_u32.pow(5 - numbers.len() as u32))
+    {
         // validation error, return failure.
         return Err(IPParseError::InvalidLastNumber);
     }
 
     // Let ipv4 be the last item in numbers.
-    let mut ipv4: u32 = *numbers.last().unwrap();
-
     // Remove the last item from numbers.
-    numbers.pop();
+    let mut ipv4 = numbers.pop().expect("numbers must not be empty");
 
     // Let counter be 0.
     let mut counter = 0;
@@ -340,10 +341,20 @@ fn ipv6_parse(input: &str) -> Result<[u16; 8], IPParseError> {
         let mut value: u16 = 0;
         let mut length = 0;
 
+        // FIXME: This algorithm is *extremely* silly and implements parsing of decimal numbers
+        // among other things. It's probably reasonable to not adhere to the spec directly here.
+
         // While length is less than 4 and c is an ASCII hex digit
-        while length < 4 && input.chars().nth(ptr).unwrap().is_ascii_hexdigit() {
+        while length < 4
+            && let Some(hex_number) = input
+                .chars()
+                .nth(ptr)
+                .as_ref()
+                .and_then(|c| c.to_digit(16))
+                .and_then(|n| u16::try_from(n).ok())
+        {
             // set value to value × 0x10 + c interpreted as hexadecimal number
-            value = value * 0x10 + input.chars().nth(ptr).unwrap().to_digit(16).unwrap() as u16;
+            value = value * 0x10 + hex_number;
 
             // and increase pointer and length by 1.
             ptr += 1;
@@ -378,7 +389,7 @@ fn ipv6_parse(input: &str) -> Result<[u16; 8], IPParseError> {
                 // If numbersSeen is greater than 0, then:
                 if numbers_seen > 0 {
                     // If c is a U+002E (.) and numbersSeen is less than 4,
-                    if input.chars().nth(ptr).unwrap() == '.' && numbers_seen < 4 {
+                    if input.chars().nth(ptr).is_some_and(|c| c == '.') && numbers_seen < 4 {
                         // then increase pointer by 1.
                         ptr += 1;
                     }
@@ -390,34 +401,45 @@ fn ipv6_parse(input: &str) -> Result<[u16; 8], IPParseError> {
                 }
 
                 // If c is not an ASCII digit,
-                if !input.chars().nth(ptr).unwrap().is_ascii_digit() {
+                if !input
+                    .chars()
+                    .nth(ptr)
+                    .as_ref()
+                    .is_some_and(char::is_ascii_digit)
+                {
                     // validation error, return failure.
                     return Err(IPParseError::InvalidDigit);
                 }
 
                 // While c is an ASCII digit:
-                while input.chars().nth(ptr).unwrap().is_ascii_digit() {
+                while let Some(number) = input
+                    .chars()
+                    .nth(ptr)
+                    .and_then(|c| c.to_digit(10))
+                    .and_then(|n| u16::try_from(n).ok())
+                {
                     // Let number be c interpreted as decimal number.
-                    let number = input.chars().nth(ptr).unwrap().to_digit(10).unwrap() as u16;
 
-                    // If ipv4Piece is null,
-                    if ipv4_piece.is_none() {
-                        // then set ipv4Piece to number.
-                        ipv4_piece = Some(number);
-                    }
-                    // Otherwise, if ipv4Piece is 0
-                    else if ipv4_piece == Some(0) {
-                        // validation error, return failure.
-                        return Err(IPParseError::Generic);
-                    }
-                    // Otherwise
-                    else {
-                        // set ipv4Piece to ipv4Piece × 10 + number.
-                        ipv4_piece = Some(ipv4_piece.unwrap() * 10 + number);
-                    }
+                    match ipv4_piece {
+                        // If ipv4Piece is null,
+                        None => {
+                            // then set ipv4Piece to number.
+                            ipv4_piece = Some(number);
+                        },
+                        // Otherwise, if ipv4Piece is 0
+                        Some(0) => {
+                            // validation error, return failure.
+                            return Err(IPParseError::Generic);
+                        },
+                        // Otherwise
+                        Some(other) => {
+                            // set ipv4Piece to ipv4Piece × 10 + number.
+                            ipv4_piece = Some(other * 10 + number);
+                        },
+                    };
 
                     // If ipv4Piece is greater than 255
-                    if ipv4_piece.unwrap() > 255 {
+                    if ipv4_piece.is_some_and(|n| n > 255) {
                         // validation error, return failure.
                         return Err(IPParseError::Generic);
                     }
@@ -427,7 +449,8 @@ fn ipv6_parse(input: &str) -> Result<[u16; 8], IPParseError> {
                 }
 
                 // Set address[pieceIndex] to address[pieceIndex] × 0x100 + ipv4Piece.
-                address[piece_index] = address[piece_index] * 0x100 + ipv4_piece.unwrap();
+                address[piece_index] = address[piece_index] * 0x100
+                    + ipv4_piece.expect("ipv4Piece cannot be null at this point");
 
                 // Increase numbersSeen by 1.
                 numbers_seen += 1;

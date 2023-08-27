@@ -10,6 +10,8 @@
 //! assert_eq!(url.scheme, "https");
 //! ```
 
+#![feature(let_chains)]
+
 mod host;
 mod ip;
 mod parser;
