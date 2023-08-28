@@ -1,5 +1,6 @@
-//! Implements https://en.wikipedia.org/wiki/Xorshift
+//! Random Number Generation
 
+/// Implements https://en.wikipedia.org/wiki/Xorshift
 pub struct RNG {
     state: u64,
 }

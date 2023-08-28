@@ -15,7 +15,6 @@ members = [
     "util/cli",
     "util/cli-derive",
     "util/mime",
-    "util/random",
     "util/serialization/serialize",
     "util/serialization/serialize-derive",
     "util/string_interner",

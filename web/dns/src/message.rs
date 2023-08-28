@@ -1,5 +1,5 @@
 //! https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
-use random::RNG;
+use sl_std::rand::RNG;
 
 use crate::{domain::Domain, ResourceRecordClass, ResourceRecordType};
 use std::{fmt, net::IpAddr, vec};
