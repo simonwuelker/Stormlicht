@@ -379,6 +379,7 @@ name = "core"
 version = "0.1.0"
 dependencies = [
  "dom-derive",
+ "font",
  "log",
  "math",
  "mime",

@@ -7,11 +7,12 @@ build = "build/main.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dom-derive = { path = "../dom-derive"}
+dom-derive = { path = "../dom-derive" }
 log = "0.4"
 mime = { path = "../../util/mime" }
 string_interner = { path = "../../util/string_interner" }
 math = { path = "../../graphics/math" }
+font = { path = "../../graphics/font" }
 
 [build-dependencies]
 syn = "1"
