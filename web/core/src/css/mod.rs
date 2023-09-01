@@ -1,5 +1,6 @@
 //! Cascading Style Sheets
 
+pub mod fragment_tree;
 pub mod layout;
 mod matching_rule;
 mod properties;
