@@ -17,6 +17,12 @@ impl From<f32> for CSSPixels {
     }
 }
 
+impl From<CSSPixels> for f32 {
+    fn from(value: CSSPixels) -> Self {
+        value.0
+    }
+}
+
 impl ops::Mul<f32> for CSSPixels {
     type Output = Self;
 
