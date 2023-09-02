@@ -1,5 +1,7 @@
 use std::time;
 
+use url::URL;
+
 use crate::{
     css::{layout::flow::BlockFormattingContext, StyleComputer},
     html::{self, tokenization::IgnoreParseErrors},
@@ -15,7 +17,7 @@ pub enum BrowsingContextError {
 }
 
 impl BrowsingContext {
-    pub fn load(location: &str) -> Result<Self, BrowsingContextError> {
+    pub fn load(location: URL) -> Result<Self, BrowsingContextError> {
         // Load the content at the given url
         let resource = mime::Resource::load(location).map_err(BrowsingContextError::Loading)?;
 

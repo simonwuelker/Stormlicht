@@ -387,6 +387,7 @@ dependencies = [
  "serialize",
  "string_interner",
  "syn 1.0.109",
+ "url",
 ]
 
 [[package]]
@@ -1703,6 +1704,7 @@ dependencies = [
  "math",
  "render",
  "softbuffer",
+ "url",
 ]
 
 [[package]]

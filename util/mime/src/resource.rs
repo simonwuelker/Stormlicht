@@ -58,12 +58,7 @@ pub enum ResourceLoadError {
 }
 
 impl Resource {
-    pub fn load(source: &str) -> Result<Resource, ResourceLoadError> {
-        let url = URL::parse(source).map_err(ResourceLoadError::BadURL)?;
-        Self::load_url(url)
-    }
-
-    pub fn load_url(url: URL) -> Result<Resource, ResourceLoadError> {
+    pub fn load(url: URL) -> Result<Resource, ResourceLoadError> {
         log::info!(
             "Starting load of {}",
             url.serialize(url::ExcludeFragment::Yes)

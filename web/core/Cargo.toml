@@ -13,6 +13,7 @@ mime = { path = "../../util/mime" }
 string_interner = { path = "../../util/string_interner" }
 math = { path = "../../graphics/math" }
 font = { path = "../../graphics/font" }
+url = { path = "../url" }
 
 [build-dependencies]
 syn = "1"

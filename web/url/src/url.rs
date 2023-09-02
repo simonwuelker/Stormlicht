@@ -134,6 +134,10 @@ impl URL {
         self.fragment.as_deref()
     }
 
+    pub fn from_user_input(input: &str) -> Result<Self, URLParseError> {
+        Self::parse(input).or_else(|_| Self::parse(&format!("http://{input}")))
+    }
+
     /// [Specification](https://url.spec.whatwg.org/#concept-basic-url-parser)
     pub fn parse_with_base(
         mut input: &str,

@@ -1,5 +1,7 @@
 use core::BrowsingContext;
 
+use url::URL;
+
 const INITIAL_WIDTH: u16 = 800;
 const INITIAL_HEIGHT: u16 = 600;
 
@@ -86,7 +88,10 @@ impl BrowserApplication {
             );
 
         let browsing_context = match url {
-            Some(url) => BrowsingContext::load(url).unwrap(),
+            Some(url) => {
+                let url = URL::from_user_input(url).unwrap();
+                BrowsingContext::load(url).unwrap()
+            },
             None => {
                 // FIXME: default url
                 BrowsingContext
