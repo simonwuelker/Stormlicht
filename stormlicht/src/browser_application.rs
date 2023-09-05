@@ -90,7 +90,7 @@ impl BrowserApplication {
         let browsing_context = match url {
             Some(url) => {
                 let url = URL::from_user_input(url).unwrap();
-                BrowsingContext::load(url).unwrap()
+                BrowsingContext::load(&url).unwrap()
             },
             None => {
                 // FIXME: default url

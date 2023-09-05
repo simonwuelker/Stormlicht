@@ -71,7 +71,7 @@ impl Request {
     /// This function panics if the url scheme is not `http`
     /// or the url does not have a `host`.
     #[must_use]
-    pub fn get(url: URL) -> Self {
+    pub fn get(url: &URL) -> Self {
         assert_eq!(url.scheme(), "http", "URL is not http");
 
         let mut headers = HashMap::with_capacity(3);
@@ -85,7 +85,7 @@ impl Request {
         Self {
             method: Method::GET,
             headers,
-            context: Context::new(url),
+            context: Context::new(url.clone()),
         }
     }
 
@@ -184,7 +184,7 @@ mod tests {
     fn basic_get_request() {
         let mut tcpstream: Vec<u8> = vec![];
 
-        let mut request = Request::get(url::URL::try_from("http://www.example.com").unwrap());
+        let mut request = Request::get(&url::URL::try_from("http://www.example.com").unwrap());
         request.headers.clear();
 
         request.set_header("User-Agent", "test");
