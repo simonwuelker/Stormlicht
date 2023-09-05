@@ -32,7 +32,7 @@ resolver = "2"
 [workspace.package]
 authors = ["Simon Wülker"]
 edition = "2021"
-repository = "https://github.com/wuelle/browser"
+repository = "https://github.com/wuelle/stormlicht"
 license = "MIT"
 
 [profile.bench]
