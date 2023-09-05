@@ -1,4 +1,5 @@
 use core::BrowsingContext;
+use std::process::ExitCode;
 
 use url::URL;
 
@@ -24,7 +25,7 @@ pub struct BrowserApplication {
 
 impl glazier::WinHandler for BrowserApplication {
     fn connect(&mut self, handle: &glazier::WindowHandle) {
-        let graphics_context = unsafe { softbuffer::GraphicsContext::new(handle, handle) }.unwrap();
+        let graphics_context = unsafe { softbuffer::GraphicsContext::new(handle, handle) }.expect("Failed to connect to softbuffer graphics context");
         self.window_handle = handle.clone();
         self.graphics_context = Some(graphics_context);
     }
@@ -64,7 +65,7 @@ impl glazier::WinHandler for BrowserApplication {
 }
 
 impl BrowserApplication {
-    pub fn new(url: Option<&str>) -> Self {
+    pub fn run(url: Option<&str>) -> ExitCode {
         let font = font::Font::default();
         let d = font.compute_rendered_width("Font test", 200.);
         let mut composition = render::Composition::default();
@@ -89,8 +90,21 @@ impl BrowserApplication {
 
         let browsing_context = match url {
             Some(url) => {
-                let url = URL::from_user_input(url).unwrap();
-                BrowsingContext::load(&url).unwrap()
+                let url = match URL::from_user_input(url) {
+                    Ok(parsed_url) => parsed_url,
+                    Err(error) => {
+                        log::error!("Failed to parse {url:?} as a URL: {error:?}");
+                        return ExitCode::FAILURE;
+                    }
+                };
+
+                match BrowsingContext::load(&url) {
+                    Ok(context) => context,
+                    Err(error) => {
+                        log::error!("Failed to load {}: {error:?}", url.to_string());
+                        return ExitCode::FAILURE;
+                    }
+                }
             },
             None => {
                 // FIXME: default url
@@ -98,7 +112,7 @@ impl BrowserApplication {
             },
         };
 
-        Self {
+        let application = Self {
             view_buffer: math::Bitmap::new(INITIAL_WIDTH as usize, INITIAL_HEIGHT as usize),
             graphics_context: None,
             size: (INITIAL_WIDTH, INITIAL_HEIGHT),
@@ -106,19 +120,33 @@ impl BrowserApplication {
             composition,
             window_handle: glazier::WindowHandle::default(),
             _browsing_context: browsing_context,
-        }
-    }
+        };
 
-    pub fn run(self) {
-        let app = glazier::Application::new().unwrap();
-        let window = glazier::WindowBuilder::new(app.clone())
+        let app = match glazier::Application::new() {
+            Ok(app) => app,
+            Err(error) => {
+                log::error!("Failed to initialize application: {error:?}");
+                return ExitCode::FAILURE;
+            }
+        };
+
+        let window_or_error = glazier::WindowBuilder::new(app.clone())
             .resizable(true)
             .size(((INITIAL_WIDTH / 2) as f64, (INITIAL_HEIGHT / 2) as f64).into())
-            .handler(Box::new(self))
+            .handler(Box::new(application))
             .title("Browser")
             .build()
-            .unwrap();
-        window.show();
-        app.run(None);
+            ;
+        match window_or_error {
+            Ok(window) => {
+                window.show();
+                app.run(None);
+                ExitCode::SUCCESS
+            },
+            Err(error) => {
+                log::error!("Failed to create application window: {error:?}");
+                ExitCode::FAILURE
+            }
+        }
     }
 }

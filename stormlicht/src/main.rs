@@ -2,6 +2,8 @@
 
 mod browser_application;
 
+use std::process::ExitCode;
+
 use browser_application::BrowserApplication;
 
 use cli::CommandLineArgumentParser;
@@ -40,7 +42,7 @@ extern "C" {
     fn geteuid() -> u32;
 }
 
-pub fn main() {
+pub fn main() -> ExitCode {
     // Register a custom panic handler
     std::panic::update_hook(move |prev, info| {
         println!("The browser has panicked. This is a bug. Please open an issue at {}, including the debug information below. Thanks!\n", env!("CARGO_PKG_REPOSITORY"));
@@ -52,26 +54,26 @@ pub fn main() {
     #[cfg(target_os = "linux")]
     if unsafe { geteuid() } == 0 {
         log::error!("Refusing to run as root");
-        return;
+        return ExitCode::FAILURE;
     }
 
     let arguments = match ArgumentParser::parse() {
         Ok(arguments) => arguments,
         Err(_) => {
             println!("{}", ArgumentParser::help());
-            return;
+            return ExitCode::FAILURE;
         },
     };
 
     if arguments.help {
         println!("{}", ArgumentParser::help());
-        return;
+        return ExitCode::FAILURE;
     }
 
     if arguments.version {
         println!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-        return;
+        return ExitCode::FAILURE;
     }
 
-    BrowserApplication::new(arguments.url.as_deref()).run()
+    BrowserApplication::run(arguments.url.as_deref())
 }
