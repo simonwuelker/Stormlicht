@@ -5,6 +5,8 @@
 //! * <https://formats.kaitai.io/ttf/index.html>
 //! * <https://handmade.network/forums/articles/t/7330-implementing_a_font_reader_and_rasterizer_from_scratch%252C_part_1__ttf_font_reader>
 
+use std::fmt;
+
 use math::Vec2D;
 
 use crate::{
@@ -411,6 +413,16 @@ impl<'a, 'b> RenderedGlyphIterator<'a, 'b> {
             chars: text.chars(),
             current_compound_glyphs: vec![],
             advance_before_next_glyph: 0,
+        }
+    }
+}
+
+impl<'a> fmt::Debug for Font<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(name) = self.name() {
+            write!(f, "{name}")
+        } else {
+            write!(f, "<Unnamed Font>")
         }
     }
 }
