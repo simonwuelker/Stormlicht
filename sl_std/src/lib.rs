@@ -5,5 +5,6 @@
 #![feature(array_windows)]
 
 pub mod iter;
+pub mod punycode;
 pub mod rand;
 pub mod time;

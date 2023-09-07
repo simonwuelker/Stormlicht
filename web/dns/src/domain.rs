@@ -1,9 +1,9 @@
 use crate::{
     message::{Consume, Message},
-    punycode::idna_encode,
     resource_type::{ResourceRecordClass, ResourceRecordType},
     DNSError, DNS_CACHE, MAX_DATAGRAM_SIZE, MAX_RESOLUTION_STEPS, ROOT_SERVER, UDP_SOCKET,
 };
+use sl_std::punycode::idna_encode;
 
 use std::{
     fmt,

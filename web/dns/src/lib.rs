@@ -5,7 +5,6 @@
 mod dns_cache;
 mod domain;
 pub mod message;
-pub mod punycode;
 mod resource_type;
 
 use crate::resource_type::{ResourceRecordClass, ResourceRecordType};
