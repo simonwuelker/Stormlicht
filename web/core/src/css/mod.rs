@@ -1,5 +1,6 @@
 //! Cascading Style Sheets
 
+pub mod display_list;
 mod font_metrics;
 pub mod fragment_tree;
 pub mod layout;
@@ -11,7 +12,6 @@ mod stylecomputer;
 mod stylesheet;
 pub mod syntax;
 pub mod values;
-pub mod display_list;
 
 pub use font_metrics::FontMetrics;
 pub use line_break::LineBreakIterator;

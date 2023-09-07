@@ -384,6 +384,7 @@ dependencies = [
  "math",
  "mime",
  "proc-macro2",
+ "render",
  "serialize",
  "string_interner",
  "syn 1.0.109",
