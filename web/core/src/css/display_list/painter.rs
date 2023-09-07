@@ -17,7 +17,7 @@ impl<'box_tree, 'font> Painter<'box_tree, 'font> {
         for (index, command) in self.commands.iter().enumerate() {
             match command {
                 Command::Rect(rect_cmd) => {
-                    let area = composition
+                    composition
                         .get_or_insert_layer(index as u16)
                         .with_source(Source::Solid(rect_cmd.color))
                         .with_outline(Path::rect(

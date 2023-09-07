@@ -1,14 +1,19 @@
 use std::time;
 
+use render::Composition;
 use url::URL;
 
 use crate::{
-    css::{layout::flow::BlockFormattingContext, StyleComputer},
+    css::{display_list::Painter, layout::flow::BlockFormattingContext, StyleComputer, Stylesheet},
+    dom::{dom_objects, DOMPtr},
     html::{self, tokenization::IgnoreParseErrors},
 };
 
 /// The Browsing Context takes care of coordinating loads, layout calculations and paints
-pub struct BrowsingContext;
+pub struct BrowsingContext {
+    document: DOMPtr<dom_objects::Node>,
+    stylesheets: Vec<Stylesheet>,
+}
 
 #[derive(Debug)]
 pub enum BrowsingContextError {
@@ -43,12 +48,27 @@ impl BrowsingContext {
         );
         log::info!("{:?}", document);
         log::info!("Found {} stylesheets, {stylesheets:?}", stylesheets.len());
-        let style_computer = StyleComputer::new(&stylesheets);
+
+        Ok(Self {
+            document,
+            stylesheets,
+        })
+    }
+
+    pub fn paint(&self, to: &mut Composition, viewport_size: (u16, u16)) {
+        let style_computer = StyleComputer::new(&self.stylesheets);
 
         // Build a box tree for the parsed document
-        let box_tree = BlockFormattingContext::root(document, style_computer);
+        let box_tree = BlockFormattingContext::root(self.document.clone(), style_computer);
         log::info!("box tree: \n{box_tree:?}");
 
-        Ok(Self)
+        // Build a fragment tree by fragmenting the boxes
+        let fragment_tree = box_tree.fragment(viewport_size);
+
+        // Paint the fragment_tree to the screen
+        let mut painter = Painter::default();
+        fragment_tree.fill_display_list(&mut painter);
+
+        painter.paint(to);
     }
 }

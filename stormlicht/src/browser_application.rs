@@ -20,12 +20,13 @@ pub struct BrowserApplication {
     repaint_required: RepaintRequired,
     composition: render::Composition,
     window_handle: glazier::WindowHandle,
-    _browsing_context: BrowsingContext,
+    browsing_context: BrowsingContext,
 }
 
 impl glazier::WinHandler for BrowserApplication {
     fn connect(&mut self, handle: &glazier::WindowHandle) {
-        let graphics_context = unsafe { softbuffer::GraphicsContext::new(handle, handle) }.expect("Failed to connect to softbuffer graphics context");
+        let graphics_context = unsafe { softbuffer::GraphicsContext::new(handle, handle) }
+            .expect("Failed to connect to softbuffer graphics context");
         self.window_handle = handle.clone();
         self.graphics_context = Some(graphics_context);
     }
@@ -38,6 +39,8 @@ impl glazier::WinHandler for BrowserApplication {
 
     fn paint(&mut self, _invalid: &glazier::Region) {
         self.view_buffer.clear(math::Color::WHITE.into());
+        self.browsing_context
+            .paint(&mut self.composition, self.size);
         self.composition.render_to(&mut self.view_buffer);
 
         if let Some(graphics_context) = &mut self.graphics_context {
@@ -53,6 +56,7 @@ impl glazier::WinHandler for BrowserApplication {
     fn size(&mut self, size: glazier::kurbo::Size) {
         let width = size.width.ceil() as u16 * 2;
         let height = size.height.ceil() as u16 * 2;
+
         self.size = (width, height);
         self.view_buffer.resize(width as usize, height as usize);
         self.repaint_required = RepaintRequired::Yes;
@@ -73,7 +77,7 @@ impl BrowserApplication {
                     Err(error) => {
                         log::error!("Failed to parse {url:?} as a URL: {error:?}");
                         return ExitCode::FAILURE;
-                    }
+                    },
                 };
 
                 match BrowsingContext::load(&url) {
@@ -81,12 +85,11 @@ impl BrowserApplication {
                     Err(error) => {
                         log::error!("Failed to load {}: {error:?}", url.to_string());
                         return ExitCode::FAILURE;
-                    }
+                    },
                 }
             },
             None => {
-                // FIXME: default url
-                BrowsingContext
+                todo!("add default url")
             },
         };
 
@@ -97,7 +100,7 @@ impl BrowserApplication {
             repaint_required: RepaintRequired::Yes,
             composition: render::Composition::default(),
             window_handle: glazier::WindowHandle::default(),
-            _browsing_context: browsing_context,
+            browsing_context: browsing_context,
         };
 
         let app = match glazier::Application::new() {
@@ -105,7 +108,7 @@ impl BrowserApplication {
             Err(error) => {
                 log::error!("Failed to initialize application: {error:?}");
                 return ExitCode::FAILURE;
-            }
+            },
         };
 
         let window_or_error = glazier::WindowBuilder::new(app.clone())
@@ -113,8 +116,7 @@ impl BrowserApplication {
             .size(((INITIAL_WIDTH / 2) as f64, (INITIAL_HEIGHT / 2) as f64).into())
             .handler(Box::new(application))
             .title("Browser")
-            .build()
-            ;
+            .build();
         match window_or_error {
             Ok(window) => {
                 window.show();
@@ -124,7 +126,7 @@ impl BrowserApplication {
             Err(error) => {
                 log::error!("Failed to create application window: {error:?}");
                 ExitCode::FAILURE
-            }
+            },
         }
     }
 }

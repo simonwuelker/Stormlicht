@@ -2,6 +2,7 @@ use std::{fmt, fmt::Write, rc::Rc};
 
 use crate::{
     css::{
+        fragment_tree::FragmentTree,
         layout::{CSSPixels, Layout, Sides, UsedSizeAndMargins},
         stylecomputer::ComputedStyle,
         values::{AutoOr, Length},
@@ -63,6 +64,10 @@ impl BlockFormattingContext {
         };
 
         vec![root].into()
+    }
+
+    pub fn fragment(self, _viewport_size: (u16, u16)) -> FragmentTree {
+        todo!()
     }
 }
 
