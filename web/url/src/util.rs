@@ -135,3 +135,18 @@ pub fn is_url_codepoint(c: char) -> bool {
             _ => false,
         }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::starts_with_windows_drive_letter;
+
+    #[test]
+    fn windows_drive_letter() {
+        // Tests the example cases from
+        // <https://url.spec.whatwg.org/#example-start-with-a-widows-drive-letter>
+
+        assert!(starts_with_windows_drive_letter("c:"));
+        assert!(starts_with_windows_drive_letter("c:/"));
+        assert!(!starts_with_windows_drive_letter("c:a"));
+    }
+}
