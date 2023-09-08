@@ -6,6 +6,12 @@ use url::URL;
 const INITIAL_WIDTH: u16 = 800;
 const INITIAL_HEIGHT: u16 = 600;
 
+const WELCOME_PAGE: &str = concat!(
+    "file://localhost",
+    env!("CARGO_MANIFEST_DIR"),
+    "/../pages/welcome.html"
+);
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 enum RepaintRequired {
     #[default]
@@ -70,26 +76,19 @@ impl glazier::WinHandler for BrowserApplication {
 
 impl BrowserApplication {
     pub fn run(url: Option<&str>) -> ExitCode {
-        let browsing_context = match url {
-            Some(url) => {
-                let url = match URL::from_user_input(url) {
-                    Ok(parsed_url) => parsed_url,
-                    Err(error) => {
-                        log::error!("Failed to parse {url:?} as a URL: {error:?}");
-                        return ExitCode::FAILURE;
-                    },
-                };
-
-                match BrowsingContext::load(&url) {
-                    Ok(context) => context,
-                    Err(error) => {
-                        log::error!("Failed to load {}: {error:?}", url.to_string());
-                        return ExitCode::FAILURE;
-                    },
-                }
+        let url = match URL::from_user_input(url.unwrap_or(WELCOME_PAGE)) {
+            Ok(parsed_url) => parsed_url,
+            Err(error) => {
+                log::error!("Failed to parse {url:?} as a URL: {error:?}");
+                return ExitCode::FAILURE;
             },
-            None => {
-                todo!("add default url")
+        };
+
+        let browsing_context = match BrowsingContext::load(&url) {
+            Ok(context) => context,
+            Err(error) => {
+                log::error!("Failed to load {}: {error:?}", url.to_string());
+                return ExitCode::FAILURE;
             },
         };
 
