@@ -98,7 +98,7 @@ impl Resource {
             },
             "file" => {
                 // Fetch the file from the local filesystem
-                let path = url.path().join("/");
+                let path = format!("/{}", url.path().join("/"));
                 fs::read(path).map_err(ResourceLoadError::File)?
             },
             other => {
