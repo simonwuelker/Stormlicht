@@ -352,6 +352,8 @@ impl ToString for URL {
 
 #[cfg(test)]
 mod tests {
+    use sl_std::ascii;
+
     use super::*;
 
     #[test]
@@ -361,7 +363,12 @@ mod tests {
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "");
         assert_eq!(url.password, "");
-        assert_eq!(url.host, Some(Host::OpaqueHost("google.com".to_string())));
+        assert_eq!(
+            url.host,
+            Some(Host::OpaqueHost(
+                ascii::Str::from_bytes(b"google.com").unwrap().to_owned()
+            ))
+        );
         assert_eq!(url.path, vec![""]);
         assert_eq!(url.query, None);
         assert_eq!(url.fragment, None);
@@ -374,7 +381,12 @@ mod tests {
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "");
         assert_eq!(url.password, "");
-        assert_eq!(url.host, Some(Host::OpaqueHost("google.com".to_string())));
+        assert_eq!(
+            url.host,
+            Some(Host::OpaqueHost(
+                ascii::Str::from_bytes(b"google.com").unwrap().to_owned()
+            ))
+        );
         assert_eq!(url.path, vec![""]);
         assert_eq!(url.query.as_deref(), Some("a=b"));
         assert_eq!(url.fragment, None);
@@ -387,7 +399,12 @@ mod tests {
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "");
         assert_eq!(url.password, "");
-        assert_eq!(url.host, Some(Host::OpaqueHost("google.com".to_string())));
+        assert_eq!(
+            url.host,
+            Some(Host::OpaqueHost(
+                ascii::Str::from_bytes(b"google.com").unwrap().to_owned()
+            ))
+        );
         assert_eq!(url.path, vec![""]);
         assert_eq!(url.query, None);
         assert_eq!(url.fragment.as_deref(), Some("foo"));
@@ -400,7 +417,12 @@ mod tests {
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "user");
         assert_eq!(url.password, "password");
-        assert_eq!(url.host, Some(Host::OpaqueHost("google.com".to_string())));
+        assert_eq!(
+            url.host,
+            Some(Host::OpaqueHost(
+                ascii::Str::from_bytes(b"google.com").unwrap().to_owned()
+            ))
+        );
         assert_eq!(url.path, vec![""]);
         assert_eq!(url.query, None);
         assert_eq!(url.fragment, None);

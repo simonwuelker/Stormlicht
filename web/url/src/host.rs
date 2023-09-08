@@ -1,36 +1,41 @@
 use std::str::FromStr;
 
+use sl_std::{ascii, punycode};
+
 use crate::{
-    parser::is_c0_control, urlencode::percent_encode, util, IPParseError, Ipv4Address, Ipv6Address,
+    urlencode::{is_c0_control, percent_encode},
+    util, IPParseError, Ipv4Address, Ipv6Address,
 };
 
 /// <https://url.spec.whatwg.org/#forbidden-host-code-point>
-fn is_forbidden_host_code_point(c: char) -> bool {
+fn is_forbidden_host_code_point(c: ascii::Char) -> bool {
     matches!(
         c,
-        '\u{0000}'
-            | '\u{0009}'
-            | '\u{000A}'
-            | '\u{000D}'
-            | ' '
-            | '#'
-            | '/'
-            | ':'
-            | '<'
-            | '>'
-            | '?'
-            | '@'
-            | '['
-            | '\\'
-            | ']'
-            | '^'
-            | '|'
+        ascii::Char::Null
+            | ascii::Char::CharacterTabulation
+            | ascii::Char::LineFeed
+            | ascii::Char::CarriageReturn
+            | ascii::Char::Space
+            | ascii::Char::NumberSign
+            | ascii::Char::Solidus
+            | ascii::Char::Colon
+            | ascii::Char::GreaterThanSign
+            | ascii::Char::LessThanSign
+            | ascii::Char::QuestionMark
+            | ascii::Char::CommercialAt
+            | ascii::Char::LeftSquareBracket
+            | ascii::Char::ReverseSolidus
+            | ascii::Char::RightSquareBracket
+            | ascii::Char::CircumflexAccent
+            | ascii::Char::VerticalLine
     )
 }
 
 /// <https://url.spec.whatwg.org/#forbidden-domain-code-point>
-fn is_forbidden_domain_code_point(c: char) -> bool {
-    is_forbidden_host_code_point(c) | is_c0_control(c) | matches!(c, '%' | '\u{007F}')
+fn is_forbidden_domain_code_point(c: ascii::Char) -> bool {
+    is_forbidden_host_code_point(c)
+        | is_c0_control(c as u8)
+        | matches!(c, ascii::Char::PercentSign | ascii::Char::Delete)
 }
 
 /// Typically either a network address or a opaque identifier in situations
@@ -39,10 +44,10 @@ fn is_forbidden_domain_code_point(c: char) -> bool {
 /// [Specification](https://url.spec.whatwg.org/#concept-host)
 #[derive(PartialEq, Clone, Debug)]
 pub enum Host {
-    Domain(String),
+    Domain(ascii::String),
     IPv4(Ipv4Address),
     IPv6(Ipv6Address),
-    OpaqueHost(String),
+    OpaqueHost(ascii::String),
     EmptyHost,
 }
 
@@ -50,6 +55,7 @@ pub enum Host {
 pub enum HostParseError {
     MalformedInput,
     ForbiddenCodePoint,
+    Punycode(punycode::PunyCodeError),
     IP(IPParseError),
 }
 
@@ -67,7 +73,7 @@ impl ToString for Host {
             },
             Self::Domain(host) | Self::OpaqueHost(host) => {
                 // 3. Otherwise, host is a domain, opaque host, or empty host, return host.
-                host.clone()
+                host.as_str().to_owned()
             },
             Self::EmptyHost => {
                 // 3. Otherwise, host is a domain, opaque host, or empty host, return host.
@@ -113,21 +119,28 @@ pub(crate) fn host_parse_with_special(
     // TODO
 
     // Let asciiDomain be the result of running domain to ASCII with domain and false.
-    // (Since we don't support any encodings other than utf-8 this is not necessary)
-
     // If asciiDomain is failure, validation error, return failure.
-    // TODO
+    let ascii_domain =
+        ascii::String::from_utf8_punycode(input).map_err(HostParseError::Punycode)?;
 
-    let ascii_domain = input;
     // If asciiDomain contains a forbidden domain code point,
-    if ascii_domain.contains(is_forbidden_domain_code_point) {
+    if ascii_domain
+        .chars()
+        .iter()
+        .copied()
+        .any(is_forbidden_domain_code_point)
+    {
         // validation error,
         // return failure.
         return Err(HostParseError::ForbiddenCodePoint);
     }
 
     // If asciiDomain ends in a number
-    if ascii_domain.ends_with(|c: char| c.is_ascii_digit()) {
+    if ascii_domain
+        .chars()
+        .last()
+        .is_some_and(|&c| ascii::Char::Digit0 <= c && c <= ascii::Char::Digit9)
+    {
         // then return the result of IPv4 parsing asciiDomain.
         return Ok(Host::IPv4(
             Ipv4Address::from_str(input).map_err(HostParseError::IP)?,
@@ -135,13 +148,13 @@ pub(crate) fn host_parse_with_special(
     }
 
     // Return asciiDomain.
-    Ok(Host::Domain(ascii_domain.to_string()))
+    Ok(Host::Domain(ascii_domain))
 }
 
 /// <https://url.spec.whatwg.org/#concept-opaque-host-parser>
-fn opaque_host_parse(input: &str) -> Result<String, HostParseError> {
+fn opaque_host_parse(input: &str) -> Result<ascii::String, HostParseError> {
     // If input contains a forbidden host code point
-    if input.contains(is_forbidden_host_code_point) {
+    if input.contains(|c: char| c.as_ascii().is_some_and(is_forbidden_host_code_point)) {
         // validation error, return failure.
         return Err(HostParseError::ForbiddenCodePoint);
     }
@@ -157,5 +170,7 @@ fn opaque_host_parse(input: &str) -> Result<String, HostParseError> {
 
     // Return the result of running UTF-8 percent-encode on input
     // using the C0 control percent-encode set.
-    Ok(percent_encode(input, is_c0_control))
+    let mut percent_encoded = ascii::String::with_capacity(input.len());
+    percent_encode(input, is_c0_control, &mut percent_encoded);
+    Ok(percent_encoded)
 }

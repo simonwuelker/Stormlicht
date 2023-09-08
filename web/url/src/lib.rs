@@ -10,7 +10,12 @@
 //! assert_eq!(url.scheme(), "https");
 //! ```
 
-#![feature(let_chains)]
+#![feature(
+    let_chains,
+    option_get_or_insert_default,
+    ascii_char,
+    ascii_char_variants
+)]
 
 mod host;
 mod ip;

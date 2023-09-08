@@ -1,3 +1,5 @@
+use sl_std::ascii;
+
 use crate::{
     default_port_for_scheme,
     host::{self, host_parse_with_special, Host},
@@ -46,11 +48,6 @@ pub(crate) struct URLParser<'a> {
     pub(crate) inside_brackets: bool,
     pub(crate) password_token_seen: bool,
     pub(crate) state_override: Option<URLParserState>,
-}
-
-// https://infra.spec.whatwg.org/#c0-control
-pub(crate) fn is_c0_control(c: char) -> bool {
-    matches!(c, '\u{0000}'..='\u{001F}')
 }
 
 impl<'a> URLParser<'a> {
@@ -470,22 +467,21 @@ impl<'a> URLParser<'a> {
                             continue;
                         }
 
+                        // NOTE: We group the following two steps together to avoid unnecessary
+                        // allocations
                         // Let encodedCodePoints be the result of running
                         // UTF-8 percent-encode codePoint using
                         // the userinfo percent-encode set.
-                        let encoded_codepoints =
-                            percent_encode_char(code_point, is_userinfo_percent_encode_set);
 
                         // If passwordTokenSeen is true
-                        if self.password_token_seen {
+                        let append_to = if self.password_token_seen {
                             // then append encodedCodePoints to url’s password.
-                            self.url.password.push_str(encoded_codepoints.as_str());
-                        }
-                        // Otherwise
-                        else {
-                            // append encodedCodePoints to url’s username.
-                            self.url.username.push_str(encoded_codepoints.as_str());
-                        }
+                            &mut self.url.password
+                        } else {
+                            // Otherwise, append encodedCodePoints to url’s username.
+                            &mut self.url.username
+                        };
+                        percent_encode_char(code_point, is_userinfo_percent_encode_set, append_to);
                     }
 
                     // Set buffer to the empty string.
@@ -688,7 +684,7 @@ impl<'a> URLParser<'a> {
                 self.url.scheme = "file".to_string();
 
                 // Set url’s host to the empty string.
-                self.url.host = Some(Host::OpaqueHost("".to_string()));
+                self.url.host = Some(Host::OpaqueHost(ascii::String::default()));
 
                 // If c is U+002F (/) or U+005C (\), then:
                 if self.c() == Some('/') || self.c() == Some('\\') {
@@ -816,7 +812,7 @@ impl<'a> URLParser<'a> {
                     // Otherwise, if buffer is the empty string, then:
                     else if self.buffer.is_empty() {
                         // Set url’s host to the empty string.
-                        self.url.host = Some(Host::OpaqueHost(String::new()));
+                        self.url.host = Some(Host::OpaqueHost(ascii::String::default()));
 
                         // If state override is given,
                         if self.state_override.is_some() {
@@ -835,8 +831,9 @@ impl<'a> URLParser<'a> {
                             host_parse_with_special(&self.buffer, false).map_err(|_| ())?; // FIXME: proper error handling
 
                         // If host is "localhost", then set host to the empty string.
-                        if Host::OpaqueHost("localhost".to_string()) == host {
-                            host = Host::OpaqueHost(String::new());
+                        if let Host::OpaqueHost(opaque_host) = &host && opaque_host.as_str() == "localhost"
+                        {
+                            host = Host::OpaqueHost(ascii::String::default());
                         }
 
                         // Set url’s host to host.
@@ -1012,8 +1009,7 @@ impl<'a> URLParser<'a> {
                     // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
 
                     // UTF-8 percent-encode c using the path percent-encode set and append the result to buffer.
-                    let result = percent_encode_char(c, is_path_percent_encode_set);
-                    self.buffer.push_str(&result);
+                    percent_encode_char(c, is_path_percent_encode_set, &mut self.buffer);
                 }
             },
             // https://url.spec.whatwg.org/#cannot-be-a-base-url-path-state
@@ -1042,11 +1038,10 @@ impl<'a> URLParser<'a> {
 
                     // If c is not the EOF code point
                     if let Some(c) = self.c() {
-                        //  UTF-8 percent-encode c using the C0 control percent-encode set
-                        let result = percent_encode_char(c, is_c0_percent_encode_set);
-
-                        // and append the result to url’s path.
-                        self.url.path.push(result);
+                        //  UTF-8 percent-encode c using the C0 control percent-encode set and append the result to url’s path.
+                        let mut result = String::new();
+                        percent_encode_char(c, is_c0_percent_encode_set, &mut result);
+                        self.url.path.push(result.to_string());
                     }
                 }
             },
@@ -1071,10 +1066,9 @@ impl<'a> URLParser<'a> {
                     };
 
                     // Percent-encode after encoding, with encoding, buffer, and queryPercentEncodeSet,
-                    let result = percent_encode(&self.buffer, query_percent_encode_set);
-
                     // and append the result to url’s query.
-                    self.url.query.as_mut().unwrap().push_str(&result);
+                    let query = self.url.query.get_or_insert_default();
+                    percent_encode(&self.buffer, query_percent_encode_set, query);
 
                     // Set buffer to the empty string.
                     self.buffer.clear();
@@ -1108,10 +1102,10 @@ impl<'a> URLParser<'a> {
                     // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
 
                     // UTF-8 percent-encode c using the fragment percent-encode set
-                    let result = percent_encode_char(c, is_fragment_percent_encode_set);
-
                     // and append the result to url’s fragment.
-                    self.url.fragment.as_mut().unwrap().push_str(&result);
+                    let fragment = self.url.fragment.get_or_insert_default();
+
+                    percent_encode_char(c, is_fragment_percent_encode_set, fragment);
                 }
             },
         }

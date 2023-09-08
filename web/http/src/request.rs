@@ -116,7 +116,7 @@ impl Request {
     pub fn send(&mut self) -> Result<Response, HTTPError> {
         // Resolve the hostname
         let ip = match &self.context.url.host().expect("url does not have a host") {
-            Host::Domain(host_str) | Host::OpaqueHost(host_str) => dns::Domain::new(host_str)
+            Host::Domain(host) | Host::OpaqueHost(host) => dns::Domain::new(host.as_str())
                 .lookup()
                 .map_err(HTTPError::DNS)?,
             Host::IPv4(_ip) => todo!(),
