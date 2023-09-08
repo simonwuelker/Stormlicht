@@ -21,7 +21,7 @@ members = [
     "util/perfect_hash",
     "util/perfect_hash_derive",
     "taskrunner",
-    "sl_std",
+    "sl-std",
     "stormlicht",
     "crypto/ciphers",
     "crypto/hash",
