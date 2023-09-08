@@ -831,9 +831,8 @@ impl<'a> URLParser<'a> {
                             host_parse_with_special(&self.buffer, false).map_err(|_| ())?; // FIXME: proper error handling
 
                         // If host is "localhost", then set host to the empty string.
-                        if let Host::OpaqueHost(opaque_host) = &host && opaque_host.as_str() == "localhost"
-                        {
-                            host = Host::OpaqueHost(ascii::String::default());
+                        if let Host::Domain(domain) = &host && domain.as_str() == "localhost" {
+                                host = Host::OpaqueHost(ascii::String::default());
                         }
 
                         // Set url’s host to host.
