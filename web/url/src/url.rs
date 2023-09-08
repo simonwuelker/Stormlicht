@@ -1,5 +1,9 @@
 //! Implements <https://url.spec.whatwg.org>
 
+use std::io;
+
+use sl_std::ascii;
+
 use crate::{
     host::Host,
     parser::{URLParser, URLParserState},
@@ -135,7 +139,43 @@ impl URL {
     }
 
     pub fn from_user_input(input: &str) -> Result<Self, URLParseError> {
-        Self::parse(input).or_else(|_| Self::parse(&format!("http://{input}")))
+        let base_url = match Self::cwd() {
+            Ok(url) => url,
+            Err(error) => {
+                log::error!("Failed to access current working directory: {error}");
+                return Err(URLParseError);
+            },
+        };
+
+        Self::parse_with_base(input, Some(base_url), None, None)
+            .or_else(|_| Self::parse(&format!("http://{input}")))
+    }
+
+    pub fn cwd() -> Result<Self, io::Error> {
+        let cwd = std::env::current_dir()?;
+        let mut path = vec![];
+        for part in cwd.iter().skip(1) {
+            match part.to_str() {
+                Some(s) => path.push(s.to_owned()),
+                None => {
+                    return Err(io::Error::other(format!(
+                        "Path to cwd ({}) contains non-unicode data",
+                        cwd.display()
+                    )));
+                },
+            }
+        }
+
+        Ok(Self {
+            scheme: "file".to_string(),
+            username: String::new(),
+            password: String::new(),
+            host: Some(Host::OpaqueHost(ascii::String::default())),
+            port: None,
+            path,
+            query: None,
+            fragment: None,
+        })
     }
 
     /// [Specification](https://url.spec.whatwg.org/#concept-basic-url-parser)
