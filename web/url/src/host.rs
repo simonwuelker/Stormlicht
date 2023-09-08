@@ -3,7 +3,7 @@ use std::str::FromStr;
 use sl_std::{ascii, punycode};
 
 use crate::{
-    urlencode::{is_c0_control, percent_encode},
+    percent_encode::{is_c0_control, percent_encode},
     util, IPParseError, Ipv4Address, Ipv6Address,
 };
 

@@ -20,8 +20,8 @@
 mod host;
 mod ip;
 mod parser;
+pub mod percent_encode;
 mod url;
-pub mod urlencode;
 mod util;
 
 pub use crate::ip::{IPParseError, Ipv4Address, Ipv6Address};

@@ -4,7 +4,7 @@ use crate::{
     default_port_for_scheme,
     host::{self, host_parse_with_special, Host},
     is_special_scheme,
-    urlencode::{
+    percent_encode::{
         is_c0_percent_encode_set, is_fragment_percent_encode_set, is_path_percent_encode_set,
         is_query_percent_encode_set, is_special_query_percent_encode_set,
         is_userinfo_percent_encode_set, percent_encode, percent_encode_char,
