@@ -1,6 +1,8 @@
 pub use std::ascii::Char;
 
-use std::{borrow::Borrow, fmt, ops::Deref};
+use std::{borrow::Borrow, fmt, ops::Deref, string::String as Utf8String};
+
+use crate::punycode;
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct String {
@@ -20,6 +22,23 @@ impl String {
 
     pub fn push_str(&mut self, s: &Str) {
         self.chars.extend_from_slice(s.chars())
+    }
+
+    pub fn clear(&mut self) {
+        self.chars.clear()
+    }
+
+    pub fn from_utf8_punycode(utf8_string: &str) -> Result<Self, punycode::PunyCodeError> {
+        let encoded = punycode::punycode_encode(utf8_string)?;
+
+        // FIXME: This second iteration isn't strictly necessary, since
+        // punycode_encode is never going to return anything other than ascii.
+        // Get rid of it, preferrably without using unsafe code
+        let mut ascii_chars = Self::with_capacity(encoded.len());
+        for b in encoded.bytes() {
+            ascii_chars.push(Char::from_u8(b).expect("Punycode encode returned non-ascii byte"))
+        }
+        Ok(ascii_chars)
     }
 }
 
@@ -120,5 +139,33 @@ impl ToOwned for Str {
 impl PartialEq<str> for Str {
     fn eq(&self, other: &str) -> bool {
         self.as_bytes().eq(other.as_bytes())
+    }
+}
+
+pub trait Write {
+    fn write_str(&mut self, s: &Str);
+
+    fn write_char(&mut self, c: Char) {
+        self.write_str(Str::from_ascii_chars(&[c]));
+    }
+}
+
+impl Write for String {
+    fn write_str(&mut self, s: &Str) {
+        self.push_str(s);
+    }
+
+    fn write_char(&mut self, c: Char) {
+        self.push(c);
+    }
+}
+
+impl Write for Utf8String {
+    fn write_str(&mut self, s: &Str) {
+        self.push_str(s.as_str())
+    }
+
+    fn write_char(&mut self, c: Char) {
+        self.push(c.as_char())
     }
 }
