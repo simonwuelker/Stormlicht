@@ -7,10 +7,12 @@
     ascii_char,
     ascii_char_variants,
     slice_index_methods,
-    const_option
+    const_option,
+    round_char_boundary
 )]
 
 pub mod ascii;
+pub mod chars;
 pub mod iter;
 pub mod punycode;
 pub mod rand;
