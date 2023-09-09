@@ -2,7 +2,7 @@
 
 use std::io;
 
-use sl_std::ascii;
+use sl_std::{ascii, chars::ReversibleCharIterator};
 
 use crate::{
     host::Host,
@@ -225,15 +225,12 @@ impl URL {
         let inside_brackets = false;
         let password_token_seen = false;
 
-        let ptr = 0;
-
         let state_machine = URLParser {
             url: url,
             state: state,
             buffer: buffer,
-            ptr: ptr,
             base: base,
-            input: &filtered_input,
+            input: ReversibleCharIterator::new(&filtered_input),
             state_override: state_override,
             at_sign_seen: at_sign_seen,
             inside_brackets: inside_brackets,
