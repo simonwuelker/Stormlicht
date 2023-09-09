@@ -24,8 +24,10 @@ mod parser;
 pub mod percent_encode;
 mod url;
 mod util;
+mod validation_error;
 
 pub use crate::ip::{IPParseError, Ipv4Address, Ipv6Address};
 pub use crate::parser::*;
 pub use crate::url::*;
 pub use host::Host;
+pub use validation_error::{IgnoreValidationErrors, ValidationError, ValidationErrorHandler};

@@ -4,7 +4,7 @@ use sl_std::{ascii, punycode};
 
 use crate::{
     percent_encode::{is_c0_control, percent_encode},
-    util, IPParseError, Ipv4Address, Ipv6Address,
+    util, IPParseError, Ipv4Address, Ipv6Address, ValidationError, ValidationErrorHandler,
 };
 
 /// <https://url.spec.whatwg.org/#forbidden-host-code-point>
@@ -84,15 +84,21 @@ impl ToString for Host {
 }
 
 /// <https://url.spec.whatwg.org/#concept-host-parser>
-pub(crate) fn host_parse_with_special(
+pub(crate) fn host_parse_with_special<H>(
     input: &str,
     is_not_special: bool,
-) -> Result<Host, HostParseError> {
+    error_handler: &mut H,
+) -> Result<Host, HostParseError>
+where
+    H: ValidationErrorHandler,
+{
     // If input starts with U+005B ([), then:
     if input.starts_with('[') {
         // If input does not end with U+005D (])
         if !input.ends_with(']') {
-            // validation error,
+            // IPv6-unclosed validation error
+            error_handler.validation_error(ValidationError::IPv6Unclosed);
+
             // return failure.
             return Err(HostParseError::MalformedInput);
         }
@@ -106,7 +112,7 @@ pub(crate) fn host_parse_with_special(
     // If isNotSpecial is true
     if is_not_special {
         // then return the result of opaque-host parsing input.
-        return Ok(Host::OpaqueHost(opaque_host_parse(input)?));
+        return Ok(Host::OpaqueHost(opaque_host_parse(input, error_handler)?));
     }
 
     // Let domain be the result of running UTF-8 decode without BOM on the percent-decoding of input.
@@ -130,7 +136,9 @@ pub(crate) fn host_parse_with_special(
         .copied()
         .any(is_forbidden_domain_code_point)
     {
-        // validation error,
+        // domain-invalid-code-point validation error validation error
+        error_handler.validation_error(ValidationError::DomainInvalidCodepoint);
+
         // return failure.
         return Err(HostParseError::ForbiddenCodePoint);
     }
@@ -152,21 +160,27 @@ pub(crate) fn host_parse_with_special(
 }
 
 /// <https://url.spec.whatwg.org/#concept-opaque-host-parser>
-fn opaque_host_parse(input: &str) -> Result<ascii::String, HostParseError> {
+fn opaque_host_parse<H>(input: &str, error_handler: &mut H) -> Result<ascii::String, HostParseError>
+where
+    H: ValidationErrorHandler,
+{
     // If input contains a forbidden host code point
     if input.contains(|c: char| c.as_ascii().is_some_and(is_forbidden_host_code_point)) {
-        // validation error, return failure.
+        // host-invalid-code-point validation error
+        error_handler.validation_error(ValidationError::HostInvalidCodepoint);
+
+        // return failure.
         return Err(HostParseError::ForbiddenCodePoint);
     }
 
     // If input contains a code point that is not a URL code point and not U+0025 (%)
     if input.contains(|c| !util::is_url_codepoint(c) && c != '%') {
-        // validation error
+        // invalid-URL-unit validation error
+        error_handler.validation_error(ValidationError::InvalidURLUnit);
     }
 
-    // If input contains a U+0025 (%) and the two code points
-    // following it are not ASCII hex digits, validation error.
-    // TODO
+    // FIXME: If input contains a U+0025 (%) and the two code points
+    // following it are not ASCII hex digits, invalid-URL-unit validation error.
 
     // Return the result of running UTF-8 percent-encode on input
     // using the C0 control percent-encode set.

@@ -7,7 +7,7 @@ use sl_std::{ascii, chars::ReversibleCharIterator};
 use crate::{
     host::Host,
     parser::{URLParser, URLParserState},
-    util,
+    util, IgnoreValidationErrors,
 };
 
 pub type Port = u16;
@@ -239,6 +239,7 @@ impl URL {
             at_sign_seen: at_sign_seen,
             inside_brackets: inside_brackets,
             password_token_seen: password_token_seen,
+            error_handler: IgnoreValidationErrors,
         };
 
         let parsed_url = state_machine

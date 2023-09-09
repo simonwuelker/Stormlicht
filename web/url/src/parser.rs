@@ -12,8 +12,11 @@ use crate::{
         is_query_percent_encode_set, is_special_query_percent_encode_set,
         is_userinfo_percent_encode_set, percent_encode, percent_encode_char,
     },
-    util, URL,
+    util, ValidationError, ValidationErrorHandler, URL,
 };
+
+#[derive(Clone, Copy, Debug)]
+pub struct Failure;
 
 #[derive(Clone, Copy, Debug)]
 pub enum URLParserState {
@@ -40,7 +43,7 @@ pub enum URLParserState {
     Fragment,
 }
 
-pub(crate) struct URLParser<'a> {
+pub(crate) struct URLParser<'a, H> {
     pub(crate) url: URL,
     pub(crate) base: Option<URL>,
     pub(crate) input: ReversibleCharIterator<'a>,
@@ -50,6 +53,7 @@ pub(crate) struct URLParser<'a> {
     pub(crate) inside_brackets: bool,
     pub(crate) password_token_seen: bool,
     pub(crate) state_override: Option<URLParserState>,
+    pub error_handler: H,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -58,8 +62,11 @@ enum StartOver {
     No,
 }
 
-impl<'a> URLParser<'a> {
-    pub(crate) fn run_to_completion(mut self) -> Result<Self, ()> {
+impl<'a, H> URLParser<'a, H>
+where
+    H: ValidationErrorHandler,
+{
+    pub(crate) fn run_to_completion(mut self) -> Result<Self, Failure> {
         loop {
             // Keep running the following state machine by switching on state.
             let start_over = self.step()?;
@@ -87,7 +94,7 @@ impl<'a> URLParser<'a> {
         self.state = new_state;
     }
 
-    fn step(&mut self) -> Result<StartOver, ()> {
+    fn step(&mut self) -> Result<StartOver, Failure> {
         match self.state {
             // https://url.spec.whatwg.org/#scheme-start-state
             URLParserState::SchemeStart => {
@@ -109,8 +116,8 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise,
                 else {
-                    // validation error, return failure.
-                    return Err(());
+                    // return failure.
+                    return Err(Failure);
                 }
             },
             // https://url.spec.whatwg.org/#scheme-state
@@ -174,7 +181,8 @@ impl<'a> URLParser<'a> {
                     if self.url.scheme == "file" {
                         // If remaining does not start with "//"
                         if !self.input.remaining().starts_with("//") {
-                            // validation error.
+                            // special-scheme-missing-following-solidus validation error.
+                            self.error_handler.validation_error(ValidationError::SpecialSchemeMissingFollowingSolidus);
                         }
 
                         // Set state to file state.
@@ -223,8 +231,8 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise,
                 else {
-                    // validation error, return failure.
-                    return Err(());
+                    // return failure.
+                    return Err(Failure);
                 }
             },
             // https://url.spec.whatwg.org/#no-scheme-state
@@ -235,8 +243,12 @@ impl<'a> URLParser<'a> {
                 if self.base.is_none()
                     || (self.base.as_ref().is_some_and(URL::has_opaque_path) && c != Some('#'))
                 {
-                    // validation error, return failure.
-                    return Err(());
+                    // missing-scheme-non-relative-URL validation error
+                    self.error_handler
+                        .validation_error(ValidationError::MissingSchemeNonRelativeURL);
+
+                    // return failure.
+                    return Err(Failure);
                 }
                 let base = self
                     .base
@@ -289,7 +301,10 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise,
                 else {
-                    // validation error,
+                    // special-scheme-missing-following-solidus validation error
+                    self.error_handler
+                        .validation_error(ValidationError::SpecialSchemeMissingFollowingSolidus);
+
                     // set state to relative state
                     self.set_state(URLParserState::Relative);
 
@@ -324,17 +339,18 @@ impl<'a> URLParser<'a> {
                 // Set url’s scheme to base’s scheme.
                 self.url.scheme = base.scheme.clone();
 
-                // If c is U+002F (/)
-                // clippy doesn't account for the validation error
                 let c = self.input.current();
-                #[allow(clippy::if_same_then_else)]
+                // If c is U+002F (/)
                 if c == Some('/') {
                     // then set state to relative slash state.
                     self.set_state(URLParserState::RelativeSlash);
                 }
                 // Otherwise, if url is special and c is U+005C (\)
                 else if self.url.is_special() && c == Some('\\') {
-                    // validation error
+                    // invalid-reverse-solidus validation error
+                    self.error_handler
+                        .validation_error(ValidationError::InvalidReverseSolidus);
+
                     // set state to relative slash state.
                     self.set_state(URLParserState::RelativeSlash);
                 }
@@ -384,7 +400,9 @@ impl<'a> URLParser<'a> {
                 if self.url.is_special() && matches!(c, Some('/' | '\\')) {
                     // If c is U+005C (\)
                     if c == Some('\\') {
-                        // validation error.
+                        // invalid-reverse-solidus validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidReverseSolidus);
                     }
 
                     // Set state to special authority ignore slashes state.
@@ -430,7 +448,10 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise
                 else {
-                    // validation error,
+                    // special-scheme-missing-following-solidus validation error
+                    self.error_handler
+                        .validation_error(ValidationError::SpecialSchemeMissingFollowingSolidus);
+
                     // set state to special authority ignore slashes state
                     self.set_state(URLParserState::SpecialAuthorityIgnoreSlashes);
 
@@ -450,7 +471,9 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise
                 else {
-                    // validation error.
+                    // special-scheme-missing-following-solidus validation error.
+                    self.error_handler
+                        .validation_error(ValidationError::SpecialSchemeMissingFollowingSolidus);
                 }
             },
             // https://url.spec.whatwg.org/#authority-state
@@ -459,7 +482,10 @@ impl<'a> URLParser<'a> {
 
                 // If c is U+0040 (@), then:
                 if c == Some('@') {
-                    // Validation error.
+                    // Invalid-credentials validation error.
+                    self.error_handler
+                        .validation_error(ValidationError::InvalidCredentials);
+
                     // If atSignSeen is true,
                     if self.at_sign_seen {
                         // then prepend "%40" to buffer.
@@ -506,9 +532,12 @@ impl<'a> URLParser<'a> {
                 {
                     // If atSignSeen is true and buffer is the empty string
                     if self.at_sign_seen && self.buffer.is_empty() {
-                        // validation error,
+                        // Invalid-credentials validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidCredentials);
+
                         // return failure.
-                        return Err(());
+                        return Err(Failure);
                     }
 
                     // Decrease pointer by the number of code points in buffer plus one,
@@ -543,9 +572,12 @@ impl<'a> URLParser<'a> {
                 else if c == Some(':') && !self.inside_brackets {
                     // If buffer is the empty string
                     if self.buffer.is_empty() {
-                        // validation error,
+                        // host-missing validation error
+                        self.error_handler
+                            .validation_error(ValidationError::HostMissing);
+
                         // return failure.
-                        return Err(());
+                        return Err(Failure);
                     }
 
                     // If state override is given and state override is hostname state
@@ -555,10 +587,14 @@ impl<'a> URLParser<'a> {
                     }
 
                     // Let host be the result of host parsing buffer with url is not special.
-                    let host_or_failure = host::host_parse_with_special(self.buffer.as_str(), true);
+                    let host_or_failure = host::host_parse_with_special(
+                        self.buffer.as_str(),
+                        true,
+                        &mut self.error_handler,
+                    );
 
                     // If host is failure, then return failure.
-                    let host = host_or_failure.map_err(|_| ())?; // FIXME: proper error handling
+                    let host = host_or_failure.map_err(|_| Failure)?;
 
                     // Set url’s host to host,
                     self.url.host = Some(host);
@@ -581,8 +617,12 @@ impl<'a> URLParser<'a> {
                     // and then:
                     // If url is special and buffer is the empty string
                     if self.url.is_special() && self.buffer.is_empty() {
-                        // validation error, return failure.
-                        return Err(());
+                        // host-missing validation error
+                        self.error_handler
+                            .validation_error(ValidationError::HostMissing);
+
+                        // return failure.
+                        return Err(Failure);
                     }
                     // Otherwise, if state override is given, buffer is the empty string,
                     // and either url includes credentials or url’s port is non-null
@@ -595,10 +635,14 @@ impl<'a> URLParser<'a> {
                     }
 
                     // Let host be the result of host parsing buffer with url is not special.
-                    let host_or_failure = host::host_parse_with_special(self.buffer.as_str(), true);
+                    let host_or_failure = host::host_parse_with_special(
+                        self.buffer.as_str(),
+                        true,
+                        &mut self.error_handler,
+                    );
 
                     // If host is failure, then return failure.
-                    let host = host_or_failure.map_err(|_| ())?; // FIXME: proper error handling
+                    let host = host_or_failure.map_err(|_| Failure)?;
 
                     // Set url’s host to host,
                     self.url.host = Some(host);
@@ -609,8 +653,9 @@ impl<'a> URLParser<'a> {
                     // and state to path start state.
                     self.set_state(URLParserState::PathStart);
 
-                    // If state override is given, then return.
+                    // If state override is given
                     if self.state_override.is_some() {
+                        // then return.
                         return Ok(StartOver::No);
                     }
                 }
@@ -656,8 +701,17 @@ impl<'a> URLParser<'a> {
                         // for digits with values 0 through 9.
 
                         // If port is greater than 2^16 − 1
-                        // validation error, return failure.
-                        let port = str::parse(&self.buffer).map_err(|_| ())?;
+                        let port = match str::parse(&self.buffer) {
+                            Ok(port) => port,
+                            Err(_) => {
+                                // port-out-of-range validation error
+                                self.error_handler
+                                    .validation_error(ValidationError::PortOutOfRange);
+
+                                // return failure.
+                                return Err(Failure);
+                            },
+                        };
 
                         // Set url’s port to null, if port is url’s scheme’s default port; otherwise to port.
                         if default_port_for_scheme(&self.url.scheme) == Some(port) {
@@ -684,8 +738,12 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise
                 else {
-                    // validation error, return failure.
-                    return Err(());
+                    // port-invalid validation error
+                    self.error_handler
+                        .validation_error(ValidationError::PortInvalid);
+
+                    // return failure.
+                    return Err(Failure);
                 }
             },
             // https://url.spec.whatwg.org/#file-state
@@ -701,7 +759,8 @@ impl<'a> URLParser<'a> {
                 if matches!(c, Some('/' | '\\')) {
                     // If c is U+005C (\),
                     if c == Some('\\') {
-                        // validation error.
+                        // invalid-reverse-solidus validation error.
+                        self.error_handler.validation_error(ValidationError::InvalidReverseSolidus);
                     }
 
                     // Set state to file slash state.
@@ -748,7 +807,8 @@ impl<'a> URLParser<'a> {
                     }
                     // Otherwise:
                     else {
-                        // Validation error.
+                        // File-invalid-Windows-drive-letter validation error.
+                        self.error_handler.validation_error(ValidationError::FileInvalidWindowsDriveLetter);
 
                         // Set url’s path to an empty list.
                         self.url.path = vec![];
@@ -776,7 +836,9 @@ impl<'a> URLParser<'a> {
                 if matches!(c, Some('/' | '\\')) {
                     // If c is U+005C (\)
                     if c == Some('\\') {
-                        // validation error.
+                        // invalid-reverse-solidus validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidReverseSolidus);
                     }
 
                     // Set state to file host state.
@@ -819,7 +881,11 @@ impl<'a> URLParser<'a> {
                         if self.state_override.is_none()
                             && util::is_windows_drive_letter(&self.buffer)
                         {
-                            // validation error,
+                            // file-invalid-Windows-drive-letter-host validation error
+                            self.error_handler.validation_error(
+                                ValidationError::FileInvalidWindowsDriveLetterHost,
+                            );
+
                             // set state to path state.
                             self.set_state(URLParserState::Path);
                         }
@@ -841,8 +907,12 @@ impl<'a> URLParser<'a> {
                         else {
                             // Let host be the result of host parsing buffer with url is not special.
                             // If host is failure, then return failure.
-                            let mut host =
-                                host_parse_with_special(&self.buffer, false).map_err(|_| ())?; // FIXME: proper error handling
+                            let mut host = host_parse_with_special(
+                                &self.buffer,
+                                false,
+                                &mut self.error_handler,
+                            )
+                            .map_err(|_| Failure)?;
 
                             // If host is "localhost", then set host to the empty string.
                             if let Host::Domain(domain) = &host && domain.as_str() == "localhost" {
@@ -878,7 +948,9 @@ impl<'a> URLParser<'a> {
                 if self.url.is_special() {
                     // If c is U+005C (\),
                     if c == Some('\\') {
-                        // validation error.
+                        // invalid-reverse-solidus validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidReverseSolidus);
                     }
 
                     // Set state to path state.
@@ -937,7 +1009,9 @@ impl<'a> URLParser<'a> {
                 {
                     // If url is special and c is U+005C (\)
                     if self.url.is_special() && c == Some('\\') {
-                        // validation error.
+                        // invalid-reverse-solidus validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidReverseSolidus);
                     }
 
                     // If buffer is a double-dot path segment, then:
@@ -1011,10 +1085,26 @@ impl<'a> URLParser<'a> {
 
                     // If c is not a URL code point and not U+0025 (%),
                     if !util::is_url_codepoint(c) && c != '%' {
-                        // validation error.
+                        // invalid-URL-unit validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidURLUnit);
                     }
 
-                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
+                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits
+                    // NOTE: technically this check is incorrect as remaining() could have less than two characters
+                    //       But there's probably more important issues to worry about...
+                    if c == '%'
+                        && self
+                            .input
+                            .remaining()
+                            .chars()
+                            .take(2)
+                            .all(|c| c.is_ascii_hexdigit())
+                    {
+                        // invalid-URL-unit validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidURLUnit);
+                    }
 
                     // UTF-8 percent-encode c using the path percent-encode set and append the result to buffer.
                     percent_encode_char(c, is_path_percent_encode_set, &mut self.buffer);
@@ -1042,9 +1132,28 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise:
                 else {
-                    // If c is not the EOF code point, not a URL code point, and not U+0025 (%), validation error.
+                    // If c is not the EOF code point, not a URL code point, and not U+0025 (%)
+                    if c.is_some() && !c.is_some_and(|c| c == '%' || util::is_url_codepoint(c)) {
+                        // invalid-URL-unit validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidURLUnit);
+                    }
 
-                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
+                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits
+                    // NOTE: technically this check is incorrect as remaining() could have less than two characters
+                    //       But there's probably more important issues to worry about...
+                    if c == Some('%')
+                        && self
+                            .input
+                            .remaining()
+                            .chars()
+                            .take(2)
+                            .all(|c| c.is_ascii_hexdigit())
+                    {
+                        // invalid-URL-unit validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidURLUnit);
+                    }
 
                     // If c is not the EOF code point
                     if let Some(c) = c {
@@ -1094,9 +1203,28 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise, if c is not the EOF code point:
                 else if let Some(c) = c {
-                    // If c is not a URL code point and not U+0025 (%), validation error.
+                    // If c is not a URL code point and not U+0025 (%)
+                    if c != '%' && !util::is_url_codepoint(c) {
+                        // invalid-URL-unit validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidURLUnit);
+                    }
 
-                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
+                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits
+                    // NOTE: technically this check is incorrect as remaining() could have less than two characters
+                    //       But there's probably more important issues to worry about...
+                    if c == '%'
+                        && self
+                            .input
+                            .remaining()
+                            .chars()
+                            .take(2)
+                            .all(|c| c.is_ascii_hexdigit())
+                    {
+                        // invalid-URL-unit validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidURLUnit);
+                    }
 
                     // Append c to buffer.
                     self.buffer.push(c)
@@ -1107,9 +1235,28 @@ impl<'a> URLParser<'a> {
             URLParserState::Fragment => {
                 // If c is not the EOF code point, then:
                 if let Some(c) = self.input.current() {
-                    // If c is not a URL code point and not U+0025 (%), validation error.
+                    // If c is not a URL code point and not U+0025 (%)
+                    if c != '%' && !util::is_url_codepoint(c) {
+                        // invalid-URL-unit validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidURLUnit);
+                    }
 
-                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits, validation error.
+                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits
+                    // NOTE: technically this check is incorrect as remaining() could have less than two characters
+                    //       But there's probably more important issues to worry about...
+                    if c == '%'
+                        && self
+                            .input
+                            .remaining()
+                            .chars()
+                            .take(2)
+                            .all(|c| c.is_ascii_hexdigit())
+                    {
+                        // invalid-URL-unit validation error.
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidURLUnit);
+                    }
 
                     // UTF-8 percent-encode c using the fragment percent-encode set
                     // and append the result to url’s fragment.
