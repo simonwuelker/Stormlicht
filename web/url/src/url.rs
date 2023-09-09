@@ -166,6 +166,10 @@ impl URL {
             }
         }
 
+        // Since we are referring to a directory (which ends with a slash)
+        // the last path segment is empty
+        path.push(String::new());
+
         Ok(Self {
             scheme: "file".to_string(),
             username: String::new(),
