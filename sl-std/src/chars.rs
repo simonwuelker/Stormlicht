@@ -1,5 +1,5 @@
 #[derive(Clone, Copy, Debug)]
-enum State {
+pub enum State {
     BeforeStart(usize),
     Within,
     AfterEnd(usize),
@@ -13,16 +13,6 @@ pub struct ReversibleCharIterator<'str> {
     state: State,
 }
 
-#[derive(Debug)]
-pub struct ForwardCharIterator<'iter, 'str> {
-    inner: &'iter mut ReversibleCharIterator<'str>,
-}
-
-#[derive(Debug)]
-pub struct BackwardCharIterator<'iter, 'str> {
-    inner: &'iter mut ReversibleCharIterator<'str>,
-}
-
 impl<'str> ReversibleCharIterator<'str> {
     pub fn new(source: &'str str) -> Self {
         Self {
@@ -32,93 +22,102 @@ impl<'str> ReversibleCharIterator<'str> {
         }
     }
 
-    pub fn forward<'iter>(&'iter mut self) -> ForwardCharIterator<'iter, 'str> {
-        ForwardCharIterator { inner: self }
+    pub fn source(&self) -> &str {
+        self.source
     }
 
-    pub fn backward<'iter>(&'iter mut self) -> BackwardCharIterator<'iter, 'str> {
-        BackwardCharIterator { inner: self }
+    pub fn state(&self) -> State {
+        self.state
     }
-}
 
-impl<'iter, 'str> ForwardCharIterator<'iter, 'str> {
-    pub fn finish(self) {}
-}
+    pub fn remaining(&self) -> &str {
+        &self.source[self.pos..]
+    }
 
-impl<'iter, 'str> BackwardCharIterator<'iter, 'str> {
-    pub fn finish(self) {}
-}
-
-impl<'iter, 'str> Iterator for ForwardCharIterator<'iter, 'str> {
-    type Item = char;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.inner.state {
+    pub fn go_back(&mut self) {
+        match self.state {
             State::BeforeStart(ref mut n) => {
-                *n -= 1;
-
-                if *n == 0 {
-                    self.inner.state = State::Within;
-                }
-
-                None
+                *n += 1;
             },
             State::Within => {
-                debug_assert!(self.inner.source.is_char_boundary(self.inner.pos));
-
-                let c = self.inner.source[self.inner.pos..]
-                    .chars()
-                    .nth(0)
-                    .expect("inner.pos was a char boundary");
-                self.inner.pos += c.len_utf8();
-
-                if self.inner.pos == self.inner.source.len() {
-                    self.inner.state = State::AfterEnd(0)
+                if self.pos == 0 {
+                    self.state = State::BeforeStart(1);
+                } else {
+                    debug_assert!(self.source.is_char_boundary(self.pos));
+                    // Find the byte position of the previous character
+                    self.pos = self.source.floor_char_boundary(self.pos - 1);
                 }
-
-                Some(c)
             },
             State::AfterEnd(ref mut n) => {
-                *n += 1;
-                None
+                *n -= 1;
+                if *n == 0 {
+                    self.state = State::Within;
+                }
             },
+        }
+    }
+
+    pub fn go_back_n(&mut self, n: usize) {
+        for _ in 0..n {
+            self.go_back();
+        }
+    }
+
+    /// Set the iterator position manually
+    ///
+    /// # Panics
+    /// This function panics if the specified byte position is not a
+    /// character boundary.
+    pub fn set_position(&mut self, pos: usize) {
+        assert!(self.source.is_char_boundary(pos));
+        self.pos = pos;
+    }
+
+    pub fn current(&self) -> Option<char> {
+        if let State::Within = self.state {
+            let c = self.source[self.pos..]
+                .chars()
+                .nth(0)
+                .expect("pos was a char boundary");
+            Some(c)
+        } else {
+            None
         }
     }
 }
 
-impl<'iter, 'str> Iterator for BackwardCharIterator<'iter, 'str> {
+impl<'str> Iterator for ReversibleCharIterator<'str> {
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.inner.state {
+        match self.state {
             State::BeforeStart(ref mut n) => {
-                *n += 1;
+                *n -= 1;
+
+                if *n == 0 {
+                    self.state = State::Within;
+                }
 
                 None
             },
             State::Within => {
-                debug_assert!(self.inner.source.is_char_boundary(self.inner.pos));
+                debug_assert!(self.source.is_char_boundary(self.pos));
 
-                // Find the byte position of the previous character
-                self.inner.pos = self.inner.source.floor_char_boundary(self.inner.pos - 1);
-                let c = self.inner.source[self.inner.pos..]
+                let c = self.source[self.pos..]
                     .chars()
                     .nth(0)
-                    .expect("inner.pos was a char boundary");
+                    .expect("pos was a char boundary");
 
-                if self.inner.pos == 0 {
-                    self.inner.state = State::BeforeStart(0)
+                self.pos += c.len_utf8();
+
+                if self.pos == self.source.len() {
+                    self.state = State::AfterEnd(0)
                 }
 
                 Some(c)
             },
             State::AfterEnd(ref mut n) => {
-                *n -= 1;
-
-                if *n == 0 {
-                    self.inner.state = State::Within;
-                }
-
+                *n += 1;
                 None
             },
         }
@@ -132,40 +131,23 @@ mod tests {
     #[test]
     fn forward_backward() {
         let mut iter = ReversibleCharIterator::new("💚💙💜");
-        let mut forward = iter.forward();
 
         // Forward pass, expect all characters in order
-        assert_eq!(forward.next(), Some('💚'));
-        assert_eq!(forward.next(), Some('💙'));
-        assert_eq!(forward.next(), Some('💜'));
+        assert_eq!(iter.next(), Some('💚'));
+        assert_eq!(iter.next(), Some('💙'));
+        assert_eq!(iter.next(), Some('💜'));
 
         // Consume one character past the end
-        assert_eq!(forward.next(), None);
-        forward.finish();
+        assert_eq!(iter.next(), None);
 
-        let mut backward = iter.backward();
+        // Return to the middle of the string
+        iter.go_back_n(2);
+        assert_eq!(iter.next(), Some('💜'));
+        assert_eq!(iter.next(), None);
 
-        // Return to the end of the string
-        assert_eq!(backward.next(), None);
-
-        // Backwards pass, expect all characters in reverse order
-        assert_eq!(backward.next(), Some('💜'));
-        assert_eq!(backward.next(), Some('💙'));
-        assert_eq!(backward.next(), Some('💚'));
-
-        assert_eq!(backward.next(), None);
-        backward.finish();
-
-        // Test going back and forth in the middle
-        let mut forward = iter.forward();
-        assert_eq!(forward.next(), None);
-
-        // Forward pass, expect all characters in order
-        assert_eq!(forward.next(), Some('💚'));
-        assert_eq!(forward.next(), Some('💙'));
-        forward.finish();
-
-        assert_eq!(iter.backward().next(), Some('💙'));
-        assert_eq!(iter.backward().next(), Some('💚'));
+        // Go before the start of the string
+        iter.go_back_n(5);
+        assert_eq!(iter.next(), None);
+        assert_eq!(iter.next(), Some('💚'));
     }
 }
