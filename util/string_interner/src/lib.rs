@@ -375,12 +375,11 @@ static INTERNER: LazyLock<Mutex<StringInterner>> =
 /// This has a few implications:
 /// * [InternedStrings](InternedString) are immutable
 /// * No deallocation (for now)
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum InternedString {
     Static(u32),
     Dynamic(u32),
 }
-
 // https://github.com/servo/servo/issues/2217
 #[derive(Debug)]
 pub struct StringInterner {
@@ -422,6 +421,30 @@ impl InternedString {
 impl Default for InternedString {
     fn default() -> Self {
         static_interned!("")
+    }
+}
+
+impl fmt::Debug for InternedString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InternedString::Static(symbol) => {
+                write!(f, "{:?}_s", STATIC_SET.lookup(*symbol))
+            },
+            InternedString::Dynamic(symbol) => {
+                let map = &INTERNER
+                    .lock()
+                    .expect("String interner was poisoned")
+                    .internal_map;
+
+                let string = map
+                    .iter()
+                    .find(|(_, &v)| v == *symbol)
+                    .expect("InternedString not present in Interner")
+                    .0;
+
+                write!(f, "{string:?}_d")
+            },
+        }
     }
 }
 
