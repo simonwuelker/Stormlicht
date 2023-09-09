@@ -319,7 +319,8 @@ impl<'a> Parser<'a> {
         self.skip_whitespace();
 
         // NOTE: At this point we deviate from the spec because the spec gets a little silly
-        let mut property_parser = self.create_limited(ParserDelimiter::SEMICOLON);
+        let mut property_parser =
+            self.create_limited(ParserDelimiter::SEMICOLON.or(ParserDelimiter::CURLY_BRACE_CLOSE));
         let value =
             if let Ok(value) = StyleProperty::parse_value(&mut property_parser, declaration_name) {
                 value
