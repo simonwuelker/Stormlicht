@@ -125,56 +125,61 @@ impl Response {
             );
         }
 
-        let mut response = Self {
-            status,
-            headers,
-            body: vec![],
-            context,
-        };
-
         // Anything after the headers is the actual response body
         // The length of the body depends on the headers that were sent
-        if let Some(transfer_encoding) = response.get_header("Transfer-encoding") {
-            match transfer_encoding {
-                "chunked" => loop {
-                    let size_bytes_with_newline =
-                        read_until(reader, HTTP_NEWLINE.as_bytes()).map_err(HTTPError::IO)?;
-                    let size_bytes = &size_bytes_with_newline
-                        [..size_bytes_with_newline.len() - HTTP_NEWLINE.len()];
+        let body: Vec<u8> = if let Some(transfer_encoding) = headers.get("Transfer-encoding") {
+            match transfer_encoding.as_str() {
+                "chunked" => {
+                    let mut buffer = vec![];
+                    loop {
+                        let size_bytes_with_newline =
+                            read_until(reader, HTTP_NEWLINE.as_bytes()).map_err(HTTPError::IO)?;
+                        let size_bytes = &size_bytes_with_newline
+                            [..size_bytes_with_newline.len() - HTTP_NEWLINE.len()];
 
-                    if size_bytes.is_empty() {
-                        break;
+                        if size_bytes.is_empty() {
+                            break;
+                        }
+
+                        let size = std::str::from_utf8(size_bytes)
+                            .map_err(|_| HTTPError::InvalidResponse)?;
+                        let size = usize::from_str_radix(size, 16)
+                            .map_err(|_| HTTPError::InvalidResponse)?;
+
+                        // Reserve enough space in the response buffer for this chunk
+                        let current_buffer_len = buffer.len();
+                        buffer.resize(current_buffer_len + size, 0);
+
+                        // Read the chunk into the response buffer
+                        reader
+                            .read_exact(&mut buffer[current_buffer_len..])
+                            .map_err(HTTPError::IO)?;
                     }
-
-                    let size = usize::from_str_radix(
-                        std::str::from_utf8(size_bytes).map_err(|_| HTTPError::InvalidResponse)?,
-                        16,
-                    )
-                    .map_err(|_| HTTPError::InvalidResponse)?;
-
-                    if size == 0 {
-                        break;
-                    }
-
-                    let mut buffer = vec![0; size];
-                    reader.read_exact(&mut buffer).map_err(HTTPError::IO)?;
-                    response.body.extend(&buffer)
+                    buffer
                 },
                 _ => {
                     log::warn!("Unknown transfer encoding: {transfer_encoding}");
                     return Err(HTTPError::InvalidResponse);
                 },
             }
-        } else if let Some(content_length) = response.get_header("Content-Length") {
-            let mut buffer =
-                vec![0; str::parse(content_length).map_err(|_| HTTPError::InvalidResponse)?];
+        } else if let Some(content_length) = headers.get("Content-Length") {
+            // Reserve enough space for the content inside the response body
+            let content_length: usize =
+                str::parse(content_length).map_err(|_| HTTPError::InvalidResponse)?;
+            let mut buffer = vec![0; content_length];
+
             reader.read_exact(&mut buffer).map_err(HTTPError::IO)?;
-            response.body.extend(&buffer)
+            buffer
         } else {
             log::warn!("Neither Transfer-Encoding nor Content-Length were provided, we don't know how to decode the body!");
             return Err(HTTPError::InvalidResponse);
-        }
+        };
 
-        Ok(response)
+        Ok(Self {
+            status,
+            headers,
+            body,
+            context,
+        })
     }
 }
