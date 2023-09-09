@@ -369,7 +369,10 @@ impl<'a> Parser<'a> {
         while let Ok(rule) =
             self.consume_qualified_rule(&mut rule_parser, MixedWithDeclarations::No)
         {
-            rules.push(rule);
+            // There's no point in caring about empty rules, so let's drop them
+            if !rule.properties().is_empty() {
+                rules.push(rule);
+            }
         }
 
         Ok(Stylesheet::new(self.origin, rules))
