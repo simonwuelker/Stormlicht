@@ -41,19 +41,31 @@ fn read_until<R: std::io::Read>(
 
 #[derive(Clone, Debug)]
 pub struct Response {
-    pub status: StatusCode,
-    pub headers: Headers,
-    pub body: Vec<u8>,
+    status: StatusCode,
+    headers: Headers,
+    body: Vec<u8>,
     context: Context,
 }
 
 impl Response {
+    #[must_use]
     pub fn context(&self) -> &Context {
         &self.context
     }
 
+    #[must_use]
     pub fn headers(&self) -> &Headers {
         &self.headers
+    }
+
+    #[must_use]
+    pub fn status(&self) -> StatusCode {
+        self.status
+    }
+
+    #[must_use]
+    pub fn into_body(self) -> Vec<u8> {
+        self.body
     }
 
     // FIXME: Requiring a BufReader here is kind of ugly

@@ -6,7 +6,7 @@ use std::{
 use dns::DNSError;
 use url::{Host, URL};
 
-use crate::{response::Response, status_code::StatusCode, Headers};
+use crate::{response::Response, Headers, StatusCode};
 
 const USER_AGENT: &str = "Stormlicht";
 pub(crate) const HTTP_NEWLINE: &str = "\r\n";
@@ -141,12 +141,12 @@ impl Request {
         let mut reader = BufReader::new(stream);
         let response = Response::receive(&mut reader, self.context.clone())?;
 
-        if response.status.is_error() {
-            log::warn!("HTTP Request failed: {:?}", response.status);
-            return Err(HTTPError::Status(response.status));
+        if response.status().is_error() {
+            log::warn!("HTTP Request failed: {:?}", response.status());
+            return Err(HTTPError::Status(response.status()));
         }
 
-        if response.status.is_redirection() {
+        if response.status().is_redirection() {
             if let Some(relocation) = response
                 .headers()
                 .get("Location")
@@ -156,7 +156,7 @@ impl Request {
                     "{current_url} redirects to {redirect_url} ({status_code:?})",
                     current_url = self.context.url.serialize(url::ExcludeFragment::No),
                     redirect_url = relocation.serialize(url::ExcludeFragment::No),
-                    status_code = response.status
+                    status_code = response.status()
                 );
 
                 self.context.num_redirections += 1;

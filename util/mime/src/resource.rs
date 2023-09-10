@@ -78,7 +78,7 @@ impl Resource {
                     response.context().url.serialize(ExcludeFragment::Yes)
                 );
 
-                if let Some(content_type_string) = response.headers.get("Content-Type") {
+                if let Some(content_type_string) = response.headers().get("Content-Type") {
                     if let Ok(content_type) = MIMEType::from_str(content_type_string) {
                         supplied_type = Some(content_type);
                     }
@@ -94,7 +94,7 @@ impl Resource {
                     }
                 }
 
-                response.body
+                response.into_body()
             },
             "file" => {
                 // Fetch the file from the local filesystem
