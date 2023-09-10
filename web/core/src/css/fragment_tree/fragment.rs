@@ -12,14 +12,13 @@ use crate::css::{
 pub struct BoxFragment {
     style: Rc<ComputedStyle>,
     margin: Sides<CSSPixels>,
-    border: Sides<CSSPixels>,
-    padding: Sides<CSSPixels>,
+    content_area: Rectangle<CSSPixels>,
     children: Vec<Fragment>,
 }
 
 #[derive(Clone, Debug)]
 pub struct LineBoxFragment {
-    rect: Rectangle<CSSPixels>,
+    _rect: Rectangle<CSSPixels>,
     text: String,
 }
 
@@ -41,7 +40,7 @@ impl Fragment {
 impl LineBoxFragment {
     #[must_use]
     pub fn new(text: String, rect: Rectangle<CSSPixels>) -> Self {
-        Self { text, rect }
+        Self { text, _rect: rect }
     }
 
     #[must_use]
@@ -49,7 +48,7 @@ impl LineBoxFragment {
         &self.text
     }
 
-    pub fn fill_display_list(&self, painter: &mut Painter) {
+    pub fn fill_display_list(&self, _painter: &mut Painter) {
         // FIXME: Paint the line box
     }
 }
@@ -59,15 +58,13 @@ impl BoxFragment {
     pub fn new(
         style: Rc<ComputedStyle>,
         margin: Sides<CSSPixels>,
-        border: Sides<CSSPixels>,
-        padding: Sides<CSSPixels>,
+        content_area: Rectangle<CSSPixels>,
         children: Vec<Fragment>,
     ) -> Self {
         Self {
             style,
             margin,
-            border,
-            padding,
+            content_area,
             children,
         }
     }
@@ -82,8 +79,14 @@ impl BoxFragment {
         &self.children
     }
 
+    /// Compute the total space occupied by this fragment, including margins
+    pub fn outer_area(&self) -> Rectangle<CSSPixels> {
+        self.margin.surround(self.content_area)
+    }
+
     pub fn fill_display_list(&self, painter: &mut Painter) {
-        // FIXME: Paint the box itself
+        // FIXME: Respect the box color
+        painter.rect(self.content_area, math::Color::BLACK);
 
         // Paint all children
         for child in self.children() {

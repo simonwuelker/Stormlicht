@@ -1,7 +1,9 @@
 use math::Vec2D;
 use render::{Composition, Path, Source};
 
-use super::Command;
+use crate::css::layout::CSSPixels;
+
+use super::{command::RectCommand, Command};
 
 #[derive(Clone, Debug, Default)]
 pub struct Painter<'box_tree, 'font> {
@@ -9,8 +11,9 @@ pub struct Painter<'box_tree, 'font> {
 }
 
 impl<'box_tree, 'font> Painter<'box_tree, 'font> {
-    pub fn add_cmd(&mut self, command: Command<'box_tree, 'font>) {
-        self.commands.push(command)
+    pub fn rect(&mut self, area: math::Rectangle<CSSPixels>, color: math::Color) {
+        self.commands
+            .push(Command::Rect(RectCommand { area, color }))
     }
 
     pub fn paint(&self, composition: &mut Composition) {

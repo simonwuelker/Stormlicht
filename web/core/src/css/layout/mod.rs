@@ -3,7 +3,10 @@ pub mod flow;
 mod pixels;
 
 pub use box_dimensions::BoxDimensions;
+use math::{Rectangle, Vec2D};
 pub use pixels::CSSPixels;
+
+use std::ops;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Sides<T> {
@@ -13,19 +16,23 @@ pub struct Sides<T> {
     pub left: T,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct UsedSizeAndMargins {
-    pub width: CSSPixels,
-    pub height: CSSPixels,
-    pub margin: Sides<CSSPixels>,
-}
-
-pub type ContainingBlock = math::Rectangle;
-
-pub trait Layout {
-    /// Compute the box dimensions as specified in
-    /// <https://drafts.csswg.org/css2/#Computing_widths_and_margins>
-    /// and
-    /// <https://drafts.csswg.org/css2/#Computing_heights_and_margins>
-    fn compute_dimensions(&self, available_width: CSSPixels) -> UsedSizeAndMargins;
+impl<T> Sides<T> {
+    pub fn surround(&self, area: Rectangle<T>) -> Rectangle<T>
+    where
+        T: Copy,
+        Vec2D<T>: ops::Add<Vec2D<T>, Output = Vec2D<T>> + ops::Sub<Vec2D<T>, Output = Vec2D<T>>,
+    {
+        Rectangle {
+            top_left: area.top_left
+                - Vec2D {
+                    x: self.left,
+                    y: self.top,
+                },
+            bottom_right: area.bottom_right
+                + Vec2D {
+                    x: self.right,
+                    y: self.bottom,
+                },
+        }
+    }
 }

@@ -1,9 +1,11 @@
 use std::{fmt, fmt::Write, rc::Rc};
 
+use math::{Rectangle, Vec2D};
+
 use crate::{
     css::{
-        fragment_tree::FragmentTree,
-        layout::{CSSPixels, Layout, Sides, UsedSizeAndMargins},
+        fragment_tree::{BoxFragment, Fragment, FragmentTree},
+        layout::{CSSPixels, Sides},
         stylecomputer::ComputedStyle,
         values::{AutoOr, Length},
         StyleComputer,
@@ -66,8 +68,22 @@ impl BlockFormattingContext {
         vec![root].into()
     }
 
-    pub fn fragment(self, _viewport_size: (u16, u16)) -> FragmentTree {
-        todo!()
+    pub fn fragment(self, viewport_size: (u16, u16)) -> FragmentTree {
+        let position = Vec2D {
+            x: CSSPixels::ZERO,
+            y: CSSPixels::ZERO,
+        };
+
+        let mut cursor_position = position;
+
+        let mut root_fragments = vec![];
+        for element in self.contents {
+            let box_fragment = element.fragment(cursor_position, CSSPixels(viewport_size.0 as f32));
+            cursor_position.y += box_fragment.outer_area().height();
+            root_fragments.push(Fragment::Box(box_fragment));
+        }
+
+        FragmentTree::new(root_fragments)
     }
 }
 
@@ -123,10 +139,8 @@ impl BlockLevelBox {
             contents: BlockContainer::InlineFormattingContext(vec![inline_box].into()),
         }
     }
-}
 
-impl Layout for BlockLevelBox {
-    fn compute_dimensions(&self, available_width: CSSPixels) -> UsedSizeAndMargins {
+    fn fragment(&self, position: Vec2D<CSSPixels>, available_width: CSSPixels) -> BoxFragment {
         // FIXME: replaced elements
 
         // See https://drafts.csswg.org/css2/#blockwidth for a description of how the width is computed
@@ -205,19 +219,41 @@ impl Layout for BlockLevelBox {
             .map(Length::absolutize)
             .unwrap_or_default();
 
-        // FIXME
-        let height = CSSPixels::ZERO;
+        // FIXME:
+        // * Consider height: auto
+        // * Resolve percentages against height (what is it?), not widht
+        let height = self
+            .style()
+            .height()
+            .unwrap_or_default()
+            .resolve_against(available_length)
+            .absolutize();
 
-        UsedSizeAndMargins {
-            width,
-            height,
-            margin: Sides {
-                top: margin_top,
-                right: margin_right,
-                bottom: margin_bottom,
-                left: margin_left,
-            },
-        }
+        let top_left = position
+            + Vec2D {
+                x: margin_left,
+                y: margin_top,
+            };
+        let bottom_right = top_left
+            + Vec2D {
+                x: width,
+                y: height,
+            };
+
+        let content_area = Rectangle {
+            top_left,
+            bottom_right,
+        };
+
+        let margin = Sides {
+            top: margin_top,
+            right: margin_right,
+            bottom: margin_bottom,
+            left: margin_left,
+        };
+
+        // FIXME: include children
+        BoxFragment::new(self.style(), margin, content_area, vec![])
     }
 }
 
