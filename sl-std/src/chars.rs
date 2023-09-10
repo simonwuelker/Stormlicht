@@ -8,7 +8,10 @@ pub enum State {
 #[derive(Clone, Copy, Debug)]
 pub struct ReversibleCharIterator<'str> {
     source: &'str str,
-    // The current byte position of the iterator
+    /// The current byte position of the iterator
+    ///
+    /// At all times, this is guaranteed to point to a character boundary
+    /// (which is not the end of the string) in [source](Self::source).
     pos: usize,
     state: State,
 }
@@ -41,17 +44,19 @@ impl<'str> ReversibleCharIterator<'str> {
             },
             State::Within => {
                 if self.pos == 0 {
-                    self.state = State::BeforeStart(1);
+                    self.state = State::BeforeStart(0);
                 } else {
                     debug_assert!(self.source.is_char_boundary(self.pos));
+
                     // Find the byte position of the previous character
                     self.pos = self.source.floor_char_boundary(self.pos - 1);
                 }
             },
             State::AfterEnd(ref mut n) => {
-                *n -= 1;
                 if *n == 0 {
                     self.state = State::Within;
+                } else {
+                    *n -= 1;
                 }
             },
         }
@@ -70,6 +75,7 @@ impl<'str> ReversibleCharIterator<'str> {
     /// character boundary.
     pub fn set_position(&mut self, pos: usize) {
         assert!(self.source.is_char_boundary(pos));
+        self.state = State::Within;
         self.pos = pos;
     }
 
@@ -92,10 +98,10 @@ impl<'str> Iterator for ReversibleCharIterator<'str> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.state {
             State::BeforeStart(ref mut n) => {
-                *n -= 1;
-
                 if *n == 0 {
                     self.state = State::Within;
+                } else {
+                    *n -= 1;
                 }
 
                 None
@@ -108,9 +114,12 @@ impl<'str> Iterator for ReversibleCharIterator<'str> {
                     .nth(0)
                     .expect("pos was a char boundary");
 
-                self.pos += c.len_utf8();
+                let length = c.len_utf8();
 
-                if self.pos == self.source.len() {
+                // Ensure that self.pos never points past the end of source
+                if self.pos + length != self.source.len() {
+                    self.pos += c.len_utf8();
+                } else {
                     self.state = State::AfterEnd(0)
                 }
 
