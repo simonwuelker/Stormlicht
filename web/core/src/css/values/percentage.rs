@@ -1,4 +1,4 @@
-use std::ops::Mul;
+use std::{fmt, ops::Mul};
 
 use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
@@ -10,7 +10,7 @@ pub enum PercentageOr<T> {
     NotPercentage(T),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Percentage(f32);
 
 impl<T: Default> Default for PercentageOr<T> {
@@ -35,6 +35,12 @@ impl Percentage {
     }
 }
 
+impl fmt::Debug for Percentage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}%", self.as_fraction() * 100.)
+    }
+}
+
 impl<T> PercentageOr<T>
 where
     T: Mul<Percentage, Output = T>,
@@ -55,9 +61,12 @@ where
 {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         if let Some(Token::Percentage(n)) = parser.peek_token() {
+            let parsed_percentage: f32 = n.into();
+            let fraction = parsed_percentage / 100.;
+
             parser.next_token();
             parser.skip_whitespace();
-            Ok(Self::Percentage(n.into()))
+            Ok(Self::Percentage(Percentage::from_fraction(fraction)))
         } else {
             let value = T::parse(parser)?;
             Ok(Self::NotPercentage(value))
