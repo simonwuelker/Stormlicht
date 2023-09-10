@@ -1,15 +1,13 @@
 //! HTTP/1.1 response parser
 
-use std::{
-    collections::HashMap,
-    io::{BufRead, BufReader, Read},
-};
+use std::io::{BufRead, BufReader, Read};
 
 use sl_std::iter::MultiElementSplit;
 
 use crate::{
     request::{Context, HTTPError, HTTP_NEWLINE},
     status_code::StatusCode,
+    Headers,
 };
 
 /// Like [BufReader::read_until], except the needle may have arbitrary length
@@ -44,7 +42,7 @@ fn read_until<R: std::io::Read>(
 #[derive(Clone, Debug)]
 pub struct Response {
     pub status: StatusCode,
-    pub headers: HashMap<String, String>,
+    pub headers: Headers,
     pub body: Vec<u8>,
     context: Context,
 }
@@ -54,13 +52,8 @@ impl Response {
         &self.context
     }
 
-    pub fn get_header(&self, header: &str) -> Option<&str> {
-        for (key, value) in &self.headers {
-            if key.eq_ignore_ascii_case(header) {
-                return Some(value);
-            }
-        }
-        None
+    pub fn headers(&self) -> &Headers {
+        &self.headers
     }
 
     // FIXME: Requiring a BufReader here is kind of ugly
@@ -99,7 +92,7 @@ impl Response {
         // What follows is a textual description of the error code ("OK" for 200) - we don't care about that
 
         // Parse the response headers
-        let mut headers = HashMap::new();
+        let mut headers = Headers::default();
         for header_line in response_lines {
             // An empty header indicates the end of the list of headers
             if header_line.is_empty() {
@@ -113,11 +106,10 @@ impl Response {
 
             let key = &header_line[..separator];
             let value = &header_line[separator + 1..];
-            headers.insert(
+            headers.set(
                 std::str::from_utf8(key)
                     .map_err(|_| HTTPError::InvalidResponse)?
-                    .trim()
-                    .to_owned(),
+                    .trim(),
                 std::str::from_utf8(value)
                     .map_err(|_| HTTPError::InvalidResponse)?
                     .trim()
@@ -128,7 +120,7 @@ impl Response {
         // Anything after the headers is the actual response body
         // The length of the body depends on the headers that were sent
         let body: Vec<u8> = if let Some(transfer_encoding) = headers.get("Transfer-encoding") {
-            match transfer_encoding.as_str() {
+            match transfer_encoding {
                 "chunked" => {
                     let mut buffer = vec![];
                     loop {

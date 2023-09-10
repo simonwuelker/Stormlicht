@@ -2,6 +2,9 @@
 //!
 //! [Specifications](https://developer.mozilla.org/en-US/docs/Web/HTTP/Resources_and_specifications)
 
+mod headers;
 pub mod request;
 pub mod response;
 pub mod status_code;
+
+pub use headers::Headers;

@@ -1,11 +1,12 @@
+use std::{
+    io::{self, BufReader},
+    net::{SocketAddr, TcpStream},
+};
+
 use dns::DNSError;
-use std::collections::HashMap;
-use std::io::{self, BufReader};
-use std::net::{SocketAddr, TcpStream};
 use url::{Host, URL};
 
-use crate::response::Response;
-use crate::status_code::StatusCode;
+use crate::{response::Response, status_code::StatusCode, Headers};
 
 const USER_AGENT: &str = "Stormlicht";
 pub(crate) const HTTP_NEWLINE: &str = "\r\n";
@@ -60,7 +61,7 @@ impl Method {
 #[derive(Clone, Debug)]
 pub struct Request {
     method: Method,
-    headers: HashMap<String, String>,
+    headers: Headers,
     context: Context,
 }
 
@@ -74,11 +75,11 @@ impl Request {
     pub fn get(url: &URL) -> Self {
         assert_eq!(url.scheme(), "http", "URL is not http");
 
-        let mut headers = HashMap::with_capacity(3);
-        headers.insert("User-Agent".to_string(), USER_AGENT.to_string());
-        headers.insert("Accept".to_string(), "*/*".to_string());
-        headers.insert(
-            "Host".to_string(),
+        let mut headers = Headers::with_capacity(3);
+        headers.set("User-Agent", USER_AGENT.to_string());
+        headers.set("Accept", "*/*".to_string());
+        headers.set(
+            "Host",
             url.host().expect("URL does not have a host").to_string(),
         );
 
@@ -87,6 +88,16 @@ impl Request {
             headers,
             context: Context::new(url.clone()),
         }
+    }
+
+    #[must_use]
+    pub fn headers(&self) -> &Headers {
+        &self.headers
+    }
+
+    #[must_use]
+    pub fn headers_mut(&mut self) -> &mut Headers {
+        &mut self.headers
     }
 
     /// Serialize the request to the given [Writer](std::io::Write)
@@ -101,16 +112,12 @@ impl Request {
             path = self.context.url.path().join("/")
         )?;
 
-        for (header, value) in &self.headers {
-            write!(writer, "{}: {value}{HTTP_NEWLINE}", header.as_str())?;
+        for (header, value) in self.headers.iter() {
+            write!(writer, "{header}: {value}{HTTP_NEWLINE}")?;
         }
         write!(writer, "{HTTP_NEWLINE}")?;
 
         Ok(())
-    }
-
-    pub fn set_header(&mut self, header: &str, value: &str) {
-        self.headers.insert(header.to_string(), value.to_string());
     }
 
     pub fn send(&mut self) -> Result<Response, HTTPError> {
@@ -141,7 +148,8 @@ impl Request {
 
         if response.status.is_redirection() {
             if let Some(relocation) = response
-                .get_header("Location")
+                .headers()
+                .get("Location")
                 .and_then(|v| URL::try_from(v).ok())
             {
                 log::info!(
@@ -158,8 +166,8 @@ impl Request {
                     return Err(HTTPError::RedirectLoop);
                 }
 
-                self.headers.insert(
-                    "Host".to_string(),
+                self.headers.set(
+                    "Host",
                     relocation
                         .host()
                         .expect("relocation url does not have a host")
@@ -185,9 +193,9 @@ mod tests {
         let mut tcpstream: Vec<u8> = vec![];
 
         let mut request = Request::get(&url::URL::try_from("http://www.example.com").unwrap());
-        request.headers.clear();
+        request.headers_mut().clear(); // No default headers
 
-        request.set_header("User-Agent", "test");
+        request.headers_mut().set("User-Agent", "test".to_string());
         request.write_to(&mut tcpstream).unwrap();
         assert_eq!(
             String::from_utf8(tcpstream).unwrap(),

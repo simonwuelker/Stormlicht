@@ -84,7 +84,7 @@ impl Resource {
                     }
 
                     if matches!(
-                        content_type_string.as_str(),
+                        content_type_string,
                         "text/plain"
                             | "text/plain; charset=ISO-8859-1"
                             | "text/plain; charset=iso-8859-1"
