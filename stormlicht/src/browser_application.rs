@@ -114,8 +114,9 @@ impl BrowserApplication {
             .resizable(true)
             .size(((INITIAL_WIDTH / 2) as f64, (INITIAL_HEIGHT / 2) as f64).into())
             .handler(Box::new(application))
-            .title("Browser")
+            .title("Stormlicht")
             .build();
+
         match window_or_error {
             Ok(window) => {
                 window.show();
