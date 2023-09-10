@@ -47,11 +47,23 @@ impl ops::Add for CSSPixels {
     }
 }
 
+impl ops::AddAssign for CSSPixels {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0
+    }
+}
+
 impl ops::Sub for CSSPixels {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self(self.0 - rhs.0)
+    }
+}
+
+impl ops::SubAssign for CSSPixels {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0
     }
 }
 
