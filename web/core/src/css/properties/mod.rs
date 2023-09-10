@@ -79,7 +79,7 @@ impl StyleProperty {
             static_interned!("margin-bottom") => Self::MarginBottom(CSSParse::parse(parser)?),
             static_interned!("margin-left") => Self::MarginLeft(CSSParse::parse(parser)?),
             static_interned!("width") => Self::Width(CSSParse::parse(parser)?),
-            static_interned!("height") => Self::Width(CSSParse::parse(parser)?),
+            static_interned!("height") => Self::Height(CSSParse::parse(parser)?),
             _ => {
                 log::warn!("Unknown CSS property name: {:?}", property_name.to_string());
                 return Err(ParseError);
