@@ -14,8 +14,7 @@
     let_chains,
     option_get_or_insert_default,
     ascii_char,
-    ascii_char_variants,
-    io_error_other
+    ascii_char_variants
 )]
 
 mod host;
