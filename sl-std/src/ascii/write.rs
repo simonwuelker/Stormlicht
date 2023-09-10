@@ -26,6 +26,6 @@ impl Write for Utf8String {
     }
 
     fn write_char(&mut self, c: Char) {
-        self.push(c.as_char())
+        self.push(c.to_char())
     }
 }
