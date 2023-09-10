@@ -5,9 +5,9 @@ use math::{Rectangle, Vec2D};
 use crate::{
     css::{
         fragment_tree::{BoxFragment, Fragment, FragmentTree},
-        layout::{CSSPixels, Sides},
+        layout::{CSSPixels, ContainingBlock, Sides},
         stylecomputer::ComputedStyle,
-        values::{AutoOr, Length},
+        values::{AutoOr, Length, PercentageOr},
         StyleComputer,
     },
     dom::{dom_objects, DOMPtr},
@@ -73,12 +73,15 @@ impl BlockFormattingContext {
             x: CSSPixels::ZERO,
             y: CSSPixels::ZERO,
         };
+        let available_width = CSSPixels(viewport_size.0 as f32);
+        let available_height = CSSPixels(viewport_size.1 as f32);
 
         let mut cursor_position = position;
 
         let mut root_fragments = vec![];
+        let containing_block = ContainingBlock::new(available_width, available_height);
         for element in self.contents {
-            let box_fragment = element.fragment(cursor_position, CSSPixels(viewport_size.0 as f32));
+            let box_fragment = element.fragment(cursor_position, containing_block);
             cursor_position.y += box_fragment.outer_area().height();
             root_fragments.push(Fragment::Box(box_fragment));
         }
@@ -140,13 +143,17 @@ impl BlockLevelBox {
         }
     }
 
-    fn fragment(&self, position: Vec2D<CSSPixels>, available_width: CSSPixels) -> BoxFragment {
+    fn fragment(
+        &self,
+        position: Vec2D<CSSPixels>,
+        containing_block: ContainingBlock,
+    ) -> BoxFragment {
         // FIXME: replaced elements
 
         // See https://drafts.csswg.org/css2/#blockwidth for a description of how the width is computed
 
         // FIXME: Consider padding and borders
-        let available_length = Length::pixels(available_width);
+        let available_length = Length::pixels(containing_block.width());
         let width = self
             .style()
             .width()
@@ -172,7 +179,7 @@ impl BlockLevelBox {
         let total_width_is_more_than_available = |width| {
             let total_width =
                 width + margin_left.unwrap_or_default() + margin_right.unwrap_or_default();
-            total_width > available_width
+            total_width > containing_block.width()
         };
         if width.is_not_auto_and(total_width_is_more_than_available) {
             margin_left = margin_left.or(AutoOr::NotAuto(CSSPixels::ZERO));
@@ -181,23 +188,23 @@ impl BlockLevelBox {
 
         // If there is exactly one value specified as auto, its used value follows from the equality.
         let (width, margin_left, margin_right) = match (width, margin_left, margin_right) {
-            (AutoOr::Auto, _, _) => (available_width, CSSPixels::ZERO, CSSPixels::ZERO),
+            (AutoOr::Auto, _, _) => (containing_block.width(), CSSPixels::ZERO, CSSPixels::ZERO),
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::Auto) => {
-                let margin_width = (available_width - width) / 2.;
+                let margin_width = (containing_block.width() - width) / 2.;
                 (width, margin_width, margin_width)
             },
             (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::Auto) => {
-                let margin_right = available_width - margin_left;
+                let margin_right = containing_block.width() - margin_left;
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::NotAuto(margin_right)) => {
-                let margin_left = available_width - margin_right;
+                let margin_left = containing_block.width() - margin_right;
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::NotAuto(_)) => {
                 // The values are overconstrained
                 // FIXME: If the "direction" property is "rtl", we should ignore the margin left instead
-                let margin_right = available_width - margin_left;
+                let margin_right = containing_block.width() - margin_left;
                 (width, margin_left, margin_right)
             },
         };
@@ -222,12 +229,55 @@ impl BlockLevelBox {
         // FIXME:
         // * Consider height: auto
         // * Resolve percentages against height (what is it?), not widht
-        let height = self
-            .style()
-            .height()
-            .unwrap_or_default()
-            .resolve_against(available_length)
-            .absolutize();
+        // If the height is a percentage it is
+        let height = self.style().height().flat_map(|percentage_or_length| {
+            match percentage_or_length {
+                PercentageOr::Percentage(percentage) => {
+                    if let Some(available_height) = containing_block.height() {
+                        AutoOr::NotAuto(available_height * percentage.as_fraction())
+                    } else {
+                        // If the value is a percentage but the length of the containing block is not
+                        // yet determined, the value should be treated as auto.
+                        // (https://drafts.csswg.org/css2/#the-height-property)
+                        AutoOr::Auto
+                    }
+                },
+                PercentageOr::NotPercentage(length) => AutoOr::NotAuto(length.absolutize()),
+            }
+        });
+
+        let mut children = vec![];
+
+        let containing_block = match height {
+            AutoOr::Auto => {
+                // The height of this element depends on its contents
+                ContainingBlock::new_with_variable_height(width)
+            },
+            AutoOr::NotAuto(height) => {
+                // The height of this element is fixed, children may overflow
+                ContainingBlock::new(width, height)
+            },
+        };
+
+        let content_height = match &self.contents {
+            BlockContainer::BlockLevelBoxes(block_level_boxes) => {
+                let mut cursor = position;
+                for block_box in block_level_boxes {
+                    let box_fragment = block_box.fragment(cursor, containing_block);
+                    cursor.y += box_fragment.outer_area().height();
+                    children.push(Fragment::Box(box_fragment));
+                }
+                cursor.y
+            },
+            BlockContainer::InlineFormattingContext(_ifc) => {
+                // FIXME: layout ifc contents
+                CSSPixels::ZERO
+            },
+        };
+
+        // After having looked at all the children we can now actually determine the box height
+        // if it wasn't defined previously
+        let height = height.unwrap_or(content_height);
 
         let top_left = position
             + Vec2D {
@@ -252,8 +302,7 @@ impl BlockLevelBox {
             left: margin_left,
         };
 
-        // FIXME: include children
-        BoxFragment::new(self.style(), margin, content_area, vec![])
+        BoxFragment::new(self.style(), margin, content_area, children)
     }
 }
 

@@ -81,6 +81,8 @@ impl BoxFragment {
     }
 
     /// Compute the total space occupied by this fragment, including margins
+    #[inline]
+    #[must_use]
     pub fn outer_area(&self) -> Rectangle<CSSPixels> {
         self.margin.surround(self.content_area)
     }

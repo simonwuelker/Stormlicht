@@ -36,3 +36,45 @@ impl<T> Sides<T> {
         }
     }
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct ContainingBlock {
+    width: CSSPixels,
+    /// The height of the containing block
+    ///
+    /// `Some` if the height is defined (for example, using the CSS "height" property)
+    /// or `None` if the height depends on the content.
+    height: Option<CSSPixels>,
+}
+
+impl ContainingBlock {
+    #[inline]
+    #[must_use]
+    pub fn new(width: CSSPixels, height: CSSPixels) -> Self {
+        Self {
+            width,
+            height: Some(height),
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn new_with_variable_height(width: CSSPixels) -> Self {
+        Self {
+            width,
+            height: None,
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn width(&self) -> CSSPixels {
+        self.width
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn height(&self) -> Option<CSSPixels> {
+        self.height
+    }
+}
