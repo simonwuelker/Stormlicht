@@ -3,7 +3,7 @@ use std::{collections::HashSet, mem::Discriminant};
 use crate::dom::{dom_objects::Element, DOMPtr};
 
 use super::{
-    properties::{DisplayValue, Important},
+    properties::{BackgroundColorValue, DisplayValue, Important},
     selectors::Selector,
     values::{AutoOr, Length, PercentageOr},
     MatchingRule, Origin, StyleProperty, Stylesheet,
@@ -129,6 +129,7 @@ impl ComputedStyle {
     add_property_lookup!(margin_left, AutoOr<PercentageOr<Length>>, MarginLeft);
     add_property_lookup!(width, AutoOr<PercentageOr<Length>>, Width);
     add_property_lookup!(height, AutoOr<PercentageOr<Length>>, Height);
+    add_property_lookup!(background_color, BackgroundColorValue, BackgroundColor);
 }
 
 fn filter_matching_rules(

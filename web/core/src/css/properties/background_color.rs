@@ -2,9 +2,10 @@ use crate::css::{syntax::Token, values::color::Color, CSSParse, ParseError, Pars
 use string_interner::{static_interned, static_str};
 
 /// <https://drafts.csswg.org/css2/#background-properties>
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum BackgroundColorValue {
     Color(Color),
+    #[default]
     Transparent,
     Inherit,
 }

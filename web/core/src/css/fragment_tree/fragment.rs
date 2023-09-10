@@ -5,6 +5,7 @@ use math::Rectangle;
 use crate::css::{
     display_list::Painter,
     layout::{CSSPixels, Sides},
+    properties::BackgroundColorValue,
     stylecomputer::ComputedStyle,
 };
 
@@ -85,8 +86,17 @@ impl BoxFragment {
     }
 
     pub fn fill_display_list(&self, painter: &mut Painter) {
-        // FIXME: Respect the box color
-        painter.rect(self.content_area, math::Color::BLACK);
+        match self.style.background_color() {
+            BackgroundColorValue::Inherit => {
+                todo!("implement support for background-color: inherit")
+            },
+            BackgroundColorValue::Transparent => {
+                // Skip drawing the background entirely
+            },
+            BackgroundColorValue::Color(color) => {
+                painter.rect(self.content_area, color.into());
+            },
+        }
 
         // Paint all children
         for child in self.children() {

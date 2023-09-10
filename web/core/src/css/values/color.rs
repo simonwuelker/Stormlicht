@@ -775,6 +775,12 @@ fn resolve_percentage(percentage: Number) -> u8 {
     (clamped_percent * 2.55).round() as u8
 }
 
+impl From<Color> for math::Color {
+    fn from(value: Color) -> Self {
+        math::Color::rgb(value.red, value.green, value.blue)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Color;
