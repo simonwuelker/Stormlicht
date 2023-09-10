@@ -156,12 +156,25 @@ impl<T> AutoOr<T> {
     /// let x: AutoOr<u32> = AutoOr::Auto;
     /// assert_eq!(x.is_not_auto_and(|x| x > 1), false);
     /// ```
-    #[must_use]
     #[inline]
+    #[must_use]
     pub fn is_not_auto_and(self, f: impl FnOnce(T) -> bool) -> bool {
         match self {
             Self::Auto => false,
             Self::NotAuto(x) => f(x),
+        }
+    }
+
+    /// Returns [`AutoOr::Auto`] if the value is [`AutoOr::Auto`], otherwise calls `f` with the
+    /// wrapped value and returns the result.
+    #[inline]
+    pub fn flat_map<U, F>(self, f: F) -> AutoOr<U>
+    where
+        F: FnOnce(T) -> AutoOr<U>,
+    {
+        match self {
+            AutoOr::NotAuto(x) => f(x),
+            AutoOr::Auto => AutoOr::Auto,
         }
     }
 }
