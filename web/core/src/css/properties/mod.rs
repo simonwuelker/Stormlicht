@@ -51,6 +51,18 @@ pub enum StyleProperty {
 
     /// <https://drafts.csswg.org/css2/#propdef-height>
     Height(AutoOr<PercentageOr<Length>>),
+
+    /// <https://drafts.csswg.org/css2/#propdef-padding-top>
+    PaddingTop(PercentageOr<Length>),
+
+    /// <https://drafts.csswg.org/css2/#propdef-padding-right>
+    PaddingRight(PercentageOr<Length>),
+
+    /// <https://drafts.csswg.org/css2/#propdef-padding-bottom>
+    PaddingBottom(PercentageOr<Length>),
+
+    /// <https://drafts.csswg.org/css2/#propdef-padding-left>
+    PaddingLeft(PercentageOr<Length>),
 }
 
 #[derive(Clone, Debug)]
@@ -78,6 +90,10 @@ impl StyleProperty {
             static_interned!("margin-right") => Self::MarginRight(CSSParse::parse(parser)?),
             static_interned!("margin-bottom") => Self::MarginBottom(CSSParse::parse(parser)?),
             static_interned!("margin-left") => Self::MarginLeft(CSSParse::parse(parser)?),
+            static_interned!("padding-top") => Self::PaddingTop(CSSParse::parse(parser)?),
+            static_interned!("padding-right") => Self::PaddingRight(CSSParse::parse(parser)?),
+            static_interned!("padding-bottom") => Self::PaddingBottom(CSSParse::parse(parser)?),
+            static_interned!("padding-left") => Self::PaddingLeft(CSSParse::parse(parser)?),
             static_interned!("width") => Self::Width(CSSParse::parse(parser)?),
             static_interned!("height") => Self::Height(CSSParse::parse(parser)?),
             _ => {

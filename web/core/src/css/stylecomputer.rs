@@ -127,6 +127,10 @@ impl ComputedStyle {
     add_property_lookup!(margin_right, AutoOr<PercentageOr<Length>>, MarginRight);
     add_property_lookup!(margin_bottom, AutoOr<PercentageOr<Length>>, MarginBottom);
     add_property_lookup!(margin_left, AutoOr<PercentageOr<Length>>, MarginLeft);
+    add_property_lookup!(padding_top, PercentageOr<Length>, PaddingTop);
+    add_property_lookup!(padding_right, PercentageOr<Length>, PaddingRight);
+    add_property_lookup!(padding_bottom, PercentageOr<Length>, PaddingBottom);
+    add_property_lookup!(padding_left, PercentageOr<Length>, PaddingLeft);
     add_property_lookup!(width, AutoOr<PercentageOr<Length>>, Width);
     add_property_lookup!(height, AutoOr<PercentageOr<Length>>, Height);
     add_property_lookup!(background_color, BackgroundColorValue, BackgroundColor);
