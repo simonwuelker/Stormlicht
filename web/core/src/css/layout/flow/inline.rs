@@ -90,6 +90,7 @@ impl TreeDebug for InlineFormattingContext {
         for child in &self.elements {
             child.tree_fmt(formatter)?;
         }
+        formatter.decrease_indent();
         Ok(())
     }
 }
