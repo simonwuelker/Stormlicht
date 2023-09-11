@@ -44,7 +44,7 @@ pub struct Font<'a> {
     head_table: head::HeadTable,
     format4: cmap::Format4<'a>,
     glyph_table: glyf::GlyphOutlineTable<'a>,
-    hmtx_table: hmtx::HMTXTable<'a>,
+    hmtx_table: hmtx::HMTXTable,
     maxp_table: maxp::MaxPTable,
     name_table: name::NameTable,
 }
@@ -95,8 +95,7 @@ impl<'a> Font<'a> {
             .get_table(HMTX_TAG)
             .ok_or(TTFParseError::MissingTable)?;
         let hmtx_table = hmtx::HMTXTable::new(
-            data,
-            hmtx_entry.offset(),
+            &data[hmtx_entry.offset()..],
             hhea_table.num_of_long_hor_metrics(),
         );
 
@@ -141,7 +140,7 @@ impl<'a> Font<'a> {
         &self.glyph_table
     }
 
-    pub fn hmtx(&self) -> &hmtx::HMTXTable<'a> {
+    pub fn hmtx(&self) -> &hmtx::HMTXTable {
         &self.hmtx_table
     }
 

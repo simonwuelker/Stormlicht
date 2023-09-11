@@ -4,18 +4,29 @@ use crate::ttf::{read_i16_at, read_u16_at};
 
 use super::cmap::GlyphID;
 
-pub struct HMTXTable<'a>(&'a [u8]);
+#[derive(Clone, Debug)]
+pub struct HMTXTable {
+    long_hor_metrics: Vec<LongHorMetric>,
+}
 
-impl<'a> HMTXTable<'a> {
-    pub fn new(data: &'a [u8], offset: usize, num_of_long_hor_metrics: usize) -> Self {
-        Self(&data[offset..][..num_of_long_hor_metrics * 4])
+impl HMTXTable {
+    pub fn new(data: &[u8], num_of_long_hor_metrics: usize) -> Self {
+        let long_hor_metrics = data
+            .array_chunks::<4>()
+            .take(num_of_long_hor_metrics)
+            .map(|metric_data| LongHorMetric {
+                advance_width: read_u16_at(metric_data, 0),
+                left_side_bearing: read_i16_at(metric_data, 2),
+            })
+            .collect();
+
+        Self { long_hor_metrics }
     }
 
+    #[inline]
+    #[must_use]
     pub fn get_metric_for(&self, glyph_id: GlyphID) -> LongHorMetric {
-        LongHorMetric {
-            advance_width: read_u16_at(self.0, glyph_id.numeric() as usize * 4),
-            left_side_bearing: read_i16_at(self.0, glyph_id.numeric() as usize * 4 + 2),
-        }
+        self.long_hor_metrics[glyph_id.numeric() as usize]
     }
 }
 
@@ -26,10 +37,14 @@ pub struct LongHorMetric {
 }
 
 impl LongHorMetric {
+    #[inline]
+    #[must_use]
     pub fn advance_width(&self) -> u16 {
         self.advance_width
     }
 
+    #[inline]
+    #[must_use]
     pub fn left_side_bearing(&self) -> i16 {
         self.left_side_bearing
     }
