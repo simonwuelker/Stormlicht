@@ -1,88 +1,128 @@
 use crate::ttf::{read_u16_at, read_u32_at};
 use std::fmt;
 
-pub struct OffsetTable<'a>(&'a [u8]);
+#[derive(Clone, Debug)]
+pub struct OffsetTable {
+    scaler_type: u32,
+    search_range: u16,
+    entry_selector: u16,
+    range_shift: u16,
+    tables: Vec<TableEntry>,
+}
 
-impl<'a> OffsetTable<'a> {
-    pub fn new(data: &'a [u8]) -> Self {
+impl OffsetTable {
+    pub fn new(data: &[u8]) -> Self {
+        let scaler_type = read_u32_at(data, 0);
         let num_tables = read_u16_at(data, 4) as usize;
+        let search_range = read_u16_at(data, 6);
+        let entry_selector = read_u16_at(data, 8);
+        let range_shift = read_u16_at(data, 10);
+
+        let table_data = &data[12..12 + 16 * num_tables];
+        let tables = table_data
+            .array_chunks::<16>()
+            .map(TableEntry::new)
+            .collect();
+
         // 12 byte header + 16 bytes per table
-        Self(&data[0..12 + 16 * num_tables])
+        Self {
+            scaler_type,
+            search_range,
+            entry_selector,
+            range_shift,
+            tables,
+        }
     }
 
+    #[inline]
+    #[must_use]
     pub fn scaler_type(&self) -> u32 {
-        read_u32_at(self.0, 0)
+        self.scaler_type
     }
 
-    pub fn num_tables(&self) -> usize {
-        read_u16_at(self.0, 4) as usize
+    #[inline]
+    #[must_use]
+    pub fn search_range(&self) -> u16 {
+        self.search_range
     }
 
-    pub fn search_range(&self) -> usize {
-        read_u16_at(self.0, 6) as usize
+    #[inline]
+    #[must_use]
+    pub fn entry_selector(&self) -> u16 {
+        self.entry_selector
     }
 
-    pub fn entry_selector(&self) -> u32 {
-        read_u32_at(self.0, 8)
+    #[inline]
+    #[must_use]
+    pub fn range_shift(&self) -> u16 {
+        self.range_shift
     }
 
-    pub fn range_shift(&self) -> u32 {
-        read_u32_at(self.0, 8)
-    }
-
+    #[inline]
+    #[must_use]
     pub fn get_table(&self, target_tag: u32) -> Option<TableEntry> {
         // Binary search might be more performant here but is likely not worth
         // the complexity as tables are only parsed once and fonts only have a small number of
         // tables (< 10-20)
-        self.tables().find(|table| table.tag() == target_tag)
+        self.tables()
+            .iter()
+            .find(|table| table.tag() == target_tag)
+            .copied()
     }
 
-    pub fn tables(&self) -> TableIterator<'a> {
-        TableIterator {
-            tables: &self.0[12..],
-            n_tables: self.num_tables(),
-            count: 0,
+    #[inline]
+    #[must_use]
+    pub fn tables(&self) -> &[TableEntry] {
+        &self.tables
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct TableEntry {
+    tag: u32,
+    checksum: u32,
+    offset: u32,
+    length: u32,
+}
+
+impl TableEntry {
+    #[inline]
+    #[must_use]
+    pub fn new(data: &[u8; 16]) -> Self {
+        Self {
+            tag: read_u32_at(data, 0),
+            checksum: read_u32_at(data, 4),
+            offset: read_u32_at(data, 8),
+            length: read_u32_at(data, 12),
         }
     }
-}
 
-impl<'a> fmt::Debug for OffsetTable<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Offset Table")
-            .field("scaler_type", &self.scaler_type())
-            .field("num_tables", &self.num_tables())
-            .field("search_range", &self.search_range())
-            .field("entry_selector", &self.entry_selector())
-            .field("range_shift", &self.range_shift())
-            .finish()
-    }
-}
-
-pub struct TableEntry<'a>(&'a [u8]);
-
-impl<'a> TableEntry<'a> {
-    pub fn new(data: &'a [u8], offset: usize) -> Self {
-        Self(&data[offset..][..16])
-    }
-
+    #[inline]
+    #[must_use]
     pub fn tag(&self) -> u32 {
-        read_u32_at(self.0, 0)
+        self.tag
     }
 
+    #[inline]
+    #[must_use]
     pub fn checksum(&self) -> u32 {
-        read_u32_at(self.0, 4)
+        self.checksum
     }
 
+    #[inline]
+    #[must_use]
     pub fn offset(&self) -> usize {
-        read_u32_at(self.0, 8) as usize
+        self.offset as usize
     }
 
+    #[inline]
+    #[must_use]
     pub fn length(&self) -> usize {
-        read_u32_at(self.0, 12) as usize
+        self.length as usize
     }
 }
 
-impl<'a> fmt::Debug for TableEntry<'a> {
+impl fmt::Debug for TableEntry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Table Entry")
             .field(
@@ -93,25 +133,5 @@ impl<'a> fmt::Debug for TableEntry<'a> {
             .field("offset", &self.offset())
             .field("length", &self.length())
             .finish()
-    }
-}
-
-pub struct TableIterator<'a> {
-    tables: &'a [u8],
-    n_tables: usize,
-    count: usize,
-}
-
-impl<'a> Iterator for TableIterator<'a> {
-    type Item = TableEntry<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.count < self.n_tables {
-            let table = TableEntry::new(self.tables, 16 * self.count);
-            self.count += 1;
-            Some(table)
-        } else {
-            None
-        }
     }
 }

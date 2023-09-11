@@ -1,56 +1,89 @@
 //! [Head](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6head.html) table implementation
 
 use crate::ttf::{read_i16_at, read_u16_at};
-use std::fmt;
 
-pub struct HeadTable<'a>(&'a [u8]);
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LocaTableFormat {
+    Short,
+    Long,
+}
 
-impl<'a> HeadTable<'a> {
-    pub fn new(data: &'a [u8], offset: usize) -> Self {
-        Self(&data[offset..][..54])
-    }
-
-    pub fn units_per_em(&self) -> u16 {
-        read_u16_at(self.0, 18)
-    }
+#[derive(Clone, Copy, Debug)]
+pub struct HeadTable {
+    units_per_em: u16,
 
     /// The minimum x value that can be encountered while
     /// rendering a glyph from this font, in `FUnits`.
-    pub fn min_x(&self) -> i16 {
-        read_i16_at(self.0, 36)
-    }
+    min_x: i16,
 
     /// The minimum y value that can be encountered while
     /// rendering a glyph from this font, in `FUnits`.
-    pub fn min_y(&self) -> i16 {
-        read_i16_at(self.0, 38)
-    }
+    min_y: i16,
 
     /// The maximum x value that can be encountered while
     /// rendering a glyph from this font, in `FUnits`.
-    pub fn max_x(&self) -> i16 {
-        read_i16_at(self.0, 40)
-    }
+    max_x: i16,
 
     /// The maximum y value that can be encountered while
     /// rendering a glyph from this font, in `FUnits`.
+    max_y: i16,
+
+    loca_table_format: LocaTableFormat,
+}
+
+impl HeadTable {
+    pub fn new(data: &[u8], offset: usize) -> Self {
+        let data = &data[offset..];
+        let loca_table_format = if read_i16_at(data, 50) == 0 {
+            LocaTableFormat::Short
+        } else {
+            LocaTableFormat::Long
+        };
+
+        Self {
+            units_per_em: read_u16_at(data, 18),
+            min_x: read_i16_at(data, 36),
+            min_y: read_i16_at(data, 38),
+            max_x: read_i16_at(data, 40),
+            max_y: read_i16_at(data, 42),
+            loca_table_format,
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn units_per_em(&self) -> u16 {
+        self.units_per_em
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn min_x(&self) -> i16 {
+        self.min_x
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn min_y(&self) -> i16 {
+        self.min_y
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn max_x(&self) -> i16 {
+        self.max_x
+    }
+
+    #[inline]
+    #[must_use]
     pub fn max_y(&self) -> i16 {
-        read_i16_at(self.0, 42)
+        self.max_y
     }
 
     /// Get the format of the [Loca Table](crate::ttf::tables::loca::LocaTable).
-    ///
-    /// If this is `0`, the loca table is in `short` format.
-    /// Otherwise, it is in `long` format.
-    pub fn index_to_loc_format(&self) -> i16 {
-        read_i16_at(self.0, 50)
-    }
-}
-
-impl<'a> fmt::Debug for HeadTable<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Head Table")
-            .field("index_to_loc_format", &self.index_to_loc_format())
-            .finish()
+    #[inline]
+    #[must_use]
+    pub fn loca_table_format(&self) -> LocaTableFormat {
+        self.loca_table_format
     }
 }

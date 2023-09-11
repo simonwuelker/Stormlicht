@@ -40,8 +40,8 @@ pub enum TTFParseError {
 }
 
 pub struct Font<'a> {
-    offset_table: OffsetTable<'a>,
-    head_table: head::HeadTable<'a>,
+    offset_table: OffsetTable,
+    head_table: head::HeadTable,
     format4: cmap::Format4<'a>,
     glyph_table: glyf::GlyphOutlineTable<'a>,
     hmtx_table: hmtx::HMTXTable<'a>,
@@ -75,7 +75,7 @@ impl<'a> Font<'a> {
             .get_table(LOCA_TAG)
             .ok_or(TTFParseError::MissingTable)?;
         let loca_table =
-            loca::LocaTable::new(data, loca_entry.offset(), head_table.index_to_loc_format());
+            loca::LocaTable::new(data, loca_entry.offset(), head_table.loca_table_format());
 
         let glyf_entry = offset_table
             .get_table(GLYF_TAG)
@@ -145,11 +145,11 @@ impl<'a> Font<'a> {
         &self.hmtx_table
     }
 
-    pub fn head(&self) -> &head::HeadTable<'a> {
+    pub fn head(&self) -> &head::HeadTable {
         &self.head_table
     }
 
-    pub fn offset_table(&self) -> &OffsetTable<'a> {
+    pub fn offset_table(&self) -> &OffsetTable {
         &self.offset_table
     }
 

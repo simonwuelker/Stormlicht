@@ -2,7 +2,7 @@
 
 use crate::ttf::{read_u16_at, read_u32_at};
 
-use super::cmap::GlyphID;
+use super::{cmap::GlyphID, head::LocaTableFormat};
 
 pub struct LocaTable<'a> {
     data: &'a [u8],
@@ -16,10 +16,10 @@ pub struct GlyphLocation {
 }
 
 impl<'a> LocaTable<'a> {
-    pub fn new(data: &'a [u8], offset: usize, format: i16) -> Self {
+    pub fn new(data: &'a [u8], offset: usize, format: LocaTableFormat) -> Self {
         Self {
             data: &data[offset..],
-            is_short: format == 0,
+            is_short: format == LocaTableFormat::Short,
         }
     }
 
