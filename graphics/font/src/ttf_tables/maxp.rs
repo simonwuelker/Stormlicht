@@ -2,15 +2,24 @@
 
 use crate::ttf::read_u16_at;
 
-pub struct MaxPTable<'a>(&'a [u8]);
+#[derive(Clone, Copy, Debug)]
+pub struct MaxPTable {
+    num_glyphs: u16,
+}
 
-impl<'a> MaxPTable<'a> {
-    pub fn new(data: &'a [u8], offset: usize) -> Self {
-        Self(&data[offset..])
+impl MaxPTable {
+    #[inline]
+    #[must_use]
+    pub fn new(data: &[u8]) -> Self {
+        Self {
+            num_glyphs: read_u16_at(data, 4),
+        }
     }
 
     /// Get the number of glyphs defined in the font
+    #[inline]
+    #[must_use]
     pub fn num_glyphs(&self) -> usize {
-        read_u16_at(self.0, 4) as usize
+        self.num_glyphs as usize
     }
 }

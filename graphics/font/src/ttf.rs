@@ -45,7 +45,7 @@ pub struct Font<'a> {
     format4: cmap::Format4<'a>,
     glyph_table: glyf::GlyphOutlineTable<'a>,
     hmtx_table: hmtx::HMTXTable<'a>,
-    maxp_table: maxp::MaxPTable<'a>,
+    maxp_table: maxp::MaxPTable,
     name_table: name::NameTable,
 }
 
@@ -103,7 +103,7 @@ impl<'a> Font<'a> {
         let maxp_entry = offset_table
             .get_table(MAXP_TAG)
             .ok_or(TTFParseError::MissingTable)?;
-        let maxp_table = maxp::MaxPTable::new(data, maxp_entry.offset());
+        let maxp_table = maxp::MaxPTable::new(&data[maxp_entry.offset()..]);
 
         let name_entry = offset_table
             .get_table(NAME_TAG)
