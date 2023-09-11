@@ -14,7 +14,7 @@ pub static FONT_CACHE: LazyLock<FontCache> = LazyLock::new(|| {
 /// For now, it simply holds the one supported font face.
 pub struct FontCache {
     /// The [Font] that should be used if no other matching font could be found
-    fallback_font: Font<'static>,
+    fallback_font: Font,
 }
 
 impl FontCache {

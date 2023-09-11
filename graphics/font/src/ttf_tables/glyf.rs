@@ -16,20 +16,21 @@ use std::fmt;
 /// glyphs.
 const _MAX_COMPONENTS: usize = 10;
 
-pub struct GlyphOutlineTable<'a> {
-    data: &'a [u8],
+#[derive(Clone, Debug)]
+pub struct GlyphOutlineTable {
+    data: Vec<u8>,
     loca_table: LocaTable,
 }
 
-impl<'a> GlyphOutlineTable<'a> {
-    pub fn new(data: &'a [u8], offset: usize, length: usize, loca_table: LocaTable) -> Self {
+impl GlyphOutlineTable {
+    pub fn new(data: &[u8], offset: usize, length: usize, loca_table: LocaTable) -> Self {
         Self {
-            data: &data[offset..][..length],
+            data: data[offset..][..length].to_vec(),
             loca_table: loca_table,
         }
     }
 
-    pub fn get_glyph(&self, glyph_id: GlyphID) -> Glyph<'a> {
+    pub fn get_glyph(&self, glyph_id: GlyphID) -> Glyph<'_> {
         let glyph_location = self.loca_table.get_glyph_offset(glyph_id);
         let glyph_data_end = glyph_location.offset + glyph_location.length;
         let data = &self.data[glyph_location.offset as usize..glyph_data_end as usize];

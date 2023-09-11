@@ -39,18 +39,18 @@ pub enum TTFParseError {
     MissingTable,
 }
 
-pub struct Font<'a> {
+pub struct Font {
     offset_table: OffsetTable,
     head_table: head::HeadTable,
     format4: cmap::Format4,
-    glyph_table: glyf::GlyphOutlineTable<'a>,
+    glyph_table: glyf::GlyphOutlineTable,
     hmtx_table: hmtx::HMTXTable,
     maxp_table: maxp::MaxPTable,
     name_table: name::NameTable,
 }
 
-impl<'a> Font<'a> {
-    pub fn new(data: &'a [u8]) -> Result<Self, TTFParseError> {
+impl Font {
+    pub fn new(data: &[u8]) -> Result<Self, TTFParseError> {
         let offset_table = OffsetTable::new(data);
         if offset_table.scaler_type() != 0x00010000 {
             return Err(TTFParseError::UnsupportedFormat);
@@ -139,7 +139,7 @@ impl<'a> Font<'a> {
         self.name_table.get_font_name()
     }
 
-    pub fn glyf(&self) -> &glyf::GlyphOutlineTable<'a> {
+    pub fn glyf(&self) -> &glyf::GlyphOutlineTable {
         &self.glyph_table
     }
 
@@ -160,7 +160,7 @@ impl<'a> Font<'a> {
         self.format4.get_glyph_id(codepoint)
     }
 
-    pub fn get_glyph(&self, glyph_id: GlyphID) -> Result<Glyph<'a>, TTFParseError> {
+    pub fn get_glyph(&self, glyph_id: GlyphID) -> Result<Glyph<'_>, TTFParseError> {
         // Any character that does not exist is mapped to index zero, which is defined to be the
         // missing character glyph
         let glyph = self.glyph_table.get_glyph(glyph_id);
@@ -232,7 +232,7 @@ impl<'a> Font<'a> {
         }
     }
 
-    fn path_objects<'b>(&'a self, text: &'b str) -> RenderedGlyphIterator<'a, 'b> {
+    fn path_objects<'a, 'b>(&'a self, text: &'b str) -> RenderedGlyphIterator<'a, 'b> {
         RenderedGlyphIterator::new(self, text)
     }
 
@@ -314,7 +314,7 @@ impl<'a> Font<'a> {
     }
 }
 
-impl Default for Font<'static> {
+impl Default for Font {
     fn default() -> Self {
         Self::new(DEFAULT_FONT).unwrap()
     }
@@ -339,7 +339,7 @@ pub struct RenderedGlyph<'a> {
 }
 
 pub struct RenderedGlyphIterator<'a, 'b> {
-    font: &'a Font<'a>,
+    font: &'a Font,
     x: i16,
     y: i16,
     chars: std::str::Chars<'b>,
@@ -419,7 +419,7 @@ impl<'a, 'b> RenderedGlyphIterator<'a, 'b> {
     }
 }
 
-impl<'a> fmt::Debug for Font<'a> {
+impl fmt::Debug for Font {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(name) = self.name() {
             write!(f, "{name}")

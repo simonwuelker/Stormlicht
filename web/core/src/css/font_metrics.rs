@@ -8,7 +8,7 @@ pub const DEFAULT_FONT_SIZE: CSSPixels = CSSPixels(16.0);
 
 #[derive(Clone, Copy)]
 pub struct FontMetrics<'a> {
-    pub font_face: &'a Font<'a>,
+    pub font_face: &'a Font,
     pub size: CSSPixels,
 }
 
