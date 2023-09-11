@@ -75,71 +75,27 @@ pub enum NameTableError {
     NonZeroFormatSelector,
 }
 
-pub struct NameTable<'a>(&'a [u8]);
+pub struct NameTable {
+    name_records: Vec<NameRecord>,
+}
 
-impl<'a> NameTable<'a> {
-    pub fn new(data: &'a [u8], offset: usize) -> Result<Self, NameTableError> {
-        let format_selector = read_u16_at(data, offset);
+impl NameTable {
+    pub fn new(data: &[u8]) -> Result<Self, NameTableError> {
+        let format_selector = read_u16_at(data, 0);
         if format_selector != 0 {
-            log::warn!("Expected format selector to be 0, fonud {format_selector}");
+            log::warn!("Expected format selector to be 0, found {format_selector}");
             return Err(NameTableError::NonZeroFormatSelector);
         }
-        Ok(Self(&data[offset..]))
-    }
 
-    /// Get the number of name records in this table
-    pub fn num_records(&self) -> u16 {
-        read_u16_at(self.0, 2)
-    }
+        let num_records = read_u16_at(data, 2) as usize;
+        let string_offset = read_u16_at(data, 4) as usize;
 
-    /// Get the full name of the font, if any.
-    pub fn get_font_name(&self) -> Option<String> {
-        self.name_records()
-            .filter(|name_record| name_record.name_id == NameID::FullName)
-            .map(|name_record| name_record.value)
-            .nth(0)
-    }
+        let mut name_records = Vec::with_capacity(num_records);
 
-    /// Get an iterator over the suitable name records from the font.
-    ///
-    /// Only Unicode name records are considered "suitable".
-    pub fn name_records(&self) -> NameRecordIterator {
-        NameRecordIterator {
-            data: self.0,
-            index: 0,
-            num_records: self.num_records() as usize,
-            string_offset: read_u16_at(self.0, 4) as usize,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct NameRecord {
-    pub name_id: NameID,
-    pub value: String,
-}
-
-pub struct NameRecordIterator<'a> {
-    data: &'a [u8],
-    index: usize,
-    num_records: usize,
-    string_offset: usize,
-}
-
-impl<'a> Iterator for NameRecordIterator<'a> {
-    type Item = NameRecord;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if self.index == self.num_records {
-                return None;
-            }
-
-            self.index += 1;
-
-            let base = 6 + self.index * 12;
-            let platform_id = read_u16_at(self.data, base);
-            let platform_specific_id = read_u16_at(self.data, base + 2);
+        for index in 0..num_records {
+            let base = 6 + index * 12;
+            let platform_id = read_u16_at(data, base);
+            let platform_specific_id = read_u16_at(data, base + 2);
 
             // We only support unicode encoding
             // From my understanding, everything else is pretty much
@@ -149,11 +105,11 @@ impl<'a> Iterator for NameRecordIterator<'a> {
                 continue;
             }
 
-            let name_id = read_u16_at(self.data, base + 6).into();
-            let length = read_u16_at(self.data, base + 8) as usize;
-            let offset = self.string_offset + read_u16_at(self.data, base + 10) as usize;
+            let name_id = read_u16_at(data, base + 6).into();
+            let length = read_u16_at(data, base + 8) as usize;
+            let offset = string_offset + read_u16_at(data, base + 10) as usize;
 
-            let value_bytes = &self.data[offset..][..length];
+            let value_bytes = &data[offset..][..length];
 
             // The bytes are in big-endian order, we need to convert to native endianness
             let mut native_u16s = Vec::with_capacity(value_bytes.len() / 2);
@@ -164,10 +120,37 @@ impl<'a> Iterator for NameRecordIterator<'a> {
             }
 
             let value = String::from_utf16_lossy(&native_u16s);
-            return Some(NameRecord {
+            name_records.push(NameRecord {
                 name_id: name_id,
                 value: value,
             });
         }
+
+        Ok(Self { name_records })
     }
+
+    /// Get the full name of the font, if any.
+    #[must_use]
+    pub fn get_font_name(&self) -> Option<&str> {
+        self.name_records()
+            .iter()
+            .filter(|name_record| name_record.name_id == NameID::FullName)
+            .map(|name_record| name_record.value.as_str())
+            .nth(0)
+    }
+
+    /// Get an iterator over the suitable name records from the font.
+    ///
+    /// Only Unicode name records are considered "suitable".
+    #[inline]
+    #[must_use]
+    pub fn name_records(&self) -> &[NameRecord] {
+        &self.name_records
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NameRecord {
+    pub name_id: NameID,
+    pub value: String,
 }

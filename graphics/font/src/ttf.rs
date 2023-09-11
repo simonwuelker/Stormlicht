@@ -46,7 +46,7 @@ pub struct Font<'a> {
     glyph_table: glyf::GlyphOutlineTable<'a>,
     hmtx_table: hmtx::HMTXTable<'a>,
     maxp_table: maxp::MaxPTable<'a>,
-    name_table: name::NameTable<'a>,
+    name_table: name::NameTable,
 }
 
 impl<'a> Font<'a> {
@@ -108,7 +108,7 @@ impl<'a> Font<'a> {
         let name_entry = offset_table
             .get_table(NAME_TAG)
             .ok_or(TTFParseError::MissingTable)?;
-        let name_table = name::NameTable::new(data, name_entry.offset()).unwrap();
+        let name_table = name::NameTable::new(&data[name_entry.offset()..]).unwrap();
 
         Ok(Self {
             offset_table,
@@ -133,7 +133,7 @@ impl<'a> Font<'a> {
 
     /// Get the full name of the font, if specified.
     /// Fonts will usually specify their own name, though it is not required.
-    pub fn name(&self) -> Option<String> {
+    pub fn name(&self) -> Option<&str> {
         self.name_table.get_font_name()
     }
 
