@@ -39,6 +39,7 @@ pub enum TTFParseError {
     MissingTable,
 }
 
+#[derive(Clone)]
 pub struct Font {
     offset_table: OffsetTable,
     head_table: head::HeadTable,

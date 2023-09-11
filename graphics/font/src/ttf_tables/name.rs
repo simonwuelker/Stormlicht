@@ -75,6 +75,7 @@ pub enum NameTableError {
     NonZeroFormatSelector,
 }
 
+#[derive(Clone, Debug)]
 pub struct NameTable {
     name_records: Vec<NameRecord>,
 }
