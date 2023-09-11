@@ -68,7 +68,7 @@ impl BlockFormattingContext {
         vec![root].into()
     }
 
-    pub fn fragment(self, viewport_size: (u16, u16)) -> FragmentTree {
+    pub fn fragment(&self, viewport_size: (u16, u16)) -> FragmentTree {
         let position = Vec2D {
             x: CSSPixels::ZERO,
             y: CSSPixels::ZERO,
@@ -80,7 +80,7 @@ impl BlockFormattingContext {
 
         let mut root_fragments = vec![];
         let containing_block = ContainingBlock::new(available_width, available_height);
-        for element in self.contents {
+        for element in &self.contents {
             let box_fragment = element.fragment(cursor_position, containing_block);
             cursor_position.y += box_fragment.outer_area().height();
             root_fragments.push(Fragment::Box(box_fragment));
@@ -269,9 +269,11 @@ impl BlockLevelBox {
                 }
                 cursor.y
             },
-            BlockContainer::InlineFormattingContext(_ifc) => {
-                // FIXME: layout ifc contents
-                CSSPixels::ZERO
+            BlockContainer::InlineFormattingContext(inline_formatting_context) => {
+                let (fragments, height) =
+                    inline_formatting_context.fragment(position, containing_block);
+                children.extend_from_slice(&fragments);
+                height
             },
         };
 

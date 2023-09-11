@@ -1,7 +1,16 @@
 use std::{fmt::Write, rc::Rc};
 
+use font_metrics::FontMetrics;
+use math::Vec2D;
+
 use crate::{
-    css::stylecomputer::ComputedStyle,
+    css::{
+        font_metrics,
+        fragment_tree::{Fragment, TextFragment},
+        layout::{CSSPixels, ContainingBlock},
+        stylecomputer::ComputedStyle,
+        values::color::Color,
+    },
     dom::{dom_objects, DOMPtr},
     TreeDebug, TreeFormatter,
 };
@@ -44,6 +53,43 @@ impl InlineFormattingContext {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.elements.is_empty()
+    }
+
+    pub fn fragment(
+        &self,
+        position: Vec2D<CSSPixels>,
+        _containing_block: ContainingBlock,
+    ) -> (Vec<Fragment>, CSSPixels) {
+        let mut cursor = position;
+        let mut fragments = vec![];
+        let mut line_box_height = CSSPixels::ZERO;
+        for inline_level_box in self.elements() {
+            match inline_level_box {
+                InlineLevelBox::TextRun(text) => {
+                    // FIXME: Respect the elements actual font
+                    let font_metrics = FontMetrics::default();
+                    let width = font_metrics.width_of(text);
+
+                    if line_box_height < font_metrics.size {
+                        line_box_height = font_metrics.size;
+                    }
+
+                    let fragment = Fragment::Text(TextFragment::new(
+                        text.clone(),
+                        cursor,
+                        crate::css::properties::ColorValue::Color(Color::BLACK),
+                        font_metrics,
+                    ));
+                    fragments.push(fragment);
+
+                    cursor.x += width;
+                },
+                InlineLevelBox::InlineBox(_inline_box) => {
+                    todo!("fragment inline boxes")
+                },
+            }
+        }
+        (fragments, line_box_height)
     }
 }
 

@@ -1,13 +1,13 @@
 use super::{layout::CSSPixels, FontMetrics};
 
 /// Breaks Paragraphs into lines based on their width
-pub struct LineBreakIterator<'a, 'b> {
+pub struct LineBreakIterator<'a> {
     /// The maximum width available for individual line boxes.
     ///
     /// Note that this is just a guideline, line boxes may overflow
     /// if they cannot be broken up.
     available_width: CSSPixels,
-    font_metrics: FontMetrics<'b>,
+    font_metrics: FontMetrics,
     text: &'a str,
     is_finished: bool,
 }
@@ -18,7 +18,7 @@ pub struct TextLine<'a> {
     pub width: CSSPixels,
 }
 
-impl<'a, 'b> Iterator for LineBreakIterator<'a, 'b> {
+impl<'a> Iterator for LineBreakIterator<'a> {
     type Item = TextLine<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {

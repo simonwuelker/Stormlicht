@@ -1,11 +1,9 @@
-use font::Font;
+use crate::css::{layout::CSSPixels, FontMetrics};
 
-use crate::css::layout::CSSPixels;
-
-#[derive(Clone, Copy, Debug)]
-pub enum Command<'box_tree, 'font> {
+#[derive(Clone, Debug)]
+pub enum Command {
     Rect(RectCommand),
-    Text(TextCommand<'box_tree, 'font>),
+    Text(TextCommand),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -14,9 +12,10 @@ pub struct RectCommand {
     pub color: math::Color,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct TextCommand<'box_tree, 'font> {
+#[derive(Clone, Debug)]
+pub struct TextCommand {
     pub position: math::Vec2D<CSSPixels>,
-    pub text: &'box_tree str,
-    pub font: &'font Font,
+    pub text: String,
+    pub font_metrics: FontMetrics,
+    pub color: math::Color,
 }

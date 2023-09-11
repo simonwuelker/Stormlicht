@@ -5,7 +5,7 @@
 
 mod fragment;
 
-pub use fragment::{BoxFragment, Fragment, LineBoxFragment};
+pub use fragment::{BoxFragment, Fragment, TextFragment};
 
 use super::display_list::Painter;
 

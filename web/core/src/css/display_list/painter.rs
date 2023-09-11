@@ -1,19 +1,41 @@
 use math::Vec2D;
 use render::{Composition, Path, Source};
 
-use crate::css::layout::CSSPixels;
-
-use super::{command::RectCommand, Command};
+use crate::css::{
+    display_list::{
+        command::{RectCommand, TextCommand},
+        Command,
+    },
+    layout::CSSPixels,
+    FontMetrics,
+};
 
 #[derive(Clone, Debug, Default)]
-pub struct Painter<'box_tree, 'font> {
-    commands: Vec<Command<'box_tree, 'font>>,
+pub struct Painter {
+    commands: Vec<Command>,
 }
 
-impl<'box_tree, 'font> Painter<'box_tree, 'font> {
+impl Painter {
     pub fn rect(&mut self, area: math::Rectangle<CSSPixels>, color: math::Color) {
         self.commands
             .push(Command::Rect(RectCommand { area, color }))
+    }
+
+    pub fn text(
+        &mut self,
+        text: String,
+        position: Vec2D<CSSPixels>,
+        color: math::Color,
+        font_metrics: FontMetrics,
+    ) {
+        let text_command = TextCommand {
+            position,
+            text,
+            font_metrics,
+            color,
+        };
+
+        self.commands.push(Command::Text(text_command));
     }
 
     pub fn paint(&self, composition: &mut Composition) {
@@ -34,8 +56,16 @@ impl<'box_tree, 'font> Painter<'box_tree, 'font> {
                             },
                         ));
                 },
-                Command::Text(_text_command) => {
-                    todo!()
+                Command::Text(text_command) => {
+                    composition.get_or_insert_layer(index as u16).text(
+                        &text_command.text,
+                        *text_command.font_metrics.font_face.clone(),
+                        text_command.font_metrics.size.into(),
+                        Vec2D {
+                            x: text_command.position.x.0,
+                            y: text_command.position.y.0,
+                        },
+                    );
                 },
             }
         }

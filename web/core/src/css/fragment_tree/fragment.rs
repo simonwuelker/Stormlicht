@@ -1,12 +1,13 @@
 use std::rc::Rc;
 
-use math::Rectangle;
+use math::{Rectangle, Vec2D};
 
 use crate::css::{
     display_list::Painter,
     layout::{CSSPixels, Sides},
-    properties::BackgroundColorValue,
+    properties::{BackgroundColorValue, ColorValue},
     stylecomputer::ComputedStyle,
+    FontMetrics,
 };
 
 #[derive(Clone, Debug)]
@@ -18,30 +19,42 @@ pub struct BoxFragment {
 }
 
 #[derive(Clone, Debug)]
-pub struct LineBoxFragment {
-    _rect: Rectangle<CSSPixels>,
+pub struct TextFragment {
     text: String,
+    position: Vec2D<CSSPixels>,
+    color: ColorValue,
+    font_metrics: FontMetrics,
 }
 
 #[derive(Clone, Debug)]
 pub enum Fragment {
     Box(BoxFragment),
-    LineBox(LineBoxFragment),
+    Text(TextFragment),
 }
 
 impl Fragment {
     pub fn fill_display_list(&self, painter: &mut Painter) {
         match self {
             Self::Box(box_fragment) => box_fragment.fill_display_list(painter),
-            Self::LineBox(line_box_fragment) => line_box_fragment.fill_display_list(painter),
+            Self::Text(text_fragment) => text_fragment.fill_display_list(painter),
         }
     }
 }
 
-impl LineBoxFragment {
+impl TextFragment {
     #[must_use]
-    pub fn new(text: String, rect: Rectangle<CSSPixels>) -> Self {
-        Self { text, _rect: rect }
+    pub fn new(
+        text: String,
+        position: Vec2D<CSSPixels>,
+        color: ColorValue,
+        font_metrics: FontMetrics,
+    ) -> Self {
+        Self {
+            text,
+            position,
+            color,
+            font_metrics,
+        }
     }
 
     #[must_use]
@@ -49,8 +62,16 @@ impl LineBoxFragment {
         &self.text
     }
 
-    pub fn fill_display_list(&self, _painter: &mut Painter) {
-        // FIXME: Paint the line box
+    pub fn fill_display_list(&self, painter: &mut Painter) {
+        match self.color {
+            ColorValue::Color(color) => painter.text(
+                self.text.clone(),
+                self.position,
+                color.into(),
+                self.font_metrics.clone(),
+            ),
+            ColorValue::Inherit => todo!(),
+        }
     }
 }
 
