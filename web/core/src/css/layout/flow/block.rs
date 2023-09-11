@@ -259,9 +259,14 @@ impl BlockLevelBox {
             },
         };
 
+        let top_left = position
+            + Vec2D {
+                x: margin_left,
+                y: margin_top,
+            };
         let content_height = match &self.contents {
             BlockContainer::BlockLevelBoxes(block_level_boxes) => {
-                let mut cursor = position;
+                let mut cursor = top_left;
                 for block_box in block_level_boxes {
                     let box_fragment = block_box.fragment(cursor, containing_block);
                     cursor.y += box_fragment.outer_area().height();
@@ -271,7 +276,7 @@ impl BlockLevelBox {
             },
             BlockContainer::InlineFormattingContext(inline_formatting_context) => {
                 let (fragments, height) =
-                    inline_formatting_context.fragment(position, containing_block);
+                    inline_formatting_context.fragment(top_left, containing_block);
                 children.extend_from_slice(&fragments);
                 height
             },
@@ -281,11 +286,6 @@ impl BlockLevelBox {
         // if it wasn't defined previously
         let height = height.unwrap_or(content_height);
 
-        let top_left = position
-            + Vec2D {
-                x: margin_left,
-                y: margin_top,
-            };
         let bottom_right = top_left
             + Vec2D {
                 x: width,
