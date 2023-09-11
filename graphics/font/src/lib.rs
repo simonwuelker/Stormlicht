@@ -3,7 +3,7 @@
 //! In the future, this should also cover [Font Shaping](https://fonts.google.com/knowledge/glossary/shaping)
 //! but for now, we are only concerned with rasterization.
 
-#![feature(array_chunks)]
+#![feature(array_chunks, iter_map_windows)]
 
 pub mod path;
 mod stream;

@@ -71,11 +71,19 @@ impl<'a> Font<'a> {
             .ok_or(TTFParseError::MissingTable)?;
         let format4 = cmap::Format4::new(&data[cmap_entry.offset() + unicode_table_offset..]);
 
+        let maxp_entry = offset_table
+            .get_table(MAXP_TAG)
+            .ok_or(TTFParseError::MissingTable)?;
+        let maxp_table = maxp::MaxPTable::new(&data[maxp_entry.offset()..]);
+
         let loca_entry = offset_table
             .get_table(LOCA_TAG)
             .ok_or(TTFParseError::MissingTable)?;
-        let loca_table =
-            loca::LocaTable::new(data, loca_entry.offset(), head_table.loca_table_format());
+        let loca_table = loca::LocaTable::new(
+            &data[loca_entry.offset()..],
+            head_table.loca_table_format(),
+            maxp_table.num_glyphs(),
+        );
 
         let glyf_entry = offset_table
             .get_table(GLYF_TAG)
@@ -98,11 +106,6 @@ impl<'a> Font<'a> {
             &data[hmtx_entry.offset()..],
             hhea_table.num_of_long_hor_metrics(),
         );
-
-        let maxp_entry = offset_table
-            .get_table(MAXP_TAG)
-            .ok_or(TTFParseError::MissingTable)?;
-        let maxp_table = maxp::MaxPTable::new(&data[maxp_entry.offset()..]);
 
         let name_entry = offset_table
             .get_table(NAME_TAG)

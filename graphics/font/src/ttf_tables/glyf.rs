@@ -18,11 +18,11 @@ const _MAX_COMPONENTS: usize = 10;
 
 pub struct GlyphOutlineTable<'a> {
     data: &'a [u8],
-    loca_table: LocaTable<'a>,
+    loca_table: LocaTable,
 }
 
 impl<'a> GlyphOutlineTable<'a> {
-    pub fn new(data: &'a [u8], offset: usize, length: usize, loca_table: LocaTable<'a>) -> Self {
+    pub fn new(data: &'a [u8], offset: usize, length: usize, loca_table: LocaTable) -> Self {
         Self {
             data: &data[offset..][..length],
             loca_table: loca_table,
