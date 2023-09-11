@@ -3,7 +3,10 @@ use std::process::ExitCode;
 
 use url::URL;
 
+/// Initial viewport width, in display points
 const INITIAL_WIDTH: u16 = 800;
+
+/// Initial viewport height, in display points
 const INITIAL_HEIGHT: u16 = 600;
 
 const WELCOME_PAGE: &str = concat!(
@@ -22,7 +25,10 @@ enum RepaintRequired {
 pub struct BrowserApplication {
     view_buffer: math::Bitmap<u32>,
     graphics_context: Option<softbuffer::GraphicsContext>,
-    size: (u16, u16),
+
+    /// Viewport size, in Display Points (not pixels)
+    viewport_size: (u16, u16),
+
     repaint_required: RepaintRequired,
     composition: render::Composition,
     window_handle: glazier::WindowHandle,
@@ -45,12 +51,25 @@ impl glazier::WinHandler for BrowserApplication {
 
     fn paint(&mut self, _invalid: &glazier::Region) {
         self.view_buffer.clear(math::Color::WHITE.into());
+        self.composition.clear();
+
+        let dpi = self
+            .window_handle
+            .get_scale()
+            .expect("Could not access dpi scale");
+
+        self.composition.set_dpi((dpi.x() as f32, dpi.y() as f32));
+
         self.browsing_context
-            .paint(&mut self.composition, self.size);
+            .paint(&mut self.composition, self.viewport_size);
         self.composition.render_to(&mut self.view_buffer);
 
         if let Some(graphics_context) = &mut self.graphics_context {
-            graphics_context.set_buffer(self.view_buffer.data(), self.size.0, self.size.1);
+            graphics_context.set_buffer(
+                self.view_buffer.data(),
+                self.view_buffer.width() as u16,
+                self.view_buffer.height() as u16,
+            );
         }
         self.repaint_required = RepaintRequired::No;
     }
@@ -60,11 +79,19 @@ impl glazier::WinHandler for BrowserApplication {
     }
 
     fn size(&mut self, size: glazier::kurbo::Size) {
-        let width = size.width.ceil() as u16 * 2;
-        let height = size.height.ceil() as u16 * 2;
+        let dpi = self
+            .window_handle
+            .get_scale()
+            .expect("Could not access dpi scale");
 
-        self.size = (width, height);
-        self.view_buffer.resize(width as usize, height as usize);
+        self.viewport_size = (size.width.ceil() as u16, size.height.ceil() as u16);
+
+        // Size is given in dp, we need to convert it to pixels to know
+        // how large our view buffer should be
+        let width_px = (size.width * dpi.x()).ceil() as usize;
+        let height_px = (size.height * dpi.y()).ceil() as usize;
+
+        self.view_buffer.resize(width_px, height_px);
         self.repaint_required = RepaintRequired::Yes;
     }
 
@@ -92,10 +119,15 @@ impl BrowserApplication {
             },
         };
 
+        // The view buffer is initialized once the window size method is called on startup.
+        // Before that, we can't know the windows dpi scaling and therefore cant know how large the
+        // view buffer needs to be.
+        let view_buffer = math::Bitmap::new(0, 0);
+
         let application = Self {
-            view_buffer: math::Bitmap::new(INITIAL_WIDTH as usize, INITIAL_HEIGHT as usize),
+            view_buffer,
             graphics_context: None,
-            size: (INITIAL_WIDTH, INITIAL_HEIGHT),
+            viewport_size: (INITIAL_WIDTH, INITIAL_HEIGHT),
             repaint_required: RepaintRequired::Yes,
             composition: render::Composition::default(),
             window_handle: glazier::WindowHandle::default(),
@@ -112,7 +144,7 @@ impl BrowserApplication {
 
         let window_or_error = glazier::WindowBuilder::new(app.clone())
             .resizable(true)
-            .size(((INITIAL_WIDTH / 2) as f64, (INITIAL_HEIGHT / 2) as f64).into())
+            .size(((INITIAL_WIDTH) as f64, (INITIAL_HEIGHT) as f64).into())
             .handler(Box::new(application))
             .title("Stormlicht")
             .build();
