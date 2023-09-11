@@ -42,7 +42,7 @@ pub enum TTFParseError {
 pub struct Font<'a> {
     offset_table: OffsetTable,
     head_table: head::HeadTable,
-    format4: cmap::Format4<'a>,
+    format4: cmap::Format4,
     glyph_table: glyf::GlyphOutlineTable<'a>,
     hmtx_table: hmtx::HMTXTable,
     maxp_table: maxp::MaxPTable,
@@ -69,7 +69,7 @@ impl<'a> Font<'a> {
         let unicode_table_offset = cmap_table
             .get_unicode_table()
             .ok_or(TTFParseError::MissingTable)?;
-        let format4 = cmap::Format4::new(data, cmap_entry.offset() + unicode_table_offset);
+        let format4 = cmap::Format4::new(&data[cmap_entry.offset() + unicode_table_offset..]);
 
         let loca_entry = offset_table
             .get_table(LOCA_TAG)
@@ -126,7 +126,7 @@ impl<'a> Font<'a> {
     }
 
     // TODO: support more than one cmap format table (format 4 seems to be the most common but still)
-    pub fn format_4(&self) -> &cmap::Format4<'a> {
+    pub fn format_4(&self) -> &cmap::Format4 {
         &self.format4
     }
 

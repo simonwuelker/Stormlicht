@@ -1,13 +1,14 @@
 //! [CMAP](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6cmap.html) table implementation
 
 use crate::ttf::{read_u16_at, read_u32_at};
-use std::fmt;
+use std::{cmp::Ordering, fmt};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 /// Zero-cost wrapper around a `u16` for extra type safety.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GlyphID(u16);
 
 impl GlyphID {
+    /// The id of the replacement glyph
     pub const REPLACEMENT: Self = Self(0);
 
     #[inline]
@@ -183,16 +184,22 @@ impl<'a> fmt::Debug for CMAPSubTable<'a> {
     }
 }
 
-pub struct Format4<'a>(&'a [u8]);
+#[derive(Clone, Debug)]
+pub struct Format4 {
+    segments: Vec<Format4Segment>,
+    glyph_id_data: Vec<u8>,
+}
 
-impl<'a> Format4<'a> {
-    pub fn new(data: &'a [u8], offset: usize) -> Self {
-        let our_data = &data[offset..];
-        let format = read_u16_at(our_data, 0);
-        assert_eq!(format, 4, "not a format4 subtable");
+#[derive(Clone, Copy, Debug)]
+struct Format4Segment {
+    start_code: u16,
+    end_code: u16,
+    id_delta: u16,
+    id_range_offset: u16,
+}
 
-        let length = read_u16_at(our_data, 2) as usize;
-
+impl Format4 {
+    pub fn new(data: &[u8]) -> Self {
         // Byte layout looks like this:
         // Header        : 14 bytes
         // End Code      : [u16; segcount]
@@ -201,134 +208,102 @@ impl<'a> Format4<'a> {
         // ID Delta      : [u16; segcount]
         // ID Range Offs : [u16; segcount]
         // Glyph IDS     : remaining space
-        Self(&our_data[..length])
-    }
 
-    fn length(&self) -> u16 {
-        read_u16_at(self.0, 2)
-    }
+        let format = read_u16_at(data, 0);
+        // FIXME: Propagate error, don't panic
+        assert_eq!(format, 4, "not a format4 subtable");
 
-    fn segcount_x2(&self) -> usize {
-        read_u16_at(self.0, 6) as usize
-    }
+        let length = read_u16_at(data, 2) as usize;
+        let data = &data[..length];
 
-    /// Get the number of segments in the table
-    fn segcount(&self) -> usize {
-        self.segcount_x2() / 2
-    }
+        let segment_count_x2 = read_u16_at(data, 6) as usize;
+        let segment_count = segment_count_x2 / 2;
 
-    /// Get the start code for a given segment
-    fn get_start_code(&self, index: usize) -> u16 {
-        assert!(index < self.segcount());
-        read_u16_at(self.0, self.start_code_start() + index * 2)
-    }
+        let mut segments = Vec::with_capacity(segment_count);
+        for i in 0..segment_count {
+            let end_code = read_u16_at(data, 14 + 2 * i);
+            let start_code = read_u16_at(data, 16 + segment_count_x2 + 2 * i);
+            let id_delta = read_u16_at(data, 16 + 2 * segment_count_x2 + 2 * i);
+            let id_range_offset = read_u16_at(data, 16 + 3 * segment_count_x2 + 2 * i);
 
-    /// Get the end code for a given segment
-    pub fn get_end_code(&self, index: usize) -> u16 {
-        assert!(index < self.segcount());
-        read_u16_at(self.0, self.end_code_start() + index * 2)
-    }
+            segments.push(Format4Segment {
+                start_code,
+                end_code,
+                id_delta,
+                id_range_offset,
+            });
+        }
 
-    fn get_id_delta(&self, index: usize) -> u16 {
-        assert!(index < self.segcount());
-        read_u16_at(self.0, self.id_delta_start() + index * 2)
-    }
-
-    fn get_id_range_offset(&self, index: usize) -> u16 {
-        assert!(index < self.segcount());
-        read_u16_at(self.0, self.id_range_offset_start() + index * 2)
-    }
-
-    pub fn get_glyph(&self, index: usize) -> u16 {
-        read_u16_at(self.0, self.glyph_ids_start() + index * 2)
+        let glyph_id_data = data[16 + 4 * segment_count_x2..].to_vec();
+        Self {
+            segments,
+            glyph_id_data,
+        }
     }
 
     pub fn get_glyph_id(&self, codepoint: u16) -> Option<GlyphID> {
         // Find the segment containing the glyph index
-        // using binary search
-        let mut start = 0;
-        let mut end = self.segcount();
-
-        while end > start {
-            let index = (start + end) / 2;
-            let start_code = self.get_start_code(index);
-
-            if start_code > codepoint {
-                // The correct segment must have a lower index
-                end = index;
-            } else {
-                let end_code = self.get_end_code(index);
-                if end_code >= codepoint {
-                    // We have found the correct segment
-                    let id_delta = self.get_id_delta(index);
-                    let id_range_offset = self.get_id_range_offset(index);
-
-                    if id_range_offset == 0 {
-                        return Some(GlyphID(codepoint.wrapping_add(id_delta)));
-                    } else {
-                        let delta = (codepoint - start_code) * 2;
-
-                        let mut pos = (self.id_range_offset_start() + index * 2) as u16;
-                        pos = pos.wrapping_add(delta);
-                        pos = pos.wrapping_add(id_range_offset);
-
-                        let glyph_id = read_u16_at(self.0, pos as usize);
-                        return Some(GlyphID(glyph_id.wrapping_add(id_delta)));
-                    }
+        let segment_index = self
+            .segments()
+            .binary_search_by(|segment| {
+                if segment.start_code > codepoint {
+                    Ordering::Greater
+                } else if segment.end_code >= codepoint {
+                    Ordering::Equal
                 } else {
-                    // The correct segment must have a higher index
-                    start = index + 1;
+                    Ordering::Less
                 }
-            }
+            })
+            .ok()?;
+
+        let segment = self.segments()[segment_index];
+
+        if segment.id_range_offset == 0 {
+            let numeric_id = codepoint.wrapping_add(segment.id_delta);
+            Some(GlyphID(numeric_id))
+        } else {
+            let delta = (codepoint - segment.start_code) * 2;
+
+            // The specification abuses pointer magic here, which is kind of
+            // clunky to replicate in a non-insane way.
+            //
+            // Basically, it computes a position which starts as a pointer into the segments
+            // id range offset value, thats then modified until it points somewhere into
+            // the glyph id bytes.
+            //
+            // Since the glyph id range values are stored right before glyph id values, we simply
+            // store an index and subtract the length of the glyph id range array, such that we end
+            // up with an index into the glyph ids
+            //
+            // The fact that this trickery worked first try is suspicious...
+            let mut pos = segment_index as u16 * 2;
+            pos = pos.wrapping_add(delta);
+            pos = pos.wrapping_add(segment.id_range_offset);
+
+            let pos = pos as usize - self.segments().len() * 2;
+
+            let glyph_id = read_u16_at(&self.glyph_id_data, pos).wrapping_add(segment.id_delta);
+            Some(GlyphID(glyph_id))
         }
-
-        // missing glyph
-        None
     }
 
-    fn end_code_start(&self) -> usize {
-        14
-    }
-
-    fn start_code_start(&self) -> usize {
-        self.end_code_start() + self.segcount_x2() + 2 // two bytes of padding
-    }
-
-    fn id_delta_start(&self) -> usize {
-        self.start_code_start() + self.segcount_x2()
-    }
-
-    fn id_range_offset_start(&self) -> usize {
-        self.id_delta_start() + self.segcount_x2()
-    }
-
-    fn glyph_ids_start(&self) -> usize {
-        self.id_range_offset_start() + self.segcount_x2()
+    #[inline]
+    #[must_use]
+    fn segments(&self) -> &[Format4Segment] {
+        &self.segments
     }
 
     /// Call `f` for every codepoint defined in the font
     pub fn codepoints<F: FnMut(u16)>(&self, mut f: F) {
-        for segment_index in 0..self.segcount() {
-            let start = self.get_start_code(segment_index);
-            let end = self.get_end_code(segment_index);
-
+        for segment in self.segments() {
             // Indicates the final segment
-            if start == end && end == 0xFFFF {
+            if segment.start_code == 0xFFFF && segment.end_code == 0xFFFF {
                 break;
             }
 
-            for codepoint in start..=end {
+            for codepoint in segment.start_code..=segment.end_code {
                 f(codepoint)
             }
         }
-    }
-}
-
-impl<'a> fmt::Debug for Format4<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Format 4")
-            .field("length", &self.length())
-            .field("segcount_x2", &self.segcount_x2())
-            .finish()
     }
 }
