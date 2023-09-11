@@ -77,7 +77,7 @@ impl InlineFormattingContext {
                     let fragment = Fragment::Text(TextFragment::new(
                         text.clone(),
                         cursor,
-                        crate::css::properties::ColorValue::Color(Color::BLACK),
+                        Color::BLACK,
                         font_metrics,
                     ));
                     fragments.push(fragment);

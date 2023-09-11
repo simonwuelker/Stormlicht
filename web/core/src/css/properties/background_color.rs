@@ -7,17 +7,11 @@ pub enum BackgroundColorValue {
     Color(Color),
     #[default]
     Transparent,
-    Inherit,
 }
 
 impl<'a> CSSParse<'a> for BackgroundColorValue {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         match parser.peek_token() {
-            Some(Token::Ident(static_interned!("inherit"))) => {
-                parser.next_token();
-                parser.skip_whitespace();
-                Ok(Self::Inherit)
-            },
             Some(Token::Ident(static_interned!("transparent"))) => {
                 parser.next_token();
                 parser.skip_whitespace();

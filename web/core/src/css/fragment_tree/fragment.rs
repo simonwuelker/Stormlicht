@@ -5,8 +5,9 @@ use math::{Rectangle, Vec2D};
 use crate::css::{
     display_list::Painter,
     layout::{CSSPixels, Sides},
-    properties::{BackgroundColorValue, ColorValue},
+    properties::BackgroundColorValue,
     stylecomputer::ComputedStyle,
+    values::color::Color,
     FontMetrics,
 };
 
@@ -22,7 +23,7 @@ pub struct BoxFragment {
 pub struct TextFragment {
     text: String,
     position: Vec2D<CSSPixels>,
-    color: ColorValue,
+    color: Color,
     font_metrics: FontMetrics,
 }
 
@@ -46,7 +47,7 @@ impl TextFragment {
     pub fn new(
         text: String,
         position: Vec2D<CSSPixels>,
-        color: ColorValue,
+        color: Color,
         font_metrics: FontMetrics,
     ) -> Self {
         Self {
@@ -62,16 +63,14 @@ impl TextFragment {
         &self.text
     }
 
+    #[inline]
     pub fn fill_display_list(&self, painter: &mut Painter) {
-        match self.color {
-            ColorValue::Color(color) => painter.text(
-                self.text.clone(),
-                self.position,
-                color.into(),
-                self.font_metrics.clone(),
-            ),
-            ColorValue::Inherit => todo!(),
-        }
+        painter.text(
+            self.text.clone(),
+            self.position,
+            self.color.into(),
+            self.font_metrics.clone(),
+        )
     }
 }
 
@@ -110,9 +109,6 @@ impl BoxFragment {
 
     pub fn fill_display_list(&self, painter: &mut Painter) {
         match self.style.background_color() {
-            BackgroundColorValue::Inherit => {
-                todo!("implement support for background-color: inherit")
-            },
             BackgroundColorValue::Transparent => {
                 // Skip drawing the background entirely
             },

@@ -1,15 +1,13 @@
 mod background_color;
-mod color;
 mod display;
 
 pub use background_color::BackgroundColorValue;
-pub use color::ColorValue;
 pub use display::{
     DisplayBox, DisplayInside, DisplayInsideOutside, DisplayInternal, DisplayOutside, DisplayValue,
 };
 
 use super::{
-    values::{AutoOr, Length, PercentageOr},
+    values::{color::Color, AutoOr, Length, PercentageOr},
     CSSParse, ParseError, Parser,
 };
 
@@ -26,7 +24,7 @@ pub enum Important {
 #[derive(Clone, Debug)]
 pub enum StyleProperty {
     /// <https://drafts.csswg.org/css2/#colors>
-    Color(ColorValue),
+    Color(Color),
 
     /// <https://drafts.csswg.org/css2/#background-properties>
     BackgroundColor(BackgroundColorValue),
@@ -81,7 +79,7 @@ impl StyleProperty {
         property_name: InternedString,
     ) -> Result<Self, ParseError> {
         let property = match property_name {
-            static_interned!("color") => Self::Color(ColorValue::parse(parser)?),
+            static_interned!("color") => Self::Color(CSSParse::parse(parser)?),
             static_interned!("background-color") => {
                 Self::BackgroundColor(BackgroundColorValue::parse(parser)?)
             },
