@@ -35,10 +35,13 @@ impl<'a, 'b> TreeFormatter<'a, 'b> {
     }
 
     pub fn write_text(&mut self, text: &str) -> fmt::Result {
-        if text.len() < MAX_TEXT_LEN {
-            write!(self.formatter, "{text:?}")
+        // Newlines in the text will mess up the tree
+        let escaped: String = text.escape_default().collect();
+
+        if escaped.len() < MAX_TEXT_LEN {
+            write!(self.formatter, "{escaped:?}",)
         } else {
-            write!(self.formatter, "\"{} [...]\"", &text[..MAX_TEXT_LEN])
+            write!(self.formatter, "\"{} [...]\"", &escaped[..MAX_TEXT_LEN])
         }
     }
 }
