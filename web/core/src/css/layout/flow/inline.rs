@@ -9,7 +9,6 @@ use crate::{
         fragment_tree::{Fragment, TextFragment},
         layout::{CSSPixels, ContainingBlock},
         stylecomputer::ComputedStyle,
-        values::color::Color,
     },
     dom::{dom_objects, DOMPtr},
     TreeDebug, TreeFormatter,
@@ -123,7 +122,7 @@ impl InlineFormattingContext {
                     let fragment = Fragment::Text(TextFragment::new(
                         collapsed_text,
                         cursor,
-                        Color::BLACK,
+                        text_run.style().color(),
                         font_metrics,
                     ));
                     fragments.push(fragment);

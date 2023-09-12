@@ -57,15 +57,18 @@ impl Painter {
                         ));
                 },
                 Command::Text(text_command) => {
-                    composition.get_or_insert_layer(index as u16).text(
-                        &text_command.text,
-                        *text_command.font_metrics.font_face.clone(),
-                        text_command.font_metrics.size.into(),
-                        Vec2D {
-                            x: text_command.position.x.0,
-                            y: text_command.position.y.0,
-                        },
-                    );
+                    composition
+                        .get_or_insert_layer(index as u16)
+                        .text(
+                            &text_command.text,
+                            *text_command.font_metrics.font_face.clone(),
+                            text_command.font_metrics.size.into(),
+                            Vec2D {
+                                x: text_command.position.x.0,
+                                y: text_command.position.y.0,
+                            },
+                        )
+                        .with_source(Source::Solid(text_command.color));
                 },
             }
         }

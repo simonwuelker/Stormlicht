@@ -5,7 +5,7 @@ use crate::dom::{dom_objects::Element, DOMPtr};
 use super::{
     properties::{BackgroundColorValue, DisplayValue, Important},
     selectors::Selector,
-    values::{AutoOr, Length, PercentageOr},
+    values::{color::Color, AutoOr, Length, PercentageOr},
     MatchingRule, Origin, StyleProperty, Stylesheet,
 };
 
@@ -112,6 +112,19 @@ macro_rules! add_property_lookup {
     };
 }
 
+macro_rules! add_property_lookup_with_default {
+    ($fn_name: ident, $value_type: ty, $variant_name: ident, $default: expr) => {
+        pub fn $fn_name(&self) -> $value_type {
+            for property in &self.properties {
+                if let StyleProperty::$variant_name(v) = property {
+                    return *v;
+                }
+            }
+            $default
+        }
+    };
+}
+
 impl ComputedStyle {
     pub fn add_properties(&mut self, properties: &[StyleProperty]) {
         for property in properties {
@@ -134,6 +147,7 @@ impl ComputedStyle {
     add_property_lookup!(width, AutoOr<PercentageOr<Length>>, Width);
     add_property_lookup!(height, AutoOr<PercentageOr<Length>>, Height);
     add_property_lookup!(background_color, BackgroundColorValue, BackgroundColor);
+    add_property_lookup_with_default!(color, Color, Color, Color::BLACK);
 }
 
 fn filter_matching_rules(
