@@ -63,6 +63,8 @@ impl InlineFormattingContext {
         let mut cursor = position;
         let mut fragments = vec![];
         let mut line_box_height = CSSPixels::ZERO;
+        let mut has_seen_relevant_content = false;
+
         for inline_level_box in self.elements() {
             match inline_level_box {
                 InlineLevelBox::TextRun(text) => {
@@ -91,6 +93,9 @@ impl InlineFormattingContext {
                         .trim_end()
                         .to_string();
 
+                    has_seen_relevant_content |=
+                        collapsed_text.contains(|c: char| !c.is_whitespace());
+
                     let fragment = Fragment::Text(TextFragment::new(
                         collapsed_text,
                         cursor,
@@ -102,11 +107,17 @@ impl InlineFormattingContext {
                     cursor.x += width;
                 },
                 InlineLevelBox::InlineBox(_inline_box) => {
+                    // has_seen_relevant_content = true;
                     todo!("fragment inline boxes")
                 },
             }
         }
-        (fragments, line_box_height)
+
+        if has_seen_relevant_content {
+            (fragments, line_box_height)
+        } else {
+            (vec![], CSSPixels::ZERO)
+        }
     }
 }
 
