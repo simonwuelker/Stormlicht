@@ -16,6 +16,8 @@ use crate::{
     dom::{dom_objects, DOMPtr},
 };
 
+use super::TextRun;
+
 #[derive(Clone)]
 pub struct BoxTreeBuilder<'a> {
     style_computer: StyleComputer<'a>,
@@ -33,13 +35,13 @@ impl<'a> BoxTreeBuilder<'a> {
     ) -> BlockContainer {
         let mut builder = Self {
             style_computer,
-            style,
+            style: style.clone(),
             block_level_boxes: Vec::new(),
             current_inline_formatting_context: InlineFormattingContext::default(),
             inline_stack: Vec::new(),
         };
 
-        builder.traverse_subtree(node);
+        builder.traverse_subtree(node, style);
 
         if !builder.current_inline_formatting_context.is_empty() {
             if builder.block_level_boxes.is_empty() {
@@ -53,7 +55,11 @@ impl<'a> BoxTreeBuilder<'a> {
         BlockContainer::BlockLevelBoxes(builder.block_level_boxes)
     }
 
-    fn traverse_subtree(&mut self, node: DOMPtr<dom_objects::Node>) {
+    fn traverse_subtree(
+        &mut self,
+        node: DOMPtr<dom_objects::Node>,
+        parent_style: Rc<ComputedStyle>,
+    ) {
         for child in node.borrow().children() {
             if let Some(element) = child.try_into_type::<dom_objects::Element>() {
                 let computed_style = Rc::new(self.style_computer.get_computed_style(element));
@@ -72,7 +78,8 @@ impl<'a> BoxTreeBuilder<'a> {
                 // does not generate inline boxes
                 let text = text.borrow();
                 if text.content().contains(|c: char| !c.is_whitespace()) {
-                    self.push_text(text.content());
+                    let text_run = TextRun::new(text.content().to_owned(), parent_style.clone());
+                    self.push_text(text_run);
                 }
             }
         }
@@ -90,8 +97,9 @@ impl<'a> BoxTreeBuilder<'a> {
             ));
     }
 
-    fn push_text(&mut self, text: &str) {
-        let text_box = InlineLevelBox::TextRun(text.to_owned());
+    fn push_text(&mut self, text_run: TextRun) {
+        let text_box = InlineLevelBox::TextRun(text_run);
+
         if let Some(top_box) = self.inline_stack.last_mut() {
             top_box.push(text_box);
         } else {
@@ -101,10 +109,11 @@ impl<'a> BoxTreeBuilder<'a> {
     }
 
     fn push_inline_box(&mut self, node: DOMPtr<dom_objects::Node>, style: Rc<ComputedStyle>) {
-        self.inline_stack.push(InlineBox::new(node.clone(), style));
+        self.inline_stack
+            .push(InlineBox::new(node.clone(), style.clone()));
 
         // Traverse all children, they will be appended to the inline box we just created
-        self.traverse_subtree(node);
+        self.traverse_subtree(node, style);
 
         // Pop the inline box from the stack and append it to its parents list of children
         // unless the stack of open inline boxes is empty, in which case this was a top level box

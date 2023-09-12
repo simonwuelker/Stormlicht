@@ -19,7 +19,13 @@ use crate::{
 #[derive(Clone, Debug)]
 pub enum InlineLevelBox {
     InlineBox(InlineBox),
-    TextRun(String),
+    TextRun(TextRun),
+}
+
+#[derive(Clone, Debug)]
+pub struct TextRun {
+    text: String,
+    style: Rc<ComputedStyle>,
 }
 
 /// <https://drafts.csswg.org/css2/#inline-box>
@@ -34,6 +40,24 @@ pub struct InlineBox {
 #[derive(Clone, Debug, Default)]
 pub struct InlineFormattingContext {
     elements: Vec<InlineLevelBox>,
+}
+
+impl TextRun {
+    pub fn new(text: String, style: Rc<ComputedStyle>) -> Self {
+        Self { text, style }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn style(&self) -> Rc<ComputedStyle> {
+        self.style.clone()
+    }
 }
 
 impl InlineFormattingContext {
@@ -67,10 +91,10 @@ impl InlineFormattingContext {
 
         for inline_level_box in self.elements() {
             match inline_level_box {
-                InlineLevelBox::TextRun(text) => {
+                InlineLevelBox::TextRun(text_run) => {
                     // FIXME: Respect the elements actual font
                     let font_metrics = FontMetrics::default();
-                    let width = font_metrics.width_of(text);
+                    let width = font_metrics.width_of(text_run.text());
 
                     if line_box_height < font_metrics.size {
                         line_box_height = font_metrics.size;
@@ -78,7 +102,7 @@ impl InlineFormattingContext {
 
                     // Collapse sequences of whitespace in the text
                     let mut previous_c_was_whitespace = true;
-                    let mut text_without_whitespace_sequences = text.clone();
+                    let mut text_without_whitespace_sequences = text_run.text().to_owned();
                     text_without_whitespace_sequences.retain(|c| {
                         let is_whitespace = c.is_whitespace();
                         let retain = !is_whitespace || !previous_c_was_whitespace;
@@ -172,9 +196,9 @@ impl TreeDebug for InlineFormattingContext {
 impl TreeDebug for InlineLevelBox {
     fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> std::fmt::Result {
         match self {
-            Self::TextRun(text) => {
+            Self::TextRun(text_run) => {
                 formatter.indent()?;
-                formatter.write_text(text)?;
+                formatter.write_text(text_run.text())?;
                 writeln!(formatter)?;
             },
             Self::InlineBox(inline_box) => {
