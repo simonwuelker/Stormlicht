@@ -45,7 +45,10 @@ extern "C" {
 pub fn main() -> ExitCode {
     // Register a custom panic handler
     std::panic::update_hook(move |prev, info| {
-        println!("The browser has panicked. This is a bug. Please open an issue at {}, including the debug information below. Thanks!\n", env!("CARGO_PKG_REPOSITORY"));
+        eprintln!(
+            "The browser has panicked. This is a bug. Please open an issue at {}, including the debug information below. Thanks!\n", 
+            env!("CARGO_PKG_REPOSITORY")
+        );
         prev(info);
     });
 
