@@ -46,8 +46,6 @@ impl BrowsingContext {
             "Parsed document in {}ms",
             parse_end.duration_since(parse_start).as_millis()
         );
-        log::info!("{:?}", document);
-        log::info!("Found {} stylesheets, {stylesheets:?}", stylesheets.len());
 
         Ok(Self {
             document,
@@ -56,14 +54,20 @@ impl BrowsingContext {
     }
 
     pub fn paint(&self, to: &mut Composition, viewport_size: (u16, u16)) {
+        let layout_start = time::Instant::now();
         let style_computer = StyleComputer::new(&self.stylesheets);
 
         // Build a box tree for the parsed document
         let box_tree = BlockFormattingContext::root(self.document.clone(), style_computer);
-        log::info!("box tree: \n{box_tree:?}");
 
         // Build a fragment tree by fragmenting the boxes
         let fragment_tree = box_tree.fragment(viewport_size);
+
+        let layout_end = time::Instant::now();
+        log::info!(
+            "Layout took {}ms",
+            layout_end.duration_since(layout_start).as_millis()
+        );
 
         // Paint the fragment_tree to the screen
         let mut painter = Painter::default();
