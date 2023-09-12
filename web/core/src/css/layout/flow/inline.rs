@@ -74,8 +74,25 @@ impl InlineFormattingContext {
                         line_box_height = font_metrics.size;
                     }
 
+                    // Collapse sequences of whitespace in the text
+                    let mut previous_c_was_whitespace = true;
+                    let mut text_without_whitespace_sequences = text.clone();
+                    text_without_whitespace_sequences.retain(|c| {
+                        let is_whitespace = c.is_whitespace();
+                        let retain = !is_whitespace || !previous_c_was_whitespace;
+                        previous_c_was_whitespace = is_whitespace;
+                        retain
+                    });
+
+                    // The previous collapse algorithm also removed leading whitespace, now we just need to remove
+                    // trailing whitespace
+                    let collapsed_text = text_without_whitespace_sequences
+                        .as_str()
+                        .trim_end()
+                        .to_string();
+
                     let fragment = Fragment::Text(TextFragment::new(
-                        text.clone(),
+                        collapsed_text,
                         cursor,
                         Color::BLACK,
                         font_metrics,
