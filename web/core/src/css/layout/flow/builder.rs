@@ -68,7 +68,12 @@ impl<'a> BoxTreeBuilder<'a> {
                     self.push_block_box(child.clone(), computed_style);
                 }
             } else if let Some(text) = child.try_into_type::<dom_objects::Text>() {
-                self.push_text(text.borrow().content());
+                // Content that would later be collapsed away according to the white-space property
+                // does not generate inline boxes
+                let text = text.borrow();
+                if text.content().contains(|c: char| !c.is_whitespace()) {
+                    self.push_text(text.content());
+                }
             }
         }
     }
