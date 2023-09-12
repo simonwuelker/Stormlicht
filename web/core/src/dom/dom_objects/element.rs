@@ -39,6 +39,7 @@ impl Element {
         }
     }
 
+    #[inline]
     pub fn local_name(&self) -> InternedString {
         self.local_name
     }

@@ -366,7 +366,8 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#closing-elements-that-have-implied-end-tags>
-    fn _generate_implied_end_tags(&mut self) {
+    #[inline]
+    fn generate_implied_end_tags(&mut self) {
         self.generate_implied_end_tags_excluding(None);
     }
 
@@ -1353,7 +1354,16 @@ impl<P: ParseErrorHandler> Parser<P> {
                                 || tagdata.name == static_interned!("h5")
                                 || tagdata.name == static_interned!("h6")) =>
                     {
-                        todo!()
+                        // If the stack of open elements has a p element in button scope, then close a p element.
+                        if self.is_element_in_button_scope(DOMType::HTMLParagraphElement) {
+                            self.close_p_element();
+                        }
+
+                        // FIXME: If the current node is an HTML element whose tag name is one of
+                        //        "h1", "h2", "h3", "h4", "h5", or "h6", then this is a parse error;
+                        //        pop the current node off the stack of open elements.
+
+                        self.insert_html_element_for_token(&tagdata);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
@@ -1461,7 +1471,36 @@ impl<P: ParseErrorHandler> Parser<P> {
                                 || tagdata.name == static_interned!("h5")
                                 || tagdata.name == static_interned!("h6")) =>
                     {
-                        todo!()
+                        // FIXME: If the stack of open elements does not have an element in scope that is an HTML element
+                        //        and whose tag name is one of "h1", "h2", "h3", "h4", "h5", or "h6",
+                        //        then this is a parse error; ignore the token.
+
+                        // Otherwise, run these steps:
+
+                        // 1. Generate implied end tags.
+                        self.generate_implied_end_tags();
+
+                        // 2. FIXME: If the current node is not an HTML element with the same tag name as that of the token,
+                        //           then this is a parse error.
+
+                        // 3. Pop elements from the stack of open elements until an HTML element whose tag name is one of
+                        //    "h1", "h2", "h3", "h4", "h5", or "h6" has been popped from the stack.
+                        while let Some(popped_element) = self.pop_from_open_elements() {
+                            if let Some(element) = popped_element.try_into_type::<Element>() {
+                                let tag_name = element.borrow().local_name();
+                                if matches!(
+                                    tag_name,
+                                    static_interned!("h1")
+                                        | static_interned!("h2")
+                                        | static_interned!("h3")
+                                        | static_interned!("h4")
+                                        | static_interned!("h5")
+                                        | static_interned!("h6")
+                                ) {
+                                    break;
+                                }
+                            }
+                        }
                     },
                     Token::Tag(ref tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("a") =>
