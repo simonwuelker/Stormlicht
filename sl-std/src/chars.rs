@@ -93,10 +93,7 @@ where
 
     pub fn current(&self) -> Option<char> {
         if let State::Within = self.state {
-            let c = self.source()[self.pos..]
-                .chars()
-                .nth(0)
-                .expect("pos was a char boundary");
+            let c = self.source()[self.pos..].chars().nth(0)?;
             Some(c)
         } else {
             None
@@ -124,10 +121,7 @@ where
             State::Within => {
                 debug_assert!(self.source().is_char_boundary(self.pos));
 
-                let c = self.source()[self.pos..]
-                    .chars()
-                    .nth(0)
-                    .expect("pos was a char boundary");
+                let c = self.source()[self.pos..].chars().nth(0)?;
 
                 let length = c.len_utf8();
 
@@ -173,5 +167,13 @@ mod tests {
         iter.go_back_n(5);
         assert_eq!(iter.next(), None);
         assert_eq!(iter.next(), Some('💚'));
+    }
+
+    #[test]
+    fn test_empty() {
+        let mut iter = ReversibleCharIterator::new("");
+
+        assert_eq!(iter.current(), None);
+        assert_eq!(iter.next(), None);
     }
 }
