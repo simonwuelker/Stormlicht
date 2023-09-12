@@ -47,6 +47,17 @@ impl<T> Vec2D<T> {
     pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
     }
+
+    #[inline]
+    pub fn map<U, F>(self, f: F) -> Vec2D<U>
+    where
+        F: Fn(T) -> U,
+    {
+        Vec2D {
+            x: f(self.x),
+            y: f(self.y),
+        }
+    }
 }
 
 impl<T: Add<Output = T> + Div<i32, Output = T>> Vec2D<T> {
