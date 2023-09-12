@@ -183,13 +183,15 @@ impl Font {
 
         let glyphs = self.path_objects(text);
         for glyph in glyphs {
-            let scale_point = |glyph_point: math::Vec2D<i16>| math::Vec2D {
-                x: self.scale(glyph_point.x, font_size),
-                y: self.scale(glyph_point.y, font_size),
+            // Converts from font space to display point space
+            let scale = |value_in_font_space| {
+                (value_in_font_space as f32 * font_size) / self.units_per_em() as f32
             };
 
             let glyph_dimension =
-                scale_point(Vec2D::new(glyph.metrics.max_x, glyph.metrics.max_y) + glyph.position);
+                (Vec2D::new(glyph.metrics.max_x as i32, glyph.metrics.max_y as i32)
+                    + glyph.position)
+                    .map(scale);
 
             width = width.max(glyph_dimension.x);
         }
@@ -206,9 +208,9 @@ impl Font {
     ) {
         let glyphs = self.path_objects(text);
         for glyph in glyphs {
-            let scale_point = |glyph_point: math::Vec2D<i16>| math::Vec2D {
-                x: self.scale(glyph_point.x, font_size),
-                y: font_size - self.scale(glyph_point.y, font_size),
+            let scale_point = |glyph_point: math::Vec2D<i32>| math::Vec2D {
+                x: (glyph_point.x as f32 * font_size) / self.units_per_em() as f32,
+                y: font_size - (glyph_point.y as f32 * font_size) / self.units_per_em() as f32,
             };
 
             // Draw the outlines of the glyph on the rasterizer buffer
@@ -237,11 +239,6 @@ impl Font {
         RenderedGlyphIterator::new(self, text)
     }
 
-    /// Converts a value from font units to pixel size
-    fn scale<V: Into<f32>>(&self, value: V, font_size: f32) -> f32 {
-        (value.into() * font_size) / self.units_per_em() as f32
-    }
-
     pub fn render_as_svg(&self, text: &str, id_prefix: &str) -> String {
         let mut min_x = 0;
         let mut max_x = 0;
@@ -257,10 +254,10 @@ impl Font {
         // First pass calculates the textbox dimensions
         // Second pass renders the actual glyphs
         for glyph in &path_objects {
-            min_x = min_x.min(glyph.position.x + glyph.metrics.min_x);
-            min_y = min_y.min(glyph.position.y + glyph.metrics.min_y);
-            max_x = max_x.max(glyph.position.x + glyph.metrics.max_x);
-            max_y = max_y.max(glyph.position.y + glyph.metrics.max_y);
+            min_x = min_x.min(glyph.position.x + glyph.metrics.min_x as i32);
+            min_y = min_y.min(glyph.position.y + glyph.metrics.min_y as i32);
+            max_x = max_x.max(glyph.position.x + glyph.metrics.max_x as i32);
+            max_y = max_y.max(glyph.position.y + glyph.metrics.max_y as i32);
         }
 
         for (index, glyph) in path_objects.into_iter().enumerate() {
@@ -335,17 +332,17 @@ pub fn read_i16_at(data: &[u8], offset: usize) -> i16 {
 
 pub struct RenderedGlyph<'a> {
     metrics: Metrics,
-    position: math::Vec2D<i16>,
+    position: math::Vec2D<i32>,
     path_operations: PathReader<GlyphPointIterator<'a>>,
 }
 
 pub struct RenderedGlyphIterator<'a, 'b> {
     font: &'a Font,
-    x: i16,
-    y: i16,
+    x: i32,
+    y: i32,
     chars: std::str::Chars<'b>,
     current_compound_glyphs: Vec<CompoundGlyph<'a>>,
-    advance_before_next_glyph: i16,
+    advance_before_next_glyph: i32,
 }
 
 impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
@@ -360,8 +357,8 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
                 if let Some(component) = current_glyph.next() {
                     (
                         component.glyph_id,
-                        self.x + component.x_offset,
-                        self.y + component.y_offset,
+                        self.x + component.x_offset as i32,
+                        self.y + component.y_offset as i32,
                     )
                 } else {
                     // We are done emitting all parts of the current component glyph, pop it from the stack and start again
@@ -377,9 +374,9 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
                     .get_glyph_id(c as u16)
                     .unwrap_or(GlyphID::REPLACEMENT);
                 let horizontal_metrics = self.font.hmtx_table.get_metric_for(glyph_id);
-                let glyph_x = self.x + horizontal_metrics.left_side_bearing();
+                let glyph_x = self.x + horizontal_metrics.left_side_bearing() as i32;
 
-                self.advance_before_next_glyph = horizontal_metrics.advance_width() as i16;
+                self.advance_before_next_glyph = horizontal_metrics.advance_width() as i32;
 
                 (glyph_id, glyph_x, self.y)
             };

@@ -302,7 +302,7 @@ impl GlyphFlag {
 pub struct GlyphPoint {
     pub is_on_curve: bool,
     pub is_last_point_of_contour: bool,
-    pub coordinates: Vec2D<i16>,
+    pub coordinates: Vec2D<i32>,
 }
 
 #[derive(Debug)]
@@ -430,7 +430,7 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
         let glyph_point = GlyphPoint {
             is_on_curve: self.current_flag.is_on_curve(), // All other flags are just relevant for parsing
             is_last_point_of_contour: is_last_point,
-            coordinates: new_point,
+            coordinates: new_point.map(i32::from),
         };
 
         self.points_emitted += 1;

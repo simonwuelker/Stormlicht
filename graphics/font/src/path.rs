@@ -3,14 +3,14 @@ use math::Vec2D;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Operation {
-    LineTo(Vec2D<i16>),
-    QuadBezTo(Vec2D<i16>, Vec2D<i16>),
-    MoveTo(Vec2D<i16>),
+    LineTo(Vec2D<i32>),
+    QuadBezTo(Vec2D<i32>, Vec2D<i32>),
+    MoveTo(Vec2D<i32>),
 }
 
 pub struct PathReader<I: Iterator<Item = GlyphPoint>> {
     inner: I,
-    last_on_curve_point: Option<Vec2D<i16>>,
+    last_on_curve_point: Option<Vec2D<i32>>,
     previous_point: Option<GlyphPoint>,
     first_point_of_contour: Option<GlyphPoint>,
     state: PathReaderState,
