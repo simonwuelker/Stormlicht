@@ -18,6 +18,8 @@ use dom_objects::{
     HTMLTemplateElement, HTMLTitleElement,
 };
 
+use self::dom_objects::HTMLHeadingElement;
+
 /// <https://dom.spec.whatwg.org/#concept-element-custom-element-state>
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum ElementCustomState {
@@ -173,8 +175,20 @@ fn create_element_for_interface(
             DOMPtr::new(HTMLTitleElement::new(HTMLElement::new(element_data)))
                 .into_type::<Element>()
         },
+        static_interned!("h1")
+        | static_interned!("h2")
+        | static_interned!("h3")
+        | static_interned!("h4")
+        | static_interned!("h5")
+        | static_interned!("h6") => {
+            DOMPtr::new(HTMLHeadingElement::new(HTMLElement::new(element_data)))
+                .into_type::<Element>()
+        },
         _ => {
-            log::warn!("Failed to create element for interface {:?}", local_name.to_string());
+            log::warn!(
+                "Failed to create element for interface {:?}",
+                local_name.to_string()
+            );
             DOMPtr::new(element_data)
         },
     }
