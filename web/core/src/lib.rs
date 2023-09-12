@@ -2,7 +2,8 @@
     exclusive_range_pattern,
     associated_type_defaults,
     let_chains,
-    lazy_cell
+    lazy_cell,
+    iter_advance_by
 )]
 
 mod browsing_context;

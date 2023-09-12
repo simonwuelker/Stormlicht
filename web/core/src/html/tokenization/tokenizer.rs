@@ -1,4 +1,6 @@
 //! The [HTML Tokenizer](https://html.spec.whatwg.org/multipage/parsing.html#tokenization)
+use sl_std::chars::ReversibleCharIterator;
+
 use super::{
     lookup_character_reference,
     token::{CurrentToken, TagBuilder, TokenBuilder},
@@ -258,15 +260,13 @@ pub enum TokenizerState {
     NumericCharacterReferenceEnd,
 }
 
+#[derive(Clone, Debug)]
 pub struct Tokenizer<P: ParseErrorHandler> {
     /// The source code that is being tokenized
-    source: String,
+    source: ReversibleCharIterator<String>,
 
     /// The current state of the state machine
     state: TokenizerState,
-
-    /// Index of the next character to be fed to the tokenizer
-    ptr: usize,
 
     /// Whether or not we should continue tokenizing
     pub done: bool,
@@ -293,14 +293,13 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
         let source = infra::normalize_newlines(source);
 
         Self {
-            source: source,
+            source: ReversibleCharIterator::new(source),
             state: TokenizerState::Data,
             return_state: None,
             current_token: CurrentToken::default(),
             last_emitted_start_tag_name: None,
             character_reference_code: 0,
             buffer: None,
-            ptr: 0,
             done: false,
             token_buffer: VecDeque::new(),
             phantom_data: PhantomData,
@@ -330,7 +329,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
     }
 
     fn reconsume_in(&mut self, new_state: TokenizerState) {
-        self.ptr -= 1;
+        self.source.go_back();
         self.switch_to(new_state)
     }
 
@@ -410,9 +409,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
     /// Reads the next character from the input strea,
     fn read_next(&mut self) -> Option<char> {
-        let c = self.source.chars().nth(self.ptr);
-        self.ptr += 1;
-        c
+        self.source.next()
+        // let c = self.source.chars().nth(self.ptr);
+        // self.ptr += 1;
+        // c
     }
 
     pub fn step(&mut self) {
@@ -1803,22 +1803,22 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
             // https://html.spec.whatwg.org/multipage/parsing.html#markup-declaration-open-state
             TokenizerState::MarkupDeclarationOpen => {
                 // If the next few characters are:
-                if &self.source[self.ptr..self.ptr + 2] == "--" {
+                if self.source.remaining().starts_with("--") {
                     // Consume those two characters, create a comment token whose data is the empty
                     // string, and switch to the comment start state.
-                    self.ptr += 2;
+                    let _ = self.source.advance_by(2);
                     self.current_token.create_comment();
                     self.switch_to(TokenizerState::CommentStart);
-                } else if self.source[self.ptr..self.ptr + 7].eq_ignore_ascii_case("DOCTYPE") {
+                } else if self.source.remaining()[..7].eq_ignore_ascii_case("DOCTYPE") {
                     // Consume those characters and switch to the DOCTYPE state.
-                    self.ptr += 7;
+                    let _ = self.source.advance_by(7);
                     self.switch_to(TokenizerState::DOCTYPE);
-                } else if &self.source[self.ptr..self.ptr + 7] == "[CDATA[" {
+                } else if self.source.remaining().starts_with("[CDATA[") {
                     // Consume those characters. If there is an adjusted current node and it is not
                     // an element in the HTML namespace, then switch to the CDATA section state.
                     // Otherwise, this is a cdata-in-html-content parse error. Create a comment
                     // token whose data is the "[CDATA[" string. Switch to the bogus comment state.
-                    self.ptr += 7;
+                    let _ = self.source.advance_by(7);
                     todo!();
                 } else {
                     // This is an incorrectly-opened-comment parse error.
@@ -2291,16 +2291,19 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit(Token::EOF);
                     },
                     Some(_) => {
-                        self.ptr -= 1;
+                        // NOTE: the next tests include the current input character,
+                        //       so we go back one and effectively reconsume it.
+                        self.source.go_back();
 
                         // If the six characters starting from the current input character are
                         // an ASCII case-insensitive match for the word "PUBLIC",
-                        if self.source.len() > self.ptr + 6 {
-                            let next_six_chars = &self.source[self.ptr..self.ptr + 6];
+                        if self.source.remaining().len() > 6 {
+                            let next_six_chars = &self.source.remaining()[..6];
                             if next_six_chars.eq_ignore_ascii_case("PUBLIC") {
-                                // then consume those characters and switch
-                                // to the after DOCTYPE public keyword state.
-                                self.ptr += 6;
+                                // then consume those characters
+                                let _ = self.source.advance_by(6);
+
+                                // and switch to the after DOCTYPE public keyword state.
                                 self.switch_to(TokenizerState::AfterDOCTYPEPublicKeyword);
                                 return;
                             }
@@ -2308,9 +2311,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                             // character are an ASCII case-insensitive match for the word
                             // "SYSTEM",
                             else if next_six_chars.eq_ignore_ascii_case("SYSTEM") {
-                                // then consume those characters and switch to the after
-                                // DOCTYPE system keyword state.
-                                self.ptr += 6;
+                                // then consume those characters
+                                let _ = self.source.advance_by(6);
+
+                                // and switch to the after DOCTYPE system keyword state.
                                 self.switch_to(TokenizerState::AfterDOCTYPESystemKeyword);
                                 return;
                             }
@@ -3060,9 +3064,9 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#named-character-reference-state
             TokenizerState::NamedCharacterReference => {
-                match lookup_character_reference(&self.source[self.ptr..]) {
+                match lookup_character_reference(self.source.remaining()) {
                     Some((resolved_reference, matched_str)) => {
-                        self.ptr += matched_str.len();
+                        let _ = self.source.advance_by(matched_str.len());
 
                         // FIXME:
                         // If the character reference was consumed as part of an attribute, and

@@ -386,6 +386,7 @@ dependencies = [
  "proc-macro2",
  "render",
  "serialize",
+ "sl-std",
  "string_interner",
  "syn 1.0.109",
  "url",
