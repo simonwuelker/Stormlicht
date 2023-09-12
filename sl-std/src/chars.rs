@@ -6,8 +6,8 @@ pub enum State {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct ReversibleCharIterator<'str> {
-    source: &'str str,
+pub struct ReversibleCharIterator<T> {
+    source: T,
     /// The current byte position of the iterator
     ///
     /// At all times, this is guaranteed to point to a character boundary
@@ -16,8 +16,13 @@ pub struct ReversibleCharIterator<'str> {
     state: State,
 }
 
-impl<'str> ReversibleCharIterator<'str> {
-    pub fn new(source: &'str str) -> Self {
+impl<T> ReversibleCharIterator<T>
+where
+    T: AsRef<str>,
+{
+    #[inline]
+    #[must_use]
+    pub fn new(source: T) -> Self {
         Self {
             source,
             pos: 0,
@@ -25,16 +30,22 @@ impl<'str> ReversibleCharIterator<'str> {
         }
     }
 
+    #[inline]
+    #[must_use]
     pub fn source(&self) -> &str {
-        self.source
+        self.source.as_ref()
     }
 
+    #[inline]
+    #[must_use]
     pub fn state(&self) -> State {
         self.state
     }
 
+    #[inline]
+    #[must_use]
     pub fn remaining(&self) -> &str {
-        &self.source[self.pos..]
+        &self.source.as_ref()[self.pos..]
     }
 
     pub fn go_back(&mut self) {
@@ -46,10 +57,10 @@ impl<'str> ReversibleCharIterator<'str> {
                 if self.pos == 0 {
                     self.state = State::BeforeStart(0);
                 } else {
-                    debug_assert!(self.source.is_char_boundary(self.pos));
+                    debug_assert!(self.source().is_char_boundary(self.pos));
 
                     // Find the byte position of the previous character
-                    self.pos = self.source.floor_char_boundary(self.pos - 1);
+                    self.pos = self.source().floor_char_boundary(self.pos - 1);
                 }
             },
             State::AfterEnd(ref mut n) => {
@@ -62,6 +73,7 @@ impl<'str> ReversibleCharIterator<'str> {
         }
     }
 
+    #[inline]
     pub fn go_back_n(&mut self, n: usize) {
         for _ in 0..n {
             self.go_back();
@@ -74,14 +86,14 @@ impl<'str> ReversibleCharIterator<'str> {
     /// This function panics if the specified byte position is not a
     /// character boundary.
     pub fn set_position(&mut self, pos: usize) {
-        assert!(self.source.is_char_boundary(pos));
+        assert!(self.source.as_ref().is_char_boundary(pos));
         self.state = State::Within;
         self.pos = pos;
     }
 
     pub fn current(&self) -> Option<char> {
         if let State::Within = self.state {
-            let c = self.source[self.pos..]
+            let c = self.source()[self.pos..]
                 .chars()
                 .nth(0)
                 .expect("pos was a char boundary");
@@ -92,7 +104,10 @@ impl<'str> ReversibleCharIterator<'str> {
     }
 }
 
-impl<'str> Iterator for ReversibleCharIterator<'str> {
+impl<T> Iterator for ReversibleCharIterator<T>
+where
+    T: AsRef<str>,
+{
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -107,9 +122,9 @@ impl<'str> Iterator for ReversibleCharIterator<'str> {
                 None
             },
             State::Within => {
-                debug_assert!(self.source.is_char_boundary(self.pos));
+                debug_assert!(self.source().is_char_boundary(self.pos));
 
-                let c = self.source[self.pos..]
+                let c = self.source()[self.pos..]
                     .chars()
                     .nth(0)
                     .expect("pos was a char boundary");
@@ -117,7 +132,7 @@ impl<'str> Iterator for ReversibleCharIterator<'str> {
                 let length = c.len_utf8();
 
                 // Ensure that self.pos never points past the end of source
-                if self.pos + length != self.source.len() {
+                if self.pos + length != self.source().len() {
                     self.pos += c.len_utf8();
                 } else {
                     self.state = State::AfterEnd(0)

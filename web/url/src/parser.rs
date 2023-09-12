@@ -46,7 +46,7 @@ pub enum URLParserState {
 pub(crate) struct URLParser<'a, H> {
     pub(crate) url: URL,
     pub(crate) base: Option<URL>,
-    pub(crate) input: ReversibleCharIterator<'a>,
+    pub(crate) input: ReversibleCharIterator<&'a str>,
     pub(crate) state: URLParserState,
     pub(crate) buffer: String,
     pub(crate) at_sign_seen: bool,
