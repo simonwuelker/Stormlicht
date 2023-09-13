@@ -159,7 +159,7 @@ impl<'a> Parser<'a> {
     #[inline]
     pub fn state(&self) -> ParserState {
         ParserState {
-            position: self.tokenizer.position(),
+            position: self.tokenizer.get_position(),
             buffered_token: self.buffered_token.clone(),
             stopped: self.stopped,
         }
@@ -430,14 +430,14 @@ impl<'a> Parser<'a> {
         F: Fn(&mut Self) -> Result<T, ParseError>,
     {
         // Remember where we were at before we parsed a list
-        let position = self.tokenizer.position();
+        let position = self.tokenizer.get_position();
         let has_token_buffered = self.buffered_token.is_some();
 
         // Apply the parser
         let parsed_token = closure(self)?;
 
         // Fail if our reader was not advanced
-        if self.tokenizer.position() == position
+        if self.tokenizer.get_position() == position
             && self.buffered_token.is_some() == has_token_buffered
         {
             Err(ParseError)

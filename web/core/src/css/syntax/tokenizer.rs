@@ -1,3 +1,4 @@
+use sl_std::chars::ReversibleCharIterator;
 use string_interner::InternedString;
 
 use crate::css::values::Number;
@@ -55,44 +56,52 @@ pub enum Token {
 
 #[derive(Clone, Copy, Debug)]
 pub struct Tokenizer<'a> {
-    source: &'a str,
-    position: usize,
+    source: ReversibleCharIterator<&'a str>,
 }
 
 impl<'a> Tokenizer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
-            source,
-            position: 0,
+            source: ReversibleCharIterator::new(source),
         }
     }
 
     /// Get the current position of the [Tokenizer].
     ///
     /// This can later be used to "reset" it using [set_position](Tokenizer::set_position).
-    /// Note that this causes the same source string to be retokenizer a second time.
+    /// Note that this causes the same source string to be retokenized a second time.
     /// Since this method is mostly used by the [Parser](crate::parser::Parser) to parse **small** optional tokens,
     /// this is not expected to be a problem, but should be kept in mind anyways.
-    pub fn position(&self) -> usize {
-        self.position
+    #[inline]
+    pub fn get_position(&self) -> usize {
+        self.source.position()
     }
 
     /// Set the position of the [Tokenizer]
     ///
-    /// Valid positions should be obtained from [position](Tokenizer::position).
+    /// Valid positions should be obtained from [position](Tokenizer::get_position).
+    #[inline]
     pub fn set_position(&mut self, position: usize) {
-        self.position = position;
+        self.source.set_position(position)
     }
 
+    #[inline]
     fn reconsume(&mut self) {
-        self.position -= 1;
+        self.source.go_back();
     }
 
+    #[inline]
     fn peek_codepoint(&self, n: usize) -> Option<char> {
-        self.source.chars().nth(self.position + n)
+        self.source.remaining().chars().nth(n)
+    }
+
+    #[inline]
+    fn advance(&mut self, n: usize) {
+        let _ = self.source.advance_by(n);
     }
 
     /// <https://drafts.csswg.org/css-syntax/#check-if-two-code-points-are-a-valid-escape>
+    #[inline]
     fn is_valid_escape_start(&self) -> bool {
         is_valid_escape(self.peek_codepoint(0), self.peek_codepoint(1))
     }
@@ -122,6 +131,18 @@ impl<'a> Tokenizer<'a> {
                 // Return false.
                 false
             },
+        }
+    }
+
+    #[inline]
+    fn next_codepoint(&mut self) -> Option<char> {
+        self.source.next()
+    }
+
+    #[inline]
+    fn consume_whitespace(&mut self) {
+        while matches!(self.peek_codepoint(0), Some(NEWLINE | TAB | WHITESPACE)) {
+            self.advance(1);
         }
     }
 
@@ -161,25 +182,6 @@ impl<'a> Tokenizer<'a> {
                 // Return false.
                 false
             },
-        }
-    }
-
-    #[inline]
-    fn current_position(&self) -> usize {
-        self.position
-    }
-
-    #[inline]
-    fn next_codepoint(&mut self) -> Option<char> {
-        let c = self.source.chars().nth(self.position);
-        self.advance(1);
-        c
-    }
-
-    #[inline]
-    fn consume_whitespace(&mut self) {
-        while matches!(self.peek_codepoint(0), Some(NEWLINE | TAB | WHITESPACE)) {
-            self.advance(1);
         }
     }
 
@@ -290,7 +292,7 @@ impl<'a> Tokenizer<'a> {
 
         // NOTE we keep track of repr by remembering the starting position and slicing the source string.
         // This avoids unnecessary heap allocations
-        let start = self.current_position();
+        let start = self.get_position();
 
         // If the next input code point is U+002B PLUS SIGN (+) or U+002D HYPHEN-MINUS (-),
         if matches!(self.peek_codepoint(0), Some('+' | '-')) {
@@ -358,11 +360,12 @@ impl<'a> Tokenizer<'a> {
 
         // Convert repr to a number, and set the value to the returned value.
         // Return value and type.
-        let end = self.current_position();
+        let end = self.get_position();
+
         if is_integer {
-            Number::Integer(self.source[start..end].parse().unwrap())
+            Number::Integer(self.source.source()[start..end].parse().unwrap())
         } else {
-            Number::Number(self.source[start..end].parse().unwrap())
+            Number::Number(self.source.source()[start..end].parse().unwrap())
         }
     }
 
@@ -659,10 +662,6 @@ impl<'a> Tokenizer<'a> {
         // NOTE: we report the error above
 
         // Return nothing.
-    }
-
-    fn advance(&mut self, n: usize) {
-        self.position += n;
     }
 
     /// Read the next token from the input stream
