@@ -25,11 +25,13 @@ pub struct Stylesheet {
 }
 
 impl Stylesheet {
+    #[inline]
     #[must_use]
     pub fn new(origin: Origin, rules: Vec<StyleRule>) -> Self {
         Self { origin, rules }
     }
 
+    #[inline]
     #[must_use]
     pub fn user_agent_rules() -> Self {
         let default_css = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/default.css"));
@@ -38,11 +40,13 @@ impl Stylesheet {
             .expect("Parsing user agent CSS should never fail")
     }
 
+    #[inline]
     #[must_use]
     pub fn origin(&self) -> Origin {
         self.origin
     }
 
+    #[inline]
     #[must_use]
     pub fn rules(&self) -> &[StyleRule] {
         &self.rules
@@ -62,6 +66,7 @@ impl StyleRule {
             properties,
         }
     }
+
     #[must_use]
     pub fn selector(&self) -> &SelectorList {
         &self.selector

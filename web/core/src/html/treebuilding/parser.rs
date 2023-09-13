@@ -151,7 +151,11 @@ impl<P: ParseErrorHandler> Parser<P> {
                             css::Parser::new(text_node.borrow().content(), css::Origin::Author)
                                 .parse_stylesheet()
                         {
-                            self.stylesheets.push(stylesheet);
+                            if !stylesheet.rules().is_empty() {
+                                self.stylesheets.push(stylesheet);
+                            } else {
+                                log::debug!("Dropping empty stylesheet");
+                            }
                         }
                     }
                 }
