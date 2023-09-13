@@ -1,3 +1,5 @@
+use std::num;
+
 use sl_std::chars::ReversibleCharIterator;
 use string_interner::InternedString;
 
@@ -363,9 +365,20 @@ impl<'a> Tokenizer<'a> {
         let end = self.get_position();
 
         if is_integer {
-            Number::Integer(self.source.source()[start..end].parse().unwrap())
+            let parsed_value_or_error = self.source.source()[start..end].parse();
+            match parsed_value_or_error {
+                Ok(parsed_value) => Number::Integer(parsed_value),
+                Err(parse_int_error) => match parse_int_error.kind() {
+                    num::IntErrorKind::PosOverflow => Number::Integer(i32::MAX),
+                    num::IntErrorKind::NegOverflow => Number::Integer(i32::MIN),
+                    _ => unreachable!("Parsing would have failed earlier"),
+                },
+            }
         } else {
-            Number::Number(self.source.source()[start..end].parse().unwrap())
+            let parsed_value = self.source.source()[start..end]
+                .parse()
+                .expect("FIXME: handle float parse errors");
+            Number::Number(parsed_value)
         }
     }
 
