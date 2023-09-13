@@ -4,3 +4,4 @@
 # Benchmarking results
 perf.data*
 flamegraph.svg
+callgrind.out.*
