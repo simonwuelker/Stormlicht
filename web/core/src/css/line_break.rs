@@ -18,6 +18,19 @@ pub struct TextLine<'a> {
     pub width: CSSPixels,
 }
 
+impl<'a> LineBreakIterator<'a> {
+    #[inline]
+    #[must_use]
+    pub fn new(text: &'a str, font_metrics: FontMetrics, available_width: CSSPixels) -> Self {
+        Self {
+            text,
+            font_metrics,
+            available_width,
+            is_finished: false,
+        }
+    }
+}
+
 impl<'a> Iterator for LineBreakIterator<'a> {
     type Item = TextLine<'a>;
 

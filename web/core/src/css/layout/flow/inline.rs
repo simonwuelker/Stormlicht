@@ -9,6 +9,7 @@ use crate::{
         fragment_tree::{Fragment, TextFragment},
         layout::{CSSPixels, ContainingBlock},
         stylecomputer::ComputedStyle,
+        LineBreakIterator,
     },
     dom::{dom_objects, DOMPtr},
     TreeDebug, TreeFormatter,
@@ -81,7 +82,7 @@ impl InlineFormattingContext {
     pub fn fragment(
         &self,
         position: Vec2D<CSSPixels>,
-        _containing_block: ContainingBlock,
+        containing_block: ContainingBlock,
     ) -> (Vec<Fragment>, CSSPixels) {
         let mut cursor = position;
         let mut fragments = vec![];
@@ -93,7 +94,6 @@ impl InlineFormattingContext {
                 InlineLevelBox::TextRun(text_run) => {
                     // FIXME: Respect the elements actual font
                     let font_metrics = FontMetrics::default();
-                    let width = font_metrics.width_of(text_run.text());
 
                     if line_box_height < font_metrics.size {
                         line_box_height = font_metrics.size;
@@ -119,15 +119,26 @@ impl InlineFormattingContext {
                     has_seen_relevant_content |=
                         collapsed_text.contains(|c: char| !c.is_whitespace());
 
-                    let fragment = Fragment::Text(TextFragment::new(
-                        collapsed_text,
-                        cursor,
-                        text_run.style().color(),
-                        font_metrics,
-                    ));
-                    fragments.push(fragment);
+                    // Fragment the text into individual lines
+                    let available_width = containing_block.width();
+                    let line_iterator = LineBreakIterator::new(
+                        &collapsed_text,
+                        font_metrics.clone(),
+                        available_width,
+                    );
 
-                    cursor.x += width;
+                    for text_line in line_iterator {
+                        let fragment = Fragment::Text(TextFragment::new(
+                            text_line.text.to_string(),
+                            cursor,
+                            text_run.style().color(),
+                            font_metrics.clone(),
+                        ));
+                        fragments.push(fragment);
+
+                        cursor.x = position.x;
+                        cursor.y += font_metrics.size;
+                    }
                 },
                 InlineLevelBox::InlineBox(_inline_box) => {
                     // has_seen_relevant_content = true;
@@ -137,7 +148,7 @@ impl InlineFormattingContext {
         }
 
         if has_seen_relevant_content {
-            (fragments, line_box_height)
+            (fragments, cursor.y - position.y)
         } else {
             (vec![], CSSPixels::ZERO)
         }
