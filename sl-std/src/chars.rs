@@ -32,6 +32,12 @@ where
 
     #[inline]
     #[must_use]
+    pub fn position(&self) -> usize {
+        self.pos
+    }
+
+    #[inline]
+    #[must_use]
     pub fn source(&self) -> &str {
         self.source.as_ref()
     }
@@ -66,6 +72,9 @@ where
             State::AfterEnd(ref mut n) => {
                 if *n == 0 {
                     self.state = State::Within;
+
+                    // Find the byte position of the previous character
+                    self.pos = self.source().floor_char_boundary(self.pos - 1);
                 } else {
                     *n -= 1;
                 }
@@ -121,14 +130,10 @@ where
             State::Within => {
                 debug_assert!(self.source().is_char_boundary(self.pos));
 
-                let c = self.source()[self.pos..].chars().nth(0)?;
+                let c = self.remaining().chars().nth(0)?;
 
-                let length = c.len_utf8();
-
-                // Ensure that self.pos never points past the end of source
-                if self.pos + length != self.source().len() {
-                    self.pos += c.len_utf8();
-                } else {
+                self.pos += c.len_utf8();
+                if self.pos == self.source().len() {
                     self.state = State::AfterEnd(0)
                 }
 
@@ -175,5 +180,13 @@ mod tests {
 
         assert_eq!(iter.current(), None);
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn call_remaining_after_end() {
+        let mut iter = ReversibleCharIterator::new("a");
+        iter.next();
+
+        assert!(iter.remaining().is_empty())
     }
 }
