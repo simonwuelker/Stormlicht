@@ -40,8 +40,15 @@ impl Element {
     }
 
     #[inline]
+    #[must_use]
     pub fn local_name(&self) -> InternedString {
         self.local_name
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn namespace(&self) -> Namespace {
+        self.namespace
     }
 
     pub fn id(&self) -> InternedString {
