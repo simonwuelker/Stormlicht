@@ -17,10 +17,14 @@ impl<T: std::ops::Sub<Output = T> + Copy> Rectangle<T> {
 }
 
 impl Rectangle<f32> {
-    pub fn round_to_grid(&self) -> Rectangle<usize> {
+    /// Create a pixel-aligned rectangle containing `self`
+    ///
+    /// The aligned rectangle is chosen to be as small as possible,
+    /// but is guaranteed to contain `self` in its entirety.
+    pub fn snap_to_grid(&self) -> Rectangle<usize> {
         Rectangle {
-            top_left: self.top_left.round_to_grid(),
-            bottom_right: self.bottom_right.round_to_grid(),
+            top_left: self.top_left.map(|value| value.ceil() as usize),
+            bottom_right: self.bottom_right.map(|value| value.ceil() as usize),
         }
     }
 }

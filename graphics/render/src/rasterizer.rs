@@ -32,29 +32,41 @@ impl Rasterizer {
     /// Rasterize a 2D Line.
     /// **Greatly** inspired by <https://github.com/raphlinus/font-rs/blob/master/src/raster.rs#L44>
     pub fn draw_line(&mut self, from: Vec2D, to: Vec2D) {
+        // The rasterizer does not draw horizontal lines, those are covered by the fill
+        // algorithm
         if (from.y - to.y).abs() <= f32::EPSILON {
             return;
         }
 
+        // Make sure to always go from the lower point to the higher one
         let (direction, from, to) = if from.y < to.y {
             (1.0, from, to)
         } else {
             (-1.0, to, from)
         };
 
-        let dxdy = (to.x - from.x) / (to.y - from.y);
+        let line_slope = (to.x - from.x) / (to.y - from.y);
+
         let mut x = from.x;
         let y_start = from.y as usize;
         if from.y.is_sign_negative() {
-            x -= from.y * dxdy;
+            x -= from.y * line_slope;
         }
 
         for y in y_start..self.height.min(to.y.ceil() as usize) {
             let linestart = y * self.width;
+
+            // The y-delta covered by this line segment.
+            // Will usually be zero, except for the first and last segments
             let dy = ((y + 1) as f32).min(to.y) - (y as f32).max(from.y);
-            let xnext = x + dxdy * dy;
+
+            // The x coordinate where this line segment will end
+            let xnext = x + line_slope * dy;
+
             let d = dy * direction;
+
             let (x0, x1) = if x < xnext { (x, xnext) } else { (xnext, x) };
+
             let x0floor = x0.floor();
             let x0i = x0floor as i32;
             let x1ceil = x1.ceil();
@@ -97,6 +109,7 @@ impl Rasterizer {
     }
 
     pub fn fill(&mut self, path: &[FlattenedPathPoint]) {
+        // Draw the outlines of the shape
         for line in path.array_windows::<2>() {
             if line[1].connected {
                 self.draw_line(

@@ -148,7 +148,7 @@ impl Layer {
             // This mask determines which pixels in the bitmap should be
             // colored and which should not be.
             let outline_offset = outline_extent.top_left;
-            let outline_extent = outline_extent.round_to_grid();
+            let outline_extent = outline_extent.snap_to_grid();
             let mut rasterizer = Rasterizer::new(outline_extent, outline_offset);
             rasterizer.fill(&self.flattened_outline);
             let mask = rasterizer.into_mask();
