@@ -77,19 +77,27 @@ impl<'a> Iterator for LineBreakIterator<'a> {
         }
 
         // There are no further opportunities to split this text
-        // Return it as one single line box, ignoring the width that
-        // is actually available
         let width = CSSPixels(
             self.font_metrics
                 .font_face
                 .compute_rendered_width(self.text, self.font_metrics.size.into()),
         );
 
-        self.is_finished = true;
+        match (self.available_width < width, previous_potential_breakpoint) {
+            (true, Some((line, remainder, width))) => {
+                // We don't have enough space for the entire remainder *and*
+                // here was a valid potential before breakpoint, let's use that one instead
+                self.text = remainder.trim_start();
+                Some(TextLine { text: line, width })
+            },
+            (false, _) | (_, None) => {
+                self.is_finished = true;
 
-        Some(TextLine {
-            text: self.text,
-            width,
-        })
+                Some(TextLine {
+                    text: self.text,
+                    width,
+                })
+            },
+        }
     }
 }
