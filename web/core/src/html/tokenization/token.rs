@@ -277,4 +277,10 @@ impl TagData {
         }
         None
     }
+
+    #[inline]
+    #[must_use]
+    pub fn attributes(&self) -> &[(InternedString, InternedString)] {
+        &self.attributes
+    }
 }

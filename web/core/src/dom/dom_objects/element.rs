@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+
 use dom_derive::inherit;
-use string_interner::InternedString;
+use string_interner::{static_interned, static_str, InternedString};
 
 use crate::{display_string, dom::ElementCustomState, infra::Namespace};
 
@@ -14,6 +16,7 @@ pub struct Element {
     custom_state: ElementCustomState,
     is: Option<InternedString>,
     id: InternedString,
+    attributes: HashMap<InternedString, InternedString>,
 
     intrinsic_size: Option<math::Rectangle>,
 }
@@ -39,6 +42,12 @@ impl Element {
         }
     }
 
+    /// <https://dom.spec.whatwg.org/#concept-element-attributes-append>
+    #[inline]
+    pub fn append_attribute(&mut self, key: InternedString, value: InternedString) {
+        self.attributes.insert(key, value);
+    }
+
     #[inline]
     #[must_use]
     pub fn local_name(&self) -> InternedString {
@@ -51,8 +60,9 @@ impl Element {
         self.namespace
     }
 
-    pub fn id(&self) -> InternedString {
-        self.id
+    #[inline]
+    pub fn id(&self) -> Option<InternedString> {
+        self.attributes.get(&static_interned!("id")).copied()
     }
 
     pub fn is_replaced(&self) -> bool {

@@ -131,6 +131,8 @@ perfect_set!(
         // html attributes
         "is",
         "type",
+        "id",
+        "class",
 
         // CSS terms
         "after",
@@ -379,11 +381,12 @@ static INTERNER: LazyLock<Mutex<StringInterner>> =
 /// This has a few implications:
 /// * [InternedStrings](InternedString) are immutable
 /// * No deallocation (for now)
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InternedString {
     Static(u32),
     Dynamic(u32),
 }
+
 // https://github.com/servo/servo/issues/2217
 #[derive(Debug)]
 pub struct StringInterner {

@@ -44,8 +44,10 @@ pub fn create_element(
     // FIXME: make this spec-compliant!
 
     // 1. If prefix was not given, let prefix be null.
+    // NOTE: we treat "not given" as null
 
     // 2. If is was not given, let is be null.
+    // NOTE: we treat "not given" as null
 
     // 3. Let result be null.
     // NOTE: the part of this algorithm that is implemented does not require a result

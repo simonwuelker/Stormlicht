@@ -435,7 +435,10 @@ impl<P: ParseErrorHandler> Parser<P> {
             self.execute_script,
         );
 
-        // FIXME: Append each attribute in the given token to element.
+        // Append each attribute in the given token to element.
+        for (key, value) in tagdata.attributes() {
+            element.borrow_mut().append_attribute(*key, *value);
+        }
 
         // FIXME: If will execute script is true, then:
         //      Let queue be the result of popping from document's relevant agent's custom element reactions stack. (This will be the same element queue as was pushed above.)
