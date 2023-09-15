@@ -55,21 +55,21 @@ impl Stylesheet {
 
 #[derive(Clone, Debug)]
 pub struct StyleRule {
-    selector: SelectorList,
+    selectors: SelectorList,
     properties: Vec<StylePropertyDeclaration>,
 }
 
 impl StyleRule {
-    pub fn new(selector: SelectorList, properties: Vec<StylePropertyDeclaration>) -> Self {
+    pub fn new(selectors: SelectorList, properties: Vec<StylePropertyDeclaration>) -> Self {
         Self {
-            selector,
+            selectors,
             properties,
         }
     }
 
     #[must_use]
-    pub fn selector(&self) -> &SelectorList {
-        &self.selector
+    pub fn selectors(&self) -> &SelectorList {
+        &self.selectors
     }
 
     #[must_use]

@@ -37,13 +37,22 @@ impl CSSValidateSelector for ComplexSelectorUnit {
         {
             return false;
         }
-        self.pseudo_compound_selectors.is_valid()
+        self.pseudo_compound_selectors
+            .iter()
+            .all(CSSValidateSelector::is_valid)
     }
 }
 
 impl Selector for ComplexSelectorUnit {
-    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
-        todo!()
+    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+        !self
+            .compound_selector
+            .as_ref()
+            .is_some_and(|selector| !selector.matches(element))
+            && self
+                .pseudo_compound_selectors
+                .iter()
+                .all(|selector| selector.matches(element))
     }
 
     fn specificity(&self) -> Specificity {

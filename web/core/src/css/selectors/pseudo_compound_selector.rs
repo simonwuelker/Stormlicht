@@ -29,13 +29,21 @@ impl<'a> CSSParse<'a> for PseudoCompoundSelector {
 
 impl CSSValidateSelector for PseudoCompoundSelector {
     fn is_valid(&self) -> bool {
-        self.pseudo_element_selector.is_valid() && self.pseudo_class_selectors.is_valid()
+        self.pseudo_element_selector.is_valid()
+            && self
+                .pseudo_class_selectors
+                .iter()
+                .all(CSSValidateSelector::is_valid)
     }
 }
 
 impl Selector for PseudoCompoundSelector {
-    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
-        todo!()
+    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+        self.pseudo_element_selector.matches(element)
+            && self
+                .pseudo_class_selectors
+                .iter()
+                .all(|selector| selector.matches(element))
     }
 
     fn specificity(&self) -> Specificity {

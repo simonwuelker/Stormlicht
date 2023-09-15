@@ -58,7 +58,9 @@ impl Selector for SubClassSelector {
     fn matches(&self, element: &DOMPtr<Element>) -> bool {
         match self {
             Self::ID(id_selector) => id_selector.matches(element),
-            _ => todo!(),
+            Self::Class(class_selector) => class_selector.matches(element),
+            Self::Attribute(attribute_selector) => attribute_selector.matches(element),
+            Self::PseudoClass(pseudo_class_selector) => pseudo_class_selector.matches(element),
         }
     }
 

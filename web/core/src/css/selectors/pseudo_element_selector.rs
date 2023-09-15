@@ -46,8 +46,13 @@ impl CSSValidateSelector for PseudoElementSelector {
 }
 
 impl Selector for PseudoElementSelector {
-    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
-        todo!()
+    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+        match self {
+            Self::PseudoClass(pseudo_class_selector) => pseudo_class_selector.matches(element),
+            Self::Legacy(legacy_pseudo_element_selector) => {
+                legacy_pseudo_element_selector.matches(element)
+            },
+        }
     }
 
     fn specificity(&self) -> Specificity {

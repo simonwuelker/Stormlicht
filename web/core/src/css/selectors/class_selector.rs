@@ -32,7 +32,6 @@ impl CSSValidateSelector for ClassSelector {
 
 impl Selector for ClassSelector {
     fn matches(&self, _element: &DOMPtr<Element>) -> bool {
-        log::warn!("FIXME: Class selector matching");
         false
     }
 

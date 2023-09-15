@@ -25,7 +25,11 @@ impl<'a> StyleComputer<'a> {
 
         for stylesheet in self.stylesheets {
             for rule in stylesheet.rules() {
-                if rule.selector().matches(&element) {
+                if rule
+                    .selectors()
+                    .iter()
+                    .any(|selector| selector.matches(&element))
+                {
                     matching_rules.push(MatchingRule::new(stylesheet.origin(), rule))
                 }
             }

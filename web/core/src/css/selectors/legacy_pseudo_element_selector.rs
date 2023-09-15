@@ -50,7 +50,8 @@ impl CSSValidateSelector for LegacyPseudoElementSelector {
 
 impl Selector for LegacyPseudoElementSelector {
     fn matches(&self, _element: &DOMPtr<Element>) -> bool {
-        todo!()
+        // Unimplemented
+        false
     }
 
     fn specificity(&self) -> Specificity {

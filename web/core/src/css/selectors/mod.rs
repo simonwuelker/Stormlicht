@@ -60,7 +60,7 @@ pub fn parse_selector(parser: &mut Parser<'_>) -> Result<SelectorList, ParseErro
 
     // 2. If selector is an invalid selector for any other reason (such as, for example,
     //    containing an undeclared namespace prefix), return failure.
-    if !selector.is_valid() {
+    if !selector.iter().all(CSSValidateSelector::is_valid) {
         return Err(ParseError);
     }
 
@@ -79,20 +79,4 @@ pub trait Selector {
 
     /// Calculate the selectors [Specificity](https://drafts.csswg.org/selectors-4/#specificity)
     fn specificity(&self) -> Specificity;
-}
-
-impl<T: CSSValidateSelector> CSSValidateSelector for [T] {
-    fn is_valid(&self) -> bool {
-        self.iter().all(|element| element.is_valid())
-    }
-}
-
-impl<T: Selector> Selector for [T] {
-    fn matches(&self, element: &DOMPtr<Element>) -> bool {
-        self.iter().any(|selector| selector.matches(element))
-    }
-
-    fn specificity(&self) -> Specificity {
-        todo!()
-    }
 }
