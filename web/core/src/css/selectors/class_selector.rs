@@ -6,7 +6,7 @@ use crate::{
     dom::{dom_objects::Element, DOMPtr},
 };
 
-/// <https://drafts.csswg.org/selectors-4/#typedef-class-selector>
+/// <https://drafts.csswg.org/selectors-4/#class-html>
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClassSelector {
     pub ident: InternedString,

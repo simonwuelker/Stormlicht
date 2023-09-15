@@ -4,9 +4,10 @@ use crate::{
     dom::{dom_objects::Element, DOMPtr},
 };
 
-/// <https://drafts.csswg.org/selectors-4/#typedef-type-selector>
+/// <https://drafts.csswg.org/selectors-4/#type-selectors>
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeSelector {
+    /// <https://drafts.csswg.org/selectors-4/#type-nmsp>
     NSPrefix(Option<NSPrefix>),
     WQName(WQName),
 }

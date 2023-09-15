@@ -3,6 +3,7 @@ use std::{
     ops::{Add, AddAssign},
 };
 
+/// <https://drafts.csswg.org/selectors-4/#specificity-rules>
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct Specificity {
     /// Number of ID selectors
@@ -16,6 +17,7 @@ pub struct Specificity {
 }
 
 impl Specificity {
+    /// The specificity if no selector is present
     pub const ZERO: Self = Self::new(0, 0, 0);
 
     #[must_use]

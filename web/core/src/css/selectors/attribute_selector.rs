@@ -9,7 +9,7 @@ use super::{
     AttributeMatcher, AttributeModifier, CSSValidateSelector, Selector, Specificity, WQName,
 };
 
-/// <https://drafts.csswg.org/selectors-4/#typedef-attribute-selector>
+/// <https://drafts.csswg.org/selectors-4/#attribute-selectors>
 #[derive(Clone, Debug, PartialEq)]
 pub enum AttributeSelector {
     Exists {

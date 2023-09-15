@@ -6,7 +6,7 @@ use crate::{
     dom::{dom_objects::Element, DOMPtr},
 };
 
-/// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-class-selector>
+/// <https://drafts.csswg.org/selectors-4/#pseudo-classes>
 #[derive(Clone, Debug, PartialEq)]
 pub enum PseudoClassSelector {
     Ident(InternedString),
@@ -25,8 +25,8 @@ impl<'a> CSSParse<'a> for PseudoClassSelector {
 
         match parser.next_token() {
             Some(Token::Ident(ident)) => {
-                // LEGACY:
-                // The <pseudo-class-selector> production excludes the <legacy-pseudo-element-selector> production. (That is, :before/etc must never be parsed as a pseudo-class)
+                // LEGACY: The <pseudo-class-selector> production excludes the <legacy-pseudo-element-selector> production.
+                //         (That is, :before/etc must never be parsed as a pseudo-class)
                 match ident {
                     static_interned!("before")
                     | static_interned!("after")

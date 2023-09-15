@@ -9,7 +9,7 @@ use crate::{
     dom::{dom_objects::Element, DOMPtr},
 };
 
-/// <https://drafts.csswg.org/selectors-4/#typedef-id-selector>
+/// <https://drafts.csswg.org/selectors-4/#id-selectors>
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IDSelector {
     pub ident: InternedString,
