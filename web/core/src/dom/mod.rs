@@ -1,10 +1,12 @@
 //! <https://dom.spec.whatwg.org/>
 
+mod boundary_point;
 mod codegen;
 mod display;
 pub mod dom_objects;
 mod dom_ptr;
 
+pub use boundary_point::{BoundaryPoint, RelativePosition};
 pub use codegen::{DOMType, DOMTyped};
 pub use display::DOMDisplay;
 pub use dom_ptr::{DOMPtr, WeakDOMPtr};
