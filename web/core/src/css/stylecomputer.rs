@@ -126,6 +126,9 @@ macro_rules! add_property_lookup_with_default {
 }
 
 impl ComputedStyle {
+    const MARGIN_DEFAULT: AutoOr<PercentageOr<Length>> =
+        AutoOr::NotAuto(PercentageOr::NotPercentage(Length::ZERO));
+
     pub fn add_properties(&mut self, properties: &[StyleProperty]) {
         for property in properties {
             let discriminant = std::mem::discriminant(property);
@@ -136,10 +139,30 @@ impl ComputedStyle {
     }
 
     add_property_lookup!(display, DisplayValue, Display);
-    add_property_lookup!(margin_top, AutoOr<PercentageOr<Length>>, MarginTop);
-    add_property_lookup!(margin_right, AutoOr<PercentageOr<Length>>, MarginRight);
-    add_property_lookup!(margin_bottom, AutoOr<PercentageOr<Length>>, MarginBottom);
-    add_property_lookup!(margin_left, AutoOr<PercentageOr<Length>>, MarginLeft);
+    add_property_lookup_with_default!(
+        margin_top,
+        AutoOr<PercentageOr<Length>>,
+        MarginTop,
+        Self::MARGIN_DEFAULT
+    );
+    add_property_lookup_with_default!(
+        margin_right,
+        AutoOr<PercentageOr<Length>>,
+        MarginRight,
+        Self::MARGIN_DEFAULT
+    );
+    add_property_lookup_with_default!(
+        margin_bottom,
+        AutoOr<PercentageOr<Length>>,
+        MarginBottom,
+        Self::MARGIN_DEFAULT
+    );
+    add_property_lookup_with_default!(
+        margin_left,
+        AutoOr<PercentageOr<Length>>,
+        MarginLeft,
+        Self::MARGIN_DEFAULT
+    );
     add_property_lookup!(padding_top, PercentageOr<Length>, PaddingTop);
     add_property_lookup!(padding_right, PercentageOr<Length>, PaddingRight);
     add_property_lookup!(padding_bottom, PercentageOr<Length>, PaddingBottom);
