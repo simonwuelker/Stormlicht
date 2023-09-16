@@ -6,6 +6,7 @@ use url::URL;
 use crate::{
     css::{display_list::Painter, layout::flow::BlockFormattingContext, StyleComputer, Stylesheet},
     dom::{dom_objects, DOMPtr},
+    event,
     html::{self, tokenization::IgnoreParseErrors},
 };
 
@@ -33,6 +34,7 @@ impl BrowsingContext {
             );
             return Err(BrowsingContextError::UnsupportedMIME);
         }
+
         // FIXME: resource might not be utf-8
         let html_source = String::from_utf8_lossy(&resource.data);
 
@@ -74,5 +76,9 @@ impl BrowsingContext {
         fragment_tree.fill_display_list(&mut painter);
 
         painter.paint(to);
+    }
+
+    pub fn handle_event(&self, event: event::Event) {
+        log::info!("{event:?}");
     }
 }

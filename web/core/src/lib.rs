@@ -12,6 +12,7 @@ mod tree_debug;
 
 pub mod css;
 pub mod dom;
+pub mod event;
 pub mod html;
 pub mod infra;
 
