@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use math::{Rectangle, Vec2D};
+use math::Rectangle;
 
 use crate::css::{
     display_list::Painter,
@@ -16,13 +16,14 @@ pub struct BoxFragment {
     style: Rc<ComputedStyle>,
     margin: Sides<CSSPixels>,
     content_area: Rectangle<CSSPixels>,
+    content_area_including_overflow: Rectangle<CSSPixels>,
     children: Vec<Fragment>,
 }
 
 #[derive(Clone, Debug)]
 pub struct TextFragment {
     text: String,
-    position: Vec2D<CSSPixels>,
+    area: Rectangle<CSSPixels>,
     color: Color,
     font_metrics: FontMetrics,
 }
@@ -40,19 +41,26 @@ impl Fragment {
             Self::Text(text_fragment) => text_fragment.fill_display_list(painter),
         }
     }
+
+    pub fn content_area_including_overflow(&self) -> Rectangle<CSSPixels> {
+        match self {
+            Self::Box(box_fragment) => box_fragment.content_area_including_overflow,
+            Self::Text(text_fragment) => text_fragment.area,
+        }
+    }
 }
 
 impl TextFragment {
     #[must_use]
     pub fn new(
         text: String,
-        position: Vec2D<CSSPixels>,
+        area: Rectangle<CSSPixels>,
         color: Color,
         font_metrics: FontMetrics,
     ) -> Self {
         Self {
             text,
-            position,
+            area,
             color,
             font_metrics,
         }
@@ -67,7 +75,7 @@ impl TextFragment {
     pub fn fill_display_list(&self, painter: &mut Painter) {
         painter.text(
             self.text.clone(),
-            self.position,
+            self.area.top_left,
             self.color.into(),
             self.font_metrics.clone(),
         )
@@ -80,12 +88,14 @@ impl BoxFragment {
         style: Rc<ComputedStyle>,
         margin: Sides<CSSPixels>,
         content_area: Rectangle<CSSPixels>,
+        content_area_including_overflow: Rectangle<CSSPixels>,
         children: Vec<Fragment>,
     ) -> Self {
         Self {
             style,
             margin,
             content_area,
+            content_area_including_overflow,
             children,
         }
     }
@@ -98,6 +108,12 @@ impl BoxFragment {
     #[must_use]
     pub fn children(&self) -> &[Fragment] {
         &self.children
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn inner_area(&self) -> Rectangle<CSSPixels> {
+        self.content_area
     }
 
     /// Compute the total space occupied by this fragment, including margins

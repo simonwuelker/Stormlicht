@@ -128,9 +128,18 @@ impl InlineFormattingContext {
                     );
 
                     for text_line in line_iterator {
+                        let area = math::Rectangle {
+                            top_left: cursor,
+                            bottom_right: cursor
+                                + Vec2D {
+                                    x: text_line.width,
+                                    y: font_metrics.size,
+                                },
+                        };
+
                         let fragment = Fragment::Text(TextFragment::new(
                             text_line.text.to_string(),
-                            cursor,
+                            area,
                             text_run.style().color(),
                             font_metrics.clone(),
                         ));

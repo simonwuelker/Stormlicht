@@ -264,11 +264,18 @@ impl BlockLevelBox {
                 x: margin_left,
                 y: margin_top,
             };
+
+        let mut content_area_including_overflow = Rectangle {
+            top_left,
+            bottom_right: top_left,
+        };
+
         let content_height = match &self.contents {
             BlockContainer::BlockLevelBoxes(block_level_boxes) => {
                 let mut cursor = top_left;
                 for block_box in block_level_boxes {
                     let box_fragment = block_box.fragment(cursor, containing_block);
+                    content_area_including_overflow.grow_to_contain(box_fragment.inner_area());
                     cursor.y += box_fragment.outer_area().height();
                     children.push(Fragment::Box(box_fragment));
                 }
@@ -277,6 +284,12 @@ impl BlockLevelBox {
             BlockContainer::InlineFormattingContext(inline_formatting_context) => {
                 let (fragments, height) =
                     inline_formatting_context.fragment(top_left, containing_block);
+
+                for fragment in &fragments {
+                    content_area_including_overflow
+                        .grow_to_contain(fragment.content_area_including_overflow())
+                }
+
                 children.extend_from_slice(&fragments);
                 height
             },
@@ -304,7 +317,13 @@ impl BlockLevelBox {
             left: margin_left,
         };
 
-        BoxFragment::new(self.style(), margin, content_area, children)
+        BoxFragment::new(
+            self.style(),
+            margin,
+            content_area,
+            content_area_including_overflow,
+            children,
+        )
     }
 }
 
