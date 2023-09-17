@@ -2,17 +2,21 @@ use std::rc::Rc;
 
 use math::Rectangle;
 
-use crate::css::{
-    display_list::Painter,
-    layout::{CSSPixels, Sides},
-    properties::BackgroundColorValue,
-    stylecomputer::ComputedStyle,
-    values::color::Color,
-    FontMetrics,
+use crate::{
+    css::{
+        display_list::Painter,
+        layout::{CSSPixels, Sides},
+        properties::BackgroundColorValue,
+        stylecomputer::ComputedStyle,
+        values::color::Color,
+        FontMetrics,
+    },
+    dom::{self, dom_objects, DOMPtr},
 };
 
 #[derive(Clone, Debug)]
 pub struct BoxFragment {
+    dom_node: Option<DOMPtr<dom_objects::Node>>,
     style: Rc<ComputedStyle>,
     margin: Sides<CSSPixels>,
     content_area: Rectangle<CSSPixels>,
@@ -46,6 +50,35 @@ impl Fragment {
         match self {
             Self::Box(box_fragment) => box_fragment.content_area_including_overflow,
             Self::Text(text_fragment) => text_fragment.area,
+        }
+    }
+
+    pub fn hit_test(&self, point: math::Vec2D<CSSPixels>) -> Option<dom::BoundaryPoint> {
+        match self {
+            Self::Box(box_fragment) => {
+                log::info!(
+                    "hit testing a {:?}",
+                    box_fragment.dom_node.as_ref().map(DOMPtr::underlying_type)
+                );
+
+                let first_hit_child = box_fragment.children().iter().find(|child| {
+                    child
+                        .content_area_including_overflow()
+                        .contains_point(point)
+                });
+
+                if let Some(hit_child) = first_hit_child {
+                    hit_child.hit_test(point)
+                } else {
+                    // None of our children were hit (or we have no children)
+                    // In this case, this fragment is the target of the hit-test
+                    Some(dom::BoundaryPoint::new(box_fragment.dom_node.clone()?, 0))
+                }
+            },
+            Self::Text(text_fragment) => {
+                log::info!("Clicked a text fragment! {:?}", text_fragment.text());
+                None
+            },
         }
     }
 }
@@ -85,6 +118,7 @@ impl TextFragment {
 impl BoxFragment {
     #[must_use]
     pub fn new(
+        dom_node: Option<DOMPtr<dom_objects::Node>>,
         style: Rc<ComputedStyle>,
         margin: Sides<CSSPixels>,
         content_area: Rectangle<CSSPixels>,
@@ -92,6 +126,7 @@ impl BoxFragment {
         children: Vec<Fragment>,
     ) -> Self {
         Self {
+            dom_node,
             style,
             margin,
             content_area,
@@ -121,6 +156,12 @@ impl BoxFragment {
     #[must_use]
     pub fn outer_area(&self) -> Rectangle<CSSPixels> {
         self.margin.surround(self.content_area)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn content_area_including_overflow(&self) -> Rectangle<CSSPixels> {
+        self.content_area_including_overflow
     }
 
     pub fn fill_display_list(&self, painter: &mut Painter) {

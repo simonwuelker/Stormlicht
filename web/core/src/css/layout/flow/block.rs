@@ -275,7 +275,8 @@ impl BlockLevelBox {
                 let mut cursor = top_left;
                 for block_box in block_level_boxes {
                     let box_fragment = block_box.fragment(cursor, containing_block);
-                    content_area_including_overflow.grow_to_contain(box_fragment.inner_area());
+                    content_area_including_overflow
+                        .grow_to_contain(box_fragment.content_area_including_overflow());
                     cursor.y += box_fragment.outer_area().height();
                     children.push(Fragment::Box(box_fragment));
                 }
@@ -287,7 +288,7 @@ impl BlockLevelBox {
 
                 for fragment in &fragments {
                     content_area_including_overflow
-                        .grow_to_contain(fragment.content_area_including_overflow())
+                        .grow_to_contain(fragment.content_area_including_overflow());
                 }
 
                 children.extend_from_slice(&fragments);
@@ -318,6 +319,7 @@ impl BlockLevelBox {
         };
 
         BoxFragment::new(
+            self.node.clone(),
             self.style(),
             margin,
             content_area,
