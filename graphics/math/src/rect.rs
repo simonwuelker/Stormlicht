@@ -36,11 +36,17 @@ impl<T: PartialEq> PartialEq for Rectangle<T> {
 }
 
 impl<T: PartialOrd + Copy> Rectangle<T> {
+    #[inline]
+    #[must_use]
     pub fn contains(&self, other: Self) -> bool {
-        self.top_left.x <= other.top_left.x
-            && self.top_left.y <= other.top_left.y
-            && other.bottom_right.x <= self.bottom_right.x
-            && other.bottom_right.y <= self.bottom_right.y
+        self.contains_point(other.top_left) && self.contains_point(other.bottom_right)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn contains_point(&self, point: Vec2D<T>) -> bool {
+        (self.top_left.x..=self.bottom_right.x).contains(&point.x)
+            && (self.top_left.y..=self.bottom_right.y).contains(&point.y)
     }
 
     #[inline]
