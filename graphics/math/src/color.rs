@@ -21,18 +21,35 @@ impl Color {
     pub const BLACK: Self = Self::rgb(0, 0, 0);
 
     #[inline]
+    #[must_use]
     pub const fn rgb(red: u8, green: u8, blue: u8) -> Self {
         Self((red as u32) << 16 | (green as u32) << 8 | (blue as u32))
     }
 
+    #[inline]
+    #[must_use]
+    pub const fn inverted(&self) -> Self {
+        Self::rgb(
+            u8::MAX - self.red(),
+            u8::MAX - self.green(),
+            u8::MAX - self.blue(),
+        )
+    }
+
+    #[inline]
+    #[must_use]
     pub const fn red(&self) -> u8 {
         (self.0 >> 16) as u8
     }
 
+    #[inline]
+    #[must_use]
     pub const fn green(&self) -> u8 {
         (self.0 >> 8) as u8
     }
 
+    #[inline]
+    #[must_use]
     pub const fn blue(&self) -> u8 {
         self.0 as u8
     }
