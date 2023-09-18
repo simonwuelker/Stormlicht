@@ -47,10 +47,14 @@ pub struct Metrics {
 }
 
 impl Metrics {
+    #[inline]
+    #[must_use]
     pub fn width(&self) -> i16 {
         self.max_x - self.min_x
     }
 
+    #[inline]
+    #[must_use]
     pub fn height(&self) -> i16 {
         self.max_y - self.min_y
     }

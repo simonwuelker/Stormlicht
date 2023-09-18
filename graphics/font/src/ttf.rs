@@ -174,18 +174,40 @@ impl Font {
     ///
     /// Note that this value does not constrain the size of individual glyphs.
     /// A glyph may have a size larger than `1em`.
-    pub fn units_per_em(&self) -> u16 {
-        self.head_table.units_per_em()
+    #[inline]
+    #[must_use]
+    pub fn units_per_em(&self) -> f32 {
+        self.head_table.units_per_em() as f32
+    }
+
+    // Returns a substring of text that has a specified width
+    pub fn find_prefix_with_width<'text>(
+        &self,
+        text: &'text str,
+        font_size: f32,
+        available_width: f32,
+    ) -> &'text str {
+        let mut glyphs = RenderedGlyphIterator::new(self, text);
+        while let Some(glyph) = glyphs.next() {
+            let furthest_x = glyph.position.x + glyph.metrics.max_x as i32;
+
+            if available_width < (furthest_x as f32 * font_size) / self.units_per_em() {
+                return &text[..text.len() - glyphs.remainder().len()];
+            }
+        }
+
+        // If the total length of the string does not exceed the specified width then
+        // we simply return the entire string
+        text
     }
 
     pub fn compute_rendered_width(&self, text: &str, font_size: f32) -> f32 {
         let mut width: f32 = 0.;
 
-        let glyphs = self.path_objects(text);
-        for glyph in glyphs {
+        for glyph in RenderedGlyphIterator::new(self, text) {
             // Converts from font space to display point space
             let scale = |value_in_font_space| {
-                (value_in_font_space as f32 * font_size) / self.units_per_em() as f32
+                (value_in_font_space as f32 * font_size) / self.units_per_em()
             };
 
             let glyph_dimension =
@@ -206,11 +228,10 @@ impl Font {
         font_size: f32,
         text_offset: math::Vec2D,
     ) {
-        let glyphs = self.path_objects(text);
-        for glyph in glyphs {
+        for glyph in RenderedGlyphIterator::new(self, text) {
             let scale_point = |glyph_point: math::Vec2D<i32>| math::Vec2D {
-                x: (glyph_point.x as f32 * font_size) / self.units_per_em() as f32,
-                y: font_size - (glyph_point.y as f32 * font_size) / self.units_per_em() as f32,
+                x: (glyph_point.x as f32 * font_size) / self.units_per_em(),
+                y: font_size - (glyph_point.y as f32 * font_size) / self.units_per_em(),
             };
 
             // Draw the outlines of the glyph on the rasterizer buffer
@@ -235,10 +256,6 @@ impl Font {
         }
     }
 
-    fn path_objects<'a, 'b>(&'a self, text: &'b str) -> RenderedGlyphIterator<'a, 'b> {
-        RenderedGlyphIterator::new(self, text)
-    }
-
     pub fn render_as_svg(&self, text: &str, id_prefix: &str) -> String {
         let mut min_x = 0;
         let mut max_x = 0;
@@ -247,7 +264,7 @@ impl Font {
 
         let mut symbols = Vec::with_capacity(text.len());
         let mut symbol_positions = Vec::with_capacity(text.len());
-        let path_objects: Vec<RenderedGlyph<'_>> = self.path_objects(text).collect();
+        let path_objects: Vec<RenderedGlyph<'_>> = RenderedGlyphIterator::new(self, text).collect();
 
         // SVG uses a different coordinate space than our font renderer
         // We therefore have to create run two passes over the text:
@@ -405,6 +422,7 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
 }
 
 impl<'a, 'b> RenderedGlyphIterator<'a, 'b> {
+    #[must_use]
     pub fn new(font: &'a Font, text: &'b str) -> Self {
         Self {
             font: font,
@@ -414,6 +432,12 @@ impl<'a, 'b> RenderedGlyphIterator<'a, 'b> {
             current_compound_glyphs: vec![],
             advance_before_next_glyph: 0,
         }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn remainder(&self) -> &'b str {
+        self.chars.as_str()
     }
 }
 
