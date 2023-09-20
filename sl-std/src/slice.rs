@@ -1,3 +1,5 @@
+use crate::range::Range;
+
 pub trait SubsliceOffset {
     /// Returns the byte offset of an inner slice relative to an enclosing outer slice.
     ///
@@ -12,6 +14,8 @@ pub trait SubsliceOffset {
     /// assert!(string.subslice_offset("other!") == None);
     /// ```
     fn subslice_offset(&self, inner: &Self) -> Option<usize>;
+
+    fn subslice_range(&self, inner: &Self) -> Option<Range<usize>>;
 }
 
 impl SubsliceOffset for str {
@@ -23,5 +27,17 @@ impl SubsliceOffset for str {
         } else {
             None
         }
+    }
+
+    fn subslice_range(&self, inner: &Self) -> Option<Range<usize>> {
+        let start = self.subslice_offset(inner)?;
+        let outer = self.as_ptr() as usize;
+        let end = start + inner.len();
+
+        if !(outer..outer + self.len()).contains(&end) {
+            return None;
+        }
+
+        Some(Range::new(start, end))
     }
 }
