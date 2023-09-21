@@ -10,11 +10,12 @@ use crate::{
         },
         DOMPtr, DOMType, DOMTyped,
     },
-    html::tokenization::{ParseErrorHandler, TagData, Token, Tokenizer, TokenizerState},
+    html::{
+        tokenization::{ParseErrorHandler, TagData, Token, Tokenizer, TokenizerState},
+        treebuilding::ActiveFormattingElements,
+    },
     infra::Namespace,
 };
-
-use super::ActiveFormattingElements;
 
 use string_interner::{static_interned, static_str, InternedString};
 
@@ -493,11 +494,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#reconstruct-the-active-formatting-elements>
     fn reconstruct_active_formatting_elements(&mut self) {
-        // 1. If there are no entries in the list of active formatting elements, then there is nothing to reconstruct; stop this algorithm.
-        if self.active_formatting_elements.list().is_empty() {
-            return;
-        }
-        todo!()
+        log::warn!("FIXME: reconstruct active formatting elements");
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#adoption-agency-algorithm>
@@ -513,8 +510,9 @@ impl<P: ParseErrorHandler> Parser<P> {
                 && !self
                     .active_formatting_elements
                     .list()
-                    .iter()
-                    .any(|node| DOMPtr::ptr_eq(node, &current_node))
+                    .any(|formatting_element| {
+                        DOMPtr::ptr_eq(&formatting_element.element, &current_node)
+                    })
             {
                 self.pop_from_open_elements();
                 return;
@@ -541,11 +539,10 @@ impl<P: ParseErrorHandler> Parser<P> {
             let (index_relative_to_last_marker, formatting_element) = match self
                 .active_formatting_elements
                 .elements_since_last_marker()
-                .iter()
                 .enumerate()
-                .find(|node| node.1.borrow().local_name() == subject)
+                .find(|(_, format_element)| format_element.element.borrow().local_name() == subject)
             {
-                Some((index, formatting_element)) => (index, formatting_element.clone()),
+                Some((index, formatting_element)) => (index, formatting_element.element.clone()),
                 None => return, // TODO: act as described in the "any other end tag" entry above.
             };
 
@@ -1509,21 +1506,22 @@ impl<P: ParseErrorHandler> Parser<P> {
                             }
                         }
                     },
-                    Token::Tag(ref tagdata)
+                    Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("a") =>
                     {
                         // If the list of active formatting elements contains an a element between the end of the list and the last marker on the list
                         // (or the start of the list if there is no marker on the list)
-                        if let Some(element) = self
+                        let a_element = self
                             .active_formatting_elements
                             .elements_since_last_marker()
-                            .iter()
-                            .find(|node| node.underlying_type() == DOMType::HTMLAnchorElement)
-                            .cloned()
-                        {
+                            .map(|formatting_element| formatting_element.element)
+                            .find(|element| {
+                                element.underlying_type() == DOMType::HTMLAnchorElement
+                            });
+                        if let Some(element) = a_element {
                             // then this is a parse error;
                             // run the adoption agency algorithm for the token,
-                            self.run_adoption_agency_algorithm(tagdata);
+                            self.run_adoption_agency_algorithm(&tagdata);
 
                             // then remove that element from the list of active formatting elements
                             // and the stack of open elements if the adoption agency algorithm didn't already remove it
@@ -1537,12 +1535,12 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.reconstruct_active_formatting_elements();
 
                         // Insert an HTML element for the token.
-                        let element = self.insert_html_element_for_token(tagdata);
+                        let element = self.insert_html_element_for_token(&tagdata);
 
                         // Push onto the list of active formatting elements that element.
                         // NOTE: the cast is safe because "insert_html_element_for_token" alwas produces an HTMLElement
                         self.active_formatting_elements
-                            .push(element.into_type::<Element>());
+                            .push(element.into_type::<Element>(), tagdata);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
@@ -1568,7 +1566,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                             .into_type::<Element>();
 
                         // Push onto the list of active formatting elements that element.
-                        self.active_formatting_elements.push(element);
+                        self.active_formatting_elements.push(element, tagdata);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("nobr") =>
@@ -1586,7 +1584,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                             .into_type::<Element>();
 
                         // Push onto the list of active formatting elements that element.
-                        self.active_formatting_elements.push(element);
+                        self.active_formatting_elements.push(element, tagdata);
                     },
                     Token::Tag(tagdata)
                         if !tagdata.opening

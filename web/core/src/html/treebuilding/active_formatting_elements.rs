@@ -1,15 +1,48 @@
-use crate::dom::{dom_objects::Element, DOMPtr, DOMTyped};
+use crate::{
+    dom::{dom_objects::Element, DOMPtr, DOMTyped},
+    html::tokenization::TagData,
+};
 
 /// <https://html.spec.whatwg.org/multipage/parsing.html#the-list-of-active-formatting-elements>
 #[derive(Clone, Default)]
 pub struct ActiveFormattingElements {
-    elements: Vec<DOMPtr<Element>>,
-    markers: Vec<usize>,
+    elements: Vec<FormatEntry>,
+}
+
+#[derive(Clone)]
+pub enum FormatEntry {
+    Marker,
+    Element(ActiveFormattingElement),
+}
+
+#[derive(Clone)]
+pub struct ActiveFormattingElement {
+    pub element: DOMPtr<Element>,
+
+    /// The tag that created this element
+    pub tag: TagData,
+}
+
+impl FormatEntry {
+    #[inline]
+    #[must_use]
+    pub fn is_marker(&self) -> bool {
+        matches!(self, Self::Marker)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn as_element(&self) -> Option<ActiveFormattingElement> {
+        match self {
+            Self::Element(element) => Some(element.clone()),
+            Self::Marker => None,
+        }
+    }
 }
 
 impl ActiveFormattingElements {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#push-onto-the-list-of-active-formatting-elements>
-    pub fn push(&mut self, element: DOMPtr<Element>) {
+    pub fn push(&mut self, element: DOMPtr<Element>, tag: TagData) {
         // 1. If there are already three elements in the list of active formatting elements after the last marker,
         //    if any, or anywhere in the list if there are no markers, that have the same tag name, namespace, and attributes as element,
         //    then remove the earliest such element from the list of active formatting elements.
@@ -20,11 +53,13 @@ impl ActiveFormattingElements {
         // Contains Some((index_of_first_match, nr_of_matches)) if at least one match was found
         let mut elements_found = None;
 
-        for (index, active_formatting_element) in
-            self.elements_since_last_marker().iter().enumerate()
+        for (index, active_formatting_element) in self.elements[self.last_marker()..]
+            .iter()
+            .enumerate()
+            .filter_map(|(i, element)| Some((i, element.as_element()?)))
         {
             let is_equal_element = {
-                let active_formatting_element = active_formatting_element.borrow();
+                let active_formatting_element = active_formatting_element.element.borrow();
                 let element = element.borrow();
 
                 // FIXME: Compare the attributes too!
@@ -38,8 +73,8 @@ impl ActiveFormattingElements {
                         *n_matches += 1;
                     },
                     Some((index_of_first_match, 3..)) => {
-                        // FIXME: do we need to update marker positions after this?
-                        self.elements.remove(*index_of_first_match);
+                        self.elements
+                            .remove(self.last_marker() + *index_of_first_match);
                         break;
                     },
                     None => {
@@ -50,20 +85,38 @@ impl ActiveFormattingElements {
         }
 
         // 2. Add element to the list of active formatting elements.
-        self.elements.push(element);
+        self.elements
+            .push(FormatEntry::Element(ActiveFormattingElement {
+                element,
+                tag,
+            }));
     }
 
-    #[must_use]
     #[inline]
-    pub fn list(&self) -> &[DOMPtr<Element>] {
+    #[must_use]
+    pub fn last(&self) -> Option<&FormatEntry> {
+        self.elements.last()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn elements(&self) -> &[FormatEntry] {
         &self.elements
+    }
+
+    #[inline]
+    pub fn list(&self) -> impl Iterator<Item = ActiveFormattingElement> + '_ {
+        self.elements.iter().filter_map(FormatEntry::as_element)
     }
 
     /// Return the last marker or `0` if there are no markers
     #[inline]
     #[must_use]
     fn last_marker(&self) -> usize {
-        self.markers.last().copied().unwrap_or(0)
+        self.elements
+            .iter()
+            .rposition(FormatEntry::is_marker)
+            .unwrap_or(0)
     }
 
     pub fn remove_element_at_index_from_last_marker(&mut self, i: usize) {
@@ -72,16 +125,21 @@ impl ActiveFormattingElements {
 
     /// Return all elements between the end of the list and the last marker on the list (or the start of the list if there is no marker on the list)
     #[inline]
-    #[must_use]
-    pub fn elements_since_last_marker(&self) -> &[DOMPtr<Element>] {
-        &self.elements[self.last_marker()..]
+    pub fn elements_since_last_marker(&self) -> impl Iterator<Item = ActiveFormattingElement> + '_ {
+        self.elements[self.last_marker()..]
+            .iter()
+            .filter_map(FormatEntry::as_element)
     }
 
     #[inline]
     pub fn remove<T: DOMTyped>(&mut self, to_remove: &DOMPtr<T>) {
-        // FIXME: do we need to update marker positions after this?
         self.elements
-            .retain_mut(|element| !DOMPtr::ptr_eq(to_remove, element))
+            .retain(|element_or_marker| match element_or_marker {
+                FormatEntry::Element(formatting_element) => {
+                    !DOMPtr::ptr_eq(to_remove, &formatting_element.element)
+                },
+                FormatEntry::Marker => true,
+            })
     }
 
     #[must_use]
@@ -89,7 +147,8 @@ impl ActiveFormattingElements {
         self.elements
             .iter()
             .enumerate()
-            .find(|(_, node)| node.ptr_eq(needle))
+            .filter_map(|(i, entry)| Some((i, entry.as_element()?)))
+            .find(|(_, element)| DOMPtr::ptr_eq(&element.element, needle))
             .map(|(i, _)| i)
     }
 
@@ -100,6 +159,6 @@ impl ActiveFormattingElements {
 
     #[inline]
     pub fn insert_marker(&mut self) {
-        self.markers.push(self.elements.len())
+        self.elements.push(FormatEntry::Marker)
     }
 }
