@@ -5,8 +5,8 @@ use crate::{
     dom::{
         self,
         dom_objects::{
-            Comment, Document, DocumentType, Element, HTMLBodyElement, HTMLElement,
-            HTMLHtmlElement, HTMLParagraphElement, HTMLScriptElement, Node, Text,
+            Comment, Document, DocumentType, Element, HTMLBodyElement, HTMLDivElement, HTMLElement,
+            HTMLHtmlElement, HTMLLIElement, HTMLParagraphElement, HTMLScriptElement, Node, Text,
         },
         DOMPtr, DOMType, DOMTyped,
     },
@@ -27,10 +27,20 @@ const FORM_FEED: char = '\u{000C}';
 const WHITESPACE: char = '\u{0020}';
 
 const DEFAULT_SCOPE: &[DOMType] = &[DOMType::HTMLHtmlElement, DOMType::HTMLTemplateElement];
+
+/// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-button-scope>
 const BUTTON_SCOPE: &[DOMType] = &[
     DOMType::HTMLHtmlElement,
     DOMType::HTMLTemplateElement,
     DOMType::HTMLButtonElement,
+];
+
+/// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-list-item-scope>
+const ITEM_SCOPE: &[DOMType] = &[
+    DOMType::HTMLHtmlElement,
+    DOMType::HTMLTemplateElement,
+    // <ol>
+    // <ul>
 ];
 
 #[derive(Clone, Copy, Debug)]
@@ -1581,7 +1591,49 @@ impl<P: ParseErrorHandler> Parser<P> {
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("li") =>
                     {
-                        todo!("handle li")
+                        // Run these steps:
+                        // 1. Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
+
+                        // 2. Initialize node to be the current node (the bottommost node of the stack).
+                        let mut node_index = self.open_elements.len() - 1;
+                        let mut node = self.open_elements[node_index].clone();
+
+                        loop {
+                            // 3. Loop: If node is an li element, then run these substeps:
+                            if node.is_a::<HTMLLIElement>() {
+                                log::warn!("FIXME: Handle nested <li> elements");
+
+                                // 4. Jump to the step labeled done below.
+                                break;
+                            }
+
+                            // 4. If node is in the special category, but is not an address, div, or p element,
+                            //    then jump to the step labeled done below.
+                            let local_name =
+                                node.clone().into_type::<Element>().borrow().local_name();
+
+                            // FIXME: Check if node is an address element
+                            if is_element_in_special_category(local_name)
+                                && !(node.is_a::<HTMLDivElement>()
+                                    || node.is_a::<HTMLParagraphElement>())
+                            {
+                                break;
+                            } else {
+                                // 5. Otherwise, set node to the previous entry in the stack of open elements
+                                //    and return to the step labeled loop.
+                                node_index -= 1;
+                                node = self.open_elements[node_index].clone();
+                            }
+                        }
+
+                        // 6. Done: If the stack of open elements has a p element in button scope, then close a p element.
+                        if self.is_element_in_button_scope(DOMType::HTMLParagraphElement) {
+                            self.close_p_element();
+                        }
+
+                        // 7. Finally, insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
@@ -1654,7 +1706,24 @@ impl<P: ParseErrorHandler> Parser<P> {
                     Token::Tag(ref tagdata)
                         if !tagdata.opening && tagdata.name == static_interned!("li") =>
                     {
-                        todo!("handle li closing tag")
+                        // If the stack of open elements does not have an li element in list item scope,
+                        // then this is a parse error; ignore the token.
+                        if !self.is_element_in_specific_scope(DOMType::HTMLLIElement, ITEM_SCOPE) {
+                            return;
+                        }
+
+                        // Otherwise, run these steps:
+                        // 1. Generate implied end tags, except for li elements.
+                        self.generate_implied_end_tags_excluding(Some(DOMType::HTMLLIElement));
+
+                        // 2. If the current node is not an li element, then this is a parse error.
+
+                        // 3. Pop elements from the stack of open elements until an li element has been popped from the stack.
+                        while let Some(element) = self.open_elements.pop() {
+                            if element.is_a::<HTMLLIElement>() {
+                                break;
+                            }
+                        }
                     },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening
