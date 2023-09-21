@@ -105,6 +105,12 @@ impl ActiveFormattingElements {
     }
 
     #[inline]
+    #[must_use]
+    pub fn elements_mut(&mut self) -> &mut [FormatEntry] {
+        &mut self.elements
+    }
+
+    #[inline]
     pub fn list(&self) -> impl Iterator<Item = ActiveFormattingElement> + '_ {
         self.elements.iter().filter_map(FormatEntry::as_element)
     }

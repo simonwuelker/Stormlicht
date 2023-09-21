@@ -19,6 +19,8 @@ use crate::{
 
 use string_interner::{static_interned, static_str, InternedString};
 
+use super::active_formatting_elements::{ActiveFormattingElement, FormatEntry};
+
 const TAB: char = '\u{0009}';
 const LINE_FEED: char = '\u{000A}';
 const FORM_FEED: char = '\u{000C}';
@@ -494,7 +496,79 @@ impl<P: ParseErrorHandler> Parser<P> {
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#reconstruct-the-active-formatting-elements>
     fn reconstruct_active_formatting_elements(&mut self) {
-        log::warn!("FIXME: reconstruct active formatting elements");
+        let is_marker_or_in_open_elements = |entry: &FormatEntry| match entry {
+            FormatEntry::Element(format_element)
+                if !self
+                    .open_elements
+                    .iter()
+                    .any(|e| DOMPtr::ptr_eq(e, &format_element.element)) =>
+            {
+                false
+            },
+            FormatEntry::Marker | FormatEntry::Element(_) => true,
+        };
+
+        match self.active_formatting_elements.last() {
+            None => {
+                // 1. If there are no entries in the list of active formatting elements,
+                //    then there is nothing to reconstruct; stop this algorithm.
+                return;
+            },
+            Some(entry) => {
+                // 2. If the last (most recently added) entry in the list of active formatting es is a marker,
+                //    or if it is an element that is in the stack of open elements, then there is nothing to reconstruct;
+                //    stop this algorithm.
+                if is_marker_or_in_open_elements(entry) {
+                    return;
+                }
+            },
+        }
+
+        // 3. Let entry be the last (most recently added) element in the list of active formatting elements.
+        let mut entry_index = self.active_formatting_elements.elements().len();
+
+        loop {
+            // 4. Rewind: If there are no entries before entry in the list of active formatting elements, then jump to the step labeled create.
+            if entry_index == 0 {
+                break;
+            }
+
+            // 5. Let entry be the entry one earlier than entry in the list of active formatting elements.
+            entry_index -= 1;
+
+            // 6. If entry is neither a marker nor an element that is also in the stack of open elements, go to the step labeled rewind.
+            if !is_marker_or_in_open_elements(
+                &self.active_formatting_elements.elements()[entry_index],
+            ) {
+                continue;
+            }
+
+            // 7. Advance: Let entry be the element one later than entry in the list of active formatting elements.
+            entry_index += 1;
+            break;
+        }
+
+        loop {
+            let tag = match self.active_formatting_elements.elements_mut()[entry_index] {
+                FormatEntry::Marker => panic!("cannot be a marker element"),
+                FormatEntry::Element(ref mut formatting_element) => formatting_element.tag.clone(),
+            };
+
+            // 8. Create: Insert an HTML element for the token for which the element entry was created, to obtain new element.
+            let new_element = self.insert_html_element_for_token(&tag);
+
+            // 9. Replace the entry for entry in the list with an entry for new element.
+            self.active_formatting_elements.elements_mut()[entry_index] =
+                FormatEntry::Element(ActiveFormattingElement {
+                    element: new_element.into_type(),
+                    tag,
+                });
+
+            // 10. If the entry for new element in the list of active formatting elements is not the last entry in the list, return to the step labeled advance.
+            // NOTE: Because "Advance" is so simple, we just replicate the step here to avoid making the
+            //       control flow even more confusing than it already is
+            entry_index += 1;
+        }
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#adoption-agency-algorithm>
