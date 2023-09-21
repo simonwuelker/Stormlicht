@@ -16,5 +16,6 @@ pub mod chars;
 pub mod iter;
 pub mod punycode;
 pub mod rand;
+pub mod range;
 pub mod slice;
 pub mod time;
