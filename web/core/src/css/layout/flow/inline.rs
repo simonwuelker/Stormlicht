@@ -2,6 +2,7 @@ use std::{fmt::Write, rc::Rc};
 
 use font_metrics::FontMetrics;
 use math::Vec2D;
+use sl_std::{range::Range, slice::SubsliceOffset};
 
 use crate::{
     css::{
@@ -24,7 +25,9 @@ pub enum InlineLevelBox {
 
 #[derive(Clone, Debug)]
 pub struct TextRun {
+    node: DOMPtr<dom_objects::Node>,
     text: String,
+    selected_part: Option<Range<usize>>,
     style: Rc<ComputedStyle>,
 }
 
@@ -43,8 +46,20 @@ pub struct InlineFormattingContext {
 }
 
 impl TextRun {
-    pub fn new(text: String, style: Rc<ComputedStyle>) -> Self {
-        Self { text, style }
+    #[inline]
+    #[must_use]
+    pub fn new(
+        node: DOMPtr<dom_objects::Node>,
+        text: String,
+        selected_part: Option<Range<usize>>,
+        style: Rc<ComputedStyle>,
+    ) -> Self {
+        Self {
+            node,
+            text,
+            selected_part,
+            style,
+        }
     }
 
     #[inline]
@@ -128,11 +143,32 @@ impl InlineFormattingContext {
                     );
 
                     for text_line in line_iterator {
+                        let area = math::Rectangle {
+                            top_left: cursor,
+                            bottom_right: cursor
+                                + Vec2D {
+                                    x: text_line.width,
+                                    y: font_metrics.size,
+                                },
+                        };
+
+                        let line_range = collapsed_text
+                            .subslice_range(text_line.text)
+                            .expect("Broken line must be part of the original string");
+
+                        let selected_part = text_run
+                            .selected_part
+                            .and_then(|range| range.intersection(line_range))
+                            .map(|range| range.map(|b| b - line_range.start()));
+
                         let fragment = Fragment::Text(TextFragment::new(
+                            text_run.node.clone(),
+                            line_range.start(),
                             text_line.text.to_string(),
-                            cursor,
+                            area,
                             text_run.style().color(),
                             font_metrics.clone(),
+                            selected_part,
                         ));
                         fragments.push(fragment);
 

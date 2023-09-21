@@ -4,15 +4,24 @@ use render::Composition;
 use url::URL;
 
 use crate::{
-    css::{display_list::Painter, layout::flow::BlockFormattingContext, StyleComputer, Stylesheet},
+    css::{
+        display_list::Painter,
+        fragment_tree::FragmentTree,
+        layout::{flow::BlockFormattingContext, CSSPixels},
+        StyleComputer, Stylesheet,
+    },
     dom::{dom_objects, DOMPtr},
+    event,
     html::{self, tokenization::IgnoreParseErrors},
+    Selection,
 };
 
 /// The Browsing Context takes care of coordinating loads, layout calculations and paints
 pub struct BrowsingContext {
     document: DOMPtr<dom_objects::Node>,
+    fragment_tree: FragmentTree,
     stylesheets: Vec<Stylesheet>,
+    selection: Option<Selection>,
 }
 
 #[derive(Debug)]
@@ -33,6 +42,7 @@ impl BrowsingContext {
             );
             return Err(BrowsingContextError::UnsupportedMIME);
         }
+
         // FIXME: resource might not be utf-8
         let html_source = String::from_utf8_lossy(&resource.data);
 
@@ -49,19 +59,25 @@ impl BrowsingContext {
 
         Ok(Self {
             document,
+            fragment_tree: FragmentTree::default(),
             stylesheets,
+            selection: None,
         })
     }
 
-    pub fn paint(&self, to: &mut Composition, viewport_size: (u16, u16)) {
+    pub fn paint(&mut self, to: &mut Composition, viewport_size: (u16, u16)) {
         let layout_start = time::Instant::now();
         let style_computer = StyleComputer::new(&self.stylesheets);
 
         // Build a box tree for the parsed document
-        let box_tree = BlockFormattingContext::root(self.document.clone(), style_computer);
+        let box_tree = BlockFormattingContext::root(
+            self.document.clone(),
+            style_computer,
+            self.selection.clone(),
+        );
 
         // Build a fragment tree by fragmenting the boxes
-        let fragment_tree = box_tree.fragment(viewport_size);
+        self.fragment_tree = box_tree.fragment(viewport_size);
 
         let layout_end = time::Instant::now();
         log::info!(
@@ -71,8 +87,46 @@ impl BrowsingContext {
 
         // Paint the fragment_tree to the screen
         let mut painter = Painter::default();
-        fragment_tree.fill_display_list(&mut painter);
+        self.fragment_tree.fill_display_list(&mut painter);
 
         painter.paint(to);
+    }
+
+    pub fn handle_event(&mut self, event: event::Event) -> bool {
+        match event {
+            event::Event::Mouse(mouse_event) => {
+                let position = mouse_event.position.map(|x| CSSPixels::from(x as f32));
+
+                match mouse_event.kind {
+                    event::MouseEventKind::Down(event::MouseButton::Left) => {
+                        if let Some(clicked_point) = self.fragment_tree.hit_test(position) {
+                            self.selection =
+                                Some(Selection::new(clicked_point.clone(), clicked_point));
+                            return true;
+                        }
+                    },
+
+                    event::MouseEventKind::Up(event::MouseButton::Left) => {
+                        if let Some(selection) = self.selection.as_mut() {
+                            selection.is_modifiable = false;
+                        }
+                    },
+                    event::MouseEventKind::Move => {
+                        // Update the current selection range if necessary
+                        if let Some(selection) = self.selection.as_mut() {
+                            if selection.is_modifiable {
+                                if let Some(clicked_point) = self.fragment_tree.hit_test(position) {
+                                    selection.extend_to(clicked_point);
+                                    return true;
+                                }
+                            }
+                        }
+                    },
+                    _ => {},
+                };
+            },
+        }
+
+        false
     }
 }
