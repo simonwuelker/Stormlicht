@@ -119,8 +119,7 @@ impl glazier::WinHandler for BrowserApplication {
             kind: event::MouseEventKind::Down(button),
         };
 
-        self.browsing_context
-            .handle_event(event::Event::Mouse(mouse_event));
+        self.dispatch_event(event::Event::Mouse(mouse_event));
     }
 
     fn pointer_move(&mut self, glazier_event: &glazier::PointerEvent) {
@@ -132,8 +131,8 @@ impl glazier::WinHandler for BrowserApplication {
             position,
             kind: event::MouseEventKind::Move,
         };
-        self.browsing_context
-            .handle_event(event::Event::Mouse(mouse_event))
+
+        self.dispatch_event(event::Event::Mouse(mouse_event));
     }
 
     fn pointer_up(&mut self, glazier_event: &glazier::PointerEvent) {
@@ -155,8 +154,7 @@ impl glazier::WinHandler for BrowserApplication {
             kind: event::MouseEventKind::Up(button),
         };
 
-        self.browsing_context
-            .handle_event(event::Event::Mouse(mouse_event));
+        self.dispatch_event(event::Event::Mouse(mouse_event));
     }
 }
 
@@ -218,6 +216,15 @@ impl BrowserApplication {
                 log::error!("Failed to create application window: {error:?}");
                 ExitCode::FAILURE
             },
+        }
+    }
+
+    /// Forwards an event to the browsing context and repaints if necessary
+    pub fn dispatch_event(&mut self, event: event::Event) {
+        let needs_repaint = self.browsing_context.handle_event(event);
+
+        if needs_repaint {
+            self.window_handle.invalidate();
         }
     }
 }
