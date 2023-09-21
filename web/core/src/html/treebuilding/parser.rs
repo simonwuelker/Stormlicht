@@ -1492,10 +1492,24 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.insertion_mode = InsertionMode::AfterBody;
                     },
 
-                    Token::Tag(ref tagdata)
-                        if !tagdata.opening && tagdata.name == static_interned!("body") =>
+                    Token::Tag(tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("html") =>
                     {
-                        todo!()
+                        // If the stack of open elements does not have a body element in scope, this is a parse error; ignore the token.
+                        if self.is_element_in_scope(DOMType::HTMLBodyElement) {
+                            return;
+                        }
+
+                        // Otherwise, if there is a node in the stack of open elements that is not either a dd element,
+                        // a dt element, an li element, an optgroup element, an option element, a p element, an rb element,
+                        // an rp element, an rt element, an rtc element, a tbody element, a td element, a tfoot element,
+                        // a th element, a thead element, a tr element, the body element, or the html element, then this is a parse error.
+
+                        // Switch the insertion mode to "after body".
+                        self.insertion_mode = InsertionMode::AfterBody;
+
+                        // Reprocess the token.
+                        self.consume(Token::Tag(tagdata));
                     },
                     Token::Tag(ref tagdata)
                         if tagdata.opening
