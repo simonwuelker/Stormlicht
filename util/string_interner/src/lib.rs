@@ -102,6 +102,7 @@ perfect_set!(
         "rtc",
         "s",
         "script",
+        "search",
         "section",
         "select",
         "small",
@@ -127,13 +128,25 @@ perfect_set!(
         "ul",
         "wbr",
         "xmp",
+        
+        // MathML tags
+        "annotation-xml",
+        "mi",
+        "mn",
+        "mo",
+        "ms",
+        "mtext",
 
+        // SVG tags
+        "desc",
+        "foreignObject",
+        
         // html attributes
         "is",
         "type",
         "id",
         "class",
-
+        
         // CSS terms
         "after",
         "auto",
