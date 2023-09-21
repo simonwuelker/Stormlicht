@@ -610,14 +610,19 @@ impl<P: ParseErrorHandler> Parser<P> {
             //      * is between the end of the list and the last marker in the list, if any, or the start of the list otherwise, and
             //      * has the tag name subject.
             //    If there is no such element, then return and instead act as described in the "any other end tag" entry above.
-            let (index_relative_to_last_marker, formatting_element) = match self
+            let last_such_element = self
                 .active_formatting_elements
                 .elements_since_last_marker()
                 .enumerate()
-                .find(|(_, format_element)| format_element.element.borrow().local_name() == subject)
-            {
+                .find(|(_, format_element)| {
+                    format_element.element.borrow().local_name() == subject
+                });
+            let (index_relative_to_last_marker, formatting_element) = match last_such_element {
                 Some((index, formatting_element)) => (index, formatting_element.element.clone()),
-                None => return, // TODO: act as described in the "any other end tag" entry above.
+                None => {
+                    self.any_other_end_tag_in_body(tagdata.to_owned());
+                    return;
+                },
             };
 
             // 4. If formatting element is not in the stack of open elements,
@@ -1955,40 +1960,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.insert_html_element_for_token(&tagdata);
                     },
                     Token::Tag(tagdata) if !tagdata.opening => {
-                        fn is_html_element_with_name(
-                            node: DOMPtr<Node>,
-                            name: InternedString,
-                        ) -> bool {
-                            if let Some(element) = node.try_into_type::<Element>() {
-                                if element.borrow().local_name() == name {
-                                    return node.is_a::<HTMLElement>();
-                                }
-                            }
-                            false
-                        }
-                        // Run these steps:
-
-                        // 1. Initialize node to be the current node (the bottommost node of the stack).
-                        // 2. Loop:
-                        for node in self.open_elements.iter().rev() {
-                            // If node is an HTML element with the same tag name as the token, then:
-                            if is_html_element_with_name(node.clone(), tagdata.name) {
-                                // 1. Generate implied end tags,
-                                // FIXME: except for HTML elements with the same tag name as the token.
-                                self.generate_implied_end_tags_excluding(None);
-
-                                // 2. FIXME: If node is not the current node, then this is a parse error.
-
-                                // 3. FIXME: Pop all the nodes from the current node up to node, including node, then stop these steps.
-                                self.open_elements.pop();
-                                break;
-                            }
-                            // 3. FIXME: Otherwise, if node is in the special category, then this is a parse error;
-                            //    ignore the token, and return.
-
-                            // 4. Set node to the previous entry in the stack of open elements.
-                            // 5. Return to the step labeled loop.
-                        }
+                        self.any_other_end_tag_in_body(tagdata)
                     },
 
                     // FIXME a lot of (for now) irrelevant rules are missing here
@@ -2119,6 +2091,43 @@ impl<P: ParseErrorHandler> Parser<P> {
                 }
             },
             _ => todo!("Implement '{mode:?}' state"),
+        }
+    }
+
+    /// Extracted into its own functions because the adoption agency algorithm makes use of this sequence
+    /// of steps too.
+    fn any_other_end_tag_in_body(&mut self, tag: TagData) {
+        fn is_html_element_with_name(node: DOMPtr<Node>, name: InternedString) -> bool {
+            if let Some(element) = node.try_into_type::<Element>() {
+                if element.borrow().local_name() == name {
+                    return node.is_a::<HTMLElement>();
+                }
+            }
+            false
+        }
+        // Run these steps:
+
+        // 1. Initialize node to be the current node (the bottommost node of the stack).
+        // 2. Loop:
+        for node in self.open_elements.iter().rev() {
+            // If node is an HTML element with the same tag name as the token, then:
+            if is_html_element_with_name(node.clone(), tag.name) {
+                // 1. Generate implied end tags,
+                // FIXME: except for HTML elements with the same tag name as the token.
+                self.generate_implied_end_tags_excluding(None);
+
+                // 2. FIXME: If node is not the current node, then this is a parse error.
+
+                // 3. FIXME: Pop all the nodes from the current node up to node, including node, then stop these steps.
+                self.open_elements.pop();
+                break;
+            }
+            // 3. FIXME: Otherwise, if node is in the special category, then this is a parse error;
+            //    ignore the token, and return.
+
+            // 4. Set node to the previous entry in the stack of open elements.
+
+            // 5. Return to the step labeled loop.
         }
     }
 
