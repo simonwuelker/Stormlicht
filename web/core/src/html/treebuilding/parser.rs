@@ -138,6 +138,12 @@ impl<P: ParseErrorHandler> Parser<P> {
         self.open_elements.last().cloned()
     }
 
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#acknowledge-self-closing-flag>
+    #[inline]
+    fn acknowledge_self_closing_flag_if_set(&self, _tag: &TagData) {
+        // This is only relevant for detecting parse errors, which we currently don't care about
+    }
+
     #[must_use]
     fn find_in_open_elements<T: DOMTyped>(&self, needle: &DOMPtr<T>) -> Option<usize> {
         self.open_elements
@@ -1003,7 +1009,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
-                        // NOTE: this is a no-op
+                        self.acknowledge_self_closing_flag_if_set(&tagdata);
                     },
                     Token::Tag(ref tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("meta") =>
@@ -1015,6 +1021,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
+                        self.acknowledge_self_closing_flag_if_set(tagdata);
 
                         // If the active speculative HTML parser is null, then:
                         //
@@ -1812,6 +1819,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
+                        self.acknowledge_self_closing_flag_if_set(&tagdata);
 
                         // Set the frameset-ok flag to "not ok".
                         self.frameset_ok = FramesetOkFlag::NotOk;
@@ -1835,6 +1843,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
+                        self.acknowledge_self_closing_flag_if_set(&tagdata);
 
                         // Set the frameset-ok flag to "not ok".
                         self.frameset_ok = FramesetOkFlag::NotOk;
@@ -1852,6 +1861,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
+                        self.acknowledge_self_closing_flag_if_set(&tagdata);
 
                         // If the token does not have an attribute with the name "type", or if it does,
                         // but that attribute's value is not an ASCII case-insensitive match for the string "hidden",
@@ -1876,6 +1886,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
+                        self.acknowledge_self_closing_flag_if_set(&tagdata);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("hr") =>
@@ -1892,6 +1903,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
+                        self.acknowledge_self_closing_flag_if_set(&tagdata);
 
                         // Set the frameset-ok flag to "not ok".
                         self.frameset_ok = FramesetOkFlag::NotOk;
