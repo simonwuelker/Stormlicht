@@ -618,7 +618,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     format_element.element.borrow().local_name() == subject
                 });
             let (index_relative_to_last_marker, formatting_element) = match last_such_element {
-                Some((index, formatting_element)) => (index, formatting_element.element.clone()),
+                Some((index, formatting_element)) => (index, formatting_element.clone()),
                 None => {
                     self.any_other_end_tag_in_body(tagdata.to_owned());
                     return;
@@ -628,7 +628,9 @@ impl<P: ParseErrorHandler> Parser<P> {
             // 4. If formatting element is not in the stack of open elements,
             //    then this is a parse error; remove the element from the list, and return.
             // NOTE: we need the index later, this is why this is more complicated than it needs to be.
-            let index_in_open_elements = match self.find_in_open_elements(&formatting_element) {
+            let index_in_open_elements = match self
+                .find_in_open_elements(&formatting_element.element)
+            {
                 Some(i) => i,
                 None => {
                     self.active_formatting_elements
@@ -639,7 +641,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
             // 5. If formatting element is in the stack of open elements, but the element is not in scope,
             //    then this is a parse error; return.
-            if !self.is_element_in_scope(formatting_element.underlying_type()) {
+            if !self.is_element_in_scope(formatting_element.element.underlying_type()) {
                 return;
             }
 
@@ -647,11 +649,13 @@ impl<P: ParseErrorHandler> Parser<P> {
 
             // 7. Let furthest block be the topmost node in the stack of open elements that is lower in the stack than formatting element,
             //    and is an element in the special category. There might not be one.
-            let furthest_block = self.open_elements[..index_in_open_elements]
+            let furthest_block = self.open_elements[index_in_open_elements..]
                 .iter()
+                .enumerate()
                 .rev()
-                .filter_map(|node| node.try_into_type::<Element>())
-                .find(|element| is_element_in_special_category(element.borrow().local_name()));
+                .filter_map(|(i, node)| Some((i, node.try_into_type::<Element>()?)))
+                .find(|(_, element)| is_element_in_special_category(element.borrow().local_name()))
+                .map(|(i, element)| (i, element.into_type::<Node>()));
 
             match furthest_block {
                 None => {
@@ -667,16 +671,21 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                     return;
                 },
-                Some(furthest_block) => {
+                Some((furthest_block_index, furthest_block)) => {
                     // 9. Let common ancestor be the element immediately above formatting element in the stack of open elements.
-                    let _common_ancestor = formatting_element.borrow().parent_node();
+                    let common_ancestor = formatting_element
+                        .element
+                        .borrow()
+                        .parent_node()
+                        .expect("Common ancestor cannot be None");
 
                     // 10. Let a bookmark note the position of formatting element in the list of active formatting elements
                     //     relative to the elements on either side of it in the list.
 
                     // 11. Let node and last node be furthest block.
-                    let node = furthest_block.clone();
-                    let _last_node = furthest_block;
+                    let mut node;
+                    let mut node_index = furthest_block_index;
+                    let mut last_node = furthest_block.clone();
 
                     // 12. Let inner loop counter be 0.
                     let mut inner_loop_counter = 0;
@@ -686,31 +695,92 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // 1. Increment inner loop counter by 1.
                         inner_loop_counter += 1;
 
-                        // 2. FIXME: Let node be the element immediately above node in the stack of open elements,
+                        // 2. Let node be the element immediately above node in the stack of open elements,
                         //    or if node is no longer in the stack of open elements (e.g. because it got removed by this algorithm),
                         //    the element that was immediately above node in the stack of open elements before node was removed.
-                        // let node = self.open_elements;
+                        node_index -= 1;
+                        node = self.open_elements[node_index].clone();
 
                         // 3. If node is formatting element, then break.
-                        if DOMPtr::ptr_eq(&node, &formatting_element) {
+                        if DOMPtr::ptr_eq(&node, &formatting_element.element) {
                             break;
                         }
 
                         // 4. If inner loop counter is greater than 3 and node is in the list of active formatting elements,
-                        // then remove node from the list of active formatting elements.
+                        //    then remove node from the list of active formatting elements.
                         if inner_loop_counter > 3 {
                             self.active_formatting_elements.remove(&node);
                         }
 
-                        // 5. If node is not in the list of active formatting elements, then remove node from the stack of open elements and continue.
-                        if !self.active_formatting_elements.contains(&node) {
-                            self.remove_from_open_elements(&node);
-                            continue;
-                        }
+                        // 5. If node is not in the list of active formatting elements,
+                        //    then remove node from the stack of open elements and continue.
+                        let node_position_in_formatting_elements =
+                            match self.active_formatting_elements.find(&node) {
+                                Some(index) => index,
+                                None => {
+                                    self.remove_from_open_elements(&node);
+                                    continue;
+                                },
+                            };
 
-                        log::warn!("FIXME: implement remainder of Adoption agency algorithm");
-                        return;
+                        // 6. Create an element for the token for which the element node was created, in the HTML namespace,
+                        //    with common ancestor as the intended parent; replace the entry for node in the
+                        //    list of active formatting elements with an entry for the new element,
+                        //    replace the entry for node in the stack of open elements with an entry for the new element,
+                        //    and let node be the new element.
+                        let tag = match &self.active_formatting_elements.elements()
+                            [node_position_in_formatting_elements]
+                        {
+                            FormatEntry::Element(format_element) => format_element.tag.clone(),
+                            FormatEntry::Marker => unreachable!("entry cannot be a marker"),
+                        };
+                        let new_element = self.create_html_element_for_token(
+                            &tag,
+                            Namespace::HTML,
+                            &common_ancestor,
+                        );
+                        self.open_elements[node_index] = new_element.clone();
+                        node = new_element;
+
+                        // 7. FIXME: If last node is furthest block, then move the aforementioned bookmark to be immediately after the
+                        //    new node in the list of active formatting elements.
+
+                        // 8. Append last node to node.
+                        Node::append_child(node.clone(), last_node);
+
+                        // 9. Set last node to node.
+                        last_node = node;
                     }
+
+                    // 14. Insert whatever last node ended up being in the previous step at the appropriate place for inserting a node,
+                    //     but using common ancestor as the override target.
+                    let appropriate_place = self
+                        .appropriate_place_for_inserting_node_with_override(Some(common_ancestor));
+                    Node::append_child(appropriate_place, last_node);
+
+                    // 15. Create an element for the token for which formatting element was created,
+                    //     in the HTML namespace, with furthest block as the intended parent.
+                    let new_element = self.create_html_element_for_token(
+                        &formatting_element.tag,
+                        Namespace::HTML,
+                        &furthest_block.clone(),
+                    );
+
+                    // 16. Take all of the child nodes of furthest block and append them to the element created in the last step.
+                    for child in furthest_block.borrow().children() {
+                        Node::append_child(new_element.clone(), child.clone());
+                    }
+
+                    // 17. Append that new element to furthest block.
+                    Node::append_child(furthest_block, new_element);
+
+                    // 18. FIXME: Remove formatting element from the list of active formatting elements,
+                    //     and insert the new element into the list of active formatting elements
+                    //     at the position of the aforementioned bookmark.
+
+                    // 19. FIXME: Remove formatting element from the stack of open elements,
+                    //     and insert the new element into the stack of open elements immediately below the position
+                    //     of furthest block in that stack.
                 },
             }
         }
