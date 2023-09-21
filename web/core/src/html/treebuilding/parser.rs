@@ -5,8 +5,8 @@ use crate::{
     dom::{
         self,
         dom_objects::{
-            Comment, Document, DocumentType, Element, HTMLElement, HTMLHtmlElement,
-            HTMLParagraphElement, HTMLScriptElement, Node, Text,
+            Comment, Document, DocumentType, Element, HTMLBodyElement, HTMLElement,
+            HTMLHtmlElement, HTMLParagraphElement, HTMLScriptElement, Node, Text,
         },
         DOMPtr, DOMType, DOMTyped,
     },
@@ -1426,12 +1426,30 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // if the stack of open elements has only one node on it, or if there is a
                         // template element on the stack of open elements, then ignore the token.
                         // (fragment case)
+                        let previous_body = match self.open_elements.get(2) {
+                            Some(node) => {
+                                if node.is_a::<HTMLBodyElement>() {
+                                    // FIXME: Check if there's a template element on the stack of open elements
+                                    node.clone().into_type::<Element>()
+                                } else {
+                                    return;
+                                }
+                            },
+                            None => return,
+                        };
+                        {
+                            // Otherwise, set the frameset-ok flag to "not ok"; then, for each attribute on
+                            // the token, check to see if the attribute is already present on the body
+                            // element (the second element) on the stack of open elements, and if it is
+                            // not, add the attribute and its corresponding value to that element.
+                            self.frameset_ok = FramesetOkFlag::NotOk;
 
-                        // Otherwise, set the frameset-ok flag to "not ok"; then, for each attribute on
-                        // the token, check to see if the attribute is already present on the body
-                        // element (the second element) on the stack of open elements, and if it is
-                        // not, add the attribute and its corresponding value to that element.
-                        todo!();
+                            let mut previous_body = previous_body.borrow_mut();
+                            let attributes = previous_body.attributes_mut();
+                            for (key, value) in tagdata.attributes() {
+                                attributes.entry(*key).or_insert(*value);
+                            }
+                        }
                     },
                     Token::Tag(ref tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("frameset") =>

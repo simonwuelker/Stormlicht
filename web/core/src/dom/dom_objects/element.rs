@@ -49,6 +49,16 @@ impl Element {
     }
 
     #[inline]
+    pub fn attributes(&self) -> &HashMap<InternedString, InternedString> {
+        &self.attributes
+    }
+
+    #[inline]
+    pub fn attributes_mut(&mut self) -> &mut HashMap<InternedString, InternedString> {
+        &mut self.attributes
+    }
+
+    #[inline]
     #[must_use]
     pub fn local_name(&self) -> InternedString {
         self.local_name
