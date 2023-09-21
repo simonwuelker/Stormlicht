@@ -22,7 +22,7 @@ impl SubsliceOffset for str {
     fn subslice_offset(&self, inner: &str) -> Option<usize> {
         let outer = self.as_ptr() as usize;
         let inner = inner.as_ptr() as usize;
-        if (outer..outer + self.len()).contains(&inner) {
+        if (outer..=outer + self.len()).contains(&inner) {
             Some(inner.wrapping_sub(outer))
         } else {
             None
@@ -34,7 +34,7 @@ impl SubsliceOffset for str {
         let outer = self.as_ptr() as usize;
         let end = start + inner.len();
 
-        if !(outer..outer + self.len()).contains(&end) {
+        if outer + self.len() < end {
             return None;
         }
 
