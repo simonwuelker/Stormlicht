@@ -17,10 +17,15 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub struct BoxFragment {
+    /// The [DOM Node](dom) that produced this fragment
     dom_node: Option<DOMPtr<dom_objects::Node>>,
+
     style: Rc<ComputedStyle>,
     margin: Sides<CSSPixels>,
+
+    /// Content area including padding
     content_area: Rectangle<CSSPixels>,
+
     content_area_including_overflow: Rectangle<CSSPixels>,
     children: Vec<Fragment>,
 }

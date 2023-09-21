@@ -183,10 +183,25 @@ impl BlockLevelBox {
             .as_ref()
             .map(Length::absolutize);
 
+        let padding_left = self
+            .style()
+            .padding_left()
+            .resolve_against(available_length)
+            .absolutize();
+
+        let padding_right = self
+            .style()
+            .padding_right()
+            .resolve_against(available_length)
+            .absolutize();
+
         // Margins are treated as zero if the total width exceeds the available width
         let total_width_is_more_than_available = |width| {
-            let total_width =
-                width + margin_left.unwrap_or_default() + margin_right.unwrap_or_default();
+            let total_width = margin_left.unwrap_or_default()
+                + padding_left
+                + width
+                + padding_right
+                + margin_right.unwrap_or_default();
             total_width > containing_block.width()
         };
         if width.is_not_auto_and(total_width_is_more_than_available) {
@@ -198,21 +213,25 @@ impl BlockLevelBox {
         let (width, margin_left, margin_right) = match (width, margin_left, margin_right) {
             (AutoOr::Auto, _, _) => (containing_block.width(), CSSPixels::ZERO, CSSPixels::ZERO),
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::Auto) => {
-                let margin_width = (containing_block.width() - width) / 2.;
+                let margin_width =
+                    (containing_block.width() - padding_left - width - padding_right) / 2.;
                 (width, margin_width, margin_width)
             },
             (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::Auto) => {
-                let margin_right = containing_block.width() - margin_left;
+                let margin_right =
+                    containing_block.width() - margin_left - padding_left - width - padding_right;
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::NotAuto(margin_right)) => {
-                let margin_left = containing_block.width() - margin_right;
+                let margin_left =
+                    containing_block.width() - padding_left - width - padding_right - margin_right;
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::NotAuto(_)) => {
                 // The values are overconstrained
                 // FIXME: If the "direction" property is "rtl", we should ignore the margin left instead
-                let margin_right = containing_block.width() - margin_left;
+                let margin_right =
+                    containing_block.width() - margin_left - padding_left - width - padding_right;
                 (width, margin_left, margin_right)
             },
         };
@@ -233,6 +252,18 @@ impl BlockLevelBox {
             .as_ref()
             .map(Length::absolutize)
             .unwrap_or_default();
+
+        let padding_top = self
+            .style()
+            .padding_top()
+            .resolve_against(available_length)
+            .absolutize();
+
+        let padding_bottom = self
+            .style()
+            .padding_bottom()
+            .resolve_against(available_length)
+            .absolutize();
 
         // FIXME:
         // * Consider height: auto
@@ -256,14 +287,16 @@ impl BlockLevelBox {
 
         let mut children = vec![];
 
+        let content_width = width - padding_left - padding_right;
         let containing_block = match height {
             AutoOr::Auto => {
                 // The height of this element depends on its contents
-                ContainingBlock::new_with_variable_height(width)
+                ContainingBlock::new_with_variable_height(content_width)
             },
             AutoOr::NotAuto(height) => {
                 // The height of this element is fixed, children may overflow
-                ContainingBlock::new(width, height)
+                let content_height = height - padding_top - padding_bottom;
+                ContainingBlock::new(content_width, content_height)
             },
         };
 
@@ -281,26 +314,36 @@ impl BlockLevelBox {
         let content_height = match &self.contents {
             BlockContainer::BlockLevelBoxes(block_level_boxes) => {
                 let mut cursor = top_left;
+
+                cursor.y += padding_top;
                 for block_box in block_level_boxes {
                     let box_fragment = block_box.fragment(cursor, containing_block);
                     content_area_including_overflow
                         .grow_to_contain(box_fragment.content_area_including_overflow());
                     cursor.y += box_fragment.outer_area().height();
+
                     children.push(Fragment::Box(box_fragment));
                 }
-                cursor.y
+                cursor.y += padding_bottom;
+
+                cursor.y - top_left.y
             },
             BlockContainer::InlineFormattingContext(inline_formatting_context) => {
-                let (fragments, height) =
-                    inline_formatting_context.fragment(top_left, containing_block);
+                let content_top_left = top_left
+                    + Vec2D {
+                        x: padding_left,
+                        y: padding_top,
+                    };
 
+                let (fragments, content_height) =
+                    inline_formatting_context.fragment(content_top_left, containing_block);
                 for fragment in &fragments {
                     content_area_including_overflow
                         .grow_to_contain(fragment.content_area_including_overflow());
                 }
 
                 children.extend_from_slice(&fragments);
-                height
+                padding_top + content_height + padding_bottom
             },
         };
 
