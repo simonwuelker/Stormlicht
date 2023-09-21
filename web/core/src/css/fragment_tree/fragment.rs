@@ -128,20 +128,62 @@ impl TextFragment {
 
     #[inline]
     pub fn fill_display_list(&self, painter: &mut Painter) {
-        let color = if let Some(_selected_range) = self.selected {
-            // FIXME: Only paint the relevant range with a different color
-            painter.rect(self.area, Color::ORANGE_RED.into());
-            math::Color::from(self.color).inverted()
-        } else {
-            math::Color::from(self.color)
-        };
+        let color = math::Color::from(self.color);
 
-        painter.text(
-            self.text.clone(),
-            self.area.top_left,
-            color,
-            self.font_metrics.clone(),
-        )
+        if let Some(selected_range) = self.selected {
+            let text_before = &self.text[0..selected_range.start()];
+            let selected_text = &self.text[selected_range.start()..selected_range.end()];
+            let text_after = &self.text[selected_range.end()..];
+
+            let width_before = self.font_metrics.width_of(text_before);
+            let width_selected = self.font_metrics.width_of(selected_text);
+
+            let selection_color = color.inverted();
+
+            let mut cursor = self.area.top_left;
+
+            // Draw the part before the selection
+            painter.text(
+                text_before.to_owned(),
+                cursor,
+                color,
+                self.font_metrics.clone(),
+            );
+            cursor.x += width_before;
+
+            // Draw the selection
+            let selected_area = Rectangle {
+                top_left: cursor,
+                bottom_right: cursor
+                    + math::Vec2D {
+                        x: width_selected,
+                        y: self.area.height(),
+                    },
+            };
+            painter.rect(selected_area, Color::ORANGE_RED.into());
+            painter.text(
+                selected_text.to_owned(),
+                cursor,
+                selection_color,
+                self.font_metrics.clone(),
+            );
+            cursor.x += width_selected;
+
+            // Draw the remaining text
+            painter.text(
+                text_after.to_owned(),
+                cursor,
+                color,
+                self.font_metrics.clone(),
+            );
+        } else {
+            painter.text(
+                self.text.clone(),
+                self.area.top_left,
+                color,
+                self.font_metrics.clone(),
+            )
+        }
     }
 }
 

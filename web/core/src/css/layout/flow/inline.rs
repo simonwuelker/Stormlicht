@@ -158,7 +158,8 @@ impl InlineFormattingContext {
 
                         let selected_part = text_run
                             .selected_part
-                            .and_then(|range| range.intersection(line_range));
+                            .and_then(|range| range.intersection(line_range))
+                            .map(|range| range.map(|b| b - line_range.start()));
 
                         let fragment = Fragment::Text(TextFragment::new(
                             text_run.node.clone(),
