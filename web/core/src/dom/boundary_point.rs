@@ -27,7 +27,10 @@ impl BoundaryPoint {
     #[must_use]
     pub fn new(node: DOMPtr<dom_objects::Node>, offset: usize) -> Self {
         let length = dom_objects::Node::len(node.clone());
-        assert!(offset < length);
+        assert!(
+            offset <= length,
+            "offset is {offset}, but length is {length}"
+        );
 
         Self { node, offset }
     }
