@@ -16,6 +16,17 @@ impl<I: Copy> Range<I> {
     pub fn end(&self) -> I {
         self.end
     }
+
+    #[inline]
+    pub fn map<F>(self, f: F) -> Self
+    where
+        F: Fn(I) -> I,
+    {
+        Self {
+            start: f(self.start),
+            end: f(self.end),
+        }
+    }
 }
 
 impl<I: PartialOrd> Range<I> {
