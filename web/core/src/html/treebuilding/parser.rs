@@ -74,6 +74,11 @@ pub enum FramesetOkFlag {
     NotOk,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TemplateInsertionMode {
+    InTemplate,
+}
+
 pub struct Parser<P: ParseErrorHandler> {
     tokenizer: Tokenizer<P>,
     document: DOMPtr<Document>,
@@ -81,6 +86,10 @@ pub struct Parser<P: ParseErrorHandler> {
     /// mode is also set. This is the insertion mode to which the tree construction stage will
     /// return.
     original_insertion_mode: Option<InsertionMode>,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#stack-of-template-insertion-modes>
+    template_insertion_modes: Vec<TemplateInsertionMode>,
+
     insertion_mode: InsertionMode,
     open_elements: Vec<DOMPtr<Node>>,
     head: Option<DOMPtr<Node>>,
@@ -107,6 +116,7 @@ impl<P: ParseErrorHandler> Parser<P> {
             tokenizer: Tokenizer::new(source),
             document: document,
             original_insertion_mode: None,
+            template_insertion_modes: vec![],
             insertion_mode: InsertionMode::Initial,
             open_elements: vec![],
             head: None,
@@ -1111,17 +1121,18 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                         // Insert a marker at the end of the list of active formatting
                         // elements.
-                        todo!();
+                        self.active_formatting_elements.push_marker();
 
                         // Set the frameset-ok flag to "not ok".
-                        // todo!();
+                        self.frameset_ok = FramesetOkFlag::NotOk;
 
                         // Switch the insertion mode to "in template".
-                        // self.insertion_mode = InsertionMode::InTemplate;
+                        self.insertion_mode = InsertionMode::InTemplate;
 
                         // Push "in template" onto the stack of template insertion modes so
                         // that it is the new current template insertion mode.
-                        // todo!();
+                        self.template_insertion_modes
+                            .push(TemplateInsertionMode::InTemplate);
                     },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening && tagdata.name == static_interned!("template") =>
@@ -1423,18 +1434,20 @@ impl<P: ParseErrorHandler> Parser<P> {
                     Token::EOF => {
                         // If the stack of template insertion modes is not empty, then process the
                         // token using the rules for the "in template" insertion mode.
-                        // FIXME we don't have a stack of template insertion modes yet
-
-                        // Otherwise, follow these steps:
-                        //     If there is a node in the stack of open elements that is not either
-                        //     a dd element, a dt element, an li element, an optgroup element, an
-                        //     option element, a p element, an rb element, an rp element, an rt
-                        //     element, an rtc element, a tbody element, a td element, a tfoot
-                        //     element, a th element, a thead element, a tr element, the body
-                        //     element, or the html element, then this is a parse error.
-                        //
-                        //     Stop parsing.
-                        self.done = true;
+                        if !self.template_insertion_modes.is_empty() {
+                            self.consume_in_mode(InsertionMode::InTemplate, Token::EOF);
+                        } else {
+                            // Otherwise, follow these steps:
+                            // 1. If there is a node in the stack of open elements that is not either
+                            //     a dd element, a dt element, an li element, an optgroup element, an
+                            //     option element, a p element, an rb element, an rp element, an rt
+                            //     element, an rtc element, a tbody element, a td element, a tfoot
+                            //     element, a th element, a thead element, a tr element, the body
+                            //     element, or the html element, then this is a parse error.
+                            //
+                            // 2. Stop parsing.
+                            self.done = true;
+                        }
                     },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening && tagdata.name == static_interned!("body") =>
@@ -1764,7 +1777,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.insert_html_element_for_token(&tagdata);
 
                         // Insert a marker at the end of the list of active formatting elements.
-                        self.active_formatting_elements.insert_marker();
+                        self.active_formatting_elements.push_marker();
 
                         // Set the frameset-ok flag to "not ok".
                         self.frameset_ok = FramesetOkFlag::NotOk;

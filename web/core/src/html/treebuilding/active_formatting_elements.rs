@@ -164,7 +164,7 @@ impl ActiveFormattingElements {
     }
 
     #[inline]
-    pub fn insert_marker(&mut self) {
+    pub fn push_marker(&mut self) {
         self.elements.push(FormatEntry::Marker)
     }
 }
