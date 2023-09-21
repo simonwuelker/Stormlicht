@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use math::Rectangle;
+use sl_std::range::Range;
 
 use crate::{
     css::{
@@ -26,10 +27,17 @@ pub struct BoxFragment {
 
 #[derive(Clone, Debug)]
 pub struct TextFragment {
+    dom_node: DOMPtr<dom_objects::Node>,
+
+    /// The byte offset into the String contained by the text dom node
+    /// that produced this fragment
+    offset: usize,
+
     text: String,
     area: Rectangle<CSSPixels>,
     color: Color,
     font_metrics: FontMetrics,
+    selected: Option<Range<usize>>,
 }
 
 #[derive(Clone, Debug)]
@@ -56,11 +64,6 @@ impl Fragment {
     pub fn hit_test(&self, point: math::Vec2D<CSSPixels>) -> Option<dom::BoundaryPoint> {
         match self {
             Self::Box(box_fragment) => {
-                log::info!(
-                    "hit testing a {:?}",
-                    box_fragment.dom_node.as_ref().map(DOMPtr::underlying_type)
-                );
-
                 let first_hit_child = box_fragment.children().iter().find(|child| {
                     child
                         .content_area_including_overflow()
@@ -76,8 +79,20 @@ impl Fragment {
                 }
             },
             Self::Text(text_fragment) => {
-                log::info!("Clicked a text fragment! {:?}", text_fragment.text());
-                None
+                let delta_x = point.x - text_fragment.area.top_left.x;
+                let font_metrics = FontMetrics::default();
+                let text_before = font_metrics.font_face.find_prefix_with_width(
+                    text_fragment.text(),
+                    font_metrics.size.into(),
+                    delta_x.into(),
+                );
+
+                let offset = text_before.chars().count();
+
+                Some(dom::BoundaryPoint::new(
+                    text_fragment.dom_node.clone(),
+                    text_fragment.offset + offset,
+                ))
             },
         }
     }
@@ -86,19 +101,26 @@ impl Fragment {
 impl TextFragment {
     #[must_use]
     pub fn new(
+        dom_node: DOMPtr<dom_objects::Node>,
+        offset: usize,
         text: String,
         area: Rectangle<CSSPixels>,
         color: Color,
         font_metrics: FontMetrics,
+        selected: Option<Range<usize>>,
     ) -> Self {
         Self {
+            dom_node,
+            offset,
             text,
             area,
             color,
             font_metrics,
+            selected,
         }
     }
 
+    #[inline]
     #[must_use]
     pub fn text(&self) -> &str {
         &self.text
@@ -106,10 +128,18 @@ impl TextFragment {
 
     #[inline]
     pub fn fill_display_list(&self, painter: &mut Painter) {
+        let color = if let Some(_selected_range) = self.selected {
+            // FIXME: Only paint the relevant range with a different color
+            painter.rect(self.area, Color::ORANGE_RED.into());
+            math::Color::from(self.color).inverted()
+        } else {
+            math::Color::from(self.color)
+        };
+
         painter.text(
             self.text.clone(),
             self.area.top_left,
-            self.color.into(),
+            color,
             self.font_metrics.clone(),
         )
     }

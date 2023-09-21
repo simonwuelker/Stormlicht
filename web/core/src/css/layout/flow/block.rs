@@ -11,7 +11,7 @@ use crate::{
         StyleComputer,
     },
     dom::{dom_objects, DOMPtr},
-    TreeDebug, TreeFormatter,
+    Selection, TreeDebug, TreeFormatter,
 };
 
 use super::{BoxTreeBuilder, InlineFormattingContext, InlineLevelBox};
@@ -53,12 +53,20 @@ impl Default for BlockContainer {
 }
 
 impl BlockFormattingContext {
-    pub fn root(document: DOMPtr<dom_objects::Node>, style_computer: StyleComputer<'_>) -> Self {
+    pub fn root(
+        document: DOMPtr<dom_objects::Node>,
+        style_computer: StyleComputer<'_>,
+        selection: Option<Selection>,
+    ) -> Self {
         let document_style =
             Rc::new(style_computer.get_computed_style(document.clone().into_type()));
 
-        let contents =
-            BoxTreeBuilder::build(document.clone(), style_computer, document_style.clone());
+        let contents = BoxTreeBuilder::build(
+            document.clone(),
+            style_computer,
+            document_style.clone(),
+            selection,
+        );
         let root = BlockLevelBox {
             style: document_style,
             contents,

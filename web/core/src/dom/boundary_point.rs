@@ -32,6 +32,18 @@ impl BoundaryPoint {
         Self { node, offset }
     }
 
+    #[inline]
+    #[must_use]
+    pub fn node(&self) -> DOMPtr<dom_objects::Node> {
+        self.node.clone()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+
     /// <https://dom.spec.whatwg.org/#concept-range-bp-position>
     #[must_use]
     pub fn position_relative_to(&self, other: Self) -> RelativePosition {

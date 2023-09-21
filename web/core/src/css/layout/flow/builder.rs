@@ -5,6 +5,8 @@
 
 use std::rc::Rc;
 
+use sl_std::range::Range;
+
 use crate::{
     css::{
         layout::flow::{
@@ -14,6 +16,7 @@ use crate::{
         StyleComputer,
     },
     dom::{dom_objects, DOMPtr},
+    Selection,
 };
 
 use super::TextRun;
@@ -25,6 +28,24 @@ pub struct BoxTreeBuilder<'a> {
     block_level_boxes: Vec<BlockLevelBox>,
     current_inline_formatting_context: InlineFormattingContext,
     inline_stack: Vec<InlineBox>,
+    selection: Option<Selection>,
+    selection_state: SelectionState,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum SelectionState {
+    Before,
+    Within,
+    After,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Selected {
+    None,
+    All,
+    Range(usize, usize),
+    Before(usize),
+    After(usize),
 }
 
 impl<'a> BoxTreeBuilder<'a> {
@@ -32,6 +53,7 @@ impl<'a> BoxTreeBuilder<'a> {
         node: DOMPtr<dom_objects::Node>,
         style_computer: StyleComputer<'a>,
         style: Rc<ComputedStyle>,
+        selection: Option<Selection>,
     ) -> BlockContainer {
         let mut builder = Self {
             style_computer,
@@ -39,6 +61,8 @@ impl<'a> BoxTreeBuilder<'a> {
             block_level_boxes: Vec::new(),
             current_inline_formatting_context: InlineFormattingContext::default(),
             inline_stack: Vec::new(),
+            selection,
+            selection_state: SelectionState::Before,
         };
 
         builder.traverse_subtree(node, style);
@@ -61,6 +85,41 @@ impl<'a> BoxTreeBuilder<'a> {
         parent_style: Rc<ComputedStyle>,
     ) {
         for child in node.borrow().children() {
+            // Check if this child is the start/end node of the current document selection
+            let selected_part = if let Some(selection) = &self.selection {
+                match self.selection_state {
+                    SelectionState::Before => {
+                        if DOMPtr::ptr_eq(&selection.start().node(), child) {
+                            self.selection_state = SelectionState::Within;
+
+                            // Special case: The selection end point might also be this node
+                            if DOMPtr::ptr_eq(&selection.end().node(), child) {
+                                Selected::Range(
+                                    selection.start().offset(),
+                                    selection.end().offset(),
+                                )
+                            } else {
+                                Selected::After(selection.start().offset())
+                            }
+                        } else {
+                            // Selection didn't begin yet
+                            Selected::None
+                        }
+                    },
+                    SelectionState::Within => {
+                        if DOMPtr::ptr_eq(&selection.end().node(), child) {
+                            self.selection_state = SelectionState::After;
+                            Selected::Before(selection.end().offset())
+                        } else {
+                            Selected::All
+                        }
+                    },
+                    SelectionState::After => Selected::None,
+                }
+            } else {
+                Selected::None
+            };
+
             if let Some(element) = child.try_into_type::<dom_objects::Element>() {
                 let computed_style = Rc::new(self.style_computer.get_computed_style(element));
 
@@ -77,8 +136,22 @@ impl<'a> BoxTreeBuilder<'a> {
                 // Content that would later be collapsed away according to the white-space property
                 // does not generate inline boxes
                 let text = text.borrow();
+
+                let selected_range = match selected_part {
+                    Selected::None => None,
+                    Selected::All => Some(Range::new(0, text.content().len())),
+                    Selected::After(n) => Some(Range::new(n, text.content().len())),
+                    Selected::Before(n) => Some(Range::new(0, n)),
+                    Selected::Range(start, end) => Some(Range::new(start, end)),
+                };
+
                 if text.content().contains(|c: char| !c.is_whitespace()) {
-                    let text_run = TextRun::new(text.content().to_owned(), parent_style.clone());
+                    let text_run = TextRun::new(
+                        child.clone(),
+                        text.content().to_owned(),
+                        selected_range,
+                        parent_style.clone(),
+                    );
                     self.push_text(text_run);
                 }
             }
@@ -161,7 +234,12 @@ impl<'a> BoxTreeBuilder<'a> {
         }
 
         // Push the actual box
-        let contents = Self::build(node.clone(), self.style_computer, style.clone());
+        let contents = Self::build(
+            node.clone(),
+            self.style_computer,
+            style.clone(),
+            self.selection.clone(),
+        );
         self.block_level_boxes
             .push(BlockLevelBox::new(style, Some(node), contents));
     }
