@@ -26,7 +26,7 @@ impl<'a> LineBreakIterator<'a> {
             text: text.trim_start(),
             font_metrics,
             available_width,
-            is_finished: false,
+            is_finished: text.is_empty(),
         }
     }
 }
@@ -99,5 +99,19 @@ impl<'a> Iterator for LineBreakIterator<'a> {
                 })
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LineBreakIterator;
+    use crate::css::{layout::CSSPixels, FontMetrics};
+
+    #[test]
+    fn do_not_break_empty_text() {
+        // When iterating over line breaks of empty text, we should produce no lines at all
+        // (as opposed to one empty line)
+        let mut lines = LineBreakIterator::new("", FontMetrics::default(), CSSPixels::ZERO);
+        assert!(lines.next().is_none());
     }
 }
