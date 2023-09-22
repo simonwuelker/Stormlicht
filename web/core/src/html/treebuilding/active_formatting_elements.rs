@@ -167,4 +167,10 @@ impl ActiveFormattingElements {
     pub fn push_marker(&mut self) {
         self.elements.push(FormatEntry::Marker)
     }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#clear-the-list-of-active-formatting-elements-up-to-the-last-marker>
+    #[inline]
+    pub fn clear_up_to_last_marker(&mut self) {
+        self.elements.truncate(self.last_marker());
+    }
 }

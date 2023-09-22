@@ -6,7 +6,8 @@ use crate::{
         self,
         dom_objects::{
             Comment, Document, DocumentType, Element, HTMLBodyElement, HTMLDivElement, HTMLElement,
-            HTMLHtmlElement, HTMLLIElement, HTMLParagraphElement, HTMLScriptElement, Node, Text,
+            HTMLHeadElement, HTMLHtmlElement, HTMLLIElement, HTMLParagraphElement,
+            HTMLScriptElement, HTMLTemplateElement, Node, Text,
         },
         DOMPtr, DOMType, DOMTyped,
     },
@@ -84,11 +85,6 @@ pub enum FramesetOkFlag {
     NotOk,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TemplateInsertionMode {
-    InTemplate,
-}
-
 pub struct Parser<P: ParseErrorHandler> {
     tokenizer: Tokenizer<P>,
     document: DOMPtr<Document>,
@@ -98,7 +94,7 @@ pub struct Parser<P: ParseErrorHandler> {
     original_insertion_mode: Option<InsertionMode>,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#stack-of-template-insertion-modes>
-    template_insertion_modes: Vec<TemplateInsertionMode>,
+    template_insertion_modes: Vec<InsertionMode>,
 
     insertion_mode: InsertionMode,
     open_elements: Vec<DOMPtr<Node>>,
@@ -214,6 +210,16 @@ impl<P: ParseErrorHandler> Parser<P> {
         // The current node is the bottommost node in this stack of open elements.
         self.open_elements_bottommost_node()
             .expect("Stack of open elements is empty")
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#current-template-insertion-mode>
+    #[inline]
+    #[must_use]
+    fn current_template_insertion_mode(&self) -> InsertionMode {
+        *self
+            .template_insertion_modes
+            .last()
+            .expect("Stack of template insertion modes cannot be empty")
     }
 
     fn consume(&mut self, token: Token) {
@@ -416,6 +422,97 @@ impl<P: ParseErrorHandler> Parser<P> {
                 return;
             }
             self.pop_from_open_elements();
+        }
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#generate-all-implied-end-tags-thoroughly>
+    fn generate_implied_end_tags_thoroughly(&mut self) {
+        loop {
+            let current_node = self.current_node();
+            // FIXME: There are more elements here that aren't yet implemented
+            if current_node.is_a::<HTMLParagraphElement>() {
+                return;
+            }
+            self.pop_from_open_elements();
+        }
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately>
+    fn reset_insertion_mode_appropriately(&mut self) {
+        // 1. Let last be false.
+        let mut last = false;
+
+        // 2. Let node be the last node in the stack of open elements.
+        let mut node = self.current_node();
+        let mut node_index = self.open_elements.len() - 1;
+
+        // 3. Loop: If node is the first node in the stack of open elements, then set last to true, and,
+        //    if the parser was created as part of the HTML fragment parsing algorithm (fragment case),
+        //    set node to the context element passed to that algorithm.
+        loop {
+            if node_index == 0 {
+                last = true;
+            }
+
+            // 4. FIXME: If node is a select element, run these substeps:
+
+            // 5. FIXME: If node is a td or th element and last is false, then switch the insertion mode to "in cell" and return.
+
+            // 6. FIXME: If node is a tr element, then switch the insertion mode to "in row" and return.
+
+            // 7. FIXME: If node is a tbody, thead, or tfoot element, then switch the insertion mode to "in table body" and return.
+
+            // 8. FIXME: If node is a caption element, then switch the insertion mode to "in caption" and return.
+
+            // 9. FIXME: If node is a colgroup element, then switch the insertion mode to "in column group" and return.
+
+            // 10. FIXME: If node is a table element, then switch the insertion mode to "in table" and return.
+
+            // 11: If node is a template element, then switch the insertion mode to the current template insertion mode and return.
+            if node.is_a::<HTMLTemplateElement>() {
+                self.insertion_mode = self.current_template_insertion_mode();
+                return;
+            }
+
+            // 12. If node is a head element and last is false, then switch the insertion mode to "in head" and return.
+            if node.is_a::<HTMLHeadElement>() {
+                self.insertion_mode = InsertionMode::InHead;
+                return;
+            }
+
+            // 13. If node is a body element, then switch the insertion mode to "in body" and return.
+            if node.is_a::<HTMLBodyElement>() {
+                self.insertion_mode = InsertionMode::InBody;
+                return;
+            }
+
+            // 14. FIXME: If node is a frameset element, then switch the insertion mode to "in frameset" and return. (fragment case)
+
+            // 15. If node is an html element, run these substeps:
+            if node.is_a::<HTMLHtmlElement>() {
+                // 1. If the head element pointer is null, switch the insertion mode to "before head" and return. (fragment case)
+                if self.head.is_none() {
+                    self.insertion_mode = InsertionMode::BeforeHead;
+                    return;
+                }
+                // 2. Otherwise, the head element pointer is not null, switch the insertion mode to "after head" and return.
+                else {
+                    self.insertion_mode = InsertionMode::AfterHead;
+                    return;
+                }
+            }
+
+            // 16. If last is true, then switch the insertion mode to "in body" and return. (fragment case)
+            if last {
+                self.insertion_mode = InsertionMode::InBody;
+                return;
+            }
+
+            // 17. Let node now be the node before node in the stack of open elements.
+            node_index -= 1;
+            node = self.open_elements[node_index].clone();
+
+            // 18. Return to the step labeled loop.
         }
     }
 
@@ -1149,33 +1246,52 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Push "in template" onto the stack of template insertion modes so
                         // that it is the new current template insertion mode.
                         self.template_insertion_modes
-                            .push(TemplateInsertionMode::InTemplate);
+                            .push(InsertionMode::InTemplate);
                     },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening && tagdata.name == static_interned!("template") =>
                     {
                         // If there is no template element on the stack of open elements, then
                         // this is a parse error; ignore the token.
-                        //
-                        // Otherwise, run these steps:
-                        //
-                        //     Generate all implied end tags thoroughly.
-                        //
-                        //     If the current node is not a template element,
-                        //     then this is a parse error.
-                        //
-                        //     Pop elements from the stack of open
-                        //     elements until a template element has
-                        //     been popped from the stack.
-                        //
-                        //     Clear the list of active
-                        //     formatting elements up to the last marker.
-                        //
-                        //     Pop the current template
-                        //     insertion mode off the stack of template
-                        //     insertion modes.
-                        //
-                        //     Reset the insertion mode appropriately.
+                        let contains_template_element = self
+                            .open_elements
+                            .iter()
+                            .any(|element| element.is_a::<HTMLTemplateElement>());
+
+                        if !contains_template_element {
+                            return;
+                        } else {
+                            // Otherwise, run these steps:
+                            // 1. Generate all implied end tags thoroughly.
+                            self.generate_implied_end_tags_thoroughly();
+
+                            // 2. If the current node is not a template element,
+                            //    then this is a parse error.
+
+                            // 3. Pop elements from the stack of open
+                            //    elements until a template element has
+                            //    been popped from the stack.
+                            loop {
+                                let popped_node = self.pop_from_open_elements();
+                                if !popped_node
+                                    .is_some_and(|node| !node.is_a::<HTMLTemplateElement>())
+                                {
+                                    break;
+                                }
+                            }
+
+                            // 4. Clear the list of active
+                            //    formatting elements up to the last marker.
+                            self.active_formatting_elements.clear_up_to_last_marker();
+
+                            // 5. Pop the current template
+                            //    insertion mode off the stack of template
+                            //    insertion modes.
+                            self.template_insertion_modes.pop();
+
+                            // 6. Reset the insertion mode appropriately.
+                            self.reset_insertion_mode_appropriately();
+                        }
                         todo!();
                     },
                     Token::Tag(ref tagdata)
