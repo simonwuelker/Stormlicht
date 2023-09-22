@@ -7,7 +7,7 @@ use crate::{
     ttf::{read_i16_at, read_u16_at},
     Stream,
 };
-use std::fmt;
+use std::{fmt, iter};
 
 /// The maximum number of components that a glyph may reference during
 /// outline calculation. Note that this number is not necessarily equal to
@@ -23,6 +23,7 @@ pub struct GlyphOutlineTable {
 }
 
 impl GlyphOutlineTable {
+    #[must_use]
     pub fn new(data: &[u8], offset: usize, length: usize, loca_table: LocaTable) -> Self {
         Self {
             data: data[offset..][..length].to_vec(),
@@ -30,6 +31,7 @@ impl GlyphOutlineTable {
         }
     }
 
+    #[must_use]
     pub fn get_glyph(&self, glyph_id: GlyphID) -> Glyph<'_> {
         let glyph_location = self.loca_table.get_glyph_offset(glyph_id);
         let glyph_data_end = glyph_location.offset + glyph_location.length;
@@ -258,6 +260,8 @@ impl<'a> Iterator for CompoundGlyph<'a> {
     }
 }
 
+impl iter::FusedIterator for CompoundGlyph<'_> {}
+
 #[derive(Clone, Copy, Debug)]
 pub struct GlyphFlag(u8);
 
@@ -269,10 +273,14 @@ impl GlyphFlag {
     const SECONDARY_FLAG_X: u8 = 16;
     const SECONDARY_FLAG_Y: u8 = 32;
 
+    #[inline]
+    #[must_use]
     pub fn is_on_curve(&self) -> bool {
         self.0 & Self::POINT_ON_CURVE != 0
     }
 
+    #[inline]
+    #[must_use]
     pub fn repeat(&self) -> bool {
         self.0 & Self::REPEAT != 0
     }
@@ -309,7 +317,7 @@ pub struct GlyphPoint {
     pub coordinates: Vec2D<i32>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum GlyphCoordinateType {
     /// The current coordinate is 16 bit signed delta change.
     UnsignedDelta16B,
@@ -442,6 +450,8 @@ impl<'a> Iterator for GlyphPointIterator<'a> {
     }
 }
 
+impl iter::FusedIterator for GlyphPointIterator<'_> {}
+
 #[derive(Clone, Copy)]
 pub struct CompoundGlyphFlag(u16);
 
@@ -457,42 +467,62 @@ impl CompoundGlyphFlag {
     const USE_MY_METRICS: u16 = 1 << 9;
     const OVERLAP_COMPOUND: u16 = 1 << 10;
 
+    #[inline]
+    #[must_use]
     pub fn arg_1_and_2_are_words(&self) -> bool {
         self.0 & Self::ARG_1_AND_2_ARE_WORDS != 0
     }
 
+    #[inline]
+    #[must_use]
     pub fn args_are_xy_values(&self) -> bool {
         self.0 & Self::ARGS_ARE_XY_VALUES != 0
     }
 
+    #[inline]
+    #[must_use]
     pub fn round_xy_to_grid(&self) -> bool {
         self.0 & Self::ROUND_XY_TO_GRID != 0
     }
 
+    #[inline]
+    #[must_use]
     pub fn has_scale(&self) -> bool {
         self.0 & Self::WE_HAVE_A_SCALE != 0
     }
 
+    #[inline]
+    #[must_use]
     pub fn is_last_component(&self) -> bool {
         self.0 & Self::MORE_COMPONENTS == 0
     }
 
+    #[inline]
+    #[must_use]
     pub fn has_xy_scale(&self) -> bool {
         self.0 & Self::WE_HAVE_AN_X_AND_Y_SCALE != 0
     }
 
+    #[inline]
+    #[must_use]
     pub fn has_two_by_two(&self) -> bool {
         self.0 & Self::WE_HAVE_A_TWO_BY_TWO != 0
     }
 
+    #[inline]
+    #[must_use]
     pub fn has_instructions(&self) -> bool {
         self.0 & Self::WE_HAVE_INSTRUCTIONS == 0
     }
 
+    #[inline]
+    #[must_use]
     pub fn use_my_metrics(&self) -> bool {
         self.0 & Self::USE_MY_METRICS != 0
     }
 
+    #[inline]
+    #[must_use]
     pub fn overlap_compound(&self) -> bool {
         self.0 & Self::OVERLAP_COMPOUND != 0
     }

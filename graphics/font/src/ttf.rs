@@ -5,9 +5,7 @@
 //! * <https://formats.kaitai.io/ttf/index.html>
 //! * <https://handmade.network/forums/articles/t/7330-implementing_a_font_reader_and_rasterizer_from_scratch%252C_part_1__ttf_font_reader>
 
-use std::fmt;
-
-use math::Vec2D;
+use std::{fmt, iter};
 
 use crate::{
     path::{Operation, PathConsumer, PathReader},
@@ -187,12 +185,10 @@ impl Font {
         font_size: f32,
         available_width: f32,
     ) -> &'text str {
-        let mut glyphs = RenderedGlyphIterator::new(self, text);
-        while let Some(glyph) = glyphs.next() {
-            let furthest_x = glyph.position.x + glyph.metrics.max_x as i32;
-
-            if available_width < (furthest_x as f32 * font_size) / self.units_per_em() {
-                return &text[..text.len() - glyphs.remainder().len()];
+        let mut glyph_positions = GlyphPositionIterator::new(self, text);
+        while glyph_positions.next().is_some() {
+            if available_width < (glyph_positions.x as f32 * font_size) / self.units_per_em() {
+                return &text[..text.len() - glyph_positions.remainder().len()];
             }
         }
 
@@ -202,23 +198,10 @@ impl Font {
     }
 
     pub fn compute_rendered_width(&self, text: &str, font_size: f32) -> f32 {
-        let mut width: f32 = 0.;
+        let mut glyph_positions = GlyphPositionIterator::new(self, text);
+        while glyph_positions.next().is_some() {}
 
-        for glyph in RenderedGlyphIterator::new(self, text) {
-            // Converts from font space to display point space
-            let scale = |value_in_font_space| {
-                (value_in_font_space as f32 * font_size) / self.units_per_em()
-            };
-
-            let glyph_dimension =
-                (Vec2D::new(glyph.metrics.max_x as i32, glyph.metrics.max_y as i32)
-                    + glyph.position)
-                    .map(scale);
-
-            width = width.max(glyph_dimension.x);
-        }
-
-        width
+        (glyph_positions.x as f32 * font_size) / self.units_per_em()
     }
 
     pub fn render<P: PathConsumer>(
@@ -347,20 +330,63 @@ pub fn read_i16_at(data: &[u8], offset: usize) -> i16 {
     i16::from_be_bytes(data[offset..offset + 2].try_into().unwrap())
 }
 
+pub struct RenderedGlyphIterator<'a, 'b> {
+    glyphs: GlyphPositionIterator<'a, 'b>,
+    current_compound_glyphs: Vec<CompoundGlyph<'a>>,
+
+    /// The x coordinate that any compound glyph components positions are relative to
+    x: i32,
+
+    /// The y coordinate that any compound glyph components positions are relative to
+    y: i32,
+}
+
+struct GlyphPositionIterator<'font, 'text> {
+    font: &'font Font,
+    x: i32,
+    y: i32,
+    chars: std::str::Chars<'text>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PositionedGlyph {
+    x: i32,
+    y: i32,
+    id: GlyphID,
+}
+
 pub struct RenderedGlyph<'a> {
     metrics: Metrics,
     position: math::Vec2D<i32>,
     path_operations: PathReader<GlyphPointIterator<'a>>,
 }
 
-pub struct RenderedGlyphIterator<'a, 'b> {
-    font: &'a Font,
-    x: i32,
-    y: i32,
-    chars: std::str::Chars<'b>,
-    current_compound_glyphs: Vec<CompoundGlyph<'a>>,
-    advance_before_next_glyph: i32,
+impl<'font, 'text> Iterator for GlyphPositionIterator<'font, 'text> {
+    type Item = PositionedGlyph;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let c = self.chars.next()?;
+
+        let id = self
+            .font
+            .get_glyph_id(c as u16)
+            .unwrap_or(GlyphID::REPLACEMENT);
+
+        let horizontal_metrics = self.font.hmtx_table.get_metric_for(id);
+        let x = self.x + horizontal_metrics.left_side_bearing() as i32;
+        let y = self.y;
+
+        self.x += horizontal_metrics.advance_width() as i32;
+
+        Some(PositionedGlyph { x, y, id })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.chars.size_hint()
+    }
 }
+
+impl iter::FusedIterator for GlyphPositionIterator<'_, '_> {}
 
 impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
     type Item = RenderedGlyph<'a>;
@@ -369,36 +395,28 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
         // Determine which glyph we should render and where we should render it to.
         // If we are currently in the process of emitting the components of some compound glyph, continue doing that
         // else, read the next character and emit that
-        let (glyph_id, glyph_x, glyph_y) =
-            if let Some(current_glyph) = self.current_compound_glyphs.last_mut() {
-                if let Some(component) = current_glyph.next() {
-                    (
-                        component.glyph_id,
-                        self.x + component.x_offset as i32,
-                        self.y + component.y_offset as i32,
-                    )
-                } else {
-                    // We are done emitting all parts of the current component glyph, pop it from the stack and start again
-                    self.current_compound_glyphs.pop();
-                    return self.next();
+        let positioned_glyph = if let Some(current_glyph) = self.current_compound_glyphs.last_mut()
+        {
+            if let Some(component) = current_glyph.next() {
+                PositionedGlyph {
+                    id: component.glyph_id,
+                    x: self.x + component.x_offset as i32,
+                    y: self.y + component.y_offset as i32,
                 }
             } else {
-                let c = self.chars.next()?;
-                self.x += self.advance_before_next_glyph;
+                // We are done emitting all parts of the current component glyph, pop it from the stack and start again
+                self.current_compound_glyphs.pop();
+                return self.next();
+            }
+        } else {
+            self.glyphs.next()?
+        };
 
-                let glyph_id = self
-                    .font
-                    .get_glyph_id(c as u16)
-                    .unwrap_or(GlyphID::REPLACEMENT);
-                let horizontal_metrics = self.font.hmtx_table.get_metric_for(glyph_id);
-                let glyph_x = self.x + horizontal_metrics.left_side_bearing() as i32;
-
-                self.advance_before_next_glyph = horizontal_metrics.advance_width() as i32;
-
-                (glyph_id, glyph_x, self.y)
-            };
-
-        let glyph = self.font.get_glyph(glyph_id).unwrap();
+        let glyph = self
+            .glyphs
+            .font
+            .get_glyph(positioned_glyph.id)
+            .expect("Font contains no glyph for glyph id");
 
         match glyph {
             Glyph::Empty => {
@@ -409,11 +427,13 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
                 let path_operations = PathReader::new(simple_glyph.into_iter());
                 Some(RenderedGlyph {
                     metrics: simple_glyph.metrics,
-                    position: math::Vec2D::new(glyph_x, glyph_y),
+                    position: math::Vec2D::new(positioned_glyph.x, positioned_glyph.y),
                     path_operations,
                 })
             },
             Glyph::Compound(compound_glyph) => {
+                self.x = positioned_glyph.x;
+                self.y = positioned_glyph.y;
                 self.current_compound_glyphs.push(compound_glyph);
                 self.next()
             },
@@ -421,23 +441,37 @@ impl<'a, 'b> Iterator for RenderedGlyphIterator<'a, 'b> {
     }
 }
 
-impl<'a, 'b> RenderedGlyphIterator<'a, 'b> {
+impl iter::FusedIterator for RenderedGlyphIterator<'_, '_> {}
+
+impl<'font, 'text> GlyphPositionIterator<'font, 'text> {
+    #[inline]
     #[must_use]
-    pub fn new(font: &'a Font, text: &'b str) -> Self {
+    pub fn new(font: &'font Font, text: &'text str) -> Self {
         Self {
-            font: font,
+            font,
             x: 0,
             y: 0,
             chars: text.chars(),
-            current_compound_glyphs: vec![],
-            advance_before_next_glyph: 0,
         }
     }
 
     #[inline]
     #[must_use]
-    pub fn remainder(&self) -> &'b str {
+    pub fn remainder(&self) -> &'text str {
         self.chars.as_str()
+    }
+}
+
+impl<'a, 'b> RenderedGlyphIterator<'a, 'b> {
+    #[inline]
+    #[must_use]
+    pub fn new(font: &'a Font, text: &'b str) -> Self {
+        Self {
+            glyphs: GlyphPositionIterator::new(font, text),
+            current_compound_glyphs: vec![],
+            x: 0,
+            y: 0,
+        }
     }
 }
 
