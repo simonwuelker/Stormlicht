@@ -3,7 +3,8 @@
     associated_type_defaults,
     let_chains,
     lazy_cell,
-    iter_advance_by
+    iter_advance_by,
+    extend_one
 )]
 
 mod browsing_context;

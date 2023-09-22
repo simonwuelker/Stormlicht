@@ -1,4 +1,4 @@
-use std::{collections::HashSet, mem::Discriminant};
+use std::{collections::HashSet, iter, mem::Discriminant};
 
 use crate::dom::{dom_objects::Element, DOMPtr};
 
@@ -50,21 +50,21 @@ impl<'a> StyleComputer<'a> {
         // FIXME: 1. Transition declarations [css-transitions-1]
 
         // 2. Important user agent declarations
-        computed_style.add_properties(&filter_matching_rules(
+        computed_style.extend(filter_matching_rules(
             &matching_rules,
             Important::Yes,
             Origin::UserAgent,
         ));
 
         // 3. Important user declarations
-        computed_style.add_properties(&filter_matching_rules(
+        computed_style.extend(filter_matching_rules(
             &matching_rules,
             Important::Yes,
             Origin::User,
         ));
 
         // 4. Important author declarations
-        computed_style.add_properties(&filter_matching_rules(
+        computed_style.extend(filter_matching_rules(
             &matching_rules,
             Important::Yes,
             Origin::Author,
@@ -73,21 +73,21 @@ impl<'a> StyleComputer<'a> {
         // FIXME: 5. Animation declarations [css-animations-1]
 
         // 6. Normal author declarations
-        computed_style.add_properties(&filter_matching_rules(
+        computed_style.extend(filter_matching_rules(
             &matching_rules,
             Important::No,
             Origin::Author,
         ));
 
         // 7. Normal user declarations
-        computed_style.add_properties(&filter_matching_rules(
+        computed_style.extend(filter_matching_rules(
             &matching_rules,
             Important::No,
             Origin::User,
         ));
 
         // 8. Normal user agent declarations
-        computed_style.add_properties(&filter_matching_rules(
+        computed_style.extend(filter_matching_rules(
             &matching_rules,
             Important::No,
             Origin::UserAgent,
@@ -133,12 +133,10 @@ impl ComputedStyle {
     const MARGIN_DEFAULT: AutoOr<PercentageOr<Length>> =
         AutoOr::NotAuto(PercentageOr::NotPercentage(Length::ZERO));
 
-    pub fn add_properties(&mut self, properties: &[StyleProperty]) {
-        for property in properties {
-            let discriminant = std::mem::discriminant(property);
-            if self.properties_set.insert(discriminant) {
-                self.properties.push(property.clone());
-            }
+    pub fn add_property(&mut self, property: StyleProperty) {
+        let discriminant = std::mem::discriminant(&property);
+        if self.properties_set.insert(discriminant) {
+            self.properties.push(property);
         }
     }
 
@@ -177,20 +175,33 @@ impl ComputedStyle {
     add_property_lookup_with_default!(color, Color, Color, Color::BLACK);
 }
 
-fn filter_matching_rules(
-    matching_rules: &[MatchingRule],
-    important: Important,
-    origin: Origin,
-) -> Vec<StyleProperty> {
-    let mut properties = vec![];
-    for matching_rule in matching_rules {
-        if matching_rule.origin() == origin {
-            for property_declaration in matching_rule.rule().properties() {
-                if property_declaration.important == important {
-                    properties.push(property_declaration.value.clone())
-                }
-            }
+impl iter::Extend<StyleProperty> for ComputedStyle {
+    fn extend<T: IntoIterator<Item = StyleProperty>>(&mut self, iter: T) {
+        for elem in iter {
+            self.add_property(elem)
         }
     }
-    properties
+
+    fn extend_one(&mut self, item: StyleProperty) {
+        self.add_property(item);
+    }
+
+    fn extend_reserve(&mut self, additional: usize) {
+        self.properties.reserve(additional);
+        self.properties_set.reserve(additional);
+    }
+}
+
+fn filter_matching_rules<'rules>(
+    matching_rules: &'rules [MatchingRule],
+    important: Important,
+    origin: Origin,
+) -> impl Iterator<Item = StyleProperty> + 'rules {
+    matching_rules
+        .iter()
+        .filter(move |rule| rule.origin() == origin)
+        .flat_map(|rule| rule.rule().properties())
+        .filter(move |property| property.important == important)
+        .map(|property| &property.value)
+        .cloned()
 }

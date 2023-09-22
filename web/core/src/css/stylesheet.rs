@@ -1,5 +1,6 @@
 use super::{selectors::SelectorList, Parser, StylePropertyDeclaration};
 
+/// <https://drafts.csswg.org/css-cascade-4/#cascading-origins>
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Origin {
     /// CSS added by the browser
