@@ -6,7 +6,7 @@ use crate::{
         self,
         dom_objects::{
             Comment, Document, DocumentType, Element, HTMLBodyElement, HTMLDivElement, HTMLElement,
-            HTMLHeadElement, HTMLHtmlElement, HTMLLIElement, HTMLParagraphElement,
+            HTMLFormElement, HTMLHeadElement, HTMLHtmlElement, HTMLLIElement, HTMLParagraphElement,
             HTMLScriptElement, HTMLTemplateElement, Node, Text,
         },
         DOMPtr, DOMType, DOMTyped,
@@ -88,22 +88,34 @@ pub enum FramesetOkFlag {
 pub struct Parser<P: ParseErrorHandler> {
     tokenizer: Tokenizer<P>,
     document: DOMPtr<Document>,
-    /// When the insertion mode is switched to "text" or "in table text", the original insertion
-    /// mode is also set. This is the insertion mode to which the tree construction stage will
-    /// return.
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#original-insertion-mode>
     original_insertion_mode: Option<InsertionMode>,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#stack-of-template-insertion-modes>
     template_insertion_modes: Vec<InsertionMode>,
 
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#insertion-mode>
     insertion_mode: InsertionMode,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#stack-of-open-elements>
     open_elements: Vec<DOMPtr<Node>>,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#head-element-pointer>
     head: Option<DOMPtr<Node>>,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#frameset-ok-flag>
     frameset_ok: FramesetOkFlag,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#form-element-pointer>
+    form: Option<DOMPtr<HTMLFormElement>>,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#list-of-active-formatting-elements>
     active_formatting_elements: ActiveFormattingElements,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#scripting-flag>
     execute_script: bool,
+
     done: bool,
 
     stylesheets: Vec<Stylesheet>,
@@ -126,6 +138,7 @@ impl<P: ParseErrorHandler> Parser<P> {
             insertion_mode: InsertionMode::Initial,
             open_elements: vec![],
             head: None,
+            form: None,
             frameset_ok: FramesetOkFlag::default(),
             active_formatting_elements: ActiveFormattingElements::default(),
             execute_script: false,
@@ -1714,7 +1727,32 @@ impl<P: ParseErrorHandler> Parser<P> {
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("form") =>
                     {
-                        todo!()
+                        // If the form element pointer is not null, and there is no template element on the stack of open elements,
+                        // then this is a parse error; ignore the token.
+                        let is_template_on_open_elements = self
+                            .open_elements
+                            .iter()
+                            .any(|element| element.is_a::<HTMLTemplateElement>());
+                        if self.form.is_some() && !is_template_on_open_elements {
+                            #[allow(clippy::needless_return)]
+                            return;
+                        }
+                        // Otherwise:
+                        else {
+                            // If the stack of open elements has a p element in button scope, then close a p element.
+                            if self.is_element_in_button_scope(DOMType::HTMLParagraphElement) {
+                                self.close_p_element();
+                            }
+
+                            // Insert an HTML element for the token, and, if there is no template element on the
+                            // stack of open elements, set the form element pointer to point to the element created.
+                            let new_element = self
+                                .insert_html_element_for_token(&tagdata)
+                                .into_type::<HTMLFormElement>();
+                            if !is_template_on_open_elements {
+                                self.form = Some(new_element);
+                            }
+                        }
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("li") =>
@@ -1812,7 +1850,53 @@ impl<P: ParseErrorHandler> Parser<P> {
                     Token::Tag(ref tagdata)
                         if !tagdata.opening && tagdata.name == static_interned!("form") =>
                     {
-                        todo!()
+                        // If there is no template element on the stack of open elements, then run these substeps:
+                        let is_template_on_open_elements = self
+                            .open_elements
+                            .iter()
+                            .any(|element| element.is_a::<HTMLTemplateElement>());
+                        if !is_template_on_open_elements {
+                            // 1. Let node be the element that the form element pointer is set to, or null if it is not set to an element.
+                            // 2. Set the form element pointer to null.
+                            let node = self.form.take();
+
+                            match node {
+                                Some(node) if self.is_element_in_scope(node.underlying_type()) => {
+                                    // 4. Generate implied end tags.
+                                    self.generate_implied_end_tags();
+
+                                    // 5. If the current node is not node, then this is a parse error.
+                                    self.remove_from_open_elements(&node);
+                                },
+                                None | Some(_) => {
+                                    // 3. If node is null or if the stack of open elements does not have node in scope,
+                                    //    then this is a parse error; return and ignore the token.
+                                    #[allow(clippy::needless_return)]
+                                    return;
+                                },
+                            }
+                        }
+                        // If there is a template element on the stack of open elements, then run these substeps instead:
+                        else {
+                            // 1. If the stack of open elements does not have a form element in scope, then this is a parse error; return and ignore the token.
+                            if !self.is_element_in_scope(DOMType::HTMLFormElement) {
+                                return;
+                            }
+
+                            // 2. Generate implied end tags.
+                            self.generate_implied_end_tags();
+
+                            // 3. If the current node is not a form element, then this is a parse error.
+
+                            // 4. Pop elements from the stack of open elements until a form element has been popped from the stack.
+                            loop {
+                                let popped_node = self.pop_from_open_elements();
+                                if !popped_node.is_some_and(|node| !node.is_a::<HTMLFormElement>())
+                                {
+                                    break;
+                                }
+                            }
+                        }
                     },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening && tagdata.name == static_interned!("p") =>

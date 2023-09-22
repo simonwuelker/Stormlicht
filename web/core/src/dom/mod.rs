@@ -20,7 +20,7 @@ use dom_objects::{
     HTMLTemplateElement, HTMLTitleElement,
 };
 
-use self::dom_objects::{HTMLHeadingElement, HTMLLIElement};
+use self::dom_objects::{HTMLFormElement, HTMLHeadingElement, HTMLLIElement};
 
 /// <https://dom.spec.whatwg.org/#concept-element-custom-element-state>
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -190,6 +190,9 @@ fn create_element_for_interface(
         },
         static_interned!("li") => {
             DOMPtr::new(HTMLLIElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+        },
+        static_interned!("form") => {
+            DOMPtr::new(HTMLFormElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
         _ => {
             log::warn!(
