@@ -1686,9 +1686,21 @@ impl<P: ParseErrorHandler> Parser<P> {
                             self.close_p_element();
                         }
 
-                        // FIXME: If the current node is an HTML element whose tag name is one of
-                        //        "h1", "h2", "h3", "h4", "h5", or "h6", then this is a parse error;
-                        //        pop the current node off the stack of open elements.
+                        // If the current node is an HTML element whose tag name is one of
+                        // "h1", "h2", "h3", "h4", "h5", or "h6", then this is a parse error;
+                        // pop the current node off the stack of open elements.
+                        if let Some(element) = self.current_node().try_into_type::<Element>() {
+                            let tag_name = element.borrow().local_name();
+                            if tag_name == static_interned!("h1")
+                                || tag_name == static_interned!("h2")
+                                || tag_name == static_interned!("h3")
+                                || tag_name == static_interned!("h4")
+                                || tag_name == static_interned!("h5")
+                                || tag_name == static_interned!("h6")
+                            {
+                                self.pop_from_open_elements();
+                            }
+                        }
 
                         self.insert_html_element_for_token(&tagdata);
                     },
