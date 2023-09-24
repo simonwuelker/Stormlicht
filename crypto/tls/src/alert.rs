@@ -1,15 +1,10 @@
 //! The alert protocol as defined in the [TLS Specification](https://www.rfc-editor.org/rfc/rfc5246#section-7.2.2)
 
-use thiserror::Error;
-
-#[derive(Clone, Copy, Debug, Error)]
+#[derive(Clone, Copy, Debug)]
 pub enum AlertError {
-    #[error("Unknown alert severity: {}", .0)]
-    UnknownAlertSeverity(u8),
-    #[error("Unknown alert code: {}", .0)]
-    UnknownAlertCode(u8),
-    #[error("Mismatched data length, expected 2, found {}", .0)]
-    MismatchedDataLength(usize),
+    UnknownAlertSeverity,
+    UnknownAlertCode,
+    MismatchedDataLength,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -57,7 +52,10 @@ impl TryFrom<u8> for Severity {
         match value {
             1 => Ok(Self::Warning),
             2 => Ok(Self::Fatal),
-            _ => Err(AlertError::UnknownAlertSeverity(value)),
+            other => {
+                log::warn!("Unknown TLS alert severity: {other}");
+                Err(AlertError::UnknownAlertSeverity)
+            },
         }
     }
 }
@@ -92,7 +90,10 @@ impl TryFrom<u8> for Description {
             90 => Ok(Self::UserCanceled),
             100 => Ok(Self::NoRenegotiation),
             110 => Ok(Self::UnsupportedExcension),
-            _ => Err(AlertError::UnknownAlertCode(value)),
+            other => {
+                log::warn!("Unknown TLS alert code: {other}");
+                Err(AlertError::UnknownAlertCode)
+            },
         }
     }
 }
@@ -108,7 +109,11 @@ impl TryFrom<&[u8]> for Alert {
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         if value.len() != 2 {
-            Err(AlertError::MismatchedDataLength(value.len()))
+            log::warn!(
+                "Mismatched data length for TLS alert: Expected 2, found {}",
+                value.len()
+            );
+            Err(AlertError::MismatchedDataLength)
         } else {
             Ok(Self {
                 severity: Severity::try_from(value[0])?,

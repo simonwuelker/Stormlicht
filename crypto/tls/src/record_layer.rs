@@ -1,7 +1,7 @@
 //! TLS Record Layer Protocol.
 
 use crate::{
-    connection::{ProtocolVersion, TLS_VERSION},
+    connection::{ProtocolVersion, TLSError, TLS_VERSION},
     handshake::CompressionMethod,
 };
 
@@ -83,14 +83,18 @@ pub struct TLSRecord {
 }
 
 impl TryFrom<u8> for ContentType {
-    type Error = u8;
+    type Error = TLSError;
+
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             20 => Ok(Self::ChangeCipherSpec),
             21 => Ok(Self::Alert),
             22 => Ok(Self::Handshake),
             23 => Ok(Self::ApplicationData),
-            _ => Err(value),
+            other => {
+                log::warn!("Unknown TLS content type: {other}");
+                Err(TLSError::UnknownContentType)
+            },
         }
     }
 }

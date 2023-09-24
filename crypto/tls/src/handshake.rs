@@ -1,14 +1,11 @@
 use std::io::{Cursor, Read};
 
-use anyhow::{Context, Result};
-
 use crate::{
     certificate::X509v3Certificate,
     connection::{ProtocolVersion, TLSError, TLS_VERSION},
     CipherSuite,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq)]
 /// TLS Compression methods are defined in [RFC 3749](https://www.rfc-editor.org/rfc/rfc3749)
 ///
 /// # Security
@@ -19,6 +16,7 @@ use crate::{
 /// We will therefore **never** set a [CompressionMethod] other than [CompressionMethod::None].
 /// Seeing how future TLS protocol version removed this option altogether, this
 /// seems like the correct approach.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CompressionMethod {
     None,
     Deflate,
@@ -31,7 +29,10 @@ impl TryFrom<u8> for CompressionMethod {
         match value {
             0 => Ok(Self::None),
             1 => Ok(Self::Deflate),
-            _ => Err(TLSError::UnknownCompressionMethod(value)),
+            other => {
+                log::warn!("Unknown TLS compression method: {other}");
+                Err(TLSError::UnknownCompressionMethod)
+            },
         }
     }
 }
@@ -68,7 +69,7 @@ impl From<HandshakeType> for u8 {
 }
 
 impl TryFrom<u8> for HandshakeType {
-    type Error = u8;
+    type Error = TLSError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -82,11 +83,14 @@ impl TryFrom<u8> for HandshakeType {
             15 => Ok(Self::CertificateVerify),
             16 => Ok(Self::ClientKeyExchange),
             20 => Ok(Self::Finished),
-            _ => Err(value),
+            other => {
+                log::warn!("Unknown TLS handshake message type: {other}");
+                Err(TLSError::UnknownHandshakeMessageType)
+            },
         }
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct ClientHello {
     version: ProtocolVersion,
     client_random: [u8; 32],
@@ -95,7 +99,7 @@ pub struct ClientHello {
     extensions: Vec<Extension>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct ServerHello {
     version: ProtocolVersion,
     server_random: [u8; 32],
@@ -105,7 +109,7 @@ pub struct ServerHello {
     extensions: Vec<Extension>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub enum HandshakeMessage {
     ClientHello(ClientHello),
     ServerHello(ServerHello),
@@ -113,7 +117,7 @@ pub enum HandshakeMessage {
     ServerHelloDone,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub enum CertificateChain {
     X509v3(Vec<X509v3Certificate>),
 }
@@ -161,7 +165,7 @@ impl ClientHello {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub enum Extension {
     ServerName(String),
     StatusRequest,
@@ -170,7 +174,7 @@ pub enum Extension {
 }
 
 impl HandshakeMessage {
-    pub fn new(message_data: &[u8]) -> Result<Self> {
+    pub fn new(message_data: &[u8]) -> Result<Self, TLSError> {
         // Every Handshake message starts with the same header
         // * 1 bytes message type
         // * 3 bytes length
@@ -179,10 +183,9 @@ impl HandshakeMessage {
             todo!("fragmented message");
         }
 
-        let handshake_type = HandshakeType::try_from(message_data[0])
-            .map_err(TLSError::UnknownHandshakeMessageType)?;
+        let handshake_type = HandshakeType::try_from(message_data[0])?;
 
-        let mut length_bytes = [0, 0, 0, 0];
+        let mut length_bytes = [0; 4];
         length_bytes[1..].copy_from_slice(&message_data[1..4]);
         let message_length = u32::from_be_bytes(length_bytes) as usize;
 
@@ -198,30 +201,40 @@ impl HandshakeMessage {
         match handshake_type {
             HandshakeType::ServerHello => {
                 let mut server_version_bytes: [u8; 2] = [0, 0];
-                reader.read_exact(&mut server_version_bytes)?;
+                reader
+                    .read_exact(&mut server_version_bytes)
+                    .map_err(TLSError::IO)?;
                 let server_version = ProtocolVersion::try_from(server_version_bytes)?;
 
                 let mut server_random: [u8; 32] = [0; 32];
-                reader.read_exact(&mut server_random)?;
+                reader
+                    .read_exact(&mut server_random)
+                    .map_err(TLSError::IO)?;
 
                 let mut session_id_length_buffer = [0];
-                reader.read_exact(&mut session_id_length_buffer)?;
+                reader
+                    .read_exact(&mut session_id_length_buffer)
+                    .map_err(TLSError::IO)?;
                 let session_id_length = session_id_length_buffer[0];
 
                 let session_id = if session_id_length == 0 {
                     None
                 } else {
                     let mut session_id = vec![0; session_id_length as usize];
-                    reader.read_exact(&mut session_id)?;
+                    reader.read_exact(&mut session_id).map_err(TLSError::IO)?;
                     Some(session_id)
                 };
 
                 let mut cipher_suite_bytes = [0, 0];
-                reader.read_exact(&mut cipher_suite_bytes)?;
+                reader
+                    .read_exact(&mut cipher_suite_bytes)
+                    .map_err(TLSError::IO)?;
                 let cipher_suite = CipherSuite::try_from(cipher_suite_bytes)?;
 
                 let mut selected_compression_method_buffer = [0];
-                reader.read_exact(&mut selected_compression_method_buffer)?;
+                reader
+                    .read_exact(&mut selected_compression_method_buffer)
+                    .map_err(TLSError::IO)?;
                 let selected_compression_method =
                     CompressionMethod::try_from(selected_compression_method_buffer[0])?;
 
@@ -237,20 +250,24 @@ impl HandshakeMessage {
             },
             HandshakeType::Certificate => {
                 let mut certificate_chain_length_bytes = [0; 4];
-                reader.read_exact(&mut certificate_chain_length_bytes[1..])?;
+                reader
+                    .read_exact(&mut certificate_chain_length_bytes[1..])
+                    .map_err(TLSError::IO)?;
                 let certificate_chain_length =
                     u32::from_be_bytes(certificate_chain_length_bytes) as usize;
                 let mut certificate_chain = vec![];
                 let mut bytes_read = 0;
                 while bytes_read != certificate_chain_length {
                     let mut certificate_length_bytes = [0; 4];
-                    reader.read_exact(&mut certificate_length_bytes[1..])?;
+                    reader
+                        .read_exact(&mut certificate_length_bytes[1..])
+                        .map_err(TLSError::IO)?;
                     let certificate_length = u32::from_be_bytes(certificate_length_bytes) as usize;
 
                     let mut certificate_bytes = vec![0; certificate_length];
                     reader
                         .read_exact(&mut certificate_bytes)
-                        .context("Failed to read certificate")?;
+                        .map_err(TLSError::IO)?;
 
                     certificate_chain.push(X509v3Certificate::new(certificate_bytes));
                     bytes_read += certificate_length + 3;

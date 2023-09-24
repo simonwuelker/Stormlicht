@@ -136,7 +136,10 @@ impl TryFrom<[u8; 2]> for CipherSuite {
             [0x00, 0x3A] => Self::TLS_DH_anon_WITH_AES_256_CBC_SHA,
             [0x00, 0x6C] => Self::TLS_DH_anon_WITH_AES_128_CBC_SHA256,
             [0x00, 0x6D] => Self::TLS_DH_anon_WITH_AES_256_CBC_SHA256,
-            _ => return Err(TLSError::UnknownCipherSuite(value)),
+            _ => {
+                log::warn!("Unknown TLS cipher suite: {value:?}");
+                return Err(TLSError::UnknownCipherSuite);
+            },
         };
         Ok(cipher_suite)
     }
