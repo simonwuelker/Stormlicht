@@ -1,5 +1,7 @@
 //! TLS Record Layer Protocol.
 
+use std::io;
+
 use crate::{
     connection::{ProtocolVersion, TLSError, TLS_VERSION},
     handshake::CompressionMethod,
@@ -70,18 +72,6 @@ pub enum ContentType {
     ApplicationData,
 }
 
-/// An uncompressed & unencrypted TLS record block.
-/// The spec refers this as a `TLSPlaintext`.
-#[derive(Debug)]
-pub struct TLSRecord {
-    content_type: ContentType,
-    version: ProtocolVersion,
-    length: u16,
-    /// The data contained within the record
-    /// A higher-level message may be split into multiple records
-    fragment: Vec<u8>,
-}
-
 impl TryFrom<u8> for ContentType {
     type Error = TLSError;
 
@@ -110,54 +100,176 @@ impl From<ContentType> for u8 {
     }
 }
 
-impl TLSRecord {
-    pub fn new(
-        content_type: ContentType,
-        version: ProtocolVersion,
-        length: u16,
-        fragment: Vec<u8>,
-    ) -> Self {
+/// The maximum length allowed for an individual TLS record
+const TLS_RECORD_MAX_LENGTH: usize = (1 << 14) + 1024;
+
+const BUFFER_SIZE: usize = 1024;
+
+#[derive(Clone, Debug)]
+pub struct Record {
+    pub content_type: ContentType,
+    pub data: Vec<u8>,
+}
+
+#[derive(Debug)]
+pub struct TLSRecordWriter<W> {
+    /// An internal buffer so records can be constructed incrementally
+    ///
+    /// The buffer contains data *before* it is encrypted
+    cursor: io::Cursor<[u8; BUFFER_SIZE]>,
+
+    /// The writer that encrypted TLS records should be written to
+    ///
+    /// For performance, this writer should be buffered.
+    out: W,
+
+    /// The content type of the last message that was sent.
+    ///
+    /// The Writer remembers this, since multiple consecutive messages
+    /// with the same content type can be coalesced into a single record.
+    content_type: ContentType,
+}
+
+#[derive(Debug)]
+pub struct TLSRecordReader<R> {
+    reader: R,
+}
+
+impl<W: io::Write> TLSRecordWriter<W> {
+    #[must_use]
+    pub fn new(out: W) -> Self {
         Self {
-            content_type,
-            version,
-            length,
-            fragment,
+            cursor: io::Cursor::new([0; BUFFER_SIZE]),
+            out,
+            content_type: ContentType::Handshake,
         }
     }
 
-    pub fn content_type(&self) -> ContentType {
-        self.content_type
+    /// The message might not be sent immediately if it gets buffered
+    pub fn writer_for(&mut self, content_type: ContentType) -> io::Result<MessageWriter<'_, W>> {
+        self.set_content_type(content_type)?;
+
+        Ok(MessageWriter { writer: self })
     }
 
-    pub fn fragment(&self) -> &[u8] {
-        &self.fragment
-    }
-
-    pub fn from_data(content_type: ContentType, fragment: Vec<u8>) -> Self {
-        Self::from_data_and_version(content_type, TLS_VERSION, fragment)
-    }
-
-    pub fn from_data_and_version(
-        content_type: ContentType,
-        version: ProtocolVersion,
-        fragment: Vec<u8>,
-    ) -> Self {
-        assert!(fragment.len() < (1 << 15));
-        Self {
-            content_type: content_type,
-            version: version,
-            length: fragment.len() as u16,
-            fragment: fragment,
+    #[inline]
+    fn set_content_type(&mut self, content_type: ContentType) -> io::Result<()> {
+        // Quoting the spec (https://www.rfc-editor.org/rfc/rfc5246#section-6.2.1):
+        // > multiple client messages of the same ContentType MAY be coalesced
+        // > into a single TLSPlaintext record
+        if content_type != self.content_type {
+            self.flush_current_record()?;
         }
+
+        self.content_type = content_type;
+        Ok(())
     }
 
-    pub fn into_bytes(self) -> Vec<u8> {
-        let mut bytes = vec![0; 5 + self.fragment.len()];
-        bytes[0] = self.content_type.into();
-        bytes[1..3].copy_from_slice(&self.version.as_bytes());
-        bytes[3..5].copy_from_slice(&self.length.to_be_bytes());
-        bytes[5..].copy_from_slice(&self.fragment);
+    /// Writes the current record to the output stream, *without* flushing *that* stream.
+    ///
+    /// After calling this function, the internal buffer is guaranteed to be empty
+    fn flush_current_record(&mut self) -> io::Result<()> {
+        if self.cursor.position() == 0 {
+            return Ok(());
+        }
 
-        bytes
+        let data: &[u8] = &self.cursor.get_ref()[..self.cursor.position() as usize];
+
+        // FIXME: actually encrypt the data here
+        let encrypted = data;
+        assert!(encrypted.len() < TLS_RECORD_MAX_LENGTH);
+        let length = encrypted.len() as u16;
+
+        self.out.write_all(&[self.content_type.into()])?;
+        self.out.write_all(&TLS_VERSION.as_bytes())?;
+        self.out.write_all(&length.to_be_bytes())?;
+        self.out.write_all(encrypted)?;
+        log::info!("wow we wrote such a good message");
+
+        self.cursor.set_position(0);
+        Ok(())
+    }
+
+    /// The number of bytes that can be written before the buffer needs to be flushed
+    fn remaining_size(&self) -> usize {
+        self.cursor.remaining_slice().len()
+    }
+}
+
+impl<R: io::Read> TLSRecordReader<R> {
+    pub fn new(reader: R) -> Self {
+        Self { reader }
+    }
+
+    pub fn next_record(&mut self) -> Result<Record, TLSError> {
+        // Read content type field
+        let mut content_type_buffer = [0];
+        self.reader
+            .read_exact(&mut content_type_buffer)
+            .map_err(TLSError::IO)?;
+        let content_type = ContentType::try_from(content_type_buffer[0])?;
+
+        // Read TLS version field
+        let mut tls_version_buffer = [0, 0];
+        self.reader
+            .read_exact(&mut tls_version_buffer)
+            .map_err(TLSError::IO)?;
+        let tls_version = ProtocolVersion::try_from(tls_version_buffer)?;
+
+        if TLS_VERSION < tls_version {
+            log::error!("Unsupported TLS version: We implement {TLS_VERSION:?} but the server sent {tls_version:?}");
+            return Err(TLSError::UnsupportedTLSVersion);
+        }
+
+        // Read data fragment
+        let mut length_buffer = [0, 0];
+        self.reader
+            .read_exact(&mut length_buffer)
+            .map_err(TLSError::IO)?;
+        let length = u16::from_be_bytes(length_buffer);
+
+        let mut data = vec![0; length as usize];
+        self.reader.read_exact(&mut data).map_err(TLSError::IO)?;
+
+        Ok(Record { content_type, data })
+    }
+}
+
+/// A short-lived writer for a single TLS message
+pub struct MessageWriter<'a, W> {
+    writer: &'a mut TLSRecordWriter<W>,
+}
+
+impl<'a, W: io::Write> io::Write for MessageWriter<'a, W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if buf.len() <= self.writer.remaining_size() {
+            // The entire buffer fits into the record, no need
+            // for fragmentation
+            self.writer.cursor.write_all(buf)?;
+        } else {
+            // Fill the remaining space in the buffer, then flush it
+            self.writer
+                .cursor
+                .write_all(&buf[..self.writer.remaining_size()])?;
+            self.writer.flush_current_record()?;
+
+            // Chunk the remainder into records and flush each one individually
+            let buf = &buf[self.writer.remaining_size()..];
+            let mut chunks = buf.array_chunks::<TLS_RECORD_MAX_LENGTH>();
+
+            for chunk in &mut chunks {
+                self.writer.cursor.write_all(chunk)?;
+                self.writer.flush_current_record()?;
+            }
+
+            self.writer.cursor.write_all(chunks.remainder())?;
+        }
+
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.writer.flush_current_record()?;
+        self.writer.out.flush()
     }
 }

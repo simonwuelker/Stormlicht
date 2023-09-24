@@ -2,22 +2,26 @@ use crate::{
     alert::{Alert, AlertError},
     handshake::{self, ClientHello, HandshakeMessage},
     random::CryptographicRand,
-    record_layer::{ContentType, TLSRecord},
+    record_layer::{ContentType, TLSRecordReader, TLSRecordWriter},
     server_name::ServerName,
 };
 
 use std::{
-    io::{self, BufRead, BufReader, Read, Write},
+    io::{self, BufReader},
     net::{self, TcpStream},
 };
 
 /// The TLS version implemented.
 pub const TLS_VERSION: ProtocolVersion = ProtocolVersion::new(1, 2);
 
+/// The destination port used for TLS connections
+const TLS_PORT: u16 = 443;
+
 #[derive(Debug)]
 pub enum TLSError {
     UnknownContentType,
     InvalidTLSVersion,
+    UnsupportedTLSVersion,
     UnknownHandshakeMessageType,
     UnknownCipherSuite,
     UnknownCompressionMethod,
@@ -26,7 +30,7 @@ pub enum TLSError {
     IO(io::Error),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ProtocolVersion {
     pub major: u8,
     pub minor: u8,
@@ -42,7 +46,7 @@ impl ProtocolVersion {
     /// is slightly odd (`3.3`) since TLS 1.0 was the successor of OpenSSL 3.0
     /// which gave it the version number [0x03, 0x01] and so on.
     #[must_use]
-    pub fn as_bytes(&self) -> [u8; 2] {
+    pub const fn as_bytes(&self) -> [u8; 2] {
         [self.major + 2, self.minor + 1]
     }
 }
@@ -61,8 +65,8 @@ impl TryFrom<[u8; 2]> for ProtocolVersion {
 
 #[derive(Debug)]
 pub struct TLSConnection {
-    writer: TcpStream,
-    reader: BufReader<TcpStream>,
+    writer: TLSRecordWriter<TcpStream>,
+    reader: TLSRecordReader<BufReader<TcpStream>>,
 }
 
 impl TLSConnection {
@@ -72,11 +76,10 @@ impl TLSConnection {
     {
         let server_name = ServerName::from(addr);
         let ip = net::IpAddr::try_from(&server_name).map_err(TLSError::DNS)?;
-        let stream = TcpStream::connect((ip, 443)).map_err(TLSError::IO)?;
-        let mut connection = Self {
-            writer: stream.try_clone().map_err(TLSError::IO)?,
-            reader: BufReader::new(stream),
-        };
+        let stream = TcpStream::connect((ip, TLS_PORT)).map_err(TLSError::IO)?;
+        let writer = TLSRecordWriter::new(stream.try_clone().map_err(TLSError::IO)?);
+        let reader = TLSRecordReader::new(BufReader::new(stream));
+        let mut connection = Self { writer, reader };
 
         connection.do_handshake(server_name)?;
 
@@ -99,60 +102,31 @@ impl TLSConnection {
             client_hello.add_extension(handshake::Extension::ServerName(domain))
         }
 
-        let client_hello_record = TLSRecord::from_data_and_version(
-            ContentType::Handshake,
-            ProtocolVersion::new(1, 0),
-            client_hello.into_bytes(),
-        );
-
-        self.writer
-            .write_all(&client_hello_record.into_bytes())
+        let client_hello_writer = self
+            .writer
+            .writer_for(ContentType::Handshake)
+            .map_err(TLSError::IO)?;
+        client_hello
+            .write_to(client_hello_writer)
             .map_err(TLSError::IO)?;
 
         for _ in 0..10 {
-            let response = self.next_tls_record()?;
+            let record = self.reader.next_record()?;
 
             // TODO: fragmented messages are not yet supported
-            match response.content_type() {
+            match record.content_type {
                 ContentType::Alert => {
-                    let alert = Alert::try_from(response.fragment()).map_err(TLSError::Alert)?;
+                    let alert = Alert::try_from(record.data.as_slice()).map_err(TLSError::Alert)?;
                     dbg!(alert);
                 },
                 ContentType::Handshake => {
-                    let handshake_msg = HandshakeMessage::new(response.fragment())?;
+                    let handshake_msg = HandshakeMessage::new(&record.data)?;
                     dbg!(handshake_msg);
                 },
                 _ => {},
             }
         }
         Ok(())
-    }
-
-    pub fn next_tls_record(&mut self) -> Result<TLSRecord, TLSError> {
-        self.reader.fill_buf().map_err(TLSError::IO)?;
-
-        let mut content_type_buffer = [0];
-        self.reader
-            .read_exact(&mut content_type_buffer)
-            .map_err(TLSError::IO)?;
-        let content_type = ContentType::try_from(content_type_buffer[0])?;
-
-        let mut tls_version_buffer = [0, 0];
-        self.reader
-            .read_exact(&mut tls_version_buffer)
-            .map_err(TLSError::IO)?;
-        let tls_version = ProtocolVersion::try_from(tls_version_buffer)?;
-
-        let mut length_buffer = [0, 0];
-        self.reader
-            .read_exact(&mut length_buffer)
-            .map_err(TLSError::IO)?;
-        let length = u16::from_be_bytes(length_buffer);
-
-        let mut data = vec![0; length as usize];
-        self.reader.read_exact(&mut data).map_err(TLSError::IO)?;
-
-        Ok(TLSRecord::new(content_type, tls_version, length, data))
     }
 }
 

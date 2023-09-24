@@ -1,10 +1,13 @@
-use std::io::{Cursor, Read};
+use std::io::{self, Cursor, Read};
 
 use crate::{
     certificate::X509v3Certificate,
     connection::{ProtocolVersion, TLSError, TLS_VERSION},
     CipherSuite,
 };
+
+/// A list of all cipher suites supported by this implementation
+const SUPPORTED_CIPHER_SUITES: [CipherSuite; 1] = [CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA];
 
 /// TLS Compression methods are defined in [RFC 3749](https://www.rfc-editor.org/rfc/rfc3749)
 ///
@@ -92,10 +95,7 @@ impl TryFrom<u8> for HandshakeType {
 }
 #[derive(Clone, Debug)]
 pub struct ClientHello {
-    version: ProtocolVersion,
     client_random: [u8; 32],
-    session_id_to_resume: Option<Vec<u8>>,
-    supported_cipher_suites: Vec<CipherSuite>,
     extensions: Vec<Extension>,
 }
 
@@ -151,10 +151,7 @@ impl ServerHello {
 impl ClientHello {
     pub fn new(client_random: [u8; 32]) -> Self {
         Self {
-            version: TLS_VERSION,
             client_random: client_random,
-            session_id_to_resume: None,
-            supported_cipher_suites: vec![CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA],
             extensions: vec![
                 Extension::StatusRequest,
                 Extension::RenegotiationInfo,
@@ -166,6 +163,51 @@ impl ClientHello {
     #[inline]
     pub fn add_extension(&mut self, extension: Extension) {
         self.extensions.push(extension)
+    }
+
+    pub fn write_to<W: io::Write>(self, mut writer: W) -> io::Result<()> {
+        let cipher_suites_length = SUPPORTED_CIPHER_SUITES.len() as u16 * 2;
+        let extensions_length = self.extensions.iter().map(Extension::length).sum::<usize>() as u16;
+
+        #[allow(clippy::identity_op)]
+        let length: u32 = 2 // Protocol version
+         + 32 // Client random
+         + 1 // Session id length (always 0 since we don't resume sessions)
+         + 0 // [session id]
+         + 2 // Supported cipher suites length
+         + cipher_suites_length as u32 // List of supported cipher suites
+         + 2 // Compression method
+         + 2 // Extension length
+         + extensions_length as u32;
+
+        writer.write_all(&[HandshakeType::ClientHello.into()])?;
+        writer.write_all(&length.to_be_bytes()[1..])?;
+        writer.write_all(&TLS_VERSION.as_bytes())?;
+        writer.write_all(&self.client_random)?;
+
+        writer.write_all(&[0])?;
+
+        writer.write_all(&(2 * SUPPORTED_CIPHER_SUITES.len() as u16).to_be_bytes())?;
+        for suite in SUPPORTED_CIPHER_SUITES {
+            let suite_bytes: [u8; 2] = suite.into();
+            writer.write_all(&suite_bytes)?;
+        }
+
+        // Compression method
+        // Since compression can compromise security (see CRIME), we will
+        // never use compression.
+        writer.write_all(&[0x01, 0x00])?;
+
+        // Extensions
+        writer.write_all(&extensions_length.to_be_bytes())?;
+        for extension in self.extensions {
+            let expected_length = extension.length();
+            let extension_data = extension.into_bytes();
+            debug_assert_eq!(extension_data.len(), expected_length);
+            writer.write_all(&extension_data)?;
+        }
+
+        writer.flush()
     }
 }
 
@@ -287,70 +329,23 @@ impl HandshakeMessage {
     }
 }
 
-impl ClientHello {
-    pub fn into_bytes(self) -> Vec<u8> {
-        let mut data = vec![];
-        data.push(HandshakeType::ClientHello.into());
-
-        // Three length bytes which we will fill in later
-        data.extend_from_slice(&[0, 0, 0]);
-
-        // Client version
-        data.extend_from_slice(&self.version.as_bytes());
-
-        // 32 bytes of random data
-        data.extend_from_slice(&self.client_random);
-
-        // Session id (in case we want to resume a session)
-        let session_id_length = self
-            .session_id_to_resume
-            .as_ref()
-            .map(|id| id.len() as u8)
-            .unwrap_or(0);
-        data.push(session_id_length);
-        if let Some(session_id) = &self.session_id_to_resume {
-            data.extend_from_slice(session_id)
-        }
-
-        // List supported cipher suites
-        data.extend_from_slice(&(2 * self.supported_cipher_suites.len() as u16).to_be_bytes()); // we support 1 cipher which takes up two bytes
-        for suite in self.supported_cipher_suites {
-            let suite_bytes: [u8; 2] = suite.into();
-            data.extend_from_slice(suite_bytes.as_slice());
-        }
-
-        // Compression method
-        // Since compression can compromise security (see CRIME), we will
-        // never use compression.
-        data.push(0x01); // 1 byte of compression info
-        data.push(0x00); // no compression
-
-        // Extensions supported by the client
-        let mut extension_data = vec![];
-
-        // Server name extension
-        for extension in self.extensions {
-            extension_data.extend_from_slice(&extension.into_bytes());
-        }
-        // extension_data.extend_from_slice(&server_name_extension(hostname));
-        // extension_data.extend_from_slice(&status_request_extension());
-        // extension_data.extend_from_slice(&renegotiation_info_extension());
-        // extension_data.extend_from_slice(&signed_certificate_timestamp_extension());
-
-        // TODO: extensions temporarily disabled
-        let extension_length = (extension_data.len() as u16).to_be_bytes();
-        data.extend_from_slice(&extension_length);
-        data.extend_from_slice(&extension_data);
-
-        // Write the final length into bytes 1-3
-        let data_length = data.len() as u32 - 4;
-        data[1..4].copy_from_slice(&data_length.to_be_bytes()[1..]);
-
-        data
-    }
-}
-
 impl Extension {
+    pub fn length(&self) -> usize {
+        match self {
+            Self::ServerName(hostname) => {
+                2 // Extension identifier
+                 + 2 // Extension length
+                 + 2 // First list entry length
+                 + 1 // Entry identifier
+                  + 2 // hostname length
+                  + hostname.len() // hostname
+            },
+            Self::StatusRequest => 9,
+            Self::RenegotiationInfo => 5,
+            Self::SignedCertificateTimestamp => 4,
+        }
+    }
+
     pub fn into_bytes(self) -> Vec<u8> {
         match self {
             Self::ServerName(hostname) => {
