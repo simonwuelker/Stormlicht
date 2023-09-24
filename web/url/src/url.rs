@@ -42,17 +42,11 @@ impl<'a> Scheme<'a> {
     pub fn default_port(&self) -> Option<Port> {
         default_port_for_scheme(self.0)
     }
-}
 
-impl<'a> AsRef<str> for Scheme<'a> {
-    fn as_ref(&self) -> &str {
+    #[inline]
+    #[must_use]
+    pub fn as_str(&self) -> &str {
         self.0
-    }
-}
-
-impl<'a> PartialEq<&str> for Scheme<'a> {
-    fn eq(&self, other: &&str) -> bool {
-        self.as_ref().eq(*other)
     }
 }
 
