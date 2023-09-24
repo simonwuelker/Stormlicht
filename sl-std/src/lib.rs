@@ -12,6 +12,7 @@
 )]
 
 pub mod ascii;
+pub mod big_num;
 pub mod chars;
 pub mod iter;
 pub mod punycode;

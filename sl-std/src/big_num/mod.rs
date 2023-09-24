@@ -32,7 +32,7 @@ const POWERS: [(Digit, usize); 256] = {
 
 /// A dynamically sized unsigned integer type
 /// Digits are stored in little endian
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BigNum(Vec<Digit>);
 
 impl BigNum {
