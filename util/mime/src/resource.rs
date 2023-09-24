@@ -68,7 +68,7 @@ impl Resource {
         let mut check_for_apache_bug = CheckForApacheBug::default();
 
         let data = match url.scheme().as_str() {
-            "http" => {
+            "http" | "https" => {
                 // Fetch the file via http
                 let response = http::request::Request::get(url)
                     .send()
