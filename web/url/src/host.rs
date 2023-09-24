@@ -1,10 +1,11 @@
-use std::str::FromStr;
+use std::net;
 
 use sl_std::{ascii, punycode};
 
 use crate::{
+    ip::{ipv4_parse, ipv6_parse},
     percent_encode::{is_c0_control, percent_encode},
-    util, IPParseError, Ipv4Address, Ipv6Address, ValidationError, ValidationErrorHandler,
+    util, IPParseError, ValidationError, ValidationErrorHandler,
 };
 
 /// <https://url.spec.whatwg.org/#forbidden-host-code-point>
@@ -45,8 +46,7 @@ fn is_forbidden_domain_code_point(c: ascii::Char) -> bool {
 #[derive(PartialEq, Clone, Debug)]
 pub enum Host {
     Domain(ascii::String),
-    IPv4(Ipv4Address),
-    IPv6(Ipv6Address),
+    Ip(net::IpAddr),
     OpaqueHost(ascii::String),
     EmptyHost,
 }
@@ -63,13 +63,13 @@ impl ToString for Host {
     // <https://url.spec.whatwg.org/#host-serializing>
     fn to_string(&self) -> String {
         match self {
-            Self::IPv4(ipv4) => {
+            Self::Ip(net::IpAddr::V4(ipv4)) => {
                 // 1. If host is an IPv4 address, return the result of running the IPv4 serializer on host.
                 ipv4.to_string()
             },
-            Self::IPv6(ipv6) => {
+            Self::Ip(net::IpAddr::V6(ipv6)) => {
                 // 2. Otherwise, if host is an IPv6 address, return U+005B ([), followed by the result of running the IPv6 serializer on host, followed by U+005D (]).
-                format!("[{}]", ipv6.to_string())
+                format!("[{ipv6}]")
             },
             Self::Domain(host) | Self::OpaqueHost(host) => {
                 // 3. Otherwise, host is a domain, opaque host, or empty host, return host.
@@ -105,8 +105,9 @@ where
 
         // Return the result of IPv6 parsing input with its leading U+005B ([) and trailing U+005D (]) removed.
         let ipv6_text = &input[1..input.len() - 1];
-        let parsed_ip = Host::IPv6(Ipv6Address::from_str(ipv6_text).map_err(HostParseError::IP)?);
-        return Ok(parsed_ip);
+        let ipv6 = ipv6_parse(ipv6_text).map_err(HostParseError::IP)?;
+        let host = Host::Ip(net::IpAddr::V6(ipv6));
+        return Ok(host);
     }
 
     // If isNotSpecial is true
@@ -150,9 +151,8 @@ where
         .is_some_and(|&c| ascii::Char::Digit0 <= c && c <= ascii::Char::Digit9)
     {
         // then return the result of IPv4 parsing asciiDomain.
-        return Ok(Host::IPv4(
-            Ipv4Address::from_str(input).map_err(HostParseError::IP)?,
-        ));
+        let ipv4 = ipv4_parse(input).map_err(HostParseError::IP)?;
+        return Ok(Host::Ip(net::IpAddr::V4(ipv4)));
     }
 
     // Return asciiDomain.

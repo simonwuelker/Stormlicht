@@ -141,8 +141,7 @@ impl Request {
                     Host::Domain(host) | Host::OpaqueHost(host) => dns::Domain::new(host.as_str())
                         .lookup()
                         .map_err(HTTPError::DNS)?,
-                    Host::IPv4(_ip) => todo!(),
-                    Host::IPv6(_ip) => todo!(),
+                    Host::Ip(_ip) => todo!(),
                     Host::EmptyHost => todo!(),
                 };
 

@@ -1,12 +1,4 @@
-use std::str::FromStr;
-
-/// <https://url.spec.whatwg.org/#ip-address>
-#[derive(PartialEq, Clone, Copy, Debug)]
-pub struct Ipv4Address(u32);
-
-/// <https://url.spec.whatwg.org/#ip-address>
-#[derive(PartialEq, Clone, Copy, Debug)]
-pub struct Ipv6Address([u16; 8]);
+use std::net;
 
 #[derive(Clone, Copy, Debug)]
 pub enum IPParseError {
@@ -21,115 +13,96 @@ pub enum IPParseError {
     Generic,
 }
 
-impl FromStr for Ipv4Address {
-    type Err = IPParseError;
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        Ok(Self(ipv4_parse(input)?))
+/// <https://url.spec.whatwg.org/#concept-ipv4-parser>
+pub(crate) fn ipv4_parse(input: &str) -> Result<net::Ipv4Addr, IPParseError> {
+    // Let validationError be false.
+    let mut validation_error = false;
+
+    // let parts be the result of strictly splitting input on U+002E (.)
+    let mut parts: Vec<&str> = input.split('.').collect();
+
+    // If the last item in parts is the empty string, then:
+    if parts.last().copied().is_some_and(str::is_empty) {
+        // Set validationError to true.
+        validation_error = true;
+
+        // If parts’s size is greater than 1
+        if parts.len() > 1 {
+            // then remove the last item from parts.
+            parts.pop();
+        }
     }
-}
 
-impl FromStr for Ipv6Address {
-    type Err = IPParseError;
-
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        Ok(Self(ipv6_parse(input)?))
+    // If parts’s size is greater than 4
+    if parts.len() > 4 {
+        // validation error, return failure.
+        return Err(IPParseError::TooManyParts);
     }
-}
 
-impl ToString for Ipv4Address {
-    fn to_string(&self) -> String {
-        // 1. Let output be the empty string.
-        let mut octets = [0; 4];
+    // Let numbers be an empty list.
+    let mut numbers = [0; 4];
 
-        // 2. Let n be the value of address.
-        let mut n = self.0;
+    // For each part of parts:
+    for (index, part) in parts.iter().enumerate() {
+        // Let result be the result of parsing part.
+        // If result is failure,
+        //      validation error, return failure.
+        let result = ipv4_number_parse(part)?;
 
-        // 3. For each i in the range 1 to 4, inclusive:
-        for i in 0..4 {
-            // 1. Prepend n % 256, serialized, to output.
-            octets[i] = n % 256;
-            // 2. If i is not 4, then prepend U+002E (.) to output.
-            // NOTE: the actual serialization happens later in the code
-
-            // 3. Set n to floor(n / 256).
-            n /= 256;
+        // If result[1] is true
+        if result.1 {
+            // then set validationError to true.
+            validation_error = true;
         }
 
-        // 4 Return output.
-        format!("{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3])
+        // Append result[0] to numbers.
+        numbers[index] = result.0;
     }
-}
 
-impl ToString for Ipv6Address {
-    fn to_string(&self) -> String {
-        // 1. Let output be the empty string.
-        let mut output = String::new();
-
-        // 2. Let compress be an index to the first IPv6 piece in the first longest sequences of address’s IPv6 pieces that are 0.
-        let mut longest_sequence_length = 0;
-        let mut longest_sequence_start = 0;
-        let mut current_sequence_length = 0;
-        let mut current_sequence_start = 0;
-
-        for (index, &piece) in self.0.iter().enumerate() {
-            if piece == 0 {
-                if current_sequence_length == 0 {
-                    current_sequence_start = index;
-                }
-
-                current_sequence_length += 1;
-                if current_sequence_length > longest_sequence_length {
-                    longest_sequence_length = current_sequence_length;
-                    longest_sequence_start = current_sequence_start;
-                }
-            } else {
-                current_sequence_length = 0;
-            }
-        }
-
-        // 3. If there is no sequence of address’s IPv6 pieces that are 0 that is longer than 1, then set compress to null.
-        let compress = if longest_sequence_length == 1 {
-            0
-        } else {
-            longest_sequence_start
-        };
-
-        // 4. Let ignore0 be false.
-        let mut ignore0 = false;
-
-        // 5. For each pieceIndex in the range 0 to 7, inclusive:
-        for piece_index in 0..8 {
-            // 1. If ignore0 is true and address[pieceIndex] is 0, then continue.
-            if ignore0 && self.0[piece_index] == 0 {
-                continue;
-            }
-
-            // 2. Otherwise, if ignore0 is true, set ignore0 to false.
-            ignore0 = false;
-
-            // 3. If compress is pieceIndex, then:
-            if compress == piece_index {
-                // 1. Let separator be "::" if pieceIndex is 0, and U+003A (:) otherwise.
-                let seperator = if piece_index == 0 { "::" } else { ":" };
-
-                // 2. Append separator to output.
-                output.push_str(seperator);
-
-                // 3. Set ignore0 to true and continue.
-                ignore0 = true;
-                continue;
-            }
-
-            // 4. Append address[pieceIndex], represented as the shortest possible lowercase hexadecimal number, to output.
-            output.push_str(&format!("{:x}", self.0[piece_index]));
-
-            // If pieceIndex is not 7, then append U+003A (:) to output.
-            output.push(':')
-        }
-
-        // 6. Return output.
-        output
+    // If validationError is true,
+    if validation_error {
+        // validation error
     }
+
+    // If any item in numbers is greater than 255,
+    if numbers.iter().any(|n| *n > 255) {
+        // validation error
+    }
+
+    // If any but the last item in numbers is greater than 255,
+    if numbers[..numbers.len() - 1].iter().any(|n| *n > 255) {
+        // then return failure.
+        return Err(IPParseError::Ipv4NumberTooLarge);
+    }
+
+    // If the last item in numbers is greater than or equal to 256^(5 − numbers’s size),
+    if numbers
+        .last()
+        .is_some_and(|&n| n >= 256_u32.pow(5 - numbers.len() as u32))
+    {
+        // validation error, return failure.
+        return Err(IPParseError::InvalidLastNumber);
+    }
+
+    // Let ipv4 be the last item in numbers.
+    // Remove the last item from numbers.
+    let mut ipv4 = numbers[3];
+
+    // Let counter be 0.
+    let mut counter = 0;
+
+    // For each n of numbers:
+    #[allow(clippy::explicit_counter_loop)] // Let's follow the spec comments
+    for n in numbers.iter().take(3) {
+        // Increment ipv4 by n × 256^(3 − counter).
+        ipv4 += n * 256_u32.pow(3 - counter);
+
+        // Increment counter by 1.
+        counter += 1;
+    }
+
+    // Return ipv4.
+    Ok(net::Ipv4Addr::from_bits(ipv4))
 }
 
 /// <https://url.spec.whatwg.org/#ipv4-number-parser>
@@ -186,100 +159,8 @@ fn ipv4_number_parse(mut input: &str) -> Result<(u32, bool), IPParseError> {
     Ok((output, validation_error))
 }
 
-/// <https://url.spec.whatwg.org/#concept-ipv4-parser>
-fn ipv4_parse(input: &str) -> Result<u32, IPParseError> {
-    // Let validationError be false.
-    let mut validation_error = false;
-
-    // let parts be the result of strictly splitting input on U+002E (.)
-    let mut parts: Vec<&str> = input.split('.').collect();
-
-    // If the last item in parts is the empty string, then:
-    if parts.last().copied().is_some_and(str::is_empty) {
-        // Set validationError to true.
-        validation_error = true;
-
-        // If parts’s size is greater than 1
-        if parts.len() > 1 {
-            // then remove the last item from parts.
-            parts.pop();
-        }
-    }
-
-    // If parts’s size is greater than 4
-    if parts.len() > 4 {
-        // validation error, return failure.
-        return Err(IPParseError::TooManyParts);
-    }
-
-    // Let numbers be an empty list.
-    let mut numbers = vec![];
-
-    // For each part of parts:
-    for part in parts {
-        // Let result be the result of parsing part.
-        // If result is failure,
-        //      validation error, return failure.
-        let result = ipv4_number_parse(part)?;
-
-        // If result[1] is true
-        if result.1 {
-            // then set validationError to true.
-            validation_error = true;
-        }
-
-        // Append result[0] to numbers.
-        numbers.push(result.0);
-    }
-
-    // If validationError is true,
-    if validation_error {
-        // validation error
-    }
-
-    // If any item in numbers is greater than 255,
-    if numbers.iter().any(|n| *n > 255) {
-        // validation error
-    }
-
-    // If any but the last item in numbers is greater than 255,
-    if numbers[..numbers.len() - 1].iter().any(|n| *n > 255) {
-        // then return failure.
-        return Err(IPParseError::Ipv4NumberTooLarge);
-    }
-
-    // If the last item in numbers is greater than or equal to 256^(5 − numbers’s size),
-    if numbers
-        .last()
-        .is_some_and(|&n| n >= 256_u32.pow(5 - numbers.len() as u32))
-    {
-        // validation error, return failure.
-        return Err(IPParseError::InvalidLastNumber);
-    }
-
-    // Let ipv4 be the last item in numbers.
-    // Remove the last item from numbers.
-    let mut ipv4 = numbers.pop().expect("numbers must not be empty");
-
-    // Let counter be 0.
-    let mut counter = 0;
-
-    // For each n of numbers:
-    #[allow(clippy::explicit_counter_loop)] // Let's follow the spec comments
-    for n in numbers {
-        // Increment ipv4 by n × 256^(3 − counter).
-        ipv4 += n * 256_u32.pow(3 - counter);
-
-        // Increment counter by 1.
-        counter += 1;
-    }
-
-    // Return ipv4.
-    Ok(ipv4)
-}
-
 /// <https://url.spec.whatwg.org/#concept-ipv6-parser>
-fn ipv6_parse(input: &str) -> Result<[u16; 8], IPParseError> {
+pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
     // Let address be a new IPv6 address whose IPv6 pieces are all 0.
     let mut address = [0_u16; 8];
 
@@ -520,5 +401,32 @@ fn ipv6_parse(input: &str) -> Result<[u16; 8], IPParseError> {
     }
 
     // Return address.
-    Ok(address)
+    Ok(net::Ipv6Addr::new(
+        address[0], address[1], address[2], address[3], address[4], address[5], address[6],
+        address[7],
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net;
+
+    use super::{ipv4_parse, ipv6_parse};
+
+    #[test]
+    fn test_ipv4_parse() {
+        assert_eq!(ipv4_parse("127.0.0.1").unwrap(), net::Ipv4Addr::LOCALHOST);
+
+        // Test parsing with hex numbers
+        // This is explicitly forbidden in https://datatracker.ietf.org/doc/html/rfc6943#section-3.1.1
+        // but the URL specification allows for it, so we should too.
+        let with_hex = net::Ipv4Addr::new(255, 1, 2, 3);
+        assert_eq!(ipv4_parse("0xff.1.0x2.3").unwrap(), with_hex);
+    }
+
+    #[test]
+    fn test_ipv6_parse() {
+        let ipv6 = net::Ipv6Addr::new(0, 1, 2, 3, 4, 5, 6, 7);
+        assert_eq!(ipv6_parse("0.1.2.3.4.5.6.7").unwrap(), ipv6);
+    }
 }

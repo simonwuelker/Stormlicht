@@ -14,7 +14,8 @@
     let_chains,
     option_get_or_insert_default,
     ascii_char,
-    ascii_char_variants
+    ascii_char_variants,
+    ip_bits
 )]
 
 mod host;
@@ -25,7 +26,7 @@ mod url;
 mod util;
 mod validation_error;
 
-pub use crate::ip::{IPParseError, Ipv4Address, Ipv6Address};
+pub use crate::ip::IPParseError;
 pub use crate::parser::*;
 pub use crate::url::*;
 pub use host::Host;
