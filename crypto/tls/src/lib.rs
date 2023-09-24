@@ -6,7 +6,9 @@ mod connection;
 pub mod handshake;
 pub mod random;
 pub mod record_layer;
+mod server_name;
 
 mod cipher_suite;
 pub use cipher_suite::CipherSuite;
-pub use connection::TLSConnection;
+pub use connection::{TLSConnection, TLSError};
+pub use server_name::ServerName;

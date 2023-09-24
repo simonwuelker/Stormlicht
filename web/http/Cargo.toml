@@ -9,5 +9,6 @@ edition = "2021"
 sl-std = { path = "../../sl-std" }
 url = { path = "../url" }
 dns = { path = "../dns" }
+tls = { path = "../../crypto/tls" }
 compression = { path = "../../compression" }
 log = "0.4"

@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 log = "0.4"
 ciphers = { path = "../ciphers" }
+dns = { path = "../../web/dns" }

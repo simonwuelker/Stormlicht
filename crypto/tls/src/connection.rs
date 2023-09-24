@@ -1,14 +1,18 @@
 use crate::{
     alert::{Alert, AlertError},
-    handshake::{ClientHello, HandshakeMessage},
+    handshake::{self, ClientHello, HandshakeMessage},
     random::CryptographicRand,
     record_layer::{ContentType, TLSRecord},
+    server_name::ServerName,
 };
 
 use std::{
     io::{self, BufRead, BufReader, Read, Write},
-    net::TcpStream,
+    net::{self, TcpStream},
 };
+
+/// The TLS version implemented.
+pub const TLS_VERSION: ProtocolVersion = ProtocolVersion::new(1, 2);
 
 #[derive(Debug)]
 pub enum TLSError {
@@ -18,11 +22,9 @@ pub enum TLSError {
     UnknownCipherSuite,
     UnknownCompressionMethod,
     Alert(AlertError),
+    DNS(dns::DNSError),
     IO(io::Error),
 }
-
-/// The TLS version implemented.
-pub const TLS_VERSION: ProtocolVersion = ProtocolVersion::new(1, 2);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProtocolVersion {
@@ -64,18 +66,24 @@ pub struct TLSConnection {
 }
 
 impl TLSConnection {
-    pub fn create(hostname: &str) -> Result<Self, TLSError> {
-        let stream = TcpStream::connect((hostname, 443)).map_err(TLSError::IO)?;
+    pub fn establish<A>(addr: A) -> Result<Self, TLSError>
+    where
+        ServerName: From<A>,
+    {
+        let server_name = ServerName::from(addr);
+        let ip = net::IpAddr::try_from(&server_name).map_err(TLSError::DNS)?;
+        let stream = TcpStream::connect((ip, 443)).map_err(TLSError::IO)?;
         let mut connection = Self {
             writer: stream.try_clone().map_err(TLSError::IO)?,
             reader: BufReader::new(stream),
         };
-        connection.do_handshake(hostname)?;
+
+        connection.do_handshake(server_name)?;
 
         Ok(connection)
     }
 
-    pub fn do_handshake(&mut self, hostname: &str) -> Result<(), TLSError> {
+    pub fn do_handshake(&mut self, server_name: ServerName) -> Result<(), TLSError> {
         let mut client_random = [0; 32];
         let mut rng = CryptographicRand::new().unwrap();
         client_random[0..16].copy_from_slice(&rng.next_u128().to_ne_bytes());
@@ -84,14 +92,21 @@ impl TLSConnection {
         // NOTE: We override the version here because some TLS server apparently fail if the version isn't 1.0
         // for the initial ClientHello
         // This is also mentioned in https://www.rfc-editor.org/rfc/rfc5246#appendix-E
-        let client_hello = TLSRecord::from_data_and_version(
+        let mut client_hello = ClientHello::new(client_random);
+
+        if let ServerName::Domain(domain) = server_name {
+            // If we have a domain name we can use the SNI extension
+            client_hello.add_extension(handshake::Extension::ServerName(domain))
+        }
+
+        let client_hello_record = TLSRecord::from_data_and_version(
             ContentType::Handshake,
             ProtocolVersion::new(1, 0),
-            ClientHello::new(hostname, client_random).into_bytes(),
+            client_hello.into_bytes(),
         );
 
         self.writer
-            .write_all(&client_hello.into_bytes())
+            .write_all(&client_hello_record.into_bytes())
             .map_err(TLSError::IO)?;
 
         for _ in 0..10 {
@@ -138,5 +153,21 @@ impl TLSConnection {
         self.reader.read_exact(&mut data).map_err(TLSError::IO)?;
 
         Ok(TLSRecord::new(content_type, tls_version, length, data))
+    }
+}
+
+impl io::Read for TLSConnection {
+    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+        todo!()
+    }
+}
+
+impl io::Write for TLSConnection {
+    fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
+        todo!()
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        todo!()
     }
 }

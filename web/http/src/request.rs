@@ -4,6 +4,7 @@ use std::{
 };
 
 use dns::DNSError;
+use tls::TLSConnection;
 use url::{Host, URL};
 
 use crate::{response::Response, Headers, StatusCode};
@@ -19,8 +20,10 @@ pub enum HTTPError {
     Status(StatusCode),
     IO(io::Error),
     DNS(DNSError),
+    TLS(tls::TLSError),
     RedirectLoop,
     NonHTTPRedirect,
+    NonHTTPURl,
 }
 
 #[derive(Clone, Debug)]
@@ -66,6 +69,10 @@ pub struct Request {
     context: Context,
 }
 
+trait Stream: io::Read + io::Write {}
+
+impl<S> Stream for S where S: io::Read + io::Write {}
+
 impl Request {
     /// Create a `GET` request for the specified URL
     ///
@@ -74,7 +81,10 @@ impl Request {
     /// or the url does not have a `host`.
     #[must_use]
     pub fn get(url: &URL) -> Self {
-        assert_eq!(url.scheme(), "http", "URL is not http");
+        assert!(
+            matches!(url.scheme().as_str(), "http" | "https"),
+            "URL is not http(s)"
+        );
 
         let mut headers = Headers::with_capacity(3);
         headers.set("User-Agent", USER_AGENT.to_string());
@@ -122,19 +132,38 @@ impl Request {
     }
 
     pub fn send(&mut self) -> Result<Response, HTTPError> {
-        // Resolve the hostname
-        let ip = match &self.context.url.host().expect("url does not have a host") {
-            Host::Domain(host) | Host::OpaqueHost(host) => dns::Domain::new(host.as_str())
-                .lookup()
-                .map_err(HTTPError::DNS)?,
-            Host::IPv4(_ip) => todo!(),
-            Host::IPv6(_ip) => todo!(),
-            Host::EmptyHost => todo!(),
-        };
+        // Establish a connection with the host
+        let host = self.context.url.host().expect("url does not have a host");
+        match self.context.url.scheme().as_str() {
+            "http" => {
+                // Resolve the hostname
+                let ip = match &host {
+                    Host::Domain(host) | Host::OpaqueHost(host) => dns::Domain::new(host.as_str())
+                        .lookup()
+                        .map_err(HTTPError::DNS)?,
+                    Host::IPv4(_ip) => todo!(),
+                    Host::IPv6(_ip) => todo!(),
+                    Host::EmptyHost => todo!(),
+                };
 
-        // Establish a TCP connection with the host
-        let mut stream = TcpStream::connect(SocketAddr::new(ip, 80)).map_err(HTTPError::IO)?;
+                let stream = TcpStream::connect(SocketAddr::new(ip, 80)).map_err(HTTPError::IO)?;
+                self.send_on_stream(stream)
+            },
+            "https" => {
+                let server_name = match host {
+                    Host::Domain(host) | Host::OpaqueHost(host) => {
+                        tls::ServerName::Domain(host.to_string())
+                    },
+                    _ => todo!(),
+                };
+                let stream = TLSConnection::establish(server_name).map_err(HTTPError::TLS)?;
+                self.send_on_stream(stream)
+            },
+            _ => Err(HTTPError::NonHTTPURl),
+        }
+    }
 
+    fn send_on_stream<S: Stream>(&mut self, mut stream: S) -> Result<Response, HTTPError> {
         // Send our request
         self.write_to(&mut stream).map_err(HTTPError::IO)?;
 
@@ -160,7 +189,7 @@ impl Request {
                     status_code = response.status()
                 );
 
-                if relocation.scheme() != "http" {
+                if relocation.scheme().as_str() != "http" {
                     log::error!(
                         "Cannot load non-http redirect url: {redirect_url}",
                         redirect_url = relocation.serialize(url::ExcludeFragment::Yes)

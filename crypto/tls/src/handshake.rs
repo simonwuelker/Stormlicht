@@ -149,19 +149,23 @@ impl ServerHello {
 }
 
 impl ClientHello {
-    pub fn new(hostname: &str, client_random: [u8; 32]) -> Self {
+    pub fn new(client_random: [u8; 32]) -> Self {
         Self {
             version: TLS_VERSION,
             client_random: client_random,
             session_id_to_resume: None,
             supported_cipher_suites: vec![CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA],
             extensions: vec![
-                Extension::ServerName(hostname.to_string()),
                 Extension::StatusRequest,
                 Extension::RenegotiationInfo,
                 Extension::SignedCertificateTimestamp,
             ],
         }
+    }
+
+    #[inline]
+    pub fn add_extension(&mut self, extension: Extension) {
+        self.extensions.push(extension)
     }
 }
 

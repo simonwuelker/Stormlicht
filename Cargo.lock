@@ -914,6 +914,7 @@ dependencies = [
  "dns",
  "log",
  "sl-std",
+ "tls",
  "url",
 ]
 
@@ -1830,6 +1831,7 @@ name = "tls"
 version = "0.1.0"
 dependencies = [
  "ciphers",
+ "dns",
  "log",
 ]
 
