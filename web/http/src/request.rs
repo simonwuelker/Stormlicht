@@ -20,6 +20,7 @@ pub enum HTTPError {
     IO(io::Error),
     DNS(DNSError),
     RedirectLoop,
+    NonHTTPRedirect,
 }
 
 #[derive(Clone, Debug)]
@@ -158,6 +159,14 @@ impl Request {
                     redirect_url = relocation.serialize(url::ExcludeFragment::No),
                     status_code = response.status()
                 );
+
+                if relocation.scheme() != "http" {
+                    log::error!(
+                        "Cannot load non-http redirect url: {redirect_url}",
+                        redirect_url = relocation.serialize(url::ExcludeFragment::Yes)
+                    );
+                    return Err(HTTPError::NonHTTPRedirect);
+                }
 
                 self.context.num_redirections += 1;
 
