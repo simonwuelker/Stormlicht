@@ -8,7 +8,8 @@
     ascii_char_variants,
     slice_index_methods,
     const_option,
-    round_char_boundary
+    round_char_boundary,
+    cfg_match
 )]
 
 pub mod ascii;

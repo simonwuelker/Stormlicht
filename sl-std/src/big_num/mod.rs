@@ -1,14 +1,18 @@
-use std::{iter, ops::Add};
+use std::{iter, ops};
 
-#[cfg(target_pointer_width = "32")]
-type Digit = u32;
-#[cfg(target_pointer_width = "32")]
-type BigDigit = u64;
-
-#[cfg(target_pointer_width = "64")]
-type Digit = u64;
-#[cfg(target_pointer_width = "64")]
-type BigDigit = u128;
+cfg_match! {
+    cfg(target_pointer_width = "64") => {
+        pub type Digit = u64;
+        pub type BigDigit = u128;
+    }
+    cfg(target_pointer_width = "32") => {
+        pub type Digit = u32;
+        pub type BigDigit = u64;
+    }
+    _ => {
+        compile_error!("Arbitrary sized integers are only available for 32/64 bit platforms");
+    }
+}
 
 const POWERS: [(Digit, usize); 256] = {
     let mut powers = [(0, 0); 256];
@@ -31,11 +35,14 @@ const POWERS: [(Digit, usize); 256] = {
 };
 
 /// A dynamically sized unsigned integer type
-/// Digits are stored in little endian
 #[derive(Clone, Debug)]
-pub struct BigNum(Vec<Digit>);
+pub struct BigNum {
+    /// The least significant digit comes first
+    digits: Vec<Digit>,
+}
 
 impl BigNum {
+    #[must_use]
     pub fn new(number: &str) -> Self {
         if let Some(without_prefix) = number.strip_prefix("0b") {
             return Self::new_with_radix(&to_radix(without_prefix, 2), 2);
@@ -53,8 +60,16 @@ impl BigNum {
     }
 
     /// Utility function for the [BigNum] value `0`
+    #[inline]
+    #[must_use]
     pub fn zero() -> Self {
-        Self(vec![0])
+        Self::from_digits(vec![0])
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn from_digits(digits: Vec<Digit>) -> Self {
+        Self { digits }
     }
 
     /// Parse from big-endian digits
@@ -76,20 +91,20 @@ impl BigNum {
 
         let (head, tail) = digits.split_at(head_len);
 
-        let mut result = Self(Vec::new());
+        let mut result = Self::from_digits(vec![]);
         let first = head.iter().fold(0, |acc, &digit| {
             acc * Digit::from(radix) + Digit::from(digit)
         });
-        result.0.push(first);
+        result.digits.push(first);
 
         let exact_chunks = tail.chunks_exact(power);
         debug_assert!(exact_chunks.remainder().is_empty());
 
         for chunk in exact_chunks {
-            result.0.push(0);
+            result.digits.push(0);
 
             let mut carry: BigDigit = 0;
-            for d in result.0.iter_mut() {
+            for d in result.digits_mut() {
                 carry += BigDigit::from(*d) * BigDigit::from(base);
                 *d = carry as Digit;
                 carry >>= Digit::BITS;
@@ -105,12 +120,25 @@ impl BigNum {
 
     /// Try to shrink the internal vector as much as possible by
     /// deallocating unused capacity and removing leading zeros.
+    #[inline]
     pub fn compact(&mut self) {
-        self.0.truncate(self.first_nonzero_digit() + 1);
+        self.digits.truncate(self.first_nonzero_digit() + 1);
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn digits(&self) -> &[Digit] {
+        &self.digits
+    }
+
+    #[inline]
+    #[must_use]
+    fn digits_mut(&mut self) -> &mut [Digit] {
+        &mut self.digits
     }
 
     fn first_nonzero_digit(&self) -> usize {
-        self.0
+        self.digits()
             .iter()
             .enumerate()
             .rev()
@@ -127,32 +155,32 @@ impl BigNum {
     }
 }
 
-impl Add for BigNum {
+impl ops::Add for BigNum {
     type Output = Self;
 
     fn add(self, other: Self) -> Self::Output {
         // Attempt to reuse the storage from the larger argument
-        let (mut destination, other) = if self.0.capacity() < other.0.capacity() {
+        let (mut destination, other) = if self.digits.capacity() < other.digits.capacity() {
             (other, self)
         } else {
             (self, other)
         };
 
-        let max_digits = if destination.0.len() < other.0.len() {
+        let max_digits = if destination.digits().len() < other.digits().len() {
             // Reserve the maximum space that the result can take up
             // This might not be a reallocation since we chose the
             // vector with a larger capacity earlier.
-            destination.0.resize(other.0.len() + 1, 0);
-            other.0.len()
+            destination.digits.resize(other.digits.len() + 1, 0);
+            other.digits.len()
         } else {
-            destination.0.len()
+            destination.digits.len()
         };
 
         let mut carry = 0;
         for (d1, &d2) in destination
-            .0
+            .digits_mut()
             .iter_mut()
-            .zip(other.0.iter().chain(iter::repeat(&0)))
+            .zip(other.digits().iter().chain(iter::repeat(&0)))
             .take(max_digits)
         {
             let (immediate_result, did_overflow) = d1.overflowing_add(d2);
@@ -171,7 +199,7 @@ impl Add for BigNum {
     }
 }
 
-impl Add<Digit> for BigNum {
+impl ops::Add<Digit> for BigNum {
     type Output = Self;
 
     fn add(self, mut other: Digit) -> Self::Output {
@@ -180,8 +208,9 @@ impl Add<Digit> for BigNum {
 
         let mut done = false;
         while !done {
-            let (intermediate_result, did_overflow) = result.0[add_to_index].overflowing_add(other);
-            result.0[add_to_index] = intermediate_result;
+            let (intermediate_result, did_overflow) =
+                result.digits[add_to_index].overflowing_add(other);
+            result.digits[add_to_index] = intermediate_result;
 
             if did_overflow {
                 other = 1;
@@ -204,12 +233,11 @@ impl PartialEq for BigNum {
             return false;
         }
 
-        for i in 0..up_to_a + 1 {
-            if self.0[i] != other.0[i] {
-                return false;
-            }
-        }
-        true
+        self.digits()
+            .iter()
+            .zip(other.digits())
+            .take(up_to_a)
+            .all(|(a, b)| a == b)
     }
 }
 
