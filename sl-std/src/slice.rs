@@ -6,6 +6,8 @@ pub trait SubsliceOffset {
     /// Examples
     ///
     /// ```
+    /// # use sl_std::slice::SubsliceOffset;
+    ///
     /// let string = "a\nb\nc";
     /// let lines: Vec<&str> = string.lines().collect();
     /// assert!(string.subslice_offset(lines[0]) == Some(0)); // &"a"
