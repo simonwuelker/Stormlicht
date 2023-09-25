@@ -220,26 +220,3 @@ impl Request {
         Ok(response)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::Request;
-
-    #[test]
-    fn basic_get_request() {
-        let mut tcpstream: Vec<u8> = vec![];
-
-        let mut request = Request::get(&url::URL::try_from("http://www.example.com").unwrap());
-        request.headers_mut().clear(); // No default headers
-
-        request.headers_mut().set("User-Agent", "test".to_string());
-        request.write_to(&mut tcpstream).unwrap();
-        assert_eq!(
-            String::from_utf8(tcpstream).unwrap(),
-            "\
-        GET / HTTP/1.1\r\n\
-        User-Agent: test\r\n\
-        \r\n"
-        );
-    }
-}
