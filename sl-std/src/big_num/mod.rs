@@ -85,7 +85,7 @@ impl BigNum {
             return Self::zero();
         }
 
-        debug_assert!(digits.iter().all(|&v| v < radix));
+        assert!(digits.iter().all(|&v| v < radix));
 
         // Split the digits into chunks
         let (base, power) = POWERS[radix as usize];
@@ -229,6 +229,34 @@ impl ops::Add<Digit> for BigNum {
     }
 }
 
+impl ops::Shl<usize> for &BigNum {
+    type Output = BigNum;
+
+    fn shl(self, rhs: usize) -> Self::Output {
+        // First shift by digits
+        let n_digits_to_insert = rhs / Digit::BITS as usize;
+        let final_length = n_digits_to_insert + self.nonzero_digits().len();
+        let mut digits = vec![0; final_length];
+        digits[n_digits_to_insert..].copy_from_slice(self.nonzero_digits());
+
+        // Then, shift by the remainder (which will always be less than the size of a digit)
+        let remainder = rhs % Digit::BITS as usize;
+        if remainder != 0 {
+            let mut carry: Digit = 0;
+            for digit in &mut digits {
+                let new_carry = *digit >> (Digit::BITS as usize - remainder);
+                *digit = (*digit << remainder) | carry;
+                carry = new_carry;
+            }
+            if carry != 0 {
+                digits.push(carry);
+            }
+        }
+
+        BigNum::from_digits(digits)
+    }
+}
+
 impl PartialEq for BigNum {
     fn eq(&self, other: &Self) -> bool {
         self.nonzero_digits() == other.nonzero_digits()
@@ -277,5 +305,18 @@ mod tests {
         let d = bignum!(57900000000000000000000000000000000000001455);
 
         assert_eq!(a + b, d);
+    }
+
+    #[test]
+    fn test_shl() {
+        assert_eq!(
+            &bignum!(1) << 128,
+            bignum!(0x100000000000000000000000000000000)
+        );
+
+        assert_eq!(
+            &bignum!(0xdeadbeef) << 63,
+            bignum!(0x6f56df778000000000000000),
+        )
     }
 }
