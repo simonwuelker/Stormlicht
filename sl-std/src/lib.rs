@@ -9,7 +9,8 @@
     slice_index_methods,
     const_option,
     round_char_boundary,
-    cfg_match
+    cfg_match,
+    bigint_helper_methods
 )]
 
 pub mod ascii;

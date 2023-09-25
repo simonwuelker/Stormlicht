@@ -176,24 +176,19 @@ impl ops::Add for BigNum {
             destination.digits.len()
         };
 
-        let mut carry = 0;
+        let mut carry = false;
         for (d1, &d2) in destination
-            .digits_mut()
+            .digits
             .iter_mut()
             .zip(other.digits().iter().chain(iter::repeat(&0)))
             .take(max_digits)
         {
-            let (immediate_result, did_overflow) = d1.overflowing_add(d2);
-            let (immediate_result, did_overflow_2) = immediate_result.overflowing_add(carry);
-
-            if did_overflow || did_overflow_2 {
-                carry = 1;
-                *d1 = immediate_result - Digit::MAX;
-            } else {
-                carry = 0;
-                *d1 = immediate_result;
-            }
+            (*d1, carry) = d1.carrying_add(d2, carry);
         }
+
+        // We resized with zero before so there can't be a carry afterwards
+        debug_assert!(!carry);
+
         destination.compact(); // if we allocated too much, free the space
         destination
     }
@@ -202,24 +197,21 @@ impl ops::Add for BigNum {
 impl ops::Add<Digit> for BigNum {
     type Output = Self;
 
-    fn add(self, mut other: Digit) -> Self::Output {
-        let mut result = self; // reuse the already-allocated storage
-        let mut add_to_index = 0;
+    fn add(mut self, other: Digit) -> Self::Output {
+        let mut carry = false;
+        for digit in self.digits.iter_mut() {
+            (*digit, carry) = digit.carrying_add(other, carry);
 
-        let mut done = false;
-        while !done {
-            let (intermediate_result, did_overflow) =
-                result.digits[add_to_index].overflowing_add(other);
-            result.digits[add_to_index] = intermediate_result;
-
-            if did_overflow {
-                other = 1;
-                add_to_index += 1;
-            } else {
-                done = true;
+            if !carry {
+                return self;
             }
         }
-        result
+
+        if carry {
+            self.digits.push(1);
+        }
+
+        self
     }
 }
 
