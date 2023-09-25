@@ -14,6 +14,13 @@ cfg_match! {
     }
 }
 
+#[macro_export]
+macro_rules! bignum {
+    ($n: literal) => {
+        $crate::big_num::BigNum::new(stringify!($n))
+    };
+}
+
 const POWERS: [(Digit, usize); 256] = {
     let mut powers = [(0, 0); 256];
 
@@ -122,13 +129,20 @@ impl BigNum {
     /// deallocating unused capacity and removing leading zeros.
     #[inline]
     pub fn compact(&mut self) {
-        self.digits.truncate(self.first_nonzero_digit() + 1);
+        self.digits.truncate(self.last_nonzero_digit() + 1);
     }
 
     #[inline]
     #[must_use]
-    pub fn digits(&self) -> &[Digit] {
+    fn digits(&self) -> &[Digit] {
         &self.digits
+    }
+
+    /// List of digits, with leading zeros removed
+    #[inline]
+    #[must_use]
+    fn nonzero_digits(&self) -> &[Digit] {
+        &self.digits()[..=self.last_nonzero_digit()]
     }
 
     #[inline]
@@ -137,7 +151,7 @@ impl BigNum {
         &mut self.digits
     }
 
-    fn first_nonzero_digit(&self) -> usize {
+    fn last_nonzero_digit(&self) -> usize {
         self.digits()
             .iter()
             .enumerate()
@@ -217,19 +231,7 @@ impl ops::Add<Digit> for BigNum {
 
 impl PartialEq for BigNum {
     fn eq(&self, other: &Self) -> bool {
-        // Ignore leading zeros in the comparison
-        let up_to_a = self.first_nonzero_digit();
-        let up_to_b = other.first_nonzero_digit();
-
-        if up_to_a != up_to_b {
-            return false;
-        }
-
-        self.digits()
-            .iter()
-            .zip(other.digits())
-            .take(up_to_a)
-            .all(|(a, b)| a == b)
+        self.nonzero_digits() == other.nonzero_digits()
     }
 }
 
@@ -249,26 +251,19 @@ fn to_radix(number_with_leading_zeros: &str, base: u32) -> Vec<u32> {
 
 #[cfg(test)]
 mod tests {
-    use super::BigNum;
-
     #[test]
     fn test_equal() {
-        let a = BigNum::new("123");
-        let b = BigNum::new("123");
-        let c = BigNum::new("0123");
-        let d = BigNum::new("321");
-
-        assert_eq!(a, b);
-        assert_eq!(b, c);
-        assert_ne!(c, d);
+        assert_eq!(bignum!(123), bignum!(123));
+        assert_eq!(bignum!(123), bignum!(0123));
+        assert_ne!(bignum!(123), bignum!(321));
     }
 
     #[test]
     fn test_different_radix() {
-        let base_10 = BigNum::new("234793475345234234");
-        let base_16 = BigNum::new("0x342276BFD88393A");
-        let base_8 = BigNum::new("0o15021166577542034472");
-        let base_2 = BigNum::new("0b1101000010001001110110101111111101100010000011100100111010");
+        let base_10 = bignum!(234793475345234234);
+        let base_16 = bignum!(0x342276BFD88393A);
+        let base_8 = bignum!(0o15021166577542034472);
+        let base_2 = bignum!(0b1101000010001001110110101111111101100010000011100100111010);
 
         assert_eq!(base_10, base_16);
         assert_eq!(base_16, base_8);
@@ -277,9 +272,9 @@ mod tests {
 
     #[test]
     fn test_add() {
-        let a = BigNum::new("45600000000000000000000000000000000000000999");
-        let b = BigNum::new("12300000000000000000000000000000000000000456");
-        let d = BigNum::new("57900000000000000000000000000000000000001455");
+        let a = bignum!(45600000000000000000000000000000000000000999);
+        let b = bignum!(12300000000000000000000000000000000000000456);
+        let d = bignum!(57900000000000000000000000000000000000001455);
 
         assert_eq!(a + b, d);
     }
