@@ -75,9 +75,9 @@ impl TLSConnection {
         ServerName: From<A>,
     {
         let server_name = ServerName::from(addr);
-        let ip = net::IpAddr::try_from(&server_name).map_err(TLSError::DNS)?;
-        let stream = TcpStream::connect((ip, TLS_PORT)).map_err(TLSError::IO)?;
-        let writer = TLSRecordWriter::new(stream.try_clone().map_err(TLSError::IO)?);
+        let ip = net::IpAddr::try_from(&server_name)?;
+        let stream = TcpStream::connect((ip, TLS_PORT))?;
+        let writer = TLSRecordWriter::new(stream.try_clone()?);
         let reader = TLSRecordReader::new(BufReader::new(stream));
         let mut connection = Self { writer, reader };
 
@@ -102,13 +102,8 @@ impl TLSConnection {
             client_hello.add_extension(handshake::Extension::ServerName(domain))
         }
 
-        let client_hello_writer = self
-            .writer
-            .writer_for(ContentType::Handshake)
-            .map_err(TLSError::IO)?;
-        client_hello
-            .write_to(client_hello_writer)
-            .map_err(TLSError::IO)?;
+        let client_hello_writer = self.writer.writer_for(ContentType::Handshake)?;
+        client_hello.write_to(client_hello_writer)?;
 
         for _ in 0..10 {
             let record = self.reader.next_record()?;
@@ -116,7 +111,7 @@ impl TLSConnection {
             // TODO: fragmented messages are not yet supported
             match record.content_type {
                 ContentType::Alert => {
-                    let alert = Alert::try_from(record.data.as_slice()).map_err(TLSError::Alert)?;
+                    let alert = Alert::try_from(record.data.as_slice())?;
                     dbg!(alert);
                 },
                 ContentType::Handshake => {
@@ -143,5 +138,23 @@ impl io::Write for TLSConnection {
 
     fn flush(&mut self) -> io::Result<()> {
         todo!()
+    }
+}
+
+impl From<io::Error> for TLSError {
+    fn from(value: io::Error) -> Self {
+        Self::IO(value)
+    }
+}
+
+impl From<dns::DNSError> for TLSError {
+    fn from(value: dns::DNSError) -> Self {
+        Self::DNS(value)
+    }
+}
+
+impl From<AlertError> for TLSError {
+    fn from(value: AlertError) -> Self {
+        Self::Alert(value)
     }
 }

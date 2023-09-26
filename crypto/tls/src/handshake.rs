@@ -248,40 +248,30 @@ impl HandshakeMessage {
             HandshakeType::ServerHello => {
                 // https://www.rfc-editor.org/rfc/rfc5246#section-7.4.1.3
                 let mut server_version_bytes: [u8; 2] = [0, 0];
-                reader
-                    .read_exact(&mut server_version_bytes)
-                    .map_err(TLSError::IO)?;
+                reader.read_exact(&mut server_version_bytes)?;
                 let server_version = ProtocolVersion::try_from(server_version_bytes)?;
 
                 let mut server_random: [u8; 32] = [0; 32];
-                reader
-                    .read_exact(&mut server_random)
-                    .map_err(TLSError::IO)?;
+                reader.read_exact(&mut server_random)?;
 
                 let mut session_id_length_buffer = [0];
-                reader
-                    .read_exact(&mut session_id_length_buffer)
-                    .map_err(TLSError::IO)?;
+                reader.read_exact(&mut session_id_length_buffer)?;
                 let session_id_length = session_id_length_buffer[0];
 
                 let session_id = if session_id_length == 0 {
                     None
                 } else {
                     let mut session_id = vec![0; session_id_length as usize];
-                    reader.read_exact(&mut session_id).map_err(TLSError::IO)?;
+                    reader.read_exact(&mut session_id)?;
                     Some(session_id)
                 };
 
                 let mut cipher_suite_bytes = [0, 0];
-                reader
-                    .read_exact(&mut cipher_suite_bytes)
-                    .map_err(TLSError::IO)?;
+                reader.read_exact(&mut cipher_suite_bytes)?;
                 let cipher_suite = CipherSuite::try_from(cipher_suite_bytes)?;
 
                 let mut selected_compression_method_buffer = [0];
-                reader
-                    .read_exact(&mut selected_compression_method_buffer)
-                    .map_err(TLSError::IO)?;
+                reader.read_exact(&mut selected_compression_method_buffer)?;
                 let selected_compression_method =
                     CompressionMethod::try_from(selected_compression_method_buffer[0])?;
 
@@ -297,9 +287,7 @@ impl HandshakeMessage {
             },
             HandshakeType::Certificate => {
                 let mut certificate_chain_length_bytes = [0; 4];
-                reader
-                    .read_exact(&mut certificate_chain_length_bytes[1..])
-                    .map_err(TLSError::IO)?;
+                reader.read_exact(&mut certificate_chain_length_bytes[1..])?;
                 let certificate_chain_length =
                     u32::from_be_bytes(certificate_chain_length_bytes) as usize;
 
@@ -308,15 +296,11 @@ impl HandshakeMessage {
                 let mut bytes_read = 0;
                 while bytes_read != certificate_chain_length {
                     let mut certificate_length_bytes = [0; 4];
-                    reader
-                        .read_exact(&mut certificate_length_bytes[1..])
-                        .map_err(TLSError::IO)?;
+                    reader.read_exact(&mut certificate_length_bytes[1..])?;
                     let certificate_length = u32::from_be_bytes(certificate_length_bytes) as usize;
 
                     let mut certificate_bytes = vec![0; certificate_length];
-                    reader
-                        .read_exact(&mut certificate_bytes)
-                        .map_err(TLSError::IO)?;
+                    reader.read_exact(&mut certificate_bytes)?;
 
                     // FIXME: propagate error
                     let certificate = X509v3Certificate::new(certificate_bytes)

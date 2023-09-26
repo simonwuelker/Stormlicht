@@ -204,16 +204,12 @@ impl<R: io::Read> TLSRecordReader<R> {
     pub fn next_record(&mut self) -> Result<Record, TLSError> {
         // Read content type field
         let mut content_type_buffer = [0];
-        self.reader
-            .read_exact(&mut content_type_buffer)
-            .map_err(TLSError::IO)?;
+        self.reader.read_exact(&mut content_type_buffer)?;
         let content_type = ContentType::try_from(content_type_buffer[0])?;
 
         // Read TLS version field
         let mut tls_version_buffer = [0, 0];
-        self.reader
-            .read_exact(&mut tls_version_buffer)
-            .map_err(TLSError::IO)?;
+        self.reader.read_exact(&mut tls_version_buffer)?;
         let tls_version = ProtocolVersion::try_from(tls_version_buffer)?;
 
         if TLS_VERSION < tls_version {
@@ -223,13 +219,11 @@ impl<R: io::Read> TLSRecordReader<R> {
 
         // Read data fragment
         let mut length_buffer = [0, 0];
-        self.reader
-            .read_exact(&mut length_buffer)
-            .map_err(TLSError::IO)?;
+        self.reader.read_exact(&mut length_buffer)?;
         let length = u16::from_be_bytes(length_buffer);
 
         let mut data = vec![0; length as usize];
-        self.reader.read_exact(&mut data).map_err(TLSError::IO)?;
+        self.reader.read_exact(&mut data)?;
 
         Ok(Record { content_type, data })
     }
