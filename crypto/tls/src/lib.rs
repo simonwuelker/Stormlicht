@@ -5,6 +5,7 @@
 pub mod alert;
 pub mod certificate;
 mod connection;
+pub mod der;
 pub mod handshake;
 pub mod random;
 pub mod record_layer;

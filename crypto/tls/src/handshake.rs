@@ -171,14 +171,14 @@ impl ClientHello {
 
         #[allow(clippy::identity_op)]
         let length: u32 = 2 // Protocol version
-         + 32 // Client random
-         + 1 // Session id length (always 0 since we don't resume sessions)
-         + 0 // [session id]
-         + 2 // Supported cipher suites length
-         + cipher_suites_length as u32 // List of supported cipher suites
-         + 2 // Compression method
-         + 2 // Extension length
-         + extensions_length as u32;
+            + 32 // Client random
+            + 1 // Session id length (always 0 since we don't resume sessions)
+            + 0 // [session id]
+            + 2 // Supported cipher suites length
+            + cipher_suites_length as u32 // List of supported cipher suites
+            + 2 // Compression method
+            + 2 // Extension length
+            + extensions_length as u32;
 
         writer.write_all(&[HandshakeType::ClientHello.into()])?;
         writer.write_all(&length.to_be_bytes()[1..])?;
@@ -246,6 +246,7 @@ impl HandshakeMessage {
 
         match handshake_type {
             HandshakeType::ServerHello => {
+                // https://www.rfc-editor.org/rfc/rfc5246#section-7.4.1.3
                 let mut server_version_bytes: [u8; 2] = [0, 0];
                 reader
                     .read_exact(&mut server_version_bytes)
@@ -301,7 +302,9 @@ impl HandshakeMessage {
                     .map_err(TLSError::IO)?;
                 let certificate_chain_length =
                     u32::from_be_bytes(certificate_chain_length_bytes) as usize;
+
                 let mut certificate_chain = vec![];
+
                 let mut bytes_read = 0;
                 while bytes_read != certificate_chain_length {
                     let mut certificate_length_bytes = [0; 4];
@@ -315,7 +318,10 @@ impl HandshakeMessage {
                         .read_exact(&mut certificate_bytes)
                         .map_err(TLSError::IO)?;
 
-                    certificate_chain.push(X509v3Certificate::new(certificate_bytes));
+                    // FIXME: propagate error
+                    let certificate = X509v3Certificate::new(certificate_bytes)
+                        .expect("certificate parsing failed");
+                    certificate_chain.push(certificate);
                     bytes_read += certificate_length + 3;
                 }
 
