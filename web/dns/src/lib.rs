@@ -33,3 +33,9 @@ pub enum DNSError {
     UnexpectedID,
     IO(io::Error),
 }
+
+impl From<io::Error> for DNSError {
+    fn from(value: io::Error) -> Self {
+        Self::IO(value)
+    }
+}

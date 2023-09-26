@@ -172,8 +172,8 @@ impl Domain {
 
     fn try_resolve_from(&self, nameserver: IpAddr) -> Result<Message, DNSError> {
         // Bind a UDP socket
-        let socket = UdpSocket::bind(UDP_SOCKET).map_err(DNSError::IO)?;
-        socket.connect((nameserver, 53)).map_err(DNSError::IO)?;
+        let socket = UdpSocket::bind(UDP_SOCKET)?;
+        socket.connect((nameserver, 53))?;
 
         // Send a DNS query
         let message = Message::new(self);
@@ -181,11 +181,11 @@ impl Domain {
 
         let mut bytes = vec![0; message.size()];
         message.write_to_buffer(&mut bytes);
-        socket.send(&bytes).map_err(DNSError::IO)?;
+        socket.send(&bytes)?;
 
         // Read the DNS response
         let mut response = [0; MAX_DATAGRAM_SIZE];
-        let response_length = socket.recv(&mut response).map_err(DNSError::IO)?;
+        let response_length = socket.recv(&mut response)?;
 
         let (parsed_message, _) = Message::read(&response[..response_length], 0)
             .map_err(|_| DNSError::InvalidResponse)?;
