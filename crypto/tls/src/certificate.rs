@@ -1,7 +1,18 @@
-use crate::der;
+use sl_std::big_num::BigNum;
+
+use crate::der::{self, Parse};
 
 #[derive(Clone, Debug)]
-pub struct X509v3Certificate(Vec<u8>);
+pub struct X509v3Certificate {
+    pub version: usize,
+    pub serial_number: BigNum,
+    pub signature: Signature,
+}
+
+#[derive(Clone, Debug)]
+pub struct Signature {
+    pub identifier: der::ObjectIdentifier,
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum Error {
@@ -22,27 +33,19 @@ macro_rules! expect_type {
 
 macro_rules! expect_next_item {
     ($sequence: expr) => {
-        $sequence
-            .next()
-            .ok_or(Error::InvalidFormat)?
-            .map_err(Error::ParsingFailed)?
+        $sequence.next().ok_or(Error::InvalidFormat)??
     };
 }
 
-impl X509v3Certificate {
-    pub fn new(bytes: Vec<u8>) -> Result<Self, Error> {
-        log::info!("bytes {:?}", &bytes[..10]);
+impl der::Parse for X509v3Certificate {
+    type Error = Error;
+
+    fn try_from_item(item: der::Item<'_>) -> Result<Self, Self::Error> {
         // The root sequence always has the following structure:
         // * data
         // * Signature algorithm used
         // * Signature
-        let (root_item, root_length) = der::Item::parse(&bytes).map_err(Error::ParsingFailed)?;
-
-        if root_length != bytes.len() {
-            return Err(Error::TrailingBytes);
-        }
-
-        let mut root_sequence = match root_item {
+        let mut root_sequence = match item {
             der::Item::Sequence(sequence) => sequence,
             _ => return Err(Error::InvalidFormat),
         };
@@ -54,13 +57,20 @@ impl X509v3Certificate {
             _ => return Err(Error::InvalidFormat),
         };
 
-        let (version_item, _) = der::Item::parse(expect_type!(
-            expect_next_item!(certificate),
-            ContextSpecific
-        ))
-        .map_err(Error::ParsingFailed)?;
+        let version: usize = expect_type!(
+            der::Item::parse(expect_type!(
+                expect_next_item!(certificate),
+                ContextSpecific
+            ))?
+            .0,
+            Integer
+        )
+        .try_into()
+        .map_err(|_| Error::InvalidFormat)?;
 
-        log::info!("{:?}", version_item);
+        let serial_number = expect_type!(expect_next_item!(certificate), Integer).into();
+
+        let signature = Signature::try_from_item(expect_next_item!(certificate))?;
 
         let _signature_algorithm = expect_next_item!(root_sequence);
 
@@ -70,6 +80,39 @@ impl X509v3Certificate {
             return Err(Error::InvalidFormat);
         }
 
-        Ok(Self(bytes))
+        Ok(Self {
+            version,
+            serial_number,
+            signature,
+        })
+    }
+}
+
+impl X509v3Certificate {
+    pub fn new(bytes: &[u8]) -> Result<Self, Error> {
+        let (value, remainder) = Self::try_parse(bytes)?;
+
+        if !remainder.is_empty() {
+            return Err(Error::TrailingBytes);
+        }
+
+        Ok(value)
+    }
+}
+
+impl From<der::Error> for Error {
+    fn from(value: der::Error) -> Self {
+        Self::ParsingFailed(value)
+    }
+}
+
+impl der::Parse for Signature {
+    type Error = Error;
+
+    fn try_from_item(item: der::Item<'_>) -> Result<Self, Self::Error> {
+        let mut sequence = expect_type!(item, Sequence);
+        let _identifier = expect_next_item!(sequence);
+        log::info!("{:?}", sequence.next());
+        todo!()
     }
 }

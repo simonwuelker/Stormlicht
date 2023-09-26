@@ -303,7 +303,7 @@ impl HandshakeMessage {
                     reader.read_exact(&mut certificate_bytes)?;
 
                     // FIXME: propagate error
-                    let certificate = X509v3Certificate::new(certificate_bytes)
+                    let certificate = X509v3Certificate::new(&certificate_bytes)
                         .expect("certificate parsing failed");
                     certificate_chain.push(certificate);
                     bytes_read += certificate_length + 3;

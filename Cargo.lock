@@ -1833,6 +1833,7 @@ dependencies = [
  "ciphers",
  "dns",
  "log",
+ "sl-std",
 ]
 
 [[package]]

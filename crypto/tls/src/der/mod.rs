@@ -1,4 +1,12 @@
+mod integer;
+mod object_identifier;
+
+pub use integer::Integer;
+pub use object_identifier::ObjectIdentifier;
+
 use std::iter::FusedIterator;
+
+use sl_std::big_num::BigNum;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ClassTag {
@@ -16,14 +24,19 @@ pub enum ClassTag {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct Sequence<'a> {
+    bytes: &'a [u8],
+}
+
+#[derive(Clone, Debug)]
 pub enum Item<'a> {
     EndOfContent,
     Boolean,
-    Integer,
+    Integer(Integer),
     BitString,
     OctetString,
     Null,
-    ObjectIdentifier,
+    ObjectIdentifier(ObjectIdentifier),
     ObjectDescriptor,
     External,
     Real,
@@ -72,6 +85,7 @@ pub enum Error {
     IndefiniteLength,
     ReservedLength,
     UnexpectedEOF,
+    IllegalValue,
 }
 
 impl<'a> Item<'a> {
@@ -160,11 +174,11 @@ impl<'a> Item<'a> {
             match type_tag {
                 0 => Item::EndOfContent,
                 1 => Item::Boolean,
-                2 => Item::Integer,
+                2 => Item::Integer(Integer::from_be_bytes(value_bytes)),
                 3 => Item::BitString,
                 4 => Item::OctetString,
                 5 => Item::Null,
-                6 => Item::ObjectIdentifier,
+                6 => Item::ObjectIdentifier(ObjectIdentifier::try_from(value_bytes)?),
                 7 => Item::ObjectDescriptor,
                 8 => Item::External,
                 9 => Item::Real,
@@ -203,11 +217,6 @@ impl<'a> Item<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct Sequence<'a> {
-    bytes: &'a [u8],
-}
-
 impl<'a> Iterator for Sequence<'a> {
     type Item = Result<Item<'a>, Error>;
 
@@ -227,3 +236,29 @@ impl<'a> Iterator for Sequence<'a> {
 }
 
 impl<'a> FusedIterator for Sequence<'a> {}
+
+impl Integer {
+    fn from_be_bytes(bytes: &[u8]) -> Self {
+        const BYTES_IN_USIZE: usize = (usize::BITS / 8) as usize;
+
+        if bytes.len() <= BYTES_IN_USIZE {
+            let mut buffer = [0; BYTES_IN_USIZE];
+            buffer[BYTES_IN_USIZE - bytes.len()..].copy_from_slice(bytes);
+            Self::Small(usize::from_be_bytes(buffer))
+        } else {
+            Self::Big(BigNum::from_be_bytes(bytes))
+        }
+    }
+}
+
+pub trait Parse: Sized {
+    type Error: From<Error>;
+
+    fn try_from_item(item: Item<'_>) -> Result<Self, Self::Error>;
+
+    fn try_parse(bytes: &[u8]) -> Result<(Self, &[u8]), Self::Error> {
+        let (item, length) = Item::parse(bytes)?;
+        let parsed_value = Self::try_from_item(item)?;
+        Ok((parsed_value, &bytes[length..]))
+    }
+}
