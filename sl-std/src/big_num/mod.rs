@@ -1,4 +1,4 @@
-use std::{iter, ops};
+use std::{iter, mem, ops};
 
 cfg_match! {
     cfg(target_pointer_width = "64") => {
@@ -13,6 +13,8 @@ cfg_match! {
         compile_error!("Arbitrary sized integers are only available for 32/64 bit platforms");
     }
 }
+
+const BYTES_PER_DIGIT: usize = mem::size_of::<Digit>();
 
 #[macro_export]
 macro_rules! bignum {
@@ -167,6 +169,31 @@ impl BigNum {
             )
             .unwrap_or_default()
     }
+
+    pub fn from_be_bytes(bytes: &[u8]) -> Self {
+        let skip_from_start = bytes.len() % BYTES_PER_DIGIT;
+        let n_digits = (bytes.len() + BYTES_PER_DIGIT - 1) / BYTES_PER_DIGIT;
+        let mut digits = Vec::with_capacity(n_digits);
+
+        // Skip the first n bytes such that the remainder is evenly divisible into digits
+        let chunks = bytes[skip_from_start..]
+            .array_chunks::<BYTES_PER_DIGIT>()
+            .rev()
+            .copied();
+
+        for chunk in chunks {
+            digits.push(Digit::from_be_bytes(chunk));
+        }
+
+        // Take care of the most significant bytes we skipped earlier
+        if skip_from_start != 0 {
+            let mut buffer = [0; BYTES_PER_DIGIT];
+            buffer[BYTES_PER_DIGIT - skip_from_start..].copy_from_slice(&bytes[..skip_from_start]);
+            digits.push(Digit::from_be_bytes(buffer));
+        }
+
+        Self::from_digits(digits)
+    }
 }
 
 impl ops::Add for BigNum {
@@ -279,6 +306,8 @@ fn to_radix(number_with_leading_zeros: &str, base: u32) -> Vec<u32> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn test_equal() {
         assert_eq!(bignum!(123), bignum!(123));
@@ -317,6 +346,14 @@ mod tests {
         assert_eq!(
             &bignum!(0xdeadbeef) << 63,
             bignum!(0x6f56df778000000000000000),
+        )
+    }
+
+    #[test]
+    fn test_from_be_bytes() {
+        assert_eq!(
+            BigNum::from_be_bytes(&[0xde, 0xad, 0xbe, 0xef]),
+            bignum!(0xdeadbeef)
         )
     }
 }

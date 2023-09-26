@@ -10,7 +10,8 @@
     const_option,
     round_char_boundary,
     cfg_match,
-    bigint_helper_methods
+    bigint_helper_methods,
+    array_chunks
 )]
 
 pub mod ascii;
