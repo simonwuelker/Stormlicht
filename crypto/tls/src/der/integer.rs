@@ -25,3 +25,17 @@ impl From<Integer> for BigNum {
         }
     }
 }
+
+impl Integer {
+    pub fn from_be_bytes(bytes: &[u8]) -> Self {
+        const BYTES_IN_USIZE: usize = (usize::BITS / 8) as usize;
+
+        if bytes.len() <= BYTES_IN_USIZE {
+            let mut buffer = [0; BYTES_IN_USIZE];
+            buffer[BYTES_IN_USIZE - bytes.len()..].copy_from_slice(bytes);
+            Self::Small(usize::from_be_bytes(buffer))
+        } else {
+            Self::Big(BigNum::from_be_bytes(bytes))
+        }
+    }
+}
