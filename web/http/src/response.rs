@@ -79,7 +79,7 @@ impl Response {
         // TODO all of this is very insecure - we blindly trust the size in Transfer-Encoding: chunked,
         // no timeouts, stuff like that.
         let needle = b"\r\n\r\n";
-        let header_bytes = read_until(reader, needle).map_err(HTTPError::IO)?;
+        let header_bytes = read_until(reader, needle)?;
 
         let mut response_lines =
             MultiElementSplit::new(&header_bytes, |w: &[u8; 2]| w == HTTP_NEWLINE.as_bytes());
@@ -136,8 +136,7 @@ impl Response {
                 "chunked" => {
                     let mut buffer = vec![];
                     loop {
-                        let size_bytes_with_newline =
-                            read_until(reader, HTTP_NEWLINE.as_bytes()).map_err(HTTPError::IO)?;
+                        let size_bytes_with_newline = read_until(reader, HTTP_NEWLINE.as_bytes())?;
                         let size_bytes = &size_bytes_with_newline
                             [..size_bytes_with_newline.len() - HTTP_NEWLINE.len()];
 
@@ -155,9 +154,7 @@ impl Response {
                         buffer.resize(current_buffer_len + size, 0);
 
                         // Read the chunk into the response buffer
-                        reader
-                            .read_exact(&mut buffer[current_buffer_len..])
-                            .map_err(HTTPError::IO)?;
+                        reader.read_exact(&mut buffer[current_buffer_len..])?;
                     }
                     buffer
                 },
@@ -172,7 +169,7 @@ impl Response {
                 str::parse(content_length).map_err(|_| HTTPError::InvalidResponse)?;
             let mut buffer = vec![0; content_length];
 
-            reader.read_exact(&mut buffer).map_err(HTTPError::IO)?;
+            reader.read_exact(&mut buffer)?;
             buffer
         } else {
             log::warn!("Neither Transfer-Encoding nor Content-Length were provided, we don't know how to decode the body!");

@@ -36,6 +36,19 @@ pub struct Context {
     pub url: URL,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Method {
+    GET,
+    POST,
+}
+
+#[derive(Clone, Debug)]
+pub struct Request {
+    method: Method,
+    headers: Headers,
+    context: Context,
+}
+
 impl Context {
     #[must_use]
     pub fn new(url: URL) -> Self {
@@ -46,12 +59,6 @@ impl Context {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Method {
-    GET,
-    POST,
-}
-
 impl Method {
     #[must_use]
     pub fn as_str(&self) -> &'static str {
@@ -60,13 +67,6 @@ impl Method {
             Self::POST => "POST",
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct Request {
-    method: Method,
-    headers: Headers,
-    context: Context,
 }
 
 trait Stream: io::Read + io::Write {}
@@ -145,7 +145,7 @@ impl Request {
                     Host::EmptyHost => todo!(),
                 };
 
-                let stream = TcpStream::connect(SocketAddr::new(ip, 80)).map_err(HTTPError::IO)?;
+                let stream = TcpStream::connect(SocketAddr::new(ip, 80))?;
                 self.send_on_stream(stream)
             },
             "https" => {
@@ -164,7 +164,7 @@ impl Request {
 
     fn send_on_stream<S: Stream>(&mut self, mut stream: S) -> Result<Response, HTTPError> {
         // Send our request
-        self.write_to(&mut stream).map_err(HTTPError::IO)?;
+        self.write_to(&mut stream)?;
 
         // Parse the response
         let mut reader = BufReader::new(stream);
@@ -218,5 +218,11 @@ impl Request {
         }
 
         Ok(response)
+    }
+}
+
+impl From<io::Error> for HTTPError {
+    fn from(value: io::Error) -> Self {
+        Self::IO(value)
     }
 }
