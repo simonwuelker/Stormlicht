@@ -1,3 +1,3 @@
 mod deserializer;
 
-pub use deserializer::JsonDeserializer;
+pub use deserializer::{JsonDeserializer, JsonError};
