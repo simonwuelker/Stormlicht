@@ -72,6 +72,8 @@ impl der::Parse for X509v3Certificate {
 
         let signature = Signature::try_from_item(expect_next_item!(certificate))?;
 
+        let _issuer_sequence = expect_type!(expect_next_item!(certificate), Sequence);
+
         let _signature_algorithm = expect_next_item!(root_sequence);
 
         let _signature = expect_next_item!(root_sequence);
@@ -111,8 +113,11 @@ impl der::Parse for Signature {
 
     fn try_from_item(item: der::Item<'_>) -> Result<Self, Self::Error> {
         let mut sequence = expect_type!(item, Sequence);
-        let _identifier = expect_next_item!(sequence);
-        log::info!("{:?}", sequence.next());
-        todo!()
+        let identifier = expect_type!(expect_next_item!(sequence), ObjectIdentifier);
+        let _parameters = expect_next_item!(sequence);
+        if sequence.next().is_some() {
+            return Err(Error::TrailingBytes);
+        }
+        Ok(Self { identifier })
     }
 }

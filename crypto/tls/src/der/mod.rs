@@ -1,6 +1,6 @@
 mod integer;
 mod item;
-mod object_identifier;
+pub mod object_identifier;
 mod sequence;
 
 pub use integer::Integer;

@@ -10,3 +10,6 @@ log = "0.4"
 ciphers = { path = "../ciphers" }
 dns = { path = "../../web/dns" }
 sl-std = { path = "../../sl-std" }
+
+[build-dependencies]
+serialize = { path = "../../util/serialization/serialize" }
