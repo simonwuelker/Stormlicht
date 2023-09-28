@@ -3,6 +3,13 @@ pub struct ObjectIdentifier {
     parts: Vec<usize>,
 }
 
+impl ObjectIdentifier {
+    #[must_use]
+    pub fn digits(&self) -> &[usize] {
+        &self.parts
+    }
+}
+
 impl TryFrom<&[u8]> for ObjectIdentifier {
     type Error = super::Error;
 

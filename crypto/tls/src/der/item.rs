@@ -14,13 +14,13 @@ pub enum Item<'a> {
     Real,
     Enumerated,
     EmbeddedPDV,
-    Utf8String,
+    Utf8String(String),
     RelativeOID,
     Time,
     Sequence(Sequence<'a>),
-    Set,
+    Set(Sequence<'a>),
     NumericString,
-    PrintableString,
+    PrintableString(String),
     T61String,
     VideotexString,
     IA5String,
@@ -137,14 +137,25 @@ impl<'a> Item<'a> {
                 9 => Item::Real,
                 10 => Item::Enumerated,
                 11 => Item::EmbeddedPDV,
-                12 => Item::Utf8String,
+                12 => {
+                    let string =
+                        String::from_utf8(value_bytes.to_vec()).map_err(|_| Error::IllegalValue)?;
+                    Item::Utf8String(string)
+                },
                 13 => Item::RelativeOID,
                 14 => Item::Time,
                 15 => return Err(Error::ReservedTypeTag),
                 16 => Item::Sequence(Sequence::new(value_bytes)),
-                17 => Item::Set,
+                17 => Item::Set(Sequence::new(value_bytes)),
                 18 => Item::NumericString,
-                19 => Item::PrintableString,
+                19 => {
+                    let string =
+                        String::from_utf8(value_bytes.to_vec()).map_err(|_| Error::IllegalValue)?;
+                    if !string.chars().all(is_printablestring_char) {
+                        return Err(Error::IllegalValue);
+                    }
+                    Item::PrintableString(string)
+                },
                 20 => Item::T61String,
                 21 => Item::VideotexString,
                 22 => Item::IA5String,
@@ -168,4 +179,11 @@ impl<'a> Item<'a> {
 
         Ok((item, index))
     }
+}
+
+/// Whether or not a character can occur inside [Item::PrintableString]
+#[inline]
+#[must_use]
+fn is_printablestring_char(c: char) -> bool {
+    matches!(c, 'A'..='Z' | 'a'..='z' | '0'..='9' | ' ' | '\'' | '(' | ')' | '+' | ',' | '-' | '.' | '/' | ':' | '=' | '?')
 }

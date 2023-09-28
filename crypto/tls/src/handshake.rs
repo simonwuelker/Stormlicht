@@ -1,7 +1,7 @@
 use std::io::{self, Cursor, Read};
 
 use crate::{
-    certificate::X509v3Certificate,
+    certificate::X509Certificate,
     connection::{ProtocolVersion, TLSError, TLS_VERSION},
     CipherSuite,
 };
@@ -119,7 +119,7 @@ pub enum HandshakeMessage {
 
 #[derive(Clone, Debug)]
 pub enum CertificateChain {
-    X509v3(Vec<X509v3Certificate>),
+    X509v3(Vec<X509Certificate>),
 }
 
 impl ServerHello {
@@ -303,7 +303,7 @@ impl HandshakeMessage {
                     reader.read_exact(&mut certificate_bytes)?;
 
                     // FIXME: propagate error
-                    let certificate = X509v3Certificate::new(&certificate_bytes)
+                    let certificate = X509Certificate::new(&certificate_bytes)
                         .expect("certificate parsing failed");
                     certificate_chain.push(certificate);
                     bytes_read += certificate_length + 3;
