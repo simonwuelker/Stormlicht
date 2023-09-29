@@ -1,3 +1,5 @@
+use sl_std::chars::ReversibleCharIterator;
+
 use crate::{Deserialize, Deserializer, Map, Sequence};
 
 #[derive(Clone, Debug)]
@@ -21,17 +23,13 @@ pub enum Token {
 }
 
 pub struct JsonDeserializer<'a> {
-    /// Internally, JSON is *always* stored in UTF-8
-    /// but handling the bytes individually is simpler.
-    source: &'a [u8],
-    pub position: usize,
+    chars: ReversibleCharIterator<&'a str>,
 }
 
 impl<'a> JsonDeserializer<'a> {
     pub fn new(json: &'a str) -> Self {
         Self {
-            source: json.as_bytes(),
-            position: 0,
+            chars: ReversibleCharIterator::new(json),
         }
     }
 
@@ -44,106 +42,82 @@ impl<'a> JsonDeserializer<'a> {
     }
 
     fn deserialize_optional<T: Deserialize>(&mut self) -> Option<T> {
-        let old_pos = self.position;
+        let old_pos = self.chars.position();
         if let Ok(value) = T::deserialize(self) {
             Some(value)
         } else {
-            self.position = old_pos;
+            self.chars.set_position(old_pos);
             None
         }
     }
 
-    fn peek(&self) -> Option<u8> {
-        self.source.get(self.position).copied()
-    }
-
-    fn next(&mut self) -> Option<u8> {
-        let c = self.source.get(self.position).copied();
-        self.position += 1;
-        c
-    }
-
-    fn bump(&mut self) {
-        self.position += 1;
-    }
-
     fn consume_hex_escape(&mut self) -> Option<u32> {
         // Expect 4 hex digits
-        let a = self.next()?;
-        let b = self.next()?;
-        let c = self.next()?;
-        let d = self.next()?;
+        let a = self.chars.next()?;
+        let b = self.chars.next()?;
+        let c = self.chars.next()?;
+        let d = self.chars.next()?;
 
-        let to_digit = |c| match c {
-            b'0'..=b'9' => Some(c - b'0'),
-            b'a'..=b'z' => Some(c - b'a' + 10),
-            b'A'..=b'Z' => Some(c - b'A' + 10),
-            _ => None,
-        };
-        let value = (to_digit(a)? as u32) << 12
-            | (to_digit(b)? as u32) << 8
-            | (to_digit(c)? as u32) << 4
-            | (to_digit(d)? as u32);
+        let value = (a.to_digit(16)?) << 12
+            | (b.to_digit(16)?) << 8
+            | (c.to_digit(16)?) << 4
+            | (d.to_digit(16)?);
         Some(value)
     }
 
     fn next_token(&mut self) -> Option<Token> {
         loop {
-            match self.peek() {
-                Some(b'{') => {
-                    self.bump();
+            match self.chars.current() {
+                Some('{') => {
+                    self.chars.next();
                     return Some(Token::CurlyBraceOpen);
                 },
-                Some(b'}') => {
-                    self.bump();
+                Some('}') => {
+                    self.chars.next();
                     return Some(Token::CurlyBraceClose);
                 },
-                Some(b'[') => {
-                    self.bump();
+                Some('[') => {
+                    self.chars.next();
                     return Some(Token::BracketOpen);
                 },
-                Some(b']') => {
-                    self.bump();
+                Some(']') => {
+                    self.chars.next();
                     return Some(Token::BracketClose);
                 },
-                Some(b',') => {
-                    self.bump();
+                Some(',') => {
+                    self.chars.next();
                     return Some(Token::Comma);
                 },
-                Some(b':') => {
-                    self.bump();
+                Some(':') => {
+                    self.chars.next();
                     return Some(Token::Colon);
                 },
-                Some(b'"') => {
+                Some('"') => {
                     // Parse a string
-                    let mut string_bytes = vec![];
-                    self.bump();
-                    while let Some(c) = self.peek() {
-                        self.bump();
+                    let mut string = String::new();
+                    self.chars.next();
+                    while let Some(c) = self.chars.current() {
+                        self.chars.next();
                         match c {
-                            b'"' => {
-                                // SAFETY: The internal byte buffer came from &str which is guaranteed to be utf-8
-                                let string = unsafe { String::from_utf8_unchecked(string_bytes) };
+                            '"' => {
                                 return Some(Token::String(string));
                             },
-                            b'\\' => {
-                                match self.next()? {
-                                    escaped_char @ (b'\\' | b'"' | b'/') => {
-                                        string_bytes.push(escaped_char)
-                                    },
-                                    b'b' => string_bytes.push(b'\x08'),
-                                    b'f' => string_bytes.push(b'\x0c'),
-                                    b'n' => string_bytes.push(b'\n'),
-                                    b'r' => string_bytes.push(b'\r'),
-                                    b't' => string_bytes.push(b'\t'),
-                                    b'u' => {
+                            '\\' => {
+                                match self.chars.next()? {
+                                    escaped_char @ ('\\' | '"' | '/') => string.push(escaped_char),
+                                    'b' => string.push('\x08'),
+                                    'f' => string.push('\x0c'),
+                                    'n' => string.push('\n'),
+                                    'r' => string.push('\r'),
+                                    't' => string.push('\t'),
+                                    'u' => {
                                         let mut reference_value = self.consume_hex_escape()?;
                                         if (0xD800..=0xDBFF).contains(&reference_value) {
                                             // UTF-16 surrogate
-                                            if self.next() != Some(b'\\') {
+                                            if self.chars.next() != Some('\\') {
                                                 return None;
                                             }
-                                            if self.next() != Some(b'u') {
+                                            if self.chars.next() != Some('u') {
                                                 return None;
                                             }
                                             let second_reference = self.consume_hex_escape()?;
@@ -158,9 +132,7 @@ impl<'a> JsonDeserializer<'a> {
                                         }
 
                                         let referenced_char = char::from_u32(reference_value)?;
-                                        string_bytes.extend_from_slice(
-                                            referenced_char.encode_utf8(&mut [0_u8; 4]).as_bytes(),
-                                        );
+                                        string.push(referenced_char);
                                     },
                                     _ => {
                                         // Invalid escape character
@@ -169,7 +141,7 @@ impl<'a> JsonDeserializer<'a> {
                                 }
                             },
                             other => {
-                                string_bytes.push(other);
+                                string.push(other);
                             },
                         }
                     }
@@ -177,19 +149,19 @@ impl<'a> JsonDeserializer<'a> {
                     // EOF in string
                     return None;
                 },
-                Some(b' ' | b'\t' | b'\r' | b'\n') => {
+                Some(' ' | '\t' | '\r' | '\n') => {
                     // whitespace is skipped
-                    self.bump();
+                    self.chars.next();
                 },
-                Some(c @ (b'0'..=b'9')) => {
+                Some('0'..='9') => {
                     // Parse a numeric value
-                    let mut num = (c - b'0') as u32;
-                    self.bump();
-                    while let Some(c) = self.peek() {
-                        if c.is_ascii_digit() {
+                    let mut num = 0;
+
+                    while let Some(c) = self.chars.current() {
+                        if let Some(digit) = c.to_digit(10) {
                             num *= 10;
-                            num += (c - b'0') as u32;
-                            self.bump();
+                            num += digit;
+                            self.chars.next();
                         } else {
                             break;
                         }
@@ -197,23 +169,21 @@ impl<'a> JsonDeserializer<'a> {
 
                     return Some(Token::Numeric(num));
                 },
-                Some(c @ (b't' | b'f' | b'n')) => {
-                    // Parse an identifier
-                    let mut ident_bytes = vec![c];
-                    self.bump();
-                    while let Some(c) = self.peek() {
-                        if c.is_ascii_alphabetic() {
-                            ident_bytes.push(c);
-                            self.bump();
-                        } else {
-                            return match ident_bytes.as_slice() {
-                                b"true" => Some(Token::True),
-                                b"false" => Some(Token::False),
-                                b"null" => Some(Token::Null),
-                                _ => None,
-                            };
-                        }
-                    }
+                Some('t' | 'f' | 'n') => {
+                    // Parse an identifier (true, false or null)
+                    let remaining = self.chars.remaining();
+                    return if remaining.starts_with("true") {
+                        _ = self.chars.advance_by("true".len());
+                        Some(Token::True)
+                    } else if remaining.starts_with("false") {
+                        _ = self.chars.advance_by("false".len());
+                        Some(Token::False)
+                    } else if remaining.starts_with("null") {
+                        _ = self.chars.advance_by("null".len());
+                        Some(Token::Null)
+                    } else {
+                        None
+                    };
                 },
                 Some(_) | None => return None,
             }
@@ -221,9 +191,9 @@ impl<'a> JsonDeserializer<'a> {
     }
 
     fn peek_token(&mut self) -> Option<Token> {
-        let old_position = self.position;
+        let old_position = self.chars.position();
         let token = self.next_token();
-        self.position = old_position;
+        self.chars.set_position(old_position);
         token
     }
 }
@@ -243,10 +213,11 @@ impl<'a> Deserializer for JsonDeserializer<'a> {
         self.expect_next_token(Token::String(name.to_string()))?;
         self.expect_next_token(Token::Colon)?;
         let value = T::deserialize(self)?;
+
         // Not entirely json compliant: the comma is always optional
-        let old_position = self.position;
+        let old_position = self.chars.position();
         if self.next_token() != Some(Token::Comma) {
-            self.position = old_position;
+            self.chars.set_position(old_position);
         }
         Ok(value)
     }

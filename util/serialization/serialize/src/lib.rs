@@ -1,3 +1,5 @@
+#![feature(iter_advance_by)]
+
 use std::collections::HashMap;
 
 #[cfg(feature = "derive")]
@@ -7,10 +9,6 @@ mod compound_types;
 pub mod json;
 
 pub use compound_types::{Map, Sequence};
-
-pub struct StructInfo;
-
-impl StructInfo {}
 
 pub trait Deserialize: Sized {
     fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error>;
