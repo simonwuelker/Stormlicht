@@ -1,6 +1,6 @@
 pub use std::ascii::Char;
 
-use std::{borrow::Borrow, fmt, ops::Deref};
+use std::{borrow::Borrow, fmt, mem, ops::Deref};
 
 use crate::punycode;
 
@@ -41,6 +41,42 @@ impl String {
             ascii_chars.push(Char::from_u8(b).expect("Punycode encode returned non-ascii byte"))
         }
         Ok(ascii_chars)
+    }
+
+    /// Create a ascii String from bytes, if the bytes are valid ASCII
+    ///
+    /// # Example
+    /// ```
+    /// # use sl_std::ascii;
+    ///
+    /// let valid_ascii = b"foo bar".to_vec();
+    /// let invalid_ascii = b"foo \xff bar".to_vec();
+    ///
+    /// assert_eq!(
+    ///     ascii::String::from_bytes(valid_ascii)
+    ///         .as_deref()
+    ///         .map(ascii::Str::as_str),
+    ///     Some("foo bar")
+    /// );
+    /// assert_eq!(ascii::String::from_bytes(invalid_ascii), None);
+    /// ```
+    pub fn from_bytes(bytes: Vec<u8>) -> Option<Self> {
+        if bytes.is_ascii() {
+            let chars = unsafe {
+                // Ensure the original vector is not dropped.
+                let mut wrapped_bytes = mem::ManuallyDrop::new(bytes);
+
+                // SAFETY: Vec<u8> has the same layout as Vec<ascii::Char>
+                Vec::from_raw_parts(
+                    wrapped_bytes.as_mut_ptr() as *mut Char,
+                    wrapped_bytes.len(),
+                    wrapped_bytes.capacity(),
+                )
+            };
+            Some(Self { chars })
+        } else {
+            None
+        }
     }
 }
 
