@@ -80,6 +80,26 @@ impl Month {
             _ => Err(ParseError::InvalidMonth),
         }
     }
+
+    pub fn from_index(index: u8) -> Option<Self> {
+        let month = match index {
+            1 => Self::January,
+            2 => Self::February,
+            3 => Self::March,
+            4 => Self::April,
+            5 => Self::May,
+            6 => Self::June,
+            7 => Self::July,
+            8 => Self::August,
+            9 => Self::September,
+            10 => Self::October,
+            11 => Self::November,
+            12 => Self::December,
+            _ => return None,
+        };
+
+        Some(month)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
