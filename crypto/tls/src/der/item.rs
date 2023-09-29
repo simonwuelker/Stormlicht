@@ -1,3 +1,8 @@
+use sl_std::{
+    ascii,
+    time::{DateTime, Month},
+};
+
 use super::{ClassTag, Error, Integer, ObjectIdentifier, PrimitiveOrConstructed, Sequence};
 
 #[derive(Clone, Debug)]
@@ -20,11 +25,11 @@ pub enum Item<'a> {
     Sequence(Sequence<'a>),
     Set(Sequence<'a>),
     NumericString,
-    PrintableString(String),
+    PrintableString(ascii::String),
     T61String,
     VideotexString,
     IA5String,
-    UtcTime,
+    UtcTime(DateTime),
     GeneralizedTime,
     GraphicString,
     VisibleString,
@@ -149,9 +154,9 @@ impl<'a> Item<'a> {
                 17 => Item::Set(Sequence::new(value_bytes)),
                 18 => Item::NumericString,
                 19 => {
-                    let string =
-                        String::from_utf8(value_bytes.to_vec()).map_err(|_| Error::IllegalValue)?;
-                    if !string.chars().all(is_printablestring_char) {
+                    let string = ascii::String::from_bytes(value_bytes.to_vec())
+                        .ok_or(Error::IllegalValue)?;
+                    if !string.chars().iter().copied().all(is_printablestring_char) {
                         return Err(Error::IllegalValue);
                     }
                     Item::PrintableString(string)
@@ -159,7 +164,37 @@ impl<'a> Item<'a> {
                 20 => Item::T61String,
                 21 => Item::VideotexString,
                 22 => Item::IA5String,
-                23 => Item::UtcTime,
+                23 => {
+                    // https://datatracker.ietf.org/doc/html/rfc5280#section-4.1.2.5.1
+                    // NOTE: this is not compliant with the der spec itself - but since we *only*
+                    //       use it to parse x509 certificates, we should adhere to the spec above instead
+                    let string = ascii::String::from_bytes(value_bytes.to_vec())
+                        .ok_or(Error::IllegalValue)?;
+                    if string.len() != 13 || string[12].to_char() != 'Z' {
+                        return Err(Error::IllegalValue);
+                    }
+
+                    let year = match str::parse(string[0..2].as_str()) {
+                        Ok(y @ ..50) => 2000 + y,
+                        Ok(y @ 50..) => 1900 + y,
+                        Err(_) => return Err(Error::IllegalValue),
+                    };
+
+                    let month_index =
+                        str::parse(string[2..4].as_str()).map_err(|_| Error::IllegalValue)?;
+                    let month = Month::from_index(month_index).ok_or(Error::IllegalValue)?;
+
+                    let day = str::parse(string[4..6].as_str()).map_err(|_| Error::IllegalValue)?;
+                    let hour =
+                        str::parse(string[6..8].as_str()).map_err(|_| Error::IllegalValue)?;
+                    let minute =
+                        str::parse(string[8..10].as_str()).map_err(|_| Error::IllegalValue)?;
+                    let seconds =
+                        str::parse(string[10..12].as_str()).map_err(|_| Error::IllegalValue)?;
+
+                    let datetime = DateTime::from_ymd_hms(year, month, day, hour, minute, seconds);
+                    Item::UtcTime(datetime)
+                },
                 24 => Item::GeneralizedTime,
                 25 => Item::GraphicString,
                 26 => Item::VisibleString,
@@ -184,6 +219,6 @@ impl<'a> Item<'a> {
 /// Whether or not a character can occur inside [Item::PrintableString]
 #[inline]
 #[must_use]
-fn is_printablestring_char(c: char) -> bool {
-    matches!(c, 'A'..='Z' | 'a'..='z' | '0'..='9' | ' ' | '\'' | '(' | ')' | '+' | ',' | '-' | '.' | '/' | ':' | '=' | '?')
+fn is_printablestring_char(c: ascii::Char) -> bool {
+    matches!(c.to_char(), 'A'..='Z' | 'a'..='z' | '0'..='9' | ' ' | '\'' | '(' | ')' | '+' | ',' | '-' | '.' | '/' | ':' | '=' | '?')
 }

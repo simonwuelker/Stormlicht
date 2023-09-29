@@ -5,7 +5,7 @@ pub mod identity;
 use crate::der::{self, Parse};
 pub use identity::Identity;
 
-use sl_std::big_num::BigNum;
+use sl_std::{big_num::BigNum, time::DateTime};
 
 #[derive(Clone, Debug)]
 pub struct X509Certificate {
@@ -13,11 +13,18 @@ pub struct X509Certificate {
     pub serial_number: BigNum,
     pub signature: Signature,
     pub issuer: Identity,
+    pub validity: Validity,
 }
 
 #[derive(Clone, Debug)]
 pub struct Signature {
     pub identifier: der::ObjectIdentifier,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Validity {
+    pub not_before: DateTime,
+    pub not_after: DateTime,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -73,6 +80,8 @@ impl der::Parse for X509Certificate {
 
         let issuer = Identity::try_from_item(expect_next_item!(certificate)?)?;
 
+        let validity = Validity::try_from_item(expect_next_item!(certificate)?)?;
+
         let _signature_algorithm = expect_next_item!(root_sequence)?;
 
         let _signature = expect_next_item!(root_sequence)?;
@@ -86,6 +95,7 @@ impl der::Parse for X509Certificate {
             serial_number,
             signature,
             issuer,
+            validity,
         })
     }
 }
@@ -120,6 +130,26 @@ impl der::Parse for Signature {
             return Err(Error::TrailingBytes);
         }
         Ok(Self { identifier })
+    }
+}
+
+impl der::Parse for Validity {
+    type Error = Error;
+
+    fn try_from_item(item: der::Item<'_>) -> Result<Self, Self::Error> {
+        let mut sequence = expect_type!(item, Sequence)?;
+
+        let not_before = expect_type!(expect_next_item!(sequence)?, UtcTime)?;
+        let not_after = expect_type!(expect_next_item!(sequence)?, UtcTime)?;
+
+        if sequence.next().is_some() {
+            return Err(Error::TrailingBytes);
+        }
+
+        Ok(Validity {
+            not_before,
+            not_after,
+        })
     }
 }
 

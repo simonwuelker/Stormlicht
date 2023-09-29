@@ -84,7 +84,8 @@ impl der::Parse for Identity {
 
 fn parse_directory_string(item: der::Item<'_>) -> Result<String, certificate::Error> {
     match item {
-        der::Item::Utf8String(s) | der::Item::PrintableString(s) => Ok(s),
+        der::Item::Utf8String(s) => Ok(s),
+        der::Item::PrintableString(ascii_string) => Ok(ascii_string.to_string()),
         _ => Err(certificate::Error::InvalidFormat),
     }
 }

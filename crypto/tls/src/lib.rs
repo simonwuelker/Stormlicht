@@ -1,6 +1,12 @@
 //! TLS 1.2 [RFC 5246](https://www.rfc-editor.org/rfc/rfc5246) implementation.
 
-#![feature(cursor_remaining, array_chunks, result_flattening)]
+#![feature(
+    cursor_remaining,
+    array_chunks,
+    result_flattening,
+    exclusive_range_pattern,
+    ascii_char
+)]
 
 pub mod alert;
 pub mod certificate;
