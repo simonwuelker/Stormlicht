@@ -1,8 +1,9 @@
 //! https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
-use sl_std::rand::RNG;
+
+use sl_std::{rand::RNG, read::ReadExt};
 
 use crate::{domain::Domain, ResourceRecordClass, ResourceRecordType};
-use std::{fmt, net::IpAddr, vec};
+use std::{fmt, io, net::IpAddr, vec};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum QueryType {
@@ -303,12 +304,16 @@ impl Consume for Header {
         if buffer.len() < 12 {
             return Err(());
         }
-        let id = u16::from_be_bytes(buffer[0..2].try_into().unwrap());
-        let flags = Flags::new(u16::from_be_bytes(buffer[2..4].try_into().unwrap()));
-        let num_questions = u16::from_be_bytes(buffer[4..6].try_into().unwrap());
-        let num_answers = u16::from_be_bytes(buffer[6..8].try_into().unwrap());
-        let num_authorities = u16::from_be_bytes(buffer[8..10].try_into().unwrap());
-        let num_additional = u16::from_be_bytes(buffer[10..12].try_into().unwrap());
+
+        let mut cursor = io::Cursor::new(buffer);
+
+        // FIXME: propagate errors
+        let id = cursor.read_be_u16().map_err(|_| ())?;
+        let flags = Flags::new(cursor.read_be_u16().map_err(|_| ())?);
+        let num_questions = cursor.read_be_u16().map_err(|_| ())?;
+        let num_answers = cursor.read_be_u16().map_err(|_| ())?;
+        let num_authorities = cursor.read_be_u16().map_err(|_| ())?;
+        let num_additional = cursor.read_be_u16().map_err(|_| ())?;
 
         Ok((
             Self {
@@ -331,22 +336,10 @@ impl Consume for Resource {
 
         let rtype = (global_buffer, ptr + domain_length).try_into()?;
 
-        let class = u16::from_be_bytes(
-            buffer[domain_length + 2..domain_length + 4]
-                .try_into()
-                .unwrap(),
-        )
-        .into();
-        let ttl = u32::from_be_bytes(
-            buffer[domain_length + 4..domain_length + 8]
-                .try_into()
-                .unwrap(),
-        );
-        let rdlength = u16::from_be_bytes(
-            buffer[domain_length + 8..domain_length + 10]
-                .try_into()
-                .unwrap(),
-        ) as usize;
+        let mut cursor = io::Cursor::new(&buffer[domain_length + 2..]);
+        let class = cursor.read_be_u16().map_err(|_| ())?.into();
+        let ttl = cursor.read_be_u32().map_err(|_| ())?;
+        let rdlength = cursor.read_be_u16().map_err(|_| ())? as usize;
 
         Ok((
             Self {
