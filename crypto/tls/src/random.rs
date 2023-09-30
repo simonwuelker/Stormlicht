@@ -1,5 +1,4 @@
 use ciphers::{BlockCipher, AES128};
-use std::{fs, io::Read};
 
 /// Similar to AES-CTR mode.
 /// I think this is more or less equivalent to AES_CTR_DRBG but
@@ -14,6 +13,8 @@ impl CryptographicRand {
     /// Seed a new CPRNG from `/dev/urandom`.
     #[cfg(target_os = "linux")]
     pub fn new() -> Result<Self, std::io::Error> {
+        use std::{fs, io::Read};
+
         let mut entropy_source = fs::File::open("/dev/urandom")?;
 
         let mut key = [0; 16];
@@ -25,6 +26,16 @@ impl CryptographicRand {
         Ok(Self {
             state: u128::from_ne_bytes(inital_state),
             key: AES128::new(key),
+        })
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    pub fn new() -> Result<Self, std::io::Error> {
+        log::warn!("FIXME: Cannot initialize RNG securely on non-linx platform");
+
+        Ok(Self {
+            state: 0,
+            key: AES128::new([0; 16]),
         })
     }
 
