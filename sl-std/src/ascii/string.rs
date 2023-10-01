@@ -15,6 +15,24 @@ pub struct String {
 }
 
 impl String {
+    /// Creates a new empty `String`.
+    ///
+    /// Given that the `String` is empty, this will not allocate any initial buffer.
+    /// While that means that this initial operation is very inexpensive,
+    /// it may cause excessive allocation later when you add data.
+    /// If you have an idea of how much data the String will hold, consider the
+    /// [with_capacity](String::with_capacity) method to prevent excessive re-allocation.
+    ///
+    /// # Examples
+    /// Basic usage:
+    /// ```
+    /// # use sl_std::ascii;
+    /// let s = ascii::String::new();
+    /// ```
+    pub fn new() -> Self {
+        Self { chars: Vec::new() }
+    }
+
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             chars: Vec::with_capacity(capacity),
@@ -51,7 +69,6 @@ impl String {
     /// # Example
     /// ```
     /// # use sl_std::ascii;
-    ///
     /// let valid_ascii = b"foo bar".to_vec();
     /// let invalid_ascii = b"foo \xff bar".to_vec();
     ///
