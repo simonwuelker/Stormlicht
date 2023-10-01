@@ -48,6 +48,10 @@ pub(crate) struct URLParser<'a, H> {
     pub(crate) base: Option<URL>,
     pub(crate) input: ReversibleCharIterator<&'a str>,
     pub(crate) state: URLParserState,
+
+    /// A temporary character buffer used during parsing
+    ///
+    /// Notably, unlike everything in a URL, this can contain unicode data
     pub(crate) buffer: String,
     pub(crate) at_sign_seen: bool,
     pub(crate) inside_brackets: bool,
@@ -90,6 +94,7 @@ where
         Ok(self)
     }
 
+    #[inline]
     fn set_state(&mut self, new_state: URLParserState) {
         self.state = new_state;
     }
@@ -134,12 +139,12 @@ where
                     // If state override is given, then:
                     if self.state_override.is_some() {
                         // If url’s scheme is a special scheme and buffer is not a special scheme
-                        if self.url.scheme().is_special() && !is_special_scheme(&self.buffer) {
+                        if self.url.is_special() && !is_special_scheme(&self.buffer) {
                             // then return.
                             return Ok(StartOver::No);
                         }
                         // If url’s scheme is not a special scheme and buffer is a special scheme
-                        if !&self.url.scheme().is_special() && is_special_scheme(&self.buffer) {
+                        if !&self.url.is_special() && is_special_scheme(&self.buffer) {
                             // then return.
                             return Ok(StartOver::No);
                         }
@@ -160,7 +165,8 @@ where
                     }
 
                     // Set url’s scheme to buffer.
-                    self.url.scheme = self.buffer.clone();
+                    self.url.scheme = ascii::String::try_from(self.buffer.as_str())
+                        .expect("buffer cannot contain non-ascii data during scheme state");
 
                     // If state override is given, then:
                     if self.state_override.is_some() {
@@ -212,7 +218,7 @@ where
                     // Otherwise,
                     else {
                         // set url’s path to the empty string
-                        self.url.path = vec![String::new()];
+                        self.url.path = vec![ascii::String::new()];
 
                         // and set state to opaque path state.
                         self.set_state(URLParserState::OpaquePath);
@@ -267,7 +273,7 @@ where
                     self.url.query = base.query.clone();
 
                     // url’s fragment to the empty string,
-                    self.url.fragment = Some(String::new());
+                    self.url.fragment = Some(ascii::String::new());
 
                     // and set state to fragment state.
                     self.set_state(URLParserState::Fragment);
@@ -377,7 +383,7 @@ where
                     // If c is U+003F (?)
                     if c == Some('?') {
                         // then set url’s query to the empty string,
-                        self.url.query = Some(String::new());
+                        self.url.query = Some(ascii::String::new());
 
                         // and state to query state.
                         self.set_state(URLParserState::Query);
@@ -385,7 +391,7 @@ where
                     // Otherwise, if c is U+0023 (#)
                     else if c == Some('#') {
                         // set url’s fragment to the empty string
-                        self.url.fragment = Some(String::new());
+                        self.url.fragment = Some(ascii::String::new());
 
                         // and state to fragment state.
                         self.set_state(URLParserState::Fragment);
@@ -749,7 +755,10 @@ where
             // https://url.spec.whatwg.org/#file-state
             URLParserState::File => {
                 // Set url’s scheme to "file".
-                self.url.scheme = "file".to_string();
+                self.url.scheme = "file"
+                    .to_string()
+                    .try_into()
+                    .expect("\"file\" is valid ascii");
 
                 // Set url’s host to the empty string.
                 self.url.host = Some(Host::OpaqueHost(ascii::String::default()));
@@ -780,7 +789,7 @@ where
                     // If c is U+003F (?)
                     if c == Some('?') {
                         // then set url’s query to the empty string
-                        self.url.query = Some(String::new());
+                        self.url.query = Some(ascii::String::new());
 
                         // and state to query state.
                         self.set_state(URLParserState::Query);
@@ -788,7 +797,7 @@ where
                     // Otherwise, if c is U+0023 (#)
                     else if c == Some('#') {
                         // set url’s fragment to the empty string
-                        self.url.fragment = Some(String::new());
+                        self.url.fragment = Some(ascii::String::new());
 
                         // and state to fragment state.
                         self.set_state(URLParserState::Fragment);
@@ -965,7 +974,7 @@ where
                 // Otherwise, if state override is not given and c is U+003F (?)
                 else if self.state_override.is_none() && c == Some('?') {
                     // set url’s query to the empty string
-                    self.url.query = Some(String::new());
+                    self.url.query = Some(ascii::String::new());
 
                     // and state to query state.
                     self.set_state(URLParserState::Query);
@@ -973,7 +982,7 @@ where
                 // Otherwise, if state override is not given and c is U+0023 (#)
                 else if self.state_override.is_none() && c == Some('#') {
                     // set url’s fragment to the empty string
-                    self.url.fragment = Some(String::new());
+                    self.url.fragment = Some(ascii::String::new());
 
                     // and state to fragment state.
                     self.set_state(URLParserState::Fragment);
@@ -992,7 +1001,7 @@ where
                 // Otherwise, if state override is given and url’s host is null,
                 else if self.state_override.is_some() && self.url.host.is_none() {
                     // append the empty string to url’s path.
-                    self.url.path.push(String::new());
+                    self.url.path.push(ascii::String::new());
                 }
             },
             // https://url.spec.whatwg.org/#path-state
@@ -1022,7 +1031,7 @@ where
                         // If neither c is U+002F (/), nor url is special and c is U+005C (\)
                         if c != Some('/') && !(self.url.is_special() && c == Some('\\')) {
                             // append the empty string to url’s path.
-                            self.url.path.push(String::new());
+                            self.url.path.push(ascii::String::new());
                         }
                     }
                     // Otherwise, if buffer is a single-dot path segment
@@ -1032,7 +1041,7 @@ where
                         && !(self.url.is_special() && c == Some('\\'))
                     {
                         // append the empty string to url’s path.
-                        self.url.path.push(String::new());
+                        self.url.path.push(ascii::String::new());
                     }
                     // Otherwise, if buffer is not a single-dot path segment, then:
                     else if !util::is_single_dot_path_segment(&self.buffer) {
@@ -1055,7 +1064,10 @@ where
                         }
 
                         // Append buffer to url’s path.
-                        self.url.path.push(self.buffer.clone());
+                        self.url.path.push(
+                            ascii::String::try_from(self.buffer.as_str())
+                                .expect("buffer cannot contain non-ascii data during path state"),
+                        );
                     }
 
                     // Set buffer to the empty string.
@@ -1064,7 +1076,7 @@ where
                     // If c is U+003F (?)
                     if c == Some('?') {
                         // then set url’s query to the empty string
-                        self.url.query = Some(String::new());
+                        self.url.query = Some(ascii::String::new());
 
                         // and state to query state.
                         self.set_state(URLParserState::Query);
@@ -1073,7 +1085,7 @@ where
                     // If c is U+0023 (#)
                     if c == Some('#') {
                         // then set url’s fragment to the empty string
-                        self.url.fragment = Some(String::new());
+                        self.url.fragment = Some(ascii::String::new());
 
                         // and state to fragment state.
                         self.set_state(URLParserState::Fragment);
@@ -1117,7 +1129,7 @@ where
                 // If c is U+003F (?)
                 if c == Some('?') {
                     //  then set url’s query to the empty string
-                    self.url.query = Some(String::new());
+                    self.url.query = Some(ascii::String::new());
 
                     // and state to query state.
                     self.set_state(URLParserState::Query);
@@ -1125,7 +1137,7 @@ where
                 // Otherwise, if c is U+0023 (#)
                 else if c == Some('#') {
                     // then set url’s fragment to the empty string
-                    self.url.fragment = Some(String::new());
+                    self.url.fragment = Some(ascii::String::new());
 
                     // and state to fragment state.
                     self.set_state(URLParserState::Fragment);
@@ -1158,9 +1170,9 @@ where
                     // If c is not the EOF code point
                     if let Some(c) = c {
                         //  UTF-8 percent-encode c using the C0 control percent-encode set and append the result to url’s path.
-                        let mut result = String::new();
+                        let mut result = ascii::String::new();
                         percent_encode_char(c, is_c0_percent_encode_set, &mut result);
-                        self.url.path.push(result.to_string());
+                        self.url.path.push(result);
                     }
                 }
             },
@@ -1195,7 +1207,7 @@ where
                     // If c is U+0023 (#),
                     if c == Some('#') {
                         // then set url’s fragment to the empty string
-                        self.url.fragment = Some(String::new());
+                        self.url.fragment = Some(ascii::String::new());
 
                         // and state to fragment state.
                         self.set_state(URLParserState::Fragment);

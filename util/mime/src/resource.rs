@@ -98,7 +98,13 @@ impl Resource {
             },
             "file" => {
                 // Fetch the file from the local filesystem
-                let path = format!("/{}", url.path().join("/"));
+                // FIXME: make this cross-platform compatible
+                let mut path = String::new();
+                for segment in url.path() {
+                    path.push('/');
+                    path.push_str(segment.as_str());
+                }
+
                 fs::read(path).map_err(ResourceLoadError::File)?
             },
             other => {

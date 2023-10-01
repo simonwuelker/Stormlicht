@@ -116,16 +116,20 @@ impl Request {
     where
         W: std::io::Write,
     {
-        write!(
-            writer,
-            "{method} /{path} HTTP/1.1{HTTP_NEWLINE}",
-            method = self.method.as_str(),
-            path = self.context.url.path().join("/")
-        )?;
+        // Send request header
+        write!(writer, "{method} ", method = self.method.as_str(),)?;
 
+        for segment in self.context.url.path() {
+            write!(writer, "/{segment}")?;
+        }
+        write!(writer, " HTTP/1.1{HTTP_NEWLINE}")?;
+
+        // Send headers
         for (header, value) in self.headers.iter() {
             write!(writer, "{header}: {value}{HTTP_NEWLINE}")?;
         }
+
+        // Finish request with an extra newline
         write!(writer, "{HTTP_NEWLINE}")?;
 
         Ok(())
