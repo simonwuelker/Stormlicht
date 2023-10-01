@@ -134,3 +134,15 @@ impl TryFrom<Utf8String> for String {
         Self::from_bytes(value.into_bytes()).ok_or(NotAscii)
     }
 }
+
+impl PartialEq<Str> for String {
+    fn eq(&self, other: &Str) -> bool {
+        self.deref().eq(other)
+    }
+}
+
+impl PartialEq<&str> for String {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_bytes().eq(other.as_bytes())
+    }
+}
