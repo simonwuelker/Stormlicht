@@ -144,6 +144,16 @@ impl FromIterator<Char> for String {
     }
 }
 
+impl TryFrom<&str> for String {
+    type Error = NotAscii;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Str::from_bytes(value.as_bytes())
+            .map(Str::to_owned)
+            .ok_or(NotAscii)
+    }
+}
+
 impl TryFrom<Utf8String> for String {
     type Error = NotAscii;
 
