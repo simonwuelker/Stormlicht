@@ -1,10 +1,13 @@
 pub use std::ascii::Char;
 
-use std::{borrow::Borrow, fmt, mem, ops::Deref};
+use std::{borrow::Borrow, fmt, mem, ops::Deref, string::String as Utf8String};
 
 use crate::punycode;
 
 use super::Str;
+
+#[derive(Clone, Copy, Debug)]
+pub struct NotAscii;
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct String {
@@ -121,5 +124,13 @@ impl FromIterator<Char> for String {
         Self {
             chars: iter.into_iter().collect(),
         }
+    }
+}
+
+impl TryFrom<Utf8String> for String {
+    type Error = NotAscii;
+
+    fn try_from(value: Utf8String) -> Result<Self, Self::Error> {
+        Self::from_bytes(value.into_bytes()).ok_or(NotAscii)
     }
 }

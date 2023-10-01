@@ -149,6 +149,7 @@ impl ops::Index<usize> for Str {
         &self.chars()[index]
     }
 }
+
 impl<T> ops::Index<T> for Str
 where
     T: SliceIndex<Str, Output = Str>,
