@@ -53,6 +53,8 @@ pub struct Resource {
 pub enum ResourceLoadError {
     HTTP(HTTPError),
     UnsupportedScheme,
+    BadURL(url::URLParseError),
+    InvalidFilePath,
     IO(io::Error),
 }
 
@@ -107,14 +109,16 @@ impl Resource {
             },
             "file" => {
                 // Fetch the file from the local filesystem
-                // FIXME: make this cross-platform compatible
-                let mut path = String::new();
-                for segment in url.path() {
-                    path.push('/');
-                    path.push_str(segment.as_str());
+                match url.as_file_path() {
+                    Ok(path) => fs::read(path)?,
+                    Err(_) => {
+                        log::error!(
+                            "Failed to load {}: Invalid file path for current platform",
+                            url.serialize(url::ExcludeFragment::Yes)
+                        );
+                        return Err(ResourceLoadError::InvalidFilePath);
+                    },
                 }
-
-                fs::read(path)?
             },
             other => {
                 log::error!(

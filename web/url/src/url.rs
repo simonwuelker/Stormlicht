@@ -1,12 +1,13 @@
 //! Implements <https://url.spec.whatwg.org>
 
-use std::io;
+use std::{io, path};
 
 use sl_std::{ascii, chars::ReversibleCharIterator};
 
 use crate::{
     host::Host,
     parser::{URLParser, URLParserState},
+    percent_encode::percent_decode,
     util, IgnoreValidationErrors,
 };
 
@@ -151,6 +152,58 @@ impl URL {
 
         Self::parse_with_base(input, Some(base_url), None, None)
             .or_else(|_| Self::parse(&format!("http://{input}")))
+    }
+
+    #[cfg(unix)]
+    pub fn as_file_path(&self) -> Result<path::PathBuf, InvalidFilePath> {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let mut bytes = vec![];
+
+        for segment in &self.path {
+            bytes.push(b'/');
+            bytes.extend_from_slice(percent_decode(segment).as_bytes());
+        }
+
+        let path = path::PathBuf::from(OsStr::from_bytes(&bytes));
+        debug_assert!(path.is_absolute());
+
+        Ok(path)
+    }
+
+    #[cfg(windows)]
+    pub fn as_file_path(&self) -> Result<path::PathBuf, InvalidFilePath> {
+        let mut segments = self.path().iter();
+
+        // Make sure that the first segment is a valid start of a absolute
+        // windows path
+        let first_segment = segments.next().ok_or(InvalidFilePath)?;
+        let mut result: String = match first_segment.len() {
+            2 => {
+                // Drive letter
+                if first_segment[0].to_char().is_ascii_alphabetic()
+                    && first_segment[1] == ascii::Char::Colon
+                {
+                    first_segment.as_str().to_owned()
+                } else {
+                    return Err(InvalidFilePath);
+                }
+            },
+            _ => return Err(InvalidFilePath),
+        };
+
+        for segment in segments {
+            result.push(path::MAIN_SEPARATOR);
+            result.push_str(&percent_decode(segment));
+        }
+
+        let path = path::PathBuf::from(result);
+        debug_assert!(
+            path.is_absolute(),
+            "to_file_path() failed to produce an absolute Path"
+        );
+        Ok(path)
     }
 
     pub fn cwd() -> Result<Self, io::Error> {
@@ -397,6 +450,9 @@ impl ToString for URL {
         self.serialize(ExcludeFragment::default())
     }
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct InvalidFilePath;
 
 #[cfg(test)]
 mod tests {
