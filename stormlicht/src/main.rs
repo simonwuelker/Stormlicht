@@ -74,7 +74,17 @@ pub fn main() -> ExitCode {
     }
 
     if arguments.version {
-        println!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        println!(
+            "{} v{} on commit {}",
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION"),
+            env!("GIT_HASH")
+        );
+        println!(
+            "Built for {} using {}",
+            env!("TARGET_TRIPLE"),
+            env!("RUSTC_VERSION")
+        );
         return ExitCode::SUCCESS;
     }
 
