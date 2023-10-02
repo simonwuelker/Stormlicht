@@ -9,6 +9,35 @@ use super::Str;
 #[derive(Clone, Copy, Debug)]
 pub struct NotAscii;
 
+/// A String that is guaranteed to only contain ASCII data.
+///
+/// A [ascii::String](String) owns its data, for the borrowed version see [ascii::Str](Str).
+///
+/// The intention is that this can be used as a drop-in replacement for [std::string::String]
+/// in cases where only ascii data is required. Many public API functions are the
+/// same as in the standard library ([new](String::new), [with_capacity](String::with_capacity), [len](Str::len) etc).
+///
+/// Don't import this directly, instead import it's parent module and
+/// use it as `ascii::String`.
+///
+/// # Example
+/// ```
+/// # use sl_std::ascii;
+///
+/// // Valid ascii data
+/// let ascii = "Hello World";
+/// let ascii_string = ascii::String::try_from(ascii);
+/// assert!(ascii_string.is_ok());
+///
+/// let unicode = "💖💖💖💖💖";
+/// let unicode_as_ascii = ascii::String::try_from(unicode);
+/// assert!(unicode_as_ascii.is_err());
+///
+/// // You can use it like the standard library string:
+/// let mut foo = ascii::String::with_capacity(10);
+/// foo.push_str("abcde".try_into().unwrap());
+/// assert_eq!(foo.len(), 5);
+/// ```
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct String {
     pub(super) chars: Vec<Char>,

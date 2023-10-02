@@ -1,4 +1,4 @@
-use super::String;
+use super::{NotAscii, String};
 use std::{ascii::Char, fmt, ops, slice::SliceIndex};
 
 /// A borrowed [String]
@@ -158,5 +158,13 @@ where
 
     fn index(&self, index: T) -> &Self::Output {
         index.index(self)
+    }
+}
+
+impl<'a> TryFrom<&'a str> for &'a Str {
+    type Error = NotAscii;
+
+    fn try_from(value: &'a str) -> Result<Self, NotAscii> {
+        Str::from_bytes(value.as_bytes()).ok_or(NotAscii)
     }
 }
