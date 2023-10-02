@@ -70,12 +70,12 @@ pub fn main() -> ExitCode {
 
     if arguments.help {
         println!("{}", ArgumentParser::help());
-        return ExitCode::FAILURE;
+        return ExitCode::SUCCESS;
     }
 
     if arguments.version {
         println!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-        return ExitCode::FAILURE;
+        return ExitCode::SUCCESS;
     }
 
     BrowserApplication::run(arguments.url.as_deref())
