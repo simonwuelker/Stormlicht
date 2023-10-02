@@ -94,16 +94,47 @@ fn percent_encode_byte<W: ascii::Write>(byte: u8, writer: &mut W) {
     writer.write_str(ascii::Str::from_ascii_chars(chars));
 }
 
+/// <https://url.spec.whatwg.org/#percent-decode>
+#[must_use]
+pub fn percent_decode(encoded: &ascii::Str) -> String {
+    let decode = |first: ascii::Char, second: ascii::Char| {
+        let value = first.to_char().to_digit(16)? * 16 + second.to_char().to_digit(16)?;
+        char::from_u32(value)
+    };
+
+    // 1. Let output be an empty byte sequence.
+    let mut result = String::with_capacity(encoded.len());
+
+    // 2. For each byte byte in input:
+    let chars = encoded.chars();
+    let mut i = 0;
+    while i < chars.len() {
+        // 1. If byte is not 0x25 (%), then append byte to output.
+        if chars[i] != ascii::Char::PercentSign {
+            result.push(chars[i].to_char());
+        }
+        else if i + 2 < chars.len() && let Some(c) = decode(chars[i + 1], chars[i + 2]) {
+            result.push(c);
+            i += 2;
+        } else {
+            result.push(chars[i].to_char());
+        }
+        i += 1;
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use sl_std::ascii;
 
-    use super::percent_encode_byte;
+    use super::{percent_decode, percent_encode_byte};
 
     #[test]
     fn test_percent_encode_byte() {
         // Examples from
-        // <https://url.spec.whatwg.org/#example-percent-encode-operations>
+        // https://url.spec.whatwg.org/#example-percent-encode-operations
 
         let mut buffer = ascii::String::default();
         percent_encode_byte(0x23, &mut buffer);
@@ -112,5 +143,14 @@ mod tests {
         buffer.clear();
         percent_encode_byte(0x7F, &mut buffer);
         assert_eq!(buffer.as_str(), "%7F");
+    }
+
+    #[test]
+    fn test_percent_decode() {
+        // Examples from
+        // https://url.spec.whatwg.org/#example-percent-encode-operations
+        let encoded = "%25%s%1G".try_into().unwrap();
+        let decoded = percent_decode(encoded);
+        assert_eq!(decoded, "%%s%1G");
     }
 }
