@@ -1,6 +1,6 @@
 //! <https://mimesniff.spec.whatwg.org/#resource>
 
-use std::{fs, str::FromStr};
+use std::{fs, io, str::FromStr};
 
 use crate::{
     sniff::{self, identify_audio_or_video_type, identify_image_type},
@@ -53,8 +53,19 @@ pub struct Resource {
 pub enum ResourceLoadError {
     HTTP(HTTPError),
     UnsupportedScheme,
-    BadURL(url::URLParseError),
-    File(std::io::Error),
+    IO(io::Error),
+}
+
+impl From<HTTPError> for ResourceLoadError {
+    fn from(value: HTTPError) -> Self {
+        Self::HTTP(value)
+    }
+}
+
+impl From<io::Error> for ResourceLoadError {
+    fn from(value: io::Error) -> Self {
+        Self::IO(value)
+    }
 }
 
 impl Resource {
@@ -70,9 +81,7 @@ impl Resource {
         let data = match url.scheme().as_str() {
             "http" | "https" => {
                 // Fetch the file via http
-                let response = http::request::Request::get(url)
-                    .send()
-                    .map_err(ResourceLoadError::HTTP)?;
+                let response = http::request::Request::get(url).send()?;
                 log::info!(
                     "Successfully loaded {}",
                     response.context().url.serialize(ExcludeFragment::Yes)
@@ -105,7 +114,7 @@ impl Resource {
                     path.push_str(segment.as_str());
                 }
 
-                fs::read(path).map_err(ResourceLoadError::File)?
+                fs::read(path)?
             },
             other => {
                 log::error!(
