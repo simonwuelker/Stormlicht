@@ -127,6 +127,12 @@ impl String {
             None
         }
     }
+
+    #[inline]
+    #[must_use]
+    pub fn as_ascii_str(&self) -> &'_ Str {
+        self.deref()
+    }
 }
 
 impl Deref for String {
