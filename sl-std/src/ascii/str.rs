@@ -40,24 +40,37 @@ impl Str {
         }
     }
 
+    #[inline]
     #[must_use]
     pub const fn as_str(&self) -> &str {
         self.chars.as_str()
     }
 
+    #[inline]
     #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         self.chars.as_bytes()
     }
 
+    #[inline]
     #[must_use]
     pub const fn chars(&self) -> &[Char] {
         &self.chars
     }
 
+    #[inline]
     #[must_use]
     pub fn chars_mut(&mut self) -> &mut [Char] {
         &mut self.chars
+    }
+
+    #[must_use]
+    pub fn find(&self, c: Char) -> Option<usize> {
+        self.chars
+            .iter()
+            .enumerate()
+            .find(|(_, &element)| element == c)
+            .map(|(i, _)| i)
     }
 
     #[must_use]
@@ -68,6 +81,20 @@ impl Str {
             .rev()
             .find(|(_, &element)| element == c)
             .map(|(i, _)| i)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn split_once(&self, split_at: Char) -> Option<(&Self, &Self)> {
+        let split_index = self.find(split_at)?;
+        let parts = (&self[..split_index], &self[split_index + 1..]);
+        Some(parts)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn split_at(&self, index: usize) -> (&Self, &Self) {
+        (&self[..index], &self[index..])
     }
 }
 
