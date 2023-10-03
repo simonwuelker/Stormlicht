@@ -527,4 +527,10 @@ mod tests {
         assert_eq!(url.query, None);
         assert_eq!(url.fragment, None);
     }
+
+    #[test]
+    fn opaque_path() {
+        let url: URL = "data:text/html,Hello World".parse().unwrap();
+        assert_eq!(url.path(), &["text/html,Hello World"]);
+    }
 }

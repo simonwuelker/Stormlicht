@@ -1172,7 +1172,7 @@ where
                         //  UTF-8 percent-encode c using the C0 control percent-encode set and append the result to url’s path.
                         let mut result = ascii::String::new();
                         percent_encode_char(c, is_c0_percent_encode_set, &mut result);
-                        self.url.path.push(result);
+                        self.url.path[0].push_str(&result);
                     }
                 }
             },
