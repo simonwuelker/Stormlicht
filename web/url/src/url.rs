@@ -163,7 +163,7 @@ impl URL {
 
         for segment in &self.path {
             bytes.push(b'/');
-            bytes.extend_from_slice(percent_decode(segment).as_bytes());
+            bytes.extend_from_slice(&percent_decode(segment));
         }
 
         let path = path::PathBuf::from(OsStr::from_bytes(&bytes));
@@ -195,7 +195,7 @@ impl URL {
 
         for segment in segments {
             result.push(path::MAIN_SEPARATOR);
-            result.push_str(&percent_decode(segment));
+            result.push_str(&String::from_utf8_lossy(&percent_decode(segment)));
         }
 
         let path = path::PathBuf::from(result);

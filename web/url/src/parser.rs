@@ -10,7 +10,7 @@ use crate::{
     percent_encode::{
         is_c0_percent_encode_set, is_fragment_percent_encode_set, is_path_percent_encode_set,
         is_query_percent_encode_set, is_special_query_percent_encode_set,
-        is_userinfo_percent_encode_set, percent_encode, percent_encode_char,
+        is_userinfo_percent_encode_set, percent_encode,
     },
     util, ValidationError, ValidationErrorHandler, URL,
 };
@@ -524,7 +524,14 @@ where
                             // Otherwise, append encodedCodePoints to url’s username.
                             &mut self.url.username
                         };
-                        percent_encode_char(code_point, is_userinfo_percent_encode_set, append_to);
+
+                        let mut buffer = [0; 4];
+                        code_point.encode_utf8(&mut buffer);
+                        percent_encode(
+                            &buffer[..code_point.len_utf8()],
+                            is_userinfo_percent_encode_set,
+                            append_to,
+                        );
                     }
 
                     // Set buffer to the empty string.
@@ -1119,7 +1126,13 @@ where
                     }
 
                     // UTF-8 percent-encode c using the path percent-encode set and append the result to buffer.
-                    percent_encode_char(c, is_path_percent_encode_set, &mut self.buffer);
+                    let mut buffer = [0; 4];
+                    c.encode_utf8(&mut buffer);
+                    percent_encode(
+                        &buffer[..c.len_utf8()],
+                        is_path_percent_encode_set,
+                        &mut self.buffer,
+                    );
                 }
             },
             // https://url.spec.whatwg.org/#cannot-be-a-base-url-path-state
@@ -1170,9 +1183,13 @@ where
                     // If c is not the EOF code point
                     if let Some(c) = c {
                         //  UTF-8 percent-encode c using the C0 control percent-encode set and append the result to url’s path.
-                        let mut result = ascii::String::new();
-                        percent_encode_char(c, is_c0_percent_encode_set, &mut result);
-                        self.url.path[0].push_str(&result);
+                        let mut buffer = [0; 4];
+                        c.encode_utf8(&mut buffer);
+                        percent_encode(
+                            &buffer[..c.len_utf8()],
+                            is_c0_percent_encode_set,
+                            &mut self.url.path[0],
+                        );
                     }
                 }
             },
@@ -1199,7 +1216,7 @@ where
                     // Percent-encode after encoding, with encoding, buffer, and queryPercentEncodeSet,
                     // and append the result to url’s query.
                     let query = self.url.query.get_or_insert_default();
-                    percent_encode(&self.buffer, query_percent_encode_set, query);
+                    percent_encode(self.buffer.as_bytes(), query_percent_encode_set, query);
 
                     // Set buffer to the empty string.
                     self.buffer.clear();
@@ -1274,7 +1291,13 @@ where
                     // and append the result to url’s fragment.
                     let fragment = self.url.fragment.get_or_insert_default();
 
-                    percent_encode_char(c, is_fragment_percent_encode_set, fragment);
+                    let mut buffer = [0; 4];
+                    c.encode_utf8(&mut buffer);
+                    percent_encode(
+                        &buffer[..c.len_utf8()],
+                        is_fragment_percent_encode_set,
+                        fragment,
+                    );
                 }
             },
         }

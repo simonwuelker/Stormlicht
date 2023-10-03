@@ -185,6 +185,6 @@ where
     // Return the result of running UTF-8 percent-encode on input
     // using the C0 control percent-encode set.
     let mut percent_encoded = ascii::String::with_capacity(input.len());
-    percent_encode(input, is_c0_control, &mut percent_encoded);
+    percent_encode(input.as_bytes(), is_c0_control, &mut percent_encoded);
     Ok(percent_encoded)
 }
