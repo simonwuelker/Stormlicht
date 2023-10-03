@@ -1,6 +1,6 @@
 //! Implements <https://url.spec.whatwg.org>
 
-use std::{io, path};
+use std::{io, path, str::FromStr};
 
 use sl_std::{ascii, chars::ReversibleCharIterator};
 
@@ -151,7 +151,7 @@ impl URL {
         };
 
         Self::parse_with_base(input, Some(base_url), None, None)
-            .or_else(|_| Self::parse(&format!("http://{input}")))
+            .or_else(|_| format!("http://{input}").parse())
     }
 
     #[cfg(unix)]
@@ -310,11 +310,6 @@ impl URL {
         Ok(parsed_url)
     }
 
-    /// [Specification](https://url.spec.whatwg.org/#concept-basic-url-parser)
-    pub fn parse(input: &str) -> Result<Self, URLParseError> {
-        Self::parse_with_base(input, None, None, None)
-    }
-
     /// [Specification](https://url.spec.whatwg.org/#include-credentials)
     ///
     /// A [URL] includes credentials if its  [username](URL::username) or [password](URL::password) is not the empty string.
@@ -437,11 +432,12 @@ impl URL {
     }
 }
 
-impl TryFrom<&str> for URL {
-    type Error = URLParseError;
+impl FromStr for URL {
+    type Err = URLParseError;
 
-    fn try_from(from: &str) -> Result<Self, Self::Error> {
-        Self::parse(from)
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // https://url.spec.whatwg.org/#concept-basic-url-parser
+        Self::parse_with_base(s, None, None, None)
     }
 }
 
@@ -458,11 +454,11 @@ pub struct InvalidFilePath;
 mod tests {
     use sl_std::ascii;
 
-    use super::*;
+    use super::{Host, URL};
 
     #[test]
     fn test_simple_url() {
-        let url = URL::parse("https://google.com").unwrap();
+        let url: URL = "https://google.com".parse().unwrap();
 
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "");
@@ -480,7 +476,7 @@ mod tests {
 
     #[test]
     fn test_with_query() {
-        let url = URL::parse("https://google.com?a=b").unwrap();
+        let url: URL = "https://google.com?a=b".parse().unwrap();
 
         assert_eq!(url.scheme, "https");
         assert_eq!(url.username, "");
@@ -498,7 +494,7 @@ mod tests {
 
     #[test]
     fn test_with_fragment() {
-        let url = URL::parse("https://google.com#foo").unwrap();
+        let url: URL = "https://google.com#foo".parse().unwrap();
 
         assert_eq!(url.scheme.as_str(), "https");
         assert_eq!(url.username.as_str(), "");
@@ -516,7 +512,7 @@ mod tests {
 
     #[test]
     fn test_with_credentials() {
-        let url = URL::parse("https://user:password@google.com").unwrap();
+        let url: URL = "https://user:password@google.com".parse().unwrap();
 
         assert_eq!(url.scheme.as_str(), "https");
         assert_eq!(url.username.as_str(), "user");

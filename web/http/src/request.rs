@@ -183,7 +183,7 @@ impl Request {
             if let Some(relocation) = response
                 .headers()
                 .get("Location")
-                .and_then(|v| URL::try_from(v).ok())
+                .and_then(|location| location.parse::<URL>().ok())
             {
                 log::info!(
                     "{current_url} redirects to {redirect_url} ({status_code:?})",
