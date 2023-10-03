@@ -53,7 +53,6 @@ pub struct Resource {
 pub enum ResourceLoadError {
     HTTP(HTTPError),
     UnsupportedScheme,
-    BadURL(url::URLParseError),
     InvalidFilePath,
     IO(io::Error),
 }
