@@ -2,36 +2,49 @@ use sl_std::ascii;
 
 /// <https://infra.spec.whatwg.org/#c0-control>
 #[inline]
+#[must_use]
 pub(crate) fn is_c0_control(c: u8) -> bool {
     c <= 0x1F
 }
 
 /// <https://url.spec.whatwg.org/#c0-control-percent-encode-set>
+#[inline]
+#[must_use]
 pub(crate) fn is_c0_percent_encode_set(c: u8) -> bool {
     is_c0_control(c) | matches!(c, 0x7F..)
 }
 
 /// <https://url.spec.whatwg.org/#fragment-percent-encode-set>
+#[inline]
+#[must_use]
 pub(crate) fn is_fragment_percent_encode_set(c: u8) -> bool {
     is_c0_percent_encode_set(c) | matches!(c, b' ' | b'"' | b'#' | b'<' | b'>')
 }
 
 /// <https://url.spec.whatwg.org/#query-percent-encode-set>
+#[inline]
+#[must_use]
 pub(crate) fn is_query_percent_encode_set(c: u8) -> bool {
     is_c0_percent_encode_set(c) | matches!(c, b' ' | b'"' | b'#' | b'<' | b'>')
 }
 
 /// <https://url.spec.whatwg.org/#special-query-percent-encode-set>
+#[inline]
+#[must_use]
 pub(crate) fn is_special_query_percent_encode_set(c: u8) -> bool {
     is_query_percent_encode_set(c) || c == b'\''
 }
 
 /// <https://url.spec.whatwg.org/#path-percent-encode-set>
+#[inline]
+#[must_use]
 pub(crate) fn is_path_percent_encode_set(c: u8) -> bool {
     is_query_percent_encode_set(c) | matches!(c, b'?' | b'`' | b'{' | b'}')
 }
 
 /// <https://url.spec.whatwg.org/#userinfo-percent-encode-set>
+#[inline]
+#[must_use]
 pub(crate) fn is_userinfo_percent_encode_set(c: u8) -> bool {
     is_path_percent_encode_set(c)
         | matches!(c, b'/' | b':' | b';' | b'=' | b'@' | b'['..=b'^' | b'|')
