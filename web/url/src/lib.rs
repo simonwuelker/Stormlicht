@@ -21,7 +21,7 @@
 mod host;
 mod ip;
 mod parser;
-pub mod percent_encode;
+mod percent_encode;
 mod url;
 mod util;
 mod validation_error;
@@ -30,4 +30,5 @@ pub use crate::ip::IPParseError;
 pub use crate::parser::*;
 pub use crate::url::*;
 pub use host::Host;
+pub use percent_encode::{percent_decode, percent_encode};
 pub use validation_error::{IgnoreValidationErrors, ValidationError, ValidationErrorHandler};

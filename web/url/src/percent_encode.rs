@@ -51,28 +51,15 @@ pub(crate) fn is_userinfo_percent_encode_set(c: u8) -> bool {
 }
 /// <https://url.spec.whatwg.org/#string-percent-encode-after-encoding>
 pub fn percent_encode<W: ascii::Write, F: Fn(u8) -> bool>(
-    input: &str,
+    input: &[u8],
     in_encode_set: F,
     writer: &mut W,
 ) {
-    for c in input.chars() {
-        percent_encode_char(c, &in_encode_set, writer);
-    }
-}
-
-#[inline]
-pub fn percent_encode_char<W: ascii::Write, F: Fn(u8) -> bool>(
-    c: char,
-    in_encode_set: F,
-    writer: &mut W,
-) {
-    let mut buffer = [0; 4];
-    c.encode_utf8(&mut buffer);
-    for &b in buffer.iter().take(c.len_utf8()) {
-        if let Some(c) = ascii::Char::from_u8(b) && !in_encode_set(b) {
+    for &byte in input {
+        if let Some(c) = ascii::Char::from_u8(byte) && !in_encode_set(byte) {
             writer.write_char(c)
         } else {
-            percent_encode_byte(b, writer);
+            percent_encode_byte(byte, writer);
         }
     }
 }
@@ -109,14 +96,16 @@ fn percent_encode_byte<W: ascii::Write>(byte: u8, writer: &mut W) {
 
 /// <https://url.spec.whatwg.org/#percent-decode>
 #[must_use]
-pub fn percent_decode(encoded: &ascii::Str) -> String {
+pub fn percent_decode(encoded: &ascii::Str) -> Vec<u8> {
     let decode = |first: ascii::Char, second: ascii::Char| {
         let value = first.to_char().to_digit(16)? * 16 + second.to_char().to_digit(16)?;
-        char::from_u32(value)
+
+        // Truncating to a u8 is safe here because we only read two hex digits -> 0xFF max
+        Some(value as u8)
     };
 
     // 1. Let output be an empty byte sequence.
-    let mut result = String::with_capacity(encoded.len());
+    let mut result = Vec::with_capacity(encoded.len());
 
     // 2. For each byte byte in input:
     let chars = encoded.chars();
@@ -124,13 +113,13 @@ pub fn percent_decode(encoded: &ascii::Str) -> String {
     while i < chars.len() {
         // 1. If byte is not 0x25 (%), then append byte to output.
         if chars[i] != ascii::Char::PercentSign {
-            result.push(chars[i].to_char());
+            result.push(chars[i].to_u8());
         }
         else if i + 2 < chars.len() && let Some(c) = decode(chars[i + 1], chars[i + 2]) {
             result.push(c);
             i += 2;
         } else {
-            result.push(chars[i].to_char());
+            result.push(chars[i].to_u8());
         }
         i += 1;
     }
@@ -164,6 +153,6 @@ mod tests {
         // https://url.spec.whatwg.org/#example-percent-encode-operations
         let encoded = "%25%s%1G".try_into().unwrap();
         let decoded = percent_decode(encoded);
-        assert_eq!(decoded, "%%s%1G");
+        assert_eq!(decoded, b"%%s%1G");
     }
 }
