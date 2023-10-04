@@ -8,6 +8,7 @@ use crate::{
 };
 
 use http::request::HTTPError;
+use sl_std::{ascii, base64};
 use url::{ExcludeFragment, URL};
 
 /// Whether or not the user agent should try to guess the computed [MIMEType] of a [Resource].
@@ -52,8 +53,10 @@ pub struct Resource {
 #[derive(Debug)]
 pub enum ResourceLoadError {
     HTTP(HTTPError),
+    Base64(base64::Error),
     UnsupportedScheme,
     InvalidFilePath,
+    InvalidDataURL,
     IO(io::Error),
 }
 
@@ -66,6 +69,12 @@ impl From<HTTPError> for ResourceLoadError {
 impl From<io::Error> for ResourceLoadError {
     fn from(value: io::Error) -> Self {
         Self::IO(value)
+    }
+}
+
+impl From<base64::Error> for ResourceLoadError {
+    fn from(value: base64::Error) -> Self {
+        Self::Base64(value)
     }
 }
 
@@ -117,6 +126,42 @@ impl Resource {
                         );
                         return Err(ResourceLoadError::InvalidFilePath);
                     },
+                }
+            },
+            "data" => {
+                // Load data encoded directly in the URL
+                // https://www.rfc-editor.org/rfc/rfc2397#section-2
+                if !url.has_opaque_path() {
+                    log::error!(
+                        "Failed to load {}: data URLs need to have an opaque path",
+                        url.serialize(url::ExcludeFragment::Yes)
+                    );
+                    return Err(ResourceLoadError::InvalidDataURL);
+                }
+
+                let opaque_path = &url.path()[0];
+                let (mut before_data, data) = match opaque_path.split_once(ascii::Char::Comma) {
+                    Some(segments) => segments,
+                    None => return Err(ResourceLoadError::InvalidDataURL),
+                };
+
+                let is_b64 = if before_data.as_bytes().ends_with(b";base64") {
+                    before_data = &before_data[..before_data.len() - b";base64".len()];
+                    true
+                } else {
+                    false
+                };
+
+                if !before_data.is_empty() {
+                    // We treat parse errors in the provided mime type as if no mime type
+                    // had been provided
+                    supplied_type = before_data.as_str().parse().ok();
+                }
+
+                if is_b64 {
+                    base64::b64decode(data)?
+                } else {
+                    url::percent_decode(data).to_vec()
                 }
             },
             other => {
