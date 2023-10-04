@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 url = { path = "../../web/url" }
 http = { path = "../../web/http" }
+sl-std = { path = "../../sl-std" }
 log = "0.4"
