@@ -2,8 +2,8 @@
 
 use sl_std::{rand::RNG, read::ReadExt};
 
-use crate::{domain::Domain, ResourceRecordClass, ResourceRecordType};
-use std::{fmt, io, net::IpAddr, vec};
+use crate::{domain::Domain, reader::Reader, DNSError, ResourceRecord, ResourceRecordClass};
+use std::{fmt, net::IpAddr, vec};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum QueryType {
@@ -49,7 +49,7 @@ pub struct Question {
 #[derive(Clone, Debug)]
 pub struct Resource {
     pub domain: Domain,
-    pub resource_type: ResourceRecordType,
+    pub record: ResourceRecord,
     pub class: ResourceRecordClass,
     pub time_to_live: u32,
 }
@@ -105,6 +105,25 @@ impl Header {
         bytes[8..10].copy_from_slice(&self.num_authorities.to_be_bytes());
         bytes[10..12].copy_from_slice(&self.num_additional.to_be_bytes());
     }
+
+    pub fn read_from(reader: &mut Reader) -> Result<Self, DNSError> {
+        // FIXME: propagate errors
+        let id = reader.read_be_u16()?;
+        let flags = Flags::new(reader.read_be_u16()?);
+        let num_questions = reader.read_be_u16()?;
+        let num_answers = reader.read_be_u16()?;
+        let num_authorities = reader.read_be_u16()?;
+        let num_additional = reader.read_be_u16()?;
+
+        Ok(Self {
+            id,
+            flags,
+            num_questions,
+            num_answers,
+            num_authorities,
+            num_additional,
+        })
+    }
 }
 
 impl Question {
@@ -134,6 +153,20 @@ impl Question {
         bytes[ptr..ptr + 2].copy_from_slice(&1_u16.to_be_bytes());
         ptr += 2;
         ptr
+    }
+
+    pub fn read_from(reader: &mut Reader) -> Result<Self, DNSError> {
+        let domain = Domain::read_from(reader)?;
+
+        // FIXME: properly parse the type/class
+        let _query_type = reader.read_be_u16()?;
+        let _query_class = reader.read_be_u16()?;
+
+        Ok(Self {
+            domain: domain,
+            _query_type: QueryType::Standard,
+            _query_class: (),
+        })
     }
 }
 
@@ -183,11 +216,11 @@ impl Message {
     pub fn get_answer(&self, domain: &Domain) -> Option<(IpAddr, u32)> {
         for answer in self.answer.iter().chain(&self.additional) {
             if answer.domain == *domain {
-                match answer.resource_type {
-                    ResourceRecordType::A { ipv4 } => {
+                match answer.record {
+                    ResourceRecord::A { ipv4 } => {
                         return Some((IpAddr::V4(ipv4), answer.time_to_live))
                     },
-                    ResourceRecordType::CNAME { ref alias } => {
+                    ResourceRecord::CNAME { ref alias } => {
                         return self.get_answer(alias);
                     },
                     _ => {},
@@ -201,7 +234,7 @@ impl Message {
 
     pub fn get_authority(&self, _domain: &Domain) -> Option<Domain> {
         for authority in &self.authority {
-            if let ResourceRecordType::NS { ns } = &authority.resource_type {
+            if let ResourceRecord::NS { ns } = &authority.record {
                 return Some(ns.clone());
             }
         }
@@ -209,147 +242,67 @@ impl Message {
         // No authoritative nameserver was provided
         None
     }
-}
 
-/// Generic trait for DNS-related things that can be read from a
-/// byte buffer
-pub(crate) trait Consume {
-    /// Tries to consume the given data structure from a buffer at a given offset.
-    /// Fails if the buffer is too small or the data is invalid.
-    /// On success, returns the parsed data structure and the number of bytes (from ptr)
-    /// that were read
-    fn read(buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()>
-    where
-        Self: Sized;
-}
-
-impl Consume for Message {
-    fn read(buffer: &[u8], mut ptr: usize) -> Result<(Self, usize), ()> {
-        let (header, bytes_read) = Header::read(buffer, ptr)?;
-        ptr += bytes_read;
+    pub fn read_from(reader: &mut Reader) -> Result<Self, DNSError> {
+        let header = Header::read_from(reader)?;
 
         let mut questions = Vec::with_capacity(header.num_questions as usize);
         let mut answers = Vec::with_capacity(header.num_answers as usize);
-        let mut authority = Vec::with_capacity(header.num_authorities as usize);
-        let mut additional = Vec::with_capacity(header.num_additional as usize);
+        let mut authorities = Vec::with_capacity(header.num_authorities as usize);
+        let mut additional_resources = Vec::with_capacity(header.num_additional as usize);
 
         for _ in 0..header.num_questions {
-            let (new_question, bytes_read) = Question::read(buffer, ptr)?;
-            questions.push(new_question);
-            ptr += bytes_read;
+            let question = Question::read_from(reader)?;
+            questions.push(question);
         }
 
         for _ in 0..header.num_answers {
-            let (new_answer, bytes_read) = Resource::read(buffer, ptr)?;
-            answers.push(new_answer);
-            ptr += bytes_read;
+            let answer = Resource::read_from(reader)?;
+            answers.push(answer);
         }
 
         for _ in 0..header.num_authorities {
-            let (new_authority, bytes_read) = Resource::read(buffer, ptr)?;
-            authority.push(new_authority);
-            ptr += bytes_read;
+            let authority = Resource::read_from(reader)?;
+            authorities.push(authority);
         }
 
         for _ in 0..header.num_additional {
-            let (new_additional, bytes_read) = Resource::read(buffer, ptr)?;
-            additional.push(new_additional);
-            ptr += bytes_read;
+            let additional = Resource::read_from(reader)?;
+            additional_resources.push(additional);
         }
 
-        Ok((
-            Self {
-                header: header,
-                question: questions,
-                answer: answers,
-                authority: authority,
-                additional: additional,
-            },
-            ptr,
-        ))
+        Ok(Self {
+            header: header,
+            question: questions,
+            answer: answers,
+            authority: authorities,
+            additional: additional_resources,
+        })
     }
 }
 
-impl Consume for Question {
-    fn read(global_buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> {
-        let buffer = &global_buffer[ptr..];
+impl Resource {
+    pub fn read_from(reader: &mut Reader) -> Result<Self, DNSError> {
+        let domain = Domain::read_from(reader)?;
 
-        let (domain, domain_length) = Domain::read(global_buffer, ptr)?;
+        let rtype = reader.read_be_u16()?;
+        let class = reader.read_be_u16()?.into();
+        let ttl = reader.read_be_u32()?;
+        let length = reader.read_be_u16()? as u64;
 
-        let _query_type =
-            u16::from_be_bytes(buffer[domain_length..domain_length + 2].try_into().unwrap());
-        let _query_class = u16::from_be_bytes(
-            buffer[domain_length + 2..domain_length + 4]
-                .try_into()
-                .unwrap(),
-        );
+        let position = reader.position();
+        let record = ResourceRecord::read_from(reader, rtype)?;
+        // Sometimes we don't read all the resource record data yet (because the specific
+        // record is not supported for example)
+        // In that case, we simply skip the data and move on
+        reader.set_position(position + length);
 
-        // FIXME properly parse the type/class
-        Ok((
-            Self {
-                domain: domain,
-                _query_type: QueryType::Standard,
-                _query_class: (),
-            },
-            domain_length + 4,
-        ))
-    }
-}
-
-impl Consume for Header {
-    fn read(global_buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> {
-        // ptr is, in practice, always zero but we still properly use it
-        let buffer = &global_buffer[ptr..];
-
-        if buffer.len() < 12 {
-            return Err(());
-        }
-
-        let mut cursor = io::Cursor::new(buffer);
-
-        // FIXME: propagate errors
-        let id = cursor.read_be_u16().map_err(|_| ())?;
-        let flags = Flags::new(cursor.read_be_u16().map_err(|_| ())?);
-        let num_questions = cursor.read_be_u16().map_err(|_| ())?;
-        let num_answers = cursor.read_be_u16().map_err(|_| ())?;
-        let num_authorities = cursor.read_be_u16().map_err(|_| ())?;
-        let num_additional = cursor.read_be_u16().map_err(|_| ())?;
-
-        Ok((
-            Self {
-                id,
-                flags,
-                num_questions,
-                num_answers,
-                num_authorities,
-                num_additional,
-            },
-            12,
-        ))
-    }
-}
-
-impl Consume for Resource {
-    fn read(global_buffer: &[u8], ptr: usize) -> Result<(Self, usize), ()> {
-        let buffer = &global_buffer[ptr..];
-        let (domain, domain_length) = Domain::read(global_buffer, ptr)?;
-
-        let rtype = (global_buffer, ptr + domain_length).try_into()?;
-
-        let mut cursor = io::Cursor::new(&buffer[domain_length + 2..]);
-        let class = cursor.read_be_u16().map_err(|_| ())?.into();
-        let ttl = cursor.read_be_u32().map_err(|_| ())?;
-        let rdlength = cursor.read_be_u16().map_err(|_| ())? as usize;
-
-        Ok((
-            Self {
-                domain: domain,
-                resource_type: rtype,
-                class,
-                time_to_live: ttl,
-            },
-            domain_length + 10 + rdlength,
-        ))
+        Ok(Self {
+            domain: domain,
+            class,
+            time_to_live: ttl,
+            record,
+        })
     }
 }
 

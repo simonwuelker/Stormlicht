@@ -1,11 +1,11 @@
-use std::net::Ipv4Addr;
+use std::{io::Read, net};
 
-use crate::{domain::Domain, message::Consume};
+use crate::{domain::Domain, reader::Reader, DNSError};
 
 /// See <https://en.wikipedia.org/wiki/List_of_DNS_record_types>
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ResourceRecordType {
-    A { ipv4: Ipv4Addr },
+pub enum ResourceRecord {
+    A { ipv4: net::Ipv4Addr },
     AAAA,
     AFSDB,
     APL,
@@ -55,22 +55,16 @@ pub enum ResourceRecordType {
     UNKNOWN,
 }
 
-// Converts from `(global buffer, ptr to rtype)`
-impl TryFrom<(&[u8], usize)> for ResourceRecordType {
-    type Error = ();
+impl ResourceRecord {
+    pub fn read_from(reader: &mut Reader, rtype: u16) -> Result<Self, DNSError> {
+        let record = match rtype {
+            1 => {
+                let mut buffer = [0; 4];
+                reader.read_exact(&mut buffer)?;
 
-    fn try_from(from: (&[u8], usize)) -> Result<Self, Self::Error> {
-        let rtype = u16::from_be_bytes(from.0[from.1..from.1 + 2].try_into().unwrap());
-        let rdata_starts_at = from.1 + 10;
-
-        Ok(match rtype {
-            1 => Self::A {
-                ipv4: Ipv4Addr::new(
-                    from.0[rdata_starts_at],
-                    from.0[rdata_starts_at + 1],
-                    from.0[rdata_starts_at + 2],
-                    from.0[rdata_starts_at + 3],
-                ),
+                Self::A {
+                    ipv4: net::Ipv4Addr::new(buffer[0], buffer[1], buffer[2], buffer[3]),
+                }
             },
             28 => Self::AAAA,
             18 => Self::AFSDB,
@@ -80,7 +74,7 @@ impl TryFrom<(&[u8], usize)> for ResourceRecordType {
             59 => Self::CDS,
             37 => Self::CERT,
             5 => Self::CNAME {
-                alias: Domain::read(from.0, rdata_starts_at)?.0,
+                alias: Domain::read_from(reader)?,
             },
             62 => Self::CSYNC,
             49 => Self::DHCID,
@@ -100,7 +94,7 @@ impl TryFrom<(&[u8], usize)> for ResourceRecordType {
             15 => Self::MX,
             35 => Self::NAPTR,
             2 => Self::NS {
-                ns: Domain::read(from.0, rdata_starts_at)?.0,
+                ns: Domain::read_from(reader)?,
             },
             47 => Self::NSEC,
             50 => Self::NSEC3,
@@ -112,11 +106,8 @@ impl TryFrom<(&[u8], usize)> for ResourceRecordType {
             24 => Self::SIG,
             53 => Self::SMIMEA,
             6 => {
-                let mut ptr = rdata_starts_at;
-                let (ns, bytes_read) = Domain::read(from.0, ptr)?;
-                ptr += bytes_read;
-
-                let (mail, _bytes_read) = Domain::read(from.0, ptr)?;
+                let ns = Domain::read_from(reader)?;
+                let mail = Domain::read_from(reader)?;
 
                 Self::SOA {
                     _ns: ns,
@@ -135,7 +126,9 @@ impl TryFrom<(&[u8], usize)> for ResourceRecordType {
             256 => Self::URI,
             63 => Self::ZONEMD,
             _ => Self::UNKNOWN,
-        })
+        };
+
+        Ok(record)
     }
 }
 
