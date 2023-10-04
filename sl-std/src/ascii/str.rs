@@ -96,6 +96,18 @@ impl Str {
     pub fn split_at(&self, index: usize) -> (&Self, &Self) {
         (&self[..index], &self[index..])
     }
+
+    #[inline]
+    #[must_use]
+    pub fn trim_end(&self, trim: Char) -> &Self {
+        let num_chars_to_remove = self
+            .chars()
+            .iter()
+            .rev()
+            .position(|&c| c != trim)
+            .unwrap_or(self.len());
+        &self[..self.len() - num_chars_to_remove]
+    }
 }
 
 impl fmt::Debug for Str {
