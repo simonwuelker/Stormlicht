@@ -5,9 +5,10 @@
 mod dns_cache;
 mod domain;
 pub mod message;
+mod reader;
 mod resource_type;
 
-use crate::resource_type::{ResourceRecordClass, ResourceRecordType};
+use crate::resource_type::{ResourceRecord, ResourceRecordClass};
 pub use dns_cache::DNS_CACHE;
 pub use domain::Domain;
 
@@ -28,10 +29,10 @@ const ROOT_SERVER: IpAddr = IpAddr::V4(Ipv4Addr::new(199, 7, 83, 42));
 pub enum DNSError {
     InvalidResponse,
     CouldNotResolve(Domain),
-    InvalidDomain(Domain),
     MaxResolutionStepsExceeded,
     UnexpectedID,
     IO(io::Error),
+    DomainTooLong,
 }
 
 impl From<io::Error> for DNSError {
