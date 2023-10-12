@@ -27,7 +27,7 @@ pub(crate) struct Message {
 }
 
 /// <https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1>
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Header {
     id: u16,
     flags: Flags,
@@ -303,19 +303,6 @@ impl Resource {
             time_to_live: ttl,
             record,
         })
-    }
-}
-
-impl fmt::Debug for Header {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Header")
-            .field("id", &self.id)
-            .field("num_questions", &self.num_questions)
-            .field("num_answers", &self.num_answers)
-            .field("num_authorities", &self.num_authorities)
-            .field("num_additional", &self.num_additional)
-            .field("flags", &self.flags)
-            .finish()
     }
 }
 
