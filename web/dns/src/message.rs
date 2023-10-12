@@ -328,11 +328,10 @@ pub enum MessageType {
 impl Flags {
     #[inline]
     #[must_use]
-    pub const fn new(value: u16) -> Self {
-        debug_assert!(
-            value & 0b1110000 == 0,
-            "reserved Z field used in DNS header"
-        );
+    pub fn new(value: u16) -> Self {
+        if value & 0b1110000 != 0 {
+            log::warn!("reserved Z field used in DNS header - we likely don't understand this response correctly!");
+        }
 
         Self(value)
     }
