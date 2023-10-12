@@ -102,6 +102,13 @@ impl LockedCache {
     }
 
     fn insert(&mut self, domain: Domain, ip: IpAddr, ttl: u32) {
+        // FIXME: For some reason, opening an ipv6 connection with udp fails on linux.
+        //        For now, we can't use ipv6 with dns at all. Maybe AAAA records are only
+        //        useful for things like DNS over HTTPS?
+        if ip.is_ipv6() {
+            return;
+        }
+
         self.0.insert(
             domain,
             CacheEntry {

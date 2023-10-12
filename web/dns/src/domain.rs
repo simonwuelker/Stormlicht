@@ -169,12 +169,14 @@ impl Domain {
                 .iter()
                 .filter(|resource| resource.class == ResourceRecordClass::IN)
                 .for_each(|resource| {
-                    if let ResourceRecord::A { ipv4 } = resource.record {
-                        DNS_CACHE.insert(
-                            resource.domain.clone(),
-                            IpAddr::V4(ipv4),
-                            resource.time_to_live,
-                        );
+                    let referenced_ip = match resource.record {
+                        ResourceRecord::A { ipv4 } => Some(IpAddr::V4(ipv4)),
+                        ResourceRecord::AAAA { ipv6 } => Some(IpAddr::V6(ipv6)),
+                        _ => None,
+                    };
+
+                    if let Some(ip) = referenced_ip {
+                        DNS_CACHE.insert(resource.domain.clone(), ip, resource.time_to_live);
                     }
                 });
 
