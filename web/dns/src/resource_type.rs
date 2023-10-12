@@ -1,12 +1,14 @@
 use std::{io::Read, net};
 
+use sl_std::read::ReadExt;
+
 use crate::{domain::Domain, reader::Reader, DNSError};
 
 /// See <https://en.wikipedia.org/wiki/List_of_DNS_record_types>
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ResourceRecord {
     A { ipv4: net::Ipv4Addr },
-    AAAA,
+    AAAA { ipv6: net::Ipv6Addr },
     AFSDB,
     APL,
     CAA,
@@ -66,7 +68,18 @@ impl ResourceRecord {
                     ipv4: net::Ipv4Addr::new(buffer[0], buffer[1], buffer[2], buffer[3]),
                 }
             },
-            28 => Self::AAAA,
+            28 => Self::AAAA {
+                ipv6: net::Ipv6Addr::new(
+                    reader.read_be_u16()?,
+                    reader.read_be_u16()?,
+                    reader.read_be_u16()?,
+                    reader.read_be_u16()?,
+                    reader.read_be_u16()?,
+                    reader.read_be_u16()?,
+                    reader.read_be_u16()?,
+                    reader.read_be_u16()?,
+                ),
+            },
             18 => Self::AFSDB,
             42 => Self::APL,
             257 => Self::CAA,
