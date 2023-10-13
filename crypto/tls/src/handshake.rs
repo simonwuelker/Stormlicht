@@ -1,7 +1,9 @@
 use std::io::{self, Cursor, Read};
 
+use sl_std::datetime::DateTime;
+
 use crate::{
-    certificate::X509Certificate,
+    certificate::{SignedCertificate, X509Certificate},
     connection::{ProtocolVersion, TLSError, TLS_VERSION},
     CipherSuite,
 };
@@ -303,9 +305,14 @@ impl HandshakeMessage {
                     reader.read_exact(&mut certificate_bytes)?;
 
                     // FIXME: propagate error
-                    let certificate = X509Certificate::new(&certificate_bytes)
+                    let signed_cert = SignedCertificate::new(&certificate_bytes)
                         .expect("certificate parsing failed");
-                    certificate_chain.push(certificate);
+
+                    if !signed_cert.is_valid() {
+                        log::warn!("Browser supplied invalid certificate");
+                    }
+
+                    certificate_chain.push(signed_cert.into());
                     bytes_read += certificate_length + 3;
                 }
 

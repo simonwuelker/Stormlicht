@@ -11,13 +11,20 @@ use sl_std::{big_num::BigNum, datetime::DateTime};
 pub struct X509Certificate {
     pub version: usize,
     pub serial_number: BigNum,
-    pub signature: Signature,
+    pub signature: AlgorithmIdentifier,
     pub issuer: Identity,
     pub validity: Validity,
 }
 
 #[derive(Clone, Debug)]
-pub struct Signature {
+pub struct SignedCertificate {
+    certificate: X509Certificate,
+    _signature_algorithm: AlgorithmIdentifier,
+    _signature: (),
+}
+
+#[derive(Clone, Debug)]
+pub struct AlgorithmIdentifier {
     pub identifier: der::ObjectIdentifier,
 }
 
@@ -54,41 +61,24 @@ macro_rules! expect_type {
     };
 }
 
+// Export the macros above within the crate (but don't expose the publicly)
 pub(crate) use {expect_next_item, expect_type};
 
 impl der::Parse for X509Certificate {
     type Error = Error;
 
     fn try_from_item(item: der::Item<'_>) -> Result<Self, Self::Error> {
-        // The root sequence always has the following structure:
-        // * data
-        // * Signature algorithm used
-        // * Signature
-        let mut root_sequence = match item {
-            der::Item::Sequence(sequence) => sequence,
-            _ => return Err(Error::InvalidFormat),
-        };
-
-        let mut certificate =
-            expect_type!(root_sequence.next().ok_or(Error::InvalidFormat)??, Sequence)?;
+        let mut certificate = expect_type!(item, Sequence)?;
 
         let version = parse_certificate_version(expect_next_item!(certificate)?)?;
 
         let serial_number = expect_type!(expect_next_item!(certificate)?, Integer)?.into();
 
-        let signature = Signature::try_from_item(expect_next_item!(certificate)?)?;
+        let signature = AlgorithmIdentifier::try_from_item(expect_next_item!(certificate)?)?;
 
         let issuer = Identity::try_from_item(expect_next_item!(certificate)?)?;
 
         let validity = Validity::try_from_item(expect_next_item!(certificate)?)?;
-
-        let _signature_algorithm = expect_next_item!(root_sequence)?;
-
-        let _signature = expect_next_item!(root_sequence)?;
-
-        if root_sequence.next().is_some() {
-            return Err(Error::InvalidFormat);
-        }
 
         Ok(Self {
             version,
@@ -100,15 +90,47 @@ impl der::Parse for X509Certificate {
     }
 }
 
-impl X509Certificate {
+impl SignedCertificate {
     pub fn new(bytes: &[u8]) -> Result<Self, Error> {
-        let (value, remainder) = Self::try_parse(bytes)?;
+        // The root sequence always has the following structure:
+        // * data
+        // * Signature algorithm used
+        // * Signature
 
-        if !remainder.is_empty() {
+        let (root_sequence, bytes_consumed) = der::Item::parse(bytes)?;
+        let mut root_sequence = expect_type!(root_sequence, Sequence)?;
+
+        if bytes_consumed != bytes.len() {
             return Err(Error::TrailingBytes);
         }
 
-        Ok(value)
+        let certificate = X509Certificate::try_from_item(expect_next_item!(root_sequence)?)?;
+
+        let signature_algorithm =
+            AlgorithmIdentifier::try_from_item(expect_next_item!(root_sequence)?)?;
+
+        // FIXME: Properly parse signature
+        let _signature = expect_next_item!(root_sequence)?;
+
+        if root_sequence.next().is_some() {
+            return Err(Error::InvalidFormat);
+        }
+
+        Ok(Self {
+            certificate,
+            _signature_algorithm: signature_algorithm,
+            _signature: (),
+        })
+    }
+
+    /// Validates the basic properties of a certificate
+    ///
+    /// Precisely, we check if the signature on a certificate is *correct* and if the certificate
+    /// is valid for the current time. However, we do **not** verify that we trust the issuer
+    /// of said certificate!
+    pub fn is_valid(&self) -> bool {
+        let now = DateTime::now();
+        self.certificate.validity.not_before <= now && now <= self.certificate.validity.not_after
     }
 }
 
@@ -118,7 +140,7 @@ impl From<der::Error> for Error {
     }
 }
 
-impl der::Parse for Signature {
+impl der::Parse for AlgorithmIdentifier {
     type Error = Error;
 
     fn try_from_item(item: der::Item<'_>) -> Result<Self, Self::Error> {
@@ -159,4 +181,10 @@ fn parse_certificate_version(item: der::Item<'_>) -> Result<usize, Error> {
     expect_type!(version_item, Integer)?
         .try_into()
         .map_err(|_| Error::InvalidFormat)
+}
+
+impl From<SignedCertificate> for X509Certificate {
+    fn from(value: SignedCertificate) -> Self {
+        value.certificate
+    }
 }
