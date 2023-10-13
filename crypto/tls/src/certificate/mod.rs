@@ -5,7 +5,7 @@ pub mod identity;
 use crate::der::{self, Parse};
 pub use identity::Identity;
 
-use sl_std::{big_num::BigNum, time::DateTime};
+use sl_std::{big_num::BigNum, datetime::DateTime};
 
 #[derive(Clone, Debug)]
 pub struct X509Certificate {

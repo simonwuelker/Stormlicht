@@ -1,7 +1,4 @@
-use sl_std::{
-    ascii,
-    time::{DateTime, Month},
-};
+use sl_std::{ascii, datetime::DateTime};
 
 use super::{ClassTag, Error, Integer, ObjectIdentifier, PrimitiveOrConstructed, Sequence};
 
@@ -180,9 +177,8 @@ impl<'a> Item<'a> {
                         Err(_) => return Err(Error::IllegalValue),
                     };
 
-                    let month_index =
+                    let month =
                         str::parse(string[2..4].as_str()).map_err(|_| Error::IllegalValue)?;
-                    let month = Month::from_index(month_index).ok_or(Error::IllegalValue)?;
 
                     let day = str::parse(string[4..6].as_str()).map_err(|_| Error::IllegalValue)?;
                     let hour =
@@ -192,7 +188,8 @@ impl<'a> Item<'a> {
                     let seconds =
                         str::parse(string[10..12].as_str()).map_err(|_| Error::IllegalValue)?;
 
-                    let datetime = DateTime::from_ymd_hms(year, month, day, hour, minute, seconds);
+                    let datetime = DateTime::from_ymd_hms(year, month, day, hour, minute, seconds)
+                        .ok_or(Error::IllegalValue)?;
                     Item::UtcTime(datetime)
                 },
                 24 => Item::GeneralizedTime,
