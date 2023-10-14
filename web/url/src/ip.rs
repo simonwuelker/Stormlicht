@@ -444,7 +444,23 @@ mod tests {
 
     #[test]
     fn test_ipv6_parse() {
-        let ipv6 = net::Ipv6Addr::new(1, 1, 2, 3, 4, 5, 6, 7);
-        assert_eq!(ipv6_parse("1.1.2.3.4.5.6.7"), Ok(ipv6));
+        assert_eq!(
+            ipv6_parse("2001:0db8:85a3:08d3:1319:8a2e:0370:7344"),
+            Ok(net::Ipv6Addr::new(
+                0x2001, 0xdb8, 0x85a3, 0x08d3, 0x1319, 0x8a2e, 0x0370, 0x7344
+            ))
+        );
+
+        assert_eq!(
+            ipv6_parse("2001:0db8:85a3:08d3::0370:7344"),
+            Ok(net::Ipv6Addr::new(
+                0x2001, 0xdb8, 0x85a3, 0x08d3, 0x0, 0x0, 0x0370, 0x7344
+            ))
+        );
+
+        assert_eq!(
+            ipv6_parse("::1"),
+            Ok(net::Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))
+        )
     }
 }
