@@ -188,37 +188,35 @@ fn ipv4_number_parse(mut input: &str) -> Result<(u32, bool), ()> {
 
 /// <https://url.spec.whatwg.org/#concept-ipv6-parser>
 pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
-    // Let address be a new IPv6 address whose IPv6 pieces are all 0.
+    // 1. Let address be a new IPv6 address whose IPv6 pieces are all 0.
     let mut address = [0_u16; 8];
 
-    // Let pieceIndex be 0.
+    // 2. Let pieceIndex be 0.
     let mut piece_index = 0;
 
-    // Let compress be null.
+    // 3. Let compress be null.
     let mut compress = None;
 
-    // Let pointer be a pointer for input.
+    // 4. Let pointer be a pointer for input.
     let mut ptr = 0_usize;
 
-    // If c is U+003A (:), then:
+    // 5. If c is U+003A (:), then:
     if input.chars().nth(ptr) == Some(':') {
-        // If remaining does not start with U+003A (:),
+        // 1. If remaining does not start with U+003A (:),
         if !input[ptr + 1..].starts_with(':') {
             // IPv6-invalid-compression validation error, return failure.
             return Err(IPParseError::Ipv6InvalidCompression);
         }
 
-        // Increase pointer by 2.
+        // 2. Increase pointer by 2.
         ptr += 2;
 
-        // Increase pieceIndex by 1
+        // 3. Increase pieceIndex by 1 and then set compress to pieceIndex.
         piece_index += 1;
-
-        // and then set compress to pieceIndex.
         compress = Some(piece_index);
     }
 
-    // While c is not the EOF code point:
+    // 6. While c is not the EOF code point:
     while let Some(c) = input.chars().nth(ptr) {
         // If pieceIndex is 8,
         if piece_index == 8 {
@@ -226,33 +224,29 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
             return Err(IPParseError::Ipv6TooManyPieces);
         }
 
-        // If c is U+003A (:), then:
+        // 2. If c is U+003A (:), then:
         if c == ':' {
-            // If compress is non-null,
+            // 1. If compress is non-null,
             if compress.is_some() {
                 // IPv6-multiple-compression validation error, return failure.
                 return Err(IPParseError::Ipv6MultipleCompression);
             }
 
-            // Increase pointer and pieceIndex by 1,
+            // 2. Increase pointer and pieceIndex by 1, set compress to pieceIndex, and then continue.
             ptr += 1;
             piece_index += 1;
-
-            // set compress to pieceIndex,
             compress = Some(piece_index);
-
-            // and then continue.
             continue;
         }
 
-        // Let value and length be 0.
+        // 3. Let value and length be 0.
         let mut value: u16 = 0;
         let mut length = 0;
 
         // FIXME: This algorithm is *extremely* silly and implements parsing of decimal numbers
         // among other things. It's probably reasonable to not adhere to the spec directly here.
 
-        // While length is less than 4 and c is an ASCII hex digit
+        // 4. While length is less than 4 and c is an ASCII hex digit
         while length < 4
             && let Some(hex_number) = input
                 .chars()
@@ -269,117 +263,115 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
             length += 1;
         }
 
-        // If c is U+002E (.), then:
+        // 5. If c is U+002E (.), then:
         if input.chars().nth(ptr) == Some('.') {
-            // If length is 0
+            // 1. If length is 0
             if length == 0 {
                 // IPv4-in-IPv6-invalid-code-point validation error, return failure.
                 return Err(IPParseError::Ipv4InIpv6InvalidCodepoint);
             }
 
-            // Decrease pointer by length.
+            // 2. Decrease pointer by length.
             ptr -= length;
 
-            // If pieceIndex is greater than 6
+            // 3. If pieceIndex is greater than 6
             if piece_index > 6 {
-                // validation error, return failure.
+                // IPv4-in-IPv6-too-many-pieces validation error, return failure.
                 return Err(IPParseError::IPv4InIpv6TooManyParts);
             }
 
-            // Let numbersSeen be 0.
+            // 4. Let numbersSeen be 0.
             let mut numbers_seen = 0;
 
-            // While c is not the EOF code point:
+            // 5. While c is not the EOF code point:
             while input.chars().nth(ptr).is_some() {
-                // Let ipv4Piece be null.
+                // 1. Let ipv4Piece be null.
                 let mut ipv4_piece: Option<u16> = None;
 
-                // If numbersSeen is greater than 0, then:
+                // 2. If numbersSeen is greater than 0, then:
                 if numbers_seen > 0 {
-                    // If c is a U+002E (.) and numbersSeen is less than 4,
+                    // 1. If c is a U+002E (.) and numbersSeen is less than 4, then increase pointer by 1.
                     if input.chars().nth(ptr).is_some_and(|c| c == '.') && numbers_seen < 4 {
-                        // then increase pointer by 1.
                         ptr += 1;
                     }
-                    // Otherwise
+                    // 2. Otherwise, IPv4-in-IPv6-invalid-code-point validation error, return failure.
                     else {
-                        // IPv4-in-IPv6-invalid-code-point validation error, return failure.
                         return Err(IPParseError::Ipv4InIpv6InvalidCodepoint);
                     }
                 }
 
-                // If c is not an ASCII digit,
+                // 3. If c is not an ASCII digit, IPv4-in-IPv6-invalid-code-point validation error, return failure.
                 if !input
                     .chars()
                     .nth(ptr)
                     .as_ref()
                     .is_some_and(char::is_ascii_digit)
                 {
-                    // IPv4-in-IPv6-invalid-code-point validation error, return failure.
                     return Err(IPParseError::Ipv4InIpv6InvalidCodepoint);
                 }
 
-                // While c is an ASCII digit:
+                // 4. While c is an ASCII digit:
                 while let Some(number) = input
                     .chars()
                     .nth(ptr)
                     .and_then(|c| c.to_digit(10))
                     .and_then(|n| u16::try_from(n).ok())
                 {
-                    // Let number be c interpreted as decimal number.
+                    // 1. Let number be c interpreted as decimal number.
 
+                    // 2. If ipv4Piece is null,then set ipv4Piece to number.
+                    //    Otherwise, if ipv4Piece is 0, IPv4-in-IPv6-invalid-code-point validation error, return failure.
+                    //    Otherwise, set ipv4Piece to ipv4Piece × 10 + number.
                     match ipv4_piece {
-                        // If ipv4Piece is null,
                         None => {
-                            // then set ipv4Piece to number.
                             ipv4_piece = Some(number);
                         },
-                        // Otherwise, if ipv4Piece is 0
                         Some(0) => {
-                            // IPv4-in-IPv6-invalid-code-point validation error, return failure.
                             return Err(IPParseError::Ipv4InIpv6InvalidCodepoint);
                         },
-                        // Otherwise
                         Some(other) => {
-                            // set ipv4Piece to ipv4Piece × 10 + number.
-                            ipv4_piece = Some(other * 10 + number);
+                            let new_value = other * 10 + number;
+
+                            // NOTE: This is originally step 3 in the algorithm above, but since this case
+                            // can only happen if this branch is taken, we moved it in here.
+                            // This also avoids having to use a pointless null check
+
+                            // 3. If ipv4Piece is greater than 255
+                            if new_value > 255 {
+                                // IPv4-in-IPv6-out-of-range-part validation error, return failure.
+                                return Err(IPParseError::Ipv4InIpv6OutOfRangePart);
+                            }
+
+                            ipv4_piece = Some(new_value);
                         },
                     };
 
-                    // If ipv4Piece is greater than 255
-                    if ipv4_piece.is_some_and(|n| n > 255) {
-                        // IPv4-in-IPv6-out-of-range-part validation error, return failure.
-                        return Err(IPParseError::Ipv4InIpv6OutOfRangePart);
-                    }
-
-                    // Increase pointer by 1.
+                    // 4. Increase pointer by 1.
                     ptr += 1;
                 }
 
-                // Set address[pieceIndex] to address[pieceIndex] × 0x100 + ipv4Piece.
+                // 5. Set address[pieceIndex] to address[pieceIndex] × 0x100 + ipv4Piece.
                 address[piece_index] = address[piece_index] * 0x100
                     + ipv4_piece.expect("ipv4Piece cannot be null at this point");
 
-                // Increase numbersSeen by 1.
+                // 6. Increase numbersSeen by 1.
                 numbers_seen += 1;
 
-                // If numbersSeen is 2 or 4
+                // 7. If numbersSeen is 2 or 4, then increase pieceIndex by 1.
                 if numbers_seen == 2 || numbers_seen == 4 {
-                    // then increase pieceIndex by 1.
                     piece_index += 1;
                 }
             }
 
-            // If numbersSeen is not 4
+            // 6. If numbersSeen is not 4, IPv4-in-IPv6-too-few-parts validation error, return failure.
             if numbers_seen != 4 {
-                // IPv4-in-IPv6-too-few-parts validation error, return failure.
                 return Err(IPParseError::Ipv4InIpv6TooFewParts);
             }
 
-            // Break.
+            // 7. Break.
             break;
         }
-        // Otherwise, if c is U+003A (:):
+        // 6. Otherwise, if c is U+003A (:):
         else if input.chars().nth(ptr) == Some(':') {
             // Increase pointer by 1.
             ptr += 1;
@@ -390,28 +382,28 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
                 return Err(IPParseError::Ipv6InvalidCodepoint);
             }
         }
-        // Otherwise, if c is not the EOF code point
+        // 7. Otherwise, if c is not the EOF code point
         else if input.chars().nth(ptr).is_some() {
             // IPv6-invalid-code-point validation error, return failure.
             return Err(IPParseError::Ipv6InvalidCodepoint);
         }
 
-        // Set address[pieceIndex] to value.
+        // 8. Set address[pieceIndex] to value.
         address[piece_index] = value;
 
-        // Increase pieceIndex by 1.
+        // 9. Increase pieceIndex by 1.
         piece_index += 1
     }
 
-    // If compress is non-null, then:
+    // 7. If compress is non-null, then:
     if let Some(compress_value) = compress {
-        // Let swaps be pieceIndex − compress.
+        // 1. Let swaps be pieceIndex − compress.
         let mut swaps = piece_index - compress_value;
 
-        // Set pieceIndex to 7.
+        // 2. Set pieceIndex to 7.
         piece_index = 7;
 
-        // While pieceIndex is not 0 and swaps is greater than 0
+        // 3. While pieceIndex is not 0 and swaps is greater than 0
         while piece_index != 0 && swaps > 0 {
             // swap address[pieceIndex] with address[compress + swaps − 1]
             address.swap(piece_index, compress_value + swaps - 1);
@@ -421,13 +413,12 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
             swaps -= 1;
         }
     }
-    // Otherwise, if compress is null and pieceIndex is not 8
+    // 8. Otherwise, if compress is null and pieceIndex is not 8, IPv6-too-few-pieces validation error, return failure.
     else if piece_index != 8 {
-        // IPv6-too-few-pieces validation error, return failure.
         return Err(IPParseError::Ipv6TooFewPieces);
     }
 
-    // Return address.
+    // 9. Return address.
     Ok(net::Ipv6Addr::new(
         address[0], address[1], address[2], address[3], address[4], address[5], address[6],
         address[7],
