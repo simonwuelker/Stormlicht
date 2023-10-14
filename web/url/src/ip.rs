@@ -1,16 +1,43 @@
 use std::net;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IPParseError {
-    Empty,
-    InvalidDigit,
     /// A value exceeded the maximum of `255`
     Ipv4NumberTooLarge,
     InvalidLastNumber,
-    TooManyParts,
-    UnexpectedEOF,
-    /// Error isn't properly described yet
-    Generic,
+
+    /// <https://url.spec.whatwg.org/#ipv4-in-ipv6-too-many-pieces>
+    IPv4InIpv6TooManyParts,
+
+    /// <https://url.spec.whatwg.org/#ipv4-non-numeric-part>
+    Ipv4NonNumericPart,
+
+    /// <https://url.spec.whatwg.org/#ipv4-too-many-parts>
+    Ipv4TooManyParts,
+
+    /// <https://url.spec.whatwg.org/#ipv6-invalid-compression>
+    Ipv6InvalidCompression,
+
+    /// <https://url.spec.whatwg.org/#ipv6-too-many-pieces>
+    Ipv6TooManyPieces,
+
+    /// <https://url.spec.whatwg.org/#ipv6-multiple-compression>
+    Ipv6MultipleCompression,
+
+    /// <https://url.spec.whatwg.org/#ipv4-in-ipv6-invalid-code-point>
+    Ipv4InIpv6InvalidCodepoint,
+
+    /// <https://url.spec.whatwg.org/#ipv4-in-ipv6-out-of-range-part>
+    Ipv4InIpv6OutOfRangePart,
+
+    /// <https://url.spec.whatwg.org/#ipv4-in-ipv6-too-few-parts>
+    Ipv4InIpv6TooFewParts,
+
+    /// <https://url.spec.whatwg.org/#ipv6-invalid-code-point>
+    Ipv6InvalidCodepoint,
+
+    /// <https://url.spec.whatwg.org/#ipv6-too-few-pieces>
+    Ipv6TooFewPieces,
 }
 
 /// <https://url.spec.whatwg.org/#concept-ipv4-parser>
@@ -35,8 +62,8 @@ pub(crate) fn ipv4_parse(input: &str) -> Result<net::Ipv4Addr, IPParseError> {
 
     // If parts’s size is greater than 4
     if parts.len() > 4 {
-        // validation error, return failure.
-        return Err(IPParseError::TooManyParts);
+        // IPv4-too-many-parts validation error, return failure.
+        return Err(IPParseError::Ipv4TooManyParts);
     }
 
     // Let numbers be an empty list.
@@ -46,8 +73,8 @@ pub(crate) fn ipv4_parse(input: &str) -> Result<net::Ipv4Addr, IPParseError> {
     for (index, part) in parts.iter().enumerate() {
         // Let result be the result of parsing part.
         // If result is failure,
-        //      validation error, return failure.
-        let result = ipv4_number_parse(part)?;
+        // IPv4-non-numeric-part validation error, return failure.
+        let result = ipv4_number_parse(part).map_err(|_| IPParseError::Ipv4NonNumericPart)?;
 
         // If result[1] is true
         if result.1 {
@@ -106,11 +133,11 @@ pub(crate) fn ipv4_parse(input: &str) -> Result<net::Ipv4Addr, IPParseError> {
 }
 
 /// <https://url.spec.whatwg.org/#ipv4-number-parser>
-fn ipv4_number_parse(mut input: &str) -> Result<(u32, bool), IPParseError> {
+fn ipv4_number_parse(mut input: &str) -> Result<(u32, bool), ()> {
     // If input is the empty string,
     if input.is_empty() {
         // then return failure
-        return Err(IPParseError::Empty);
+        return Err(());
     }
 
     // Let validationError be false.
@@ -153,7 +180,7 @@ fn ipv4_number_parse(mut input: &str) -> Result<(u32, bool), IPParseError> {
 
     // Let output be the mathematical integer value that is represented by input
     // in radix-R notation, using ASCII hex digits for digits with values 0 through 15.
-    let output = u32::from_str_radix(input, radix).map_err(|_| IPParseError::InvalidDigit)?;
+    let output = u32::from_str_radix(input, radix).map_err(|_| ())?;
 
     // Return (output, validationError).
     Ok((output, validation_error))
@@ -177,8 +204,8 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
     if input.chars().nth(ptr) == Some(':') {
         // If remaining does not start with U+003A (:),
         if !input[ptr + 1..].starts_with(':') {
-            // validation error, return failure.
-            return Err(IPParseError::Generic);
+            // IPv6-invalid-compression validation error, return failure.
+            return Err(IPParseError::Ipv6InvalidCompression);
         }
 
         // Increase pointer by 2.
@@ -195,16 +222,16 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
     while let Some(c) = input.chars().nth(ptr) {
         // If pieceIndex is 8,
         if piece_index == 8 {
-            // validation error, return failure.
-            return Err(IPParseError::Generic);
+            // IPv6-too-many-pieces validation error, return failure.
+            return Err(IPParseError::Ipv6TooManyPieces);
         }
 
         // If c is U+003A (:), then:
         if c == ':' {
             // If compress is non-null,
             if compress.is_some() {
-                // validation error, return failure.
-                return Err(IPParseError::Generic);
+                // IPv6-multiple-compression validation error, return failure.
+                return Err(IPParseError::Ipv6MultipleCompression);
             }
 
             // Increase pointer and pieceIndex by 1,
@@ -246,8 +273,8 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
         if input.chars().nth(ptr) == Some('.') {
             // If length is 0
             if length == 0 {
-                // validation error, return failure.
-                return Err(IPParseError::Generic);
+                // IPv4-in-IPv6-invalid-code-point validation error, return failure.
+                return Err(IPParseError::Ipv4InIpv6InvalidCodepoint);
             }
 
             // Decrease pointer by length.
@@ -256,7 +283,7 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
             // If pieceIndex is greater than 6
             if piece_index > 6 {
                 // validation error, return failure.
-                return Err(IPParseError::TooManyParts);
+                return Err(IPParseError::IPv4InIpv6TooManyParts);
             }
 
             // Let numbersSeen be 0.
@@ -276,8 +303,8 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
                     }
                     // Otherwise
                     else {
-                        // validation error, return failure.
-                        return Err(IPParseError::Generic);
+                        // IPv4-in-IPv6-invalid-code-point validation error, return failure.
+                        return Err(IPParseError::Ipv4InIpv6InvalidCodepoint);
                     }
                 }
 
@@ -288,8 +315,8 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
                     .as_ref()
                     .is_some_and(char::is_ascii_digit)
                 {
-                    // validation error, return failure.
-                    return Err(IPParseError::InvalidDigit);
+                    // IPv4-in-IPv6-invalid-code-point validation error, return failure.
+                    return Err(IPParseError::Ipv4InIpv6InvalidCodepoint);
                 }
 
                 // While c is an ASCII digit:
@@ -309,8 +336,8 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
                         },
                         // Otherwise, if ipv4Piece is 0
                         Some(0) => {
-                            // validation error, return failure.
-                            return Err(IPParseError::Generic);
+                            // IPv4-in-IPv6-invalid-code-point validation error, return failure.
+                            return Err(IPParseError::Ipv4InIpv6InvalidCodepoint);
                         },
                         // Otherwise
                         Some(other) => {
@@ -321,8 +348,8 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
 
                     // If ipv4Piece is greater than 255
                     if ipv4_piece.is_some_and(|n| n > 255) {
-                        // validation error, return failure.
-                        return Err(IPParseError::Generic);
+                        // IPv4-in-IPv6-out-of-range-part validation error, return failure.
+                        return Err(IPParseError::Ipv4InIpv6OutOfRangePart);
                     }
 
                     // Increase pointer by 1.
@@ -345,8 +372,8 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
 
             // If numbersSeen is not 4
             if numbers_seen != 4 {
-                // validation error, return failure.
-                return Err(IPParseError::Generic);
+                // IPv4-in-IPv6-too-few-parts validation error, return failure.
+                return Err(IPParseError::Ipv4InIpv6TooFewParts);
             }
 
             // Break.
@@ -359,14 +386,14 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
 
             // If c is the EOF code point,
             if input.chars().nth(ptr).is_none() {
-                // validation error, return failure.
-                return Err(IPParseError::UnexpectedEOF);
+                // IPv6-invalid-code-point validation error, return failure.
+                return Err(IPParseError::Ipv6InvalidCodepoint);
             }
         }
         // Otherwise, if c is not the EOF code point
         else if input.chars().nth(ptr).is_some() {
-            // validation error, return failure.
-            return Err(IPParseError::Generic);
+            // IPv6-invalid-code-point validation error, return failure.
+            return Err(IPParseError::Ipv6InvalidCodepoint);
         }
 
         // Set address[pieceIndex] to value.
@@ -396,8 +423,8 @@ pub(crate) fn ipv6_parse(input: &str) -> Result<net::Ipv6Addr, IPParseError> {
     }
     // Otherwise, if compress is null and pieceIndex is not 8
     else if piece_index != 8 {
-        // validation error, return failure.
-        return Err(IPParseError::Generic);
+        // IPv6-too-few-pieces validation error, return failure.
+        return Err(IPParseError::Ipv6TooFewPieces);
     }
 
     // Return address.
@@ -415,18 +442,18 @@ mod tests {
 
     #[test]
     fn test_ipv4_parse() {
-        assert_eq!(ipv4_parse("127.0.0.1").unwrap(), net::Ipv4Addr::LOCALHOST);
+        assert_eq!(ipv4_parse("127.0.0.1"), Ok(net::Ipv4Addr::LOCALHOST));
 
         // Test parsing with hex numbers
         // This is explicitly forbidden in https://datatracker.ietf.org/doc/html/rfc6943#section-3.1.1
         // but the URL specification allows for it, so we should too.
         let with_hex = net::Ipv4Addr::new(255, 1, 2, 3);
-        assert_eq!(ipv4_parse("0xff.1.0x2.3").unwrap(), with_hex);
+        assert_eq!(ipv4_parse("0xff.1.0x2.3"), Ok(with_hex));
     }
 
     #[test]
     fn test_ipv6_parse() {
-        let ipv6 = net::Ipv6Addr::new(0, 1, 2, 3, 4, 5, 6, 7);
-        assert_eq!(ipv6_parse("0.1.2.3.4.5.6.7").unwrap(), ipv6);
+        let ipv6 = net::Ipv6Addr::new(1, 1, 2, 3, 4, 5, 6, 7);
+        assert_eq!(ipv6_parse("1.1.2.3.4.5.6.7"), Ok(ipv6));
     }
 }
