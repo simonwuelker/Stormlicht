@@ -139,7 +139,7 @@ impl InlineFormattingContext {
         state.finish_current_line();
 
         if state.has_seen_relevant_content {
-            (state.finished_fragments, state.y_cursor)
+            (state.finished_fragments, state.y_cursor - position.y)
         } else {
             (vec![], CSSPixels::ZERO)
         }
