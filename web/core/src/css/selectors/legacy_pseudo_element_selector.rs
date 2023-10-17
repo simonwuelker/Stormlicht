@@ -1,8 +1,10 @@
+use std::fmt;
+
 use string_interner::{static_interned, static_str};
 
 use super::{CSSValidateSelector, Selector, Specificity};
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer},
     dom::{dom_objects::Element, DOMPtr},
 };
 
@@ -56,6 +58,17 @@ impl Selector for LegacyPseudoElementSelector {
 
     fn specificity(&self) -> Specificity {
         Specificity::new(0, 0, 1)
+    }
+}
+
+impl Serialize for LegacyPseudoElementSelector {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        match self {
+            Self::Before => serializer.serialize(":before"),
+            Self::After => serializer.serialize(":after"),
+            Self::FirstLine => serializer.serialize(":first-line"),
+            Self::FirstLetter => serializer.serialize(":first-letter"),
+        }
     }
 }
 

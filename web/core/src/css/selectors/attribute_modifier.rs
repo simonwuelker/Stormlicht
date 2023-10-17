@@ -6,7 +6,7 @@ use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 /// <https://drafts.csswg.org/selectors-4/#typedef-attr-modifier>
 ///
 /// See also: [Case Sensitivity](https://drafts.csswg.org/selectors-4/#attribute-case)
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum AttributeModifier {
     /// `i`
     CaseInsensitive,
@@ -14,6 +14,12 @@ pub enum AttributeModifier {
     /// `s`
     #[default]
     CaseSensitive,
+}
+
+impl AttributeModifier {
+    pub fn is_case_insensitive(&self) -> bool {
+        *self == Self::CaseInsensitive
+    }
 }
 
 impl<'a> CSSParse<'a> for AttributeModifier {

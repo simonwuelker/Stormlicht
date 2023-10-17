@@ -1,8 +1,10 @@
+use std::fmt;
+
 use super::{
     CSSValidateSelector, PseudoClassSelector, PseudoElementSelector, Selector, Specificity,
 };
 use crate::{
-    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser},
+    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser, Serialize, Serializer},
     dom::{dom_objects::Element, DOMPtr},
 };
 
@@ -53,5 +55,18 @@ impl Selector for PseudoCompoundSelector {
                 .iter()
                 .map(Selector::specificity)
                 .sum()
+    }
+}
+
+impl Serialize for PseudoCompoundSelector {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        self.pseudo_element_selector.serialize_to(serializer)?;
+
+        for pseudo_class_selector in &self.pseudo_class_selectors {
+            serializer.serialize(' ')?;
+            pseudo_class_selector.serialize_to(serializer)?;
+        }
+
+        Ok(())
     }
 }

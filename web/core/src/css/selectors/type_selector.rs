@@ -1,6 +1,8 @@
+use std::fmt;
+
 use super::{CSSValidateSelector, NSPrefix, Selector, Specificity, WQName};
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer},
     dom::{dom_objects::Element, DOMPtr},
 };
 
@@ -53,6 +55,21 @@ impl Selector for TypeSelector {
 
     fn specificity(&self) -> Specificity {
         Specificity::new(0, 0, 1)
+    }
+}
+
+impl Serialize for TypeSelector {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        match self {
+            Self::NSPrefix(ns_prefix) => {
+                // FIXME: serialize ns prefix
+                _ = ns_prefix;
+
+                serializer.serialize('*')?;
+                Ok(())
+            },
+            Self::WQName(wq_name) => serializer.serialize(*wq_name),
+        }
     }
 }
 

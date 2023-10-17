@@ -1,7 +1,9 @@
+use std::fmt;
+
 use string_interner::InternedString;
 
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer},
     dom::{dom_objects::Element, DOMPtr},
 };
 
@@ -10,7 +12,7 @@ use super::{
 };
 
 /// <https://drafts.csswg.org/selectors-4/#attribute-selectors>
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AttributeSelector {
     Exists {
         attribute_name: WQName,
@@ -96,6 +98,33 @@ impl Selector for AttributeSelector {
 
     fn specificity(&self) -> Specificity {
         Specificity::new(0, 1, 0)
+    }
+}
+
+impl Serialize for AttributeSelector {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        serializer.serialize('[')?;
+
+        match self {
+            Self::Exists { attribute_name } => serializer.serialize(*attribute_name)?,
+            Self::Matches {
+                attribute_name,
+                matcher,
+                value,
+                modifier,
+            } => {
+                serializer.serialize(*attribute_name)?;
+                serializer.serialize(*matcher)?;
+                serializer.serialize_identifier(&value.to_string())?;
+
+                if modifier.is_case_insensitive() {
+                    serializer.serialize(" i")?;
+                }
+            },
+        }
+
+        serializer.serialize(']')?;
+        Ok(())
     }
 }
 

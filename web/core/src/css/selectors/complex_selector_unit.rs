@@ -1,6 +1,8 @@
+use std::fmt;
+
 use super::{CSSValidateSelector, CompoundSelector, PseudoCompoundSelector, Selector, Specificity};
 use crate::{
-    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser},
+    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser, Serialize, Serializer},
     dom::{dom_objects::Element, DOMPtr},
 };
 
@@ -65,5 +67,22 @@ impl Selector for ComplexSelectorUnit {
                 .iter()
                 .map(Selector::specificity)
                 .sum()
+    }
+}
+
+impl Serialize for ComplexSelectorUnit {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        if let Some(compound_selector) = &self.compound_selector {
+            compound_selector.serialize_to(serializer)?;
+        }
+
+        for pseudo_selector in &self.pseudo_compound_selectors {
+            serializer.serialize(' ')?;
+
+            // FIXME: Serializer pseudo compound selectors
+            _ = pseudo_selector;
+        }
+
+        Ok(())
     }
 }

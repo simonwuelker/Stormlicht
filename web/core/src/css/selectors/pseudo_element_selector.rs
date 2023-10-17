@@ -1,8 +1,10 @@
+use std::fmt;
+
 use super::{
     CSSValidateSelector, LegacyPseudoElementSelector, PseudoClassSelector, Selector, Specificity,
 };
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer},
     dom::{dom_objects::Element, DOMPtr},
 };
 
@@ -60,6 +62,17 @@ impl Selector for PseudoElementSelector {
             Self::PseudoClass(pseudo_class_selector) => pseudo_class_selector.specificity(),
             Self::Legacy(legacy_pseudo_element_selector) => {
                 legacy_pseudo_element_selector.specificity()
+            },
+        }
+    }
+}
+
+impl Serialize for PseudoElementSelector {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        match self {
+            Self::Legacy(legacy_selector) => legacy_selector.serialize_to(serializer),
+            Self::PseudoClass(pseudo_class_selector) => {
+                pseudo_class_selector.serialize_to(serializer)
             },
         }
     }

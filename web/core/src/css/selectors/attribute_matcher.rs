@@ -1,5 +1,7 @@
+use std::fmt;
+
 use super::CSSValidateSelector;
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use crate::css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-attr-matcher>
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -50,6 +52,19 @@ impl CSSValidateSelector for AttributeMatcher {
         // We don't support *any* attribute matchers
         // As per spec, we therefore treat them as invalid
         false
+    }
+}
+
+impl Serialize for AttributeMatcher {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        match self {
+            Self::EqualTo => serializer.serialize('='),
+            Self::HyphenSeperatedListBeginningWith => serializer.serialize("|="),
+            Self::WhiteSpaceSeperatedListContaining => serializer.serialize("~="),
+            Self::StartsWith => serializer.serialize("^="),
+            Self::EndsWith => serializer.serialize("$="),
+            Self::ContainsSubstring => serializer.serialize("*="),
+        }
     }
 }
 

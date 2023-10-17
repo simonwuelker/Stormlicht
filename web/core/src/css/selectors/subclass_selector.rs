@@ -1,9 +1,11 @@
+use std::fmt;
+
 use super::{
     AttributeSelector, CSSValidateSelector, ClassSelector, IDSelector, PseudoClassSelector,
     Selector,
 };
 use crate::{
-    css::{CSSParse, ParseError, Parser},
+    css::{CSSParse, ParseError, Parser, Serialize, Serializer},
     dom::{dom_objects::Element, DOMPtr},
 };
 
@@ -70,6 +72,21 @@ impl Selector for SubClassSelector {
             Self::Class(class_selector) => class_selector.specificity(),
             Self::Attribute(attribute_selector) => attribute_selector.specificity(),
             Self::PseudoClass(pseudo_class_selector) => pseudo_class_selector.specificity(),
+        }
+    }
+}
+
+impl Serialize for &SubClassSelector {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        match self {
+            SubClassSelector::ID(id_selector) => id_selector.serialize_to(serializer),
+            SubClassSelector::Class(class_selector) => class_selector.serialize_to(serializer),
+            SubClassSelector::Attribute(attribute_selector) => {
+                attribute_selector.serialize_to(serializer)
+            },
+            SubClassSelector::PseudoClass(pseudo_class_selector) => {
+                pseudo_class_selector.serialize_to(serializer)
+            },
         }
     }
 }

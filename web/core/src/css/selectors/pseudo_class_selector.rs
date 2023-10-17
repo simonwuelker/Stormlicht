@@ -1,8 +1,10 @@
+use std::fmt;
+
 use string_interner::{static_interned, static_str, InternedString};
 
 use super::{AnyValue, CSSValidateSelector, Selector, Specificity};
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer},
     dom::{dom_objects::Element, DOMPtr},
 };
 
@@ -73,6 +75,29 @@ impl CSSValidateSelector for PseudoClassSelector {
         // We don't support *any* legacy pseudo class selectors
         // As per spec, we therefore treat them as invalid
         false
+    }
+}
+
+impl Serialize for PseudoClassSelector {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        match self {
+            Self::Ident(identifier) => serializer.serialize_identifier(&identifier.to_string()),
+            Self::Function {
+                function_name,
+                content,
+            } => {
+                serializer.serialize_identifier(&function_name.to_string())?;
+
+                serializer.serialize('(')?;
+
+                // FIXME: Serialize content
+                _ = content;
+
+                serializer.serialize(')')?;
+
+                Ok(())
+            },
+        }
     }
 }
 

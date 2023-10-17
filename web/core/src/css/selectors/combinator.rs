@@ -1,5 +1,7 @@
+use std::fmt;
+
 use super::CSSValidateSelector;
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use crate::css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer};
 
 /// <https://drafts.csswg.org/selectors-4/#combinators>
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -36,6 +38,12 @@ pub enum Combinator {
     Column,
 }
 
+impl Combinator {
+    pub fn is_descendant(&self) -> bool {
+        *self == Self::Descendant
+    }
+}
+
 impl<'a> CSSParse<'a> for Combinator {
     // <https://drafts.csswg.org/selectors-4/#typedef-combinator>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
@@ -60,6 +68,18 @@ impl CSSValidateSelector for Combinator {
         // We don't support *any* combinators
         // As per spec, we therefore treat them as invalid
         false
+    }
+}
+
+impl Serialize for Combinator {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        match self {
+            Self::Descendant => serializer.serialize(' '),
+            Self::Child => serializer.serialize('>'),
+            Self::NextSibling => serializer.serialize('+'),
+            Self::SubsequentSibling => serializer.serialize('~'),
+            Self::Column => serializer.serialize("||"),
+        }
     }
 }
 

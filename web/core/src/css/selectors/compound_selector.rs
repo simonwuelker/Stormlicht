@@ -1,8 +1,11 @@
+use std::fmt;
+
 use super::{CSSValidateSelector, Selector, Specificity, SubClassSelector, TypeSelector};
 use crate::{
-    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser},
+    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser, Serialize, Serializer},
     dom::{dom_objects::Element, DOMPtr},
 };
+
 /// <https://drafts.csswg.org/selectors-4/#compound>
 #[derive(Clone, Debug, PartialEq)]
 pub struct CompoundSelector {
@@ -70,6 +73,20 @@ impl Selector for CompoundSelector {
         }
 
         specificity
+    }
+}
+
+impl Serialize for CompoundSelector {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        if let Some(type_selector) = &self.type_selector {
+            type_selector.serialize_to(serializer)?;
+        }
+
+        for subclass_selector in &self.subclass_selectors {
+            serializer.serialize(' ')?;
+            subclass_selector.serialize_to(serializer)?;
+        }
+        Ok(())
     }
 }
 

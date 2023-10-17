@@ -1,16 +1,18 @@
+use std::fmt;
+
 use string_interner::InternedString;
 
 use super::{CSSValidateSelector, Selector, Specificity};
 use crate::{
     css::{
         syntax::{HashFlag, Token},
-        CSSParse, ParseError, Parser,
+        CSSParse, ParseError, Parser, Serialize, Serializer,
     },
     dom::{dom_objects::Element, DOMPtr},
 };
 
 /// <https://drafts.csswg.org/selectors-4/#id-selectors>
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IDSelector {
     pub ident: InternedString,
 }
@@ -39,5 +41,15 @@ impl Selector for IDSelector {
 
     fn specificity(&self) -> Specificity {
         Specificity::new(1, 0, 0)
+    }
+}
+
+impl Serialize for IDSelector {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        // Part of https://www.w3.org/TR/cssom-1/#serialize-a-simple-selector
+
+        // Append a "#" (U+0023), followed by the serialization of the ID as an identifier to s.
+        serializer.serialize('#')?;
+        serializer.serialize_identifier(&self.ident.to_string())
     }
 }

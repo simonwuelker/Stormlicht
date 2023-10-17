@@ -1,6 +1,8 @@
+use std::fmt;
+
 use super::{CSSValidateSelector, Selector, SubClassSelector, TypeSelector};
 use crate::{
-    css::{CSSParse, ParseError, Parser},
+    css::{CSSParse, ParseError, Parser, Serialize, Serializer},
     dom::{dom_objects::Element, DOMPtr},
 };
 
@@ -59,6 +61,16 @@ impl Selector for SimpleSelector {
         match self {
             Self::Type(type_selector) => type_selector.specificity(),
             Self::SubClass(subclass_selector) => subclass_selector.specificity(),
+        }
+    }
+}
+
+impl Serialize for SimpleSelector {
+    // https://www.w3.org/TR/cssom-1/#serialize-a-simple-selector
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        match self {
+            Self::Type(type_selector) => type_selector.serialize_to(serializer),
+            Self::SubClass(subclass_selector) => subclass_selector.serialize_to(serializer),
         }
     }
 }

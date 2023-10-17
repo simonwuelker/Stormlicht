@@ -48,9 +48,18 @@ pub use subclass_selector::SubClassSelector;
 pub use type_selector::TypeSelector;
 pub use wq_name::WQName;
 
+use std::fmt;
+
 use crate::dom::{dom_objects::Element, DOMPtr};
 
-use super::{CSSParse, ParseError, Parser};
+use super::{CSSParse, ParseError, Parser, Serializer};
+
+pub fn serialize_selector_list<S: Serializer>(
+    selectors: &[ComplexSelector],
+    mut serializer: S,
+) -> fmt::Result {
+    serializer.serialize_comma_seperated_list(selectors)
+}
 
 /// <https://drafts.csswg.org/selectors-4/#parse-selector>
 pub fn parse_selector(parser: &mut Parser<'_>) -> Result<SelectorList, ParseError> {

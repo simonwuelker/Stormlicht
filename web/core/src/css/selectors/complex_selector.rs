@@ -1,5 +1,7 @@
+use std::fmt;
+
 use crate::{
-    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser},
+    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser, Serialize, Serializer},
     dom::{dom_objects::Element, DOMPtr},
 };
 
@@ -89,5 +91,23 @@ impl Selector for ComplexSelector {
                 .map(|(_combinator, unit)| unit)
                 .map(Selector::specificity)
                 .sum()
+    }
+}
+
+impl Serialize for &ComplexSelector {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        self.first_unit.serialize_to(serializer)?;
+
+        for (combinator, subsequent_unit) in &self.subsequent_units {
+            serializer.serialize(' ')?;
+            combinator.serialize_to(serializer)?;
+
+            if !combinator.is_descendant() {
+                serializer.serialize(' ')?;
+            }
+
+            subsequent_unit.serialize_to(serializer)?;
+        }
+        Ok(())
     }
 }

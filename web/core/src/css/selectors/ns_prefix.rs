@@ -4,7 +4,7 @@ use super::CSSValidateSelector;
 use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-ns-prefix>
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NSPrefix {
     Ident(InternedString),
     Asterisk,

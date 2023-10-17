@@ -1,10 +1,12 @@
+use std::fmt;
+
 use string_interner::InternedString;
 
 use super::{CSSValidateSelector, NSPrefix};
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use crate::css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-wq-name>
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WQName {
     pub prefix: Option<NSPrefix>,
     pub ident: InternedString,
@@ -28,6 +30,13 @@ impl<'a> CSSParse<'a> for WQName {
 impl CSSValidateSelector for WQName {
     fn is_valid(&self) -> bool {
         true
+    }
+}
+
+impl Serialize for WQName {
+    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
+        // FIXME: serialize name space prefix
+        serializer.serialize_identifier(&self.ident.to_string())
     }
 }
 
