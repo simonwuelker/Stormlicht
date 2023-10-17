@@ -65,10 +65,9 @@ impl TextRun {
         let font_metrics = FontMetrics::default();
         let height = font_metrics.size;
 
-        // Collapse sequences of whitespace in the text as
-        // well as removing leading/trailing whitespace
-        let mut previous_c_was_whitespace = true;
-        let mut text_without_whitespace_sequences = self.text().trim().to_owned();
+        // Collapse sequences of whitespace in the text
+        let mut previous_c_was_whitespace = false;
+        let mut text_without_whitespace_sequences = self.text().to_owned();
         text_without_whitespace_sequences.retain(|c| {
             let is_whitespace = c.is_whitespace();
             let retain = !is_whitespace || !previous_c_was_whitespace;
@@ -84,8 +83,18 @@ impl TextRun {
         );
 
         while let Some(text_line) = lines.next() {
+            // https://drafts.csswg.org/css2/#white-space-model
+            //
+            // 1. If a space (U+0020) at the beginning of a line has white-space set to normal,
+            //    nowrap, or pre-line, it is removed.
+            let visual_text = if state.at_beginning_of_line {
+                text_line.text.trim_start().to_owned()
+            } else {
+                text_line.text.to_owned()
+            };
+
             let line_item = LineItem::TextRun(TextRunItem {
-                text: text_line.text.to_owned(),
+                text: visual_text,
                 width: text_line.width,
                 style: self.style(),
             });
@@ -172,6 +181,11 @@ struct InlineFormattingContextState<'box_tree> {
     /// The top left corner of the first line box
     position: Vec2D<CSSPixels>,
     y_cursor: CSSPixels,
+
+    /// `true` if the current line is empty
+    ///
+    /// This is necessary because whitespace at the beginning of a line is removed
+    at_beginning_of_line: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -268,12 +282,14 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
             has_seen_relevant_content: false,
             position: position,
             y_cursor: position.y,
+            at_beginning_of_line: true,
         }
     }
 
     fn push_line_item(&mut self, line_item: LineItem, width: CSSPixels, height: CSSPixels) {
         self.line_box_under_construction.width += width;
         self.has_seen_relevant_content = true;
+        self.at_beginning_of_line = false;
 
         if self.line_box_under_construction.height < height {
             self.line_box_under_construction.height = height;
@@ -331,7 +347,9 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
         self.line_box_under_construction = LineBoxUnderConstruction {
             width: CSSPixels::ZERO,
             height: CSSPixels::ZERO,
-        }
+        };
+
+        self.at_beginning_of_line = true;
     }
 
     fn current_insertion_point(&mut self) -> &mut NestingLevelState {

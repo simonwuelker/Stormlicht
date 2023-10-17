@@ -23,7 +23,7 @@ impl<'a> LineBreakIterator<'a> {
     #[must_use]
     pub fn new(text: &'a str, font_metrics: FontMetrics, available_width: CSSPixels) -> Self {
         Self {
-            text: text.trim_start(),
+            text: text,
             font_metrics,
             available_width,
             is_done: text.is_empty(),
@@ -71,13 +71,13 @@ impl<'a> Iterator for LineBreakIterator<'a> {
                 match previous_potential_breakpoint {
                     Some((line, remainder, width)) => {
                         // There was a valid potential breakpoint, let's use that one instead
-                        self.text = remainder.trim_start();
+                        self.text = remainder;
                         return Some(TextLine { text: line, width });
                     },
                     None => {
                         // Our line is too wide, but there was no opportunity to split it.
                         // Let's just return it as a whole
-                        self.text = remainder.trim_start();
+                        self.text = remainder;
                         return Some(TextLine { text: line, width });
                     },
                 }
@@ -94,8 +94,8 @@ impl<'a> Iterator for LineBreakIterator<'a> {
         match (self.available_width < width, previous_potential_breakpoint) {
             (true, Some((line, remainder, width))) => {
                 // We don't have enough space for the entire remainder *and*
-                // here was a valid potential before breakpoint, let's use that one instead
-                self.text = remainder.trim_start();
+                // there was a valid potential breakpoint before, let's use that one instead
+                self.text = remainder;
                 Some(TextLine { text: line, width })
             },
             (false, _) | (_, None) => {
