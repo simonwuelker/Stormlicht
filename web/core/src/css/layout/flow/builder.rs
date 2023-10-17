@@ -137,7 +137,7 @@ impl<'a> BoxTreeBuilder<'a> {
                 // does not generate inline boxes
                 let text = text.borrow();
 
-                let selected_range = match selected_part {
+                let _selected_range = match selected_part {
                     Selected::None => None,
                     Selected::All => Some(Range::new(0, text.content().len())),
                     Selected::After(n) => Some(Range::new(n, text.content().len())),
@@ -146,12 +146,7 @@ impl<'a> BoxTreeBuilder<'a> {
                 };
 
                 if text.content().contains(|c: char| !c.is_whitespace()) {
-                    let text_run = TextRun::new(
-                        child.clone(),
-                        text.content().to_owned(),
-                        selected_range,
-                        parent_style.clone(),
-                    );
+                    let text_run = TextRun::new(text.content().to_owned(), parent_style.clone());
                     self.push_text(text_run);
                 }
             }

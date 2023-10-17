@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use math::Rectangle;
-use sl_std::range::Range;
 
 use crate::{
     css::{
@@ -32,17 +31,10 @@ pub struct BoxFragment {
 
 #[derive(Clone, Debug)]
 pub struct TextFragment {
-    dom_node: DOMPtr<dom_objects::Node>,
-
-    /// The byte offset into the String contained by the text dom node
-    /// that produced this fragment
-    offset: usize,
-
     text: String,
     area: Rectangle<CSSPixels>,
     color: Color,
     font_metrics: FontMetrics,
-    selected: Option<Range<usize>>,
 }
 
 #[derive(Clone, Debug)]
@@ -83,21 +75,9 @@ impl Fragment {
                     Some(dom::BoundaryPoint::new(box_fragment.dom_node.clone()?, 0))
                 }
             },
-            Self::Text(text_fragment) => {
-                let delta_x = point.x - text_fragment.area.top_left.x;
-                let font_metrics = FontMetrics::default();
-                let text_before = font_metrics.font_face.find_prefix_with_width(
-                    text_fragment.text(),
-                    font_metrics.size.into(),
-                    delta_x.into(),
-                );
-
-                let offset = text_before.chars().count();
-
-                Some(dom::BoundaryPoint::new(
-                    text_fragment.dom_node.clone(),
-                    text_fragment.offset + offset,
-                ))
+            Self::Text(_text_fragment) => {
+                // FIXME: Text element hit-testing
+                None
             },
         }
     }
@@ -106,22 +86,16 @@ impl Fragment {
 impl TextFragment {
     #[must_use]
     pub fn new(
-        dom_node: DOMPtr<dom_objects::Node>,
-        offset: usize,
         text: String,
         area: Rectangle<CSSPixels>,
         color: Color,
         font_metrics: FontMetrics,
-        selected: Option<Range<usize>>,
     ) -> Self {
         Self {
-            dom_node,
-            offset,
             text,
             area,
             color,
             font_metrics,
-            selected,
         }
     }
 
@@ -135,60 +109,12 @@ impl TextFragment {
     pub fn fill_display_list(&self, painter: &mut Painter) {
         let color = math::Color::from(self.color);
 
-        if let Some(selected_range) = self.selected {
-            let text_before = &self.text[0..selected_range.start()];
-            let selected_text = &self.text[selected_range.start()..selected_range.end()];
-            let text_after = &self.text[selected_range.end()..];
-
-            let width_before = self.font_metrics.width_of(text_before);
-            let width_selected = self.font_metrics.width_of(selected_text);
-
-            let selection_color = color.inverted();
-
-            let mut cursor = self.area.top_left;
-
-            // Draw the part before the selection
-            painter.text(
-                text_before.to_owned(),
-                cursor,
-                color,
-                self.font_metrics.clone(),
-            );
-            cursor.x += width_before;
-
-            // Draw the selection
-            let selected_area = Rectangle {
-                top_left: cursor,
-                bottom_right: cursor
-                    + math::Vec2D {
-                        x: width_selected,
-                        y: self.area.height(),
-                    },
-            };
-            painter.rect(selected_area, Color::ORANGE_RED.into());
-            painter.text(
-                selected_text.to_owned(),
-                cursor,
-                selection_color,
-                self.font_metrics.clone(),
-            );
-            cursor.x += width_selected;
-
-            // Draw the remaining text
-            painter.text(
-                text_after.to_owned(),
-                cursor,
-                color,
-                self.font_metrics.clone(),
-            );
-        } else {
-            painter.text(
-                self.text.clone(),
-                self.area.top_left,
-                color,
-                self.font_metrics.clone(),
-            )
-        }
+        painter.text(
+            self.text.clone(),
+            self.area.top_left,
+            color,
+            self.font_metrics.clone(),
+        );
     }
 }
 
@@ -242,7 +168,7 @@ impl BoxFragment {
     }
 
     pub fn fill_display_list(&self, painter: &mut Painter) {
-        match self.style.background_color() {
+        match self.style().background_color() {
             BackgroundColorValue::Transparent => {
                 // Skip drawing the background entirely
             },

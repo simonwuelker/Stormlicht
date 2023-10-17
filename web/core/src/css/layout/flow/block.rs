@@ -336,7 +336,7 @@ impl BlockLevelBox {
                     };
 
                 let (fragments, content_height) =
-                    inline_formatting_context.fragment(content_top_left, containing_block);
+                    inline_formatting_context.layout(content_top_left, containing_block);
                 for fragment in &fragments {
                     content_area_including_overflow
                         .grow_to_contain(fragment.content_area_including_overflow());

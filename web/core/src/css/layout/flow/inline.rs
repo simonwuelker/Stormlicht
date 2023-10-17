@@ -1,14 +1,13 @@
-use std::{fmt::Write, rc::Rc};
+use std::{fmt::Write, mem, rc::Rc};
 
 use font_metrics::FontMetrics;
-use math::Vec2D;
-use sl_std::{range::Range, slice::SubsliceOffset};
+use math::{Rectangle, Vec2D};
 
 use crate::{
     css::{
         font_metrics,
-        fragment_tree::{Fragment, TextFragment},
-        layout::{CSSPixels, ContainingBlock},
+        fragment_tree::{BoxFragment, Fragment, TextFragment},
+        layout::{CSSPixels, ContainingBlock, Sides},
         stylecomputer::ComputedStyle,
         LineBreakIterator,
     },
@@ -25,9 +24,7 @@ pub enum InlineLevelBox {
 
 #[derive(Clone, Debug)]
 pub struct TextRun {
-    node: DOMPtr<dom_objects::Node>,
     text: String,
-    selected_part: Option<Range<usize>>,
     style: Rc<ComputedStyle>,
 }
 
@@ -48,18 +45,8 @@ pub struct InlineFormattingContext {
 impl TextRun {
     #[inline]
     #[must_use]
-    pub fn new(
-        node: DOMPtr<dom_objects::Node>,
-        text: String,
-        selected_part: Option<Range<usize>>,
-        style: Rc<ComputedStyle>,
-    ) -> Self {
-        Self {
-            node,
-            text,
-            selected_part,
-            style,
-        }
+    pub fn new(text: String, style: Rc<ComputedStyle>) -> Self {
+        Self { text, style }
     }
 
     #[inline]
@@ -72,6 +59,43 @@ impl TextRun {
     #[must_use]
     pub fn style(&self) -> Rc<ComputedStyle> {
         self.style.clone()
+    }
+
+    fn layout_into_line_items(&self, state: &mut InlineFormattingContextState) {
+        let font_metrics = FontMetrics::default();
+        let height = font_metrics.size;
+
+        // Collapse sequences of whitespace in the text as
+        // well as removing leading/trailing whitespace
+        let mut previous_c_was_whitespace = true;
+        let mut text_without_whitespace_sequences = self.text().trim().to_owned();
+        text_without_whitespace_sequences.retain(|c| {
+            let is_whitespace = c.is_whitespace();
+            let retain = !is_whitespace || !previous_c_was_whitespace;
+            previous_c_was_whitespace = is_whitespace;
+            retain
+        });
+
+        let remaining_text = &text_without_whitespace_sequences;
+        let mut lines = LineBreakIterator::new(
+            remaining_text,
+            font_metrics,
+            state.remaining_width_for_line_box(),
+        );
+
+        while let Some(text_line) = lines.next() {
+            let line_item = LineItem::TextRun(TextRunItem {
+                text: text_line.text.to_owned(),
+                width: text_line.width,
+                style: self.style(),
+            });
+            state.push_line_item(line_item, text_line.width, height);
+
+            if !lines.is_done() {
+                state.finish_current_line();
+                lines.adjust_available_width(state.remaining_width_for_line_box());
+            }
+        }
     }
 }
 
@@ -94,100 +118,315 @@ impl InlineFormattingContext {
         self.elements.is_empty()
     }
 
-    pub fn fragment(
+    pub fn layout(
         &self,
         position: Vec2D<CSSPixels>,
         containing_block: ContainingBlock,
     ) -> (Vec<Fragment>, CSSPixels) {
-        let mut cursor = position;
-        let mut fragments = vec![];
-        let mut line_box_height = CSSPixels::ZERO;
-        let mut has_seen_relevant_content = false;
+        let mut state = InlineFormattingContextState::new(position, containing_block);
 
-        for inline_level_box in self.elements() {
-            match inline_level_box {
+        state.traverse(self.elements());
+
+        state.finish_current_line();
+
+        if state.has_seen_relevant_content {
+            (state.finished_fragments, state.y_cursor)
+        } else {
+            (vec![], CSSPixels::ZERO)
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct LineBoxUnderConstruction {
+    height: CSSPixels,
+    width: CSSPixels,
+}
+
+/// State of an IFC for the current nesting level
+#[derive(Clone, Debug, Default)]
+struct NestingLevelState {
+    line_items: Vec<LineItem>,
+}
+
+#[derive(Clone, Debug)]
+struct InlineBoxContainerState<'box_tree> {
+    inline_box: &'box_tree InlineBox,
+    nesting_level_state: NestingLevelState,
+}
+
+#[derive(Clone, Debug)]
+struct InlineFormattingContextState<'box_tree> {
+    /// Information about the line box currently being constructed
+    line_box_under_construction: LineBoxUnderConstruction,
+
+    root_nesting_level_state: NestingLevelState,
+
+    /// A stack of inline boxes that were opened within this IFC
+    inline_box_stack: Vec<InlineBoxContainerState<'box_tree>>,
+
+    containing_block: ContainingBlock,
+    finished_fragments: Vec<Fragment>,
+    has_seen_relevant_content: bool,
+
+    /// The top left corner of the first line box
+    position: Vec2D<CSSPixels>,
+    y_cursor: CSSPixels,
+}
+
+#[derive(Clone, Debug)]
+enum LineItem {
+    TextRun(TextRunItem),
+    InlineBox(InlineBoxItem),
+}
+
+/// A piece of text that takes up at most one line
+#[derive(Clone, Debug)]
+struct TextRunItem {
+    text: String,
+    width: CSSPixels,
+    style: Rc<ComputedStyle>,
+}
+
+#[derive(Clone, Debug)]
+struct InlineBoxItem {
+    style: Rc<ComputedStyle>,
+    children: Vec<LineItem>,
+}
+
+/// State used during conversion from [LineItems](LineItem) to [Fragments](Fragment)
+#[derive(Clone, Copy, Debug)]
+struct LineItemLayoutState {
+    top_left: Vec2D<CSSPixels>,
+    width: CSSPixels,
+    height: CSSPixels,
+}
+
+impl LineItemLayoutState {
+    fn new(top_left: Vec2D<CSSPixels>) -> Self {
+        Self {
+            top_left,
+            width: CSSPixels::ZERO,
+            height: CSSPixels::ZERO,
+        }
+    }
+}
+
+impl InlineBoxItem {
+    fn layout(self, state: &mut LineItemLayoutState) -> Option<BoxFragment> {
+        // Create a nested layout state that will contain the children
+        let start = Vec2D {
+            x: state.top_left.x + state.width,
+            y: state.top_left.y,
+        };
+        let mut nested_state = LineItemLayoutState::new(start);
+        let child_fragments = nested_state.layout(self.children);
+
+        if child_fragments.is_empty() {
+            return None;
+        }
+
+        state.width += nested_state.width;
+        if nested_state.height > state.height {
+            state.height = nested_state.height;
+        }
+
+        let bottom_right = start
+            + Vec2D {
+                x: nested_state.width,
+                y: nested_state.height,
+            };
+        let content_area = Rectangle {
+            top_left: start,
+            bottom_right,
+        };
+
+        // FIXME: respect margin for inline boxes
+        let margin = Sides::all(CSSPixels::ZERO);
+
+        let box_fragment = BoxFragment::new(
+            None,
+            self.style.clone(),
+            margin,
+            content_area,
+            content_area,
+            child_fragments,
+        );
+
+        Some(box_fragment)
+    }
+}
+
+impl<'box_tree> InlineFormattingContextState<'box_tree> {
+    fn new(position: Vec2D<CSSPixels>, containing_block: ContainingBlock) -> Self {
+        Self {
+            line_box_under_construction: LineBoxUnderConstruction::default(),
+            root_nesting_level_state: NestingLevelState::default(),
+            inline_box_stack: Vec::new(),
+            containing_block,
+            finished_fragments: Vec::new(),
+            has_seen_relevant_content: false,
+            position: position,
+            y_cursor: position.y,
+        }
+    }
+
+    fn push_line_item(&mut self, line_item: LineItem, width: CSSPixels, height: CSSPixels) {
+        self.line_box_under_construction.width += width;
+        self.has_seen_relevant_content = true;
+
+        if self.line_box_under_construction.height < height {
+            self.line_box_under_construction.height = height;
+        }
+
+        self.current_insertion_point().line_items.push(line_item);
+    }
+
+    fn remaining_width_for_line_box(&self) -> CSSPixels {
+        self.containing_block.width() - self.line_box_under_construction.width
+    }
+
+    fn traverse<I: IntoIterator<Item = &'box_tree InlineLevelBox>>(&mut self, iterator: I) {
+        for element in iterator {
+            match element {
+                InlineLevelBox::InlineBox(inline_box) => {
+                    self.start_inline_box(inline_box);
+                    self.traverse(&inline_box.contents);
+                    self.finish_inline_box();
+                },
                 InlineLevelBox::TextRun(text_run) => {
-                    // FIXME: Respect the elements actual font
-                    let font_metrics = FontMetrics::default();
+                    text_run.layout_into_line_items(self);
+                },
+            }
+        }
+    }
 
-                    if line_box_height < font_metrics.size {
-                        line_box_height = font_metrics.size;
-                    }
+    fn finish_current_line(&mut self) {
+        // Create LineItems for all boxes on the stack
+        let mut inline_box_stack = self.inline_box_stack.iter_mut().rev();
 
-                    // Collapse sequences of whitespace in the text
-                    let mut previous_c_was_whitespace = true;
-                    let mut text_without_whitespace_sequences = text_run.text().to_owned();
-                    text_without_whitespace_sequences.retain(|c| {
-                        let is_whitespace = c.is_whitespace();
-                        let retain = !is_whitespace || !previous_c_was_whitespace;
-                        previous_c_was_whitespace = is_whitespace;
-                        retain
-                    });
+        if let Some(top_box) = inline_box_stack.next() {
+            let mut line_item = top_box.layout_into_line_item().into();
 
-                    // The previous collapse algorithm also removed leading whitespace, now we just need to remove
-                    // trailing whitespace
-                    let collapsed_text = text_without_whitespace_sequences
-                        .as_str()
-                        .trim_end()
-                        .to_string();
+            for inline_box in inline_box_stack {
+                inline_box.nesting_level_state.line_items.push(line_item);
+                line_item = inline_box.layout_into_line_item().into();
+            }
 
-                    has_seen_relevant_content |=
-                        collapsed_text.contains(|c: char| !c.is_whitespace());
+            self.root_nesting_level_state.line_items.push(line_item);
+        }
 
-                    // Fragment the text into individual lines
-                    let available_width = containing_block.width();
-                    let line_iterator = LineBreakIterator::new(
-                        &collapsed_text,
-                        font_metrics.clone(),
-                        available_width,
-                    );
+        let items_on_this_line = mem::take(&mut self.root_nesting_level_state.line_items);
 
-                    for text_line in line_iterator {
-                        let area = math::Rectangle {
-                            top_left: cursor,
-                            bottom_right: cursor
-                                + Vec2D {
-                                    x: text_line.width,
-                                    y: font_metrics.size,
-                                },
-                        };
+        let mut layout_state = LineItemLayoutState::new(Vec2D {
+            x: self.position.x,
+            y: self.y_cursor,
+        });
+        self.finished_fragments
+            .extend(layout_state.layout(items_on_this_line));
 
-                        let line_range = collapsed_text
-                            .subslice_range(text_line.text)
-                            .expect("Broken line must be part of the original string");
+        self.y_cursor += self.line_box_under_construction.height;
 
-                        let selected_part = text_run
-                            .selected_part
-                            .and_then(|range| range.intersection(line_range))
-                            .map(|range| range.map(|b| b - line_range.start()));
+        // Prepare for a new line
+        self.line_box_under_construction = LineBoxUnderConstruction {
+            width: CSSPixels::ZERO,
+            height: CSSPixels::ZERO,
+        }
+    }
 
-                        let fragment = Fragment::Text(TextFragment::new(
-                            text_run.node.clone(),
-                            line_range.start(),
-                            text_line.text.to_string(),
-                            area,
-                            text_run.style().color(),
-                            font_metrics.clone(),
-                            selected_part,
-                        ));
-                        fragments.push(fragment);
+    fn current_insertion_point(&mut self) -> &mut NestingLevelState {
+        match self.inline_box_stack.last_mut() {
+            Some(last_box) => &mut last_box.nesting_level_state,
+            None => &mut self.root_nesting_level_state,
+        }
+    }
 
-                        cursor.x = position.x;
-                        cursor.y += font_metrics.size;
+    fn start_inline_box(&mut self, inline_box: &'box_tree InlineBox) {
+        self.inline_box_stack
+            .push(InlineBoxContainerState::new(inline_box));
+    }
+
+    fn finish_inline_box(&mut self) {
+        // Take the box that was closed
+        let mut finished_box = match self.inline_box_stack.pop() {
+            Some(inline_box) => inline_box,
+            None => {
+                // We closed the root inline box
+                return;
+            },
+        };
+
+        // Lay it out into a line item
+        let line_item = finished_box.layout_into_line_item().into();
+
+        // Add that line item to the new top inline box
+        self.current_insertion_point().line_items.push(line_item);
+    }
+}
+
+impl LineItemLayoutState {
+    fn layout(&mut self, line_items: Vec<LineItem>) -> Vec<Fragment> {
+        let mut fragments = Vec::new();
+
+        for line_item in line_items {
+            match line_item {
+                LineItem::InlineBox(inline_box_item) => {
+                    if let Some(box_fragment) = inline_box_item.layout(self) {
+                        fragments.push(Fragment::Box(box_fragment));
                     }
                 },
-                InlineLevelBox::InlineBox(_inline_box) => {
-                    // has_seen_relevant_content = true;
-                    todo!("fragment inline boxes")
+                LineItem::TextRun(text_run) => {
+                    let fragment = Fragment::Text(text_run.layout(self));
+                    fragments.push(fragment);
                 },
             }
         }
 
-        if has_seen_relevant_content {
-            (fragments, cursor.y - position.y)
-        } else {
-            (vec![], CSSPixels::ZERO)
+        fragments
+    }
+}
+
+impl<'box_tree> InlineBoxContainerState<'box_tree> {
+    fn new(inline_box: &'box_tree InlineBox) -> Self {
+        Self {
+            inline_box,
+            nesting_level_state: NestingLevelState::default(),
         }
+    }
+
+    fn layout_into_line_item(&mut self) -> InlineBoxItem {
+        InlineBoxItem {
+            style: self.inline_box.style.clone(),
+            children: mem::take(&mut self.nesting_level_state.line_items),
+        }
+    }
+}
+
+impl TextRunItem {
+    fn layout(self, state: &mut LineItemLayoutState) -> TextFragment {
+        // Make the line box high enough to fit the line
+        let font_metrics = FontMetrics::default();
+        let line_height = font_metrics.size;
+        if line_height > state.height {
+            state.height = line_height;
+        }
+
+        let top_left = Vec2D {
+            x: state.top_left.x + state.width,
+            y: state.top_left.y,
+        };
+        let area = Rectangle {
+            top_left,
+            bottom_right: top_left
+                + Vec2D {
+                    x: self.width,
+                    y: line_height,
+                },
+        };
+
+        state.width += self.width;
+
+        TextFragment::new(self.text, area, self.style.color(), font_metrics)
     }
 }
 
@@ -263,5 +502,17 @@ impl TreeDebug for InlineLevelBox {
             },
         }
         Ok(())
+    }
+}
+
+impl From<InlineBoxItem> for LineItem {
+    fn from(value: InlineBoxItem) -> Self {
+        Self::InlineBox(value)
+    }
+}
+
+impl From<TextRunItem> for LineItem {
+    fn from(value: TextRunItem) -> Self {
+        Self::TextRun(value)
     }
 }
