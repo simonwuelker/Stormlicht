@@ -65,14 +65,16 @@ impl TextRun {
         let font_metrics = FontMetrics::default();
         let height = font_metrics.size;
 
-        // Collapse sequences of whitespace in the text
+        // Collapse sequences of whitespace in the text and remove newlines as defined in
+        // https://drafts.csswg.org/css2/#white-space-model (3)
+
         let mut previous_c_was_whitespace = false;
         let mut text_without_whitespace_sequences = self.text().to_owned();
         text_without_whitespace_sequences.retain(|c| {
             let is_whitespace = c.is_whitespace();
             let retain = !is_whitespace || !previous_c_was_whitespace;
             previous_c_was_whitespace = is_whitespace;
-            retain
+            retain && c != '\n'
         });
 
         let remaining_text = &text_without_whitespace_sequences;
