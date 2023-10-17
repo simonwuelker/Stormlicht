@@ -9,7 +9,7 @@ pub struct LineBreakIterator<'a> {
     available_width: CSSPixels,
     font_metrics: FontMetrics,
     text: &'a str,
-    is_finished: bool,
+    is_done: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -26,8 +26,16 @@ impl<'a> LineBreakIterator<'a> {
             text: text.trim_start(),
             font_metrics,
             available_width,
-            is_finished: text.is_empty(),
+            is_done: text.is_empty(),
         }
+    }
+
+    pub fn adjust_available_width(&mut self, available_width: CSSPixels) {
+        self.available_width = available_width;
+    }
+
+    pub fn is_done(&self) -> bool {
+        self.is_done
     }
 }
 
@@ -35,7 +43,7 @@ impl<'a> Iterator for LineBreakIterator<'a> {
     type Item = TextLine<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.is_finished {
+        if self.is_done {
             return None;
         }
 
@@ -91,7 +99,7 @@ impl<'a> Iterator for LineBreakIterator<'a> {
                 Some(TextLine { text: line, width })
             },
             (false, _) | (_, None) => {
-                self.is_finished = true;
+                self.is_done = true;
 
                 Some(TextLine {
                     text: self.text,
