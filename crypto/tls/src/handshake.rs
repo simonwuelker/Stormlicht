@@ -1,7 +1,5 @@
 use std::io::{self, Cursor, Read};
 
-use sl_std::datetime::DateTime;
-
 use crate::{
     certificate::{SignedCertificate, X509Certificate},
     connection::{ProtocolVersion, TLSError, TLS_VERSION},
