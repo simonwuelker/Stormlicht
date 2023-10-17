@@ -37,6 +37,17 @@ impl<T> Sides<T> {
     }
 }
 
+impl<T: Copy> Sides<T> {
+    pub fn all(value: T) -> Self {
+        Self {
+            top: value,
+            right: value,
+            bottom: value,
+            left: value,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct ContainingBlock {
     width: CSSPixels,
