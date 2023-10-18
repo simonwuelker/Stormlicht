@@ -359,6 +359,7 @@ dependencies = [
  "criterion",
  "hash",
  "log",
+ "sl-std",
 ]
 
 [[package]]

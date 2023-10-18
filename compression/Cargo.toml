@@ -11,6 +11,7 @@ criterion = { version = "0.4", features = ["html_reports"] }
 [dependencies]
 hash = { path = "../crypto/hash" }
 log = "0.4"
+sl-std = { path = "../sl-std" }
 
 [[bench]]
 name = "brotli"
