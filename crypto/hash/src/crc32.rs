@@ -33,16 +33,22 @@ const CRC32_TABLE: [u32; 256] = [
     0xB3667A2E, 0xC4614AB8, 0x5D681B02, 0x2A6F2B94, 0xB40BBE37, 0xC30C8EA1, 0x5A05DF1B, 0x2D02EF8D,
 ];
 
-#[derive(Debug)]
-pub struct CRC32(u32);
+pub fn crc32(bytes: &[u8]) -> u32 {
+    let mut hasher = CRC32Hasher::default();
+    hasher.write(bytes);
+    hasher.finish()
+}
 
-impl Default for CRC32 {
+#[derive(Clone, Copy, Debug)]
+pub struct CRC32Hasher(u32);
+
+impl Default for CRC32Hasher {
     fn default() -> Self {
         Self(u32::MAX)
     }
 }
 
-impl CRC32 {
+impl CRC32Hasher {
     pub fn write(&mut self, bytes: &[u8]) {
         self.0 = if is_x86_feature_detected!("sse2") {
             // Safe, we just verified that SSE is supported
@@ -198,7 +204,7 @@ mod tests {
     #[test]
     fn test_crc32() {
         let text = b"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumx eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.";
-        let mut hasher = CRC32::default();
+        let mut hasher = CRC32Hasher::default();
         hasher.write(text);
         assert_eq!(hasher.finish(), 0xf5d5228);
     }
