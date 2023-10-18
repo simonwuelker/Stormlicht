@@ -5,7 +5,6 @@ mod font_metrics;
 pub mod fragment_tree;
 pub mod layout;
 mod line_break;
-mod matching_rule;
 mod properties;
 pub mod selectors;
 mod serialize;
@@ -16,7 +15,6 @@ pub mod values;
 
 pub use font_metrics::FontMetrics;
 pub use line_break::LineBreakIterator;
-pub use matching_rule::MatchingRule;
 pub use properties::{StyleProperty, StylePropertyDeclaration};
 pub use serialize::{Serialize, Serializer};
 pub use stylecomputer::StyleComputer;

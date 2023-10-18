@@ -360,7 +360,7 @@ impl<'a> Parser<'a> {
         while !matches!(self.next_token(), Some(Token::Semicolon) | None) {}
     }
 
-    pub fn parse_stylesheet(&mut self) -> Result<Stylesheet, ParseError> {
+    pub fn parse_stylesheet(&mut self, index: usize) -> Result<Stylesheet, ParseError> {
         // NOTE: The ruleparser shouldn't stay a unit struct
         #[allow(clippy::default_constructed_unit_structs)]
         let mut rule_parser = RuleParser::default();
@@ -376,7 +376,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(Stylesheet::new(self.origin, rules))
+        Ok(Stylesheet::new(self.origin, rules, index))
     }
 
     /// Applies a parser as often as possible, seperating individual parser calls by

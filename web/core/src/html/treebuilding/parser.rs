@@ -187,7 +187,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     if let Some(text_node) = first_child.try_into_type::<Text>() {
                         if let Ok(stylesheet) =
                             css::Parser::new(text_node.borrow().content(), css::Origin::Author)
-                                .parse_stylesheet()
+                                .parse_stylesheet(self.stylesheets.len())
                         {
                             if !stylesheet.rules().is_empty() {
                                 self.stylesheets.push(stylesheet);

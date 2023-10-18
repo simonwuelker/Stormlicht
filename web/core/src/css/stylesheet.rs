@@ -28,13 +28,20 @@ pub struct Stylesheet {
 
     /// The rules contained in the stylesheet
     rules: Vec<StyleRule>,
+
+    /// A number describing the order of appearance of different stylesheets
+    index: usize,
 }
 
 impl Stylesheet {
     #[inline]
     #[must_use]
-    pub fn new(origin: Origin, rules: Vec<StyleRule>) -> Self {
-        Self { origin, rules }
+    pub fn new(origin: Origin, rules: Vec<StyleRule>, index: usize) -> Self {
+        Self {
+            origin,
+            rules,
+            index,
+        }
     }
 
     #[inline]
@@ -42,7 +49,7 @@ impl Stylesheet {
     pub fn user_agent_rules() -> Self {
         let default_css = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/default.css"));
         Parser::new(default_css, Origin::UserAgent)
-            .parse_stylesheet()
+            .parse_stylesheet(usize::MAX)
             .expect("Parsing user agent CSS should never fail")
     }
 
@@ -56,6 +63,10 @@ impl Stylesheet {
     #[must_use]
     pub fn rules(&self) -> &[StyleRule] {
         &self.rules
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
     }
 }
 
