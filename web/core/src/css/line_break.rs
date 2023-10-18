@@ -56,6 +56,10 @@ impl<'a> Iterator for LineBreakIterator<'a> {
         for break_point in potential_breaks {
             let (line, remainder) = self.text.split_at(break_point);
 
+            if line.is_empty() {
+                continue;
+            }
+
             let width = CSSPixels(
                 self.font_metrics
                     .font_face
