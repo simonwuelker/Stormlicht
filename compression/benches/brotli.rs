@@ -11,7 +11,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         .read_to_end(&mut data)
         .unwrap();
     c.bench_function("brotli alice29.txt", |b| {
-        b.iter(|| brotli::decode(black_box(&data)))
+        b.iter(|| brotli::decompress(black_box(&data)))
     });
 }
 

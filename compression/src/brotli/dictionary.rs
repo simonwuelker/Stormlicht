@@ -2,7 +2,7 @@
 //!
 //! You can find the raw dictionary file at <https://github.com/google/brotli/blob/master/c/common/dictionary.bin>
 
-use super::BrotliError;
+use super::Error;
 
 const DICTIONARY: &[u8; 122784] = include_bytes!("../../../downloads/brotli/dictionary.bin");
 
@@ -48,9 +48,9 @@ fn offset(length: usize, index: usize) -> usize {
 ///
 /// The lookup will fail if either the length is not in the range `[4, 24]`
 /// or the transform id on the word is invalid.
-pub fn lookup(word_id: usize, length: usize) -> Result<Vec<u8>, BrotliError> {
+pub fn lookup(word_id: usize, length: usize) -> Result<Vec<u8>, Error> {
     if !(4..=24).contains(&length) {
-        return Err(BrotliError::InvalidDictionaryReferenceLength);
+        return Err(Error::InvalidDictionaryReferenceLength);
     }
     let index = word_id % NWORDS[length];
     let base_word = &DICTIONARY[offset(length, index)..offset(length, index + 1)];
@@ -337,7 +337,7 @@ macro_rules! make_transform {
     }};
 }
 
-pub fn transform(word: &[u8], transform_id: usize) -> Result<Vec<u8>, BrotliError> {
+pub fn transform(word: &[u8], transform_id: usize) -> Result<Vec<u8>, Error> {
     let transformed = match transform_id {
         0 => make_transform!(b"", identity, b"", word),
         1 => make_transform!(b"", identity, b" ", word),
@@ -462,7 +462,7 @@ pub fn transform(word: &[u8], transform_id: usize) -> Result<Vec<u8>, BrotliErro
         120 => make_transform!(b" ", ferment_first, b"='", word),
         _ => {
             log::warn!("Invalid transform id: {transform_id}");
-            return Err(BrotliError::InvalidTransformID);
+            return Err(Error::InvalidTransformID);
         },
     };
     Ok(transformed)

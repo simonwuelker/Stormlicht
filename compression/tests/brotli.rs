@@ -4,7 +4,7 @@ use std::{fs, io::Read};
 const TESTS_DIR: &str = "../downloads/brotli/testdata/tests/testdata";
 
 #[test]
-fn test_brotli_decode() -> Result<(), std::io::Error> {
+fn test_brotli_decompress() -> Result<(), std::io::Error> {
     for testfile_or_error in
         fs::read_dir(TESTS_DIR).expect("Test files not found, did you run download.sh?")
     {
@@ -24,7 +24,7 @@ fn test_brotli_decode() -> Result<(), std::io::Error> {
                 fs::File::open(uncompressed_file)?.read_to_end(&mut uncompressed_buffer)?;
 
                 let decompressed =
-                    brotli::decode(&compressed_buffer).expect("Brotli decompression failed");
+                    brotli::decompress(&compressed_buffer).expect("Brotli decompression failed");
 
                 assert!(
                     decompressed

@@ -1,13 +1,13 @@
 //! [zlib](https://www.rfc-editor.org/rfc/rfc1950) implementation
 //!
-//! ZLIB is basically just a thin wrapper around deflate.
+//! ZLIB is basically just a thin wrapper around DEFLATE.
 
 use hash::Adler32;
 
 use crate::deflate;
 
 #[derive(Clone, Copy, Debug)]
-pub enum ZLibError {
+pub enum Error {
     UnexpectedEOF,
     /// Usage of the reserved compression method `15`.
     ReservedCompressionMethod,
@@ -16,7 +16,7 @@ pub enum ZLibError {
     /// ZLIB Header Checksum must be a multiple of 31
     InvalidHeaderChecksum,
     /// An error occured during the `DEFLATE` decompression
-    Deflate(deflate::DeflateError),
+    Deflate(deflate::Error),
     UnknownCompressionMethod,
     /// The checksum of the decompressed data was incorrect
     IncorrectDataChecksum,
@@ -32,9 +32,9 @@ pub enum ZLibError {
 /// Note that the minimum length of a DEFLATE archive is not included since zlib may use algorithms other than DEFLATE.
 const MINIMUM_ZLIB_LEN: usize = 6;
 
-pub fn decode(bytes: &[u8]) -> Result<Vec<u8>, ZLibError> {
+pub fn decompress(bytes: &[u8]) -> Result<Vec<u8>, Error> {
     if bytes.len() < MINIMUM_ZLIB_LEN {
-        return Err(ZLibError::UnexpectedEOF);
+        return Err(Error::UnexpectedEOF);
     }
 
     // parse Compression method and flags (CMF)
@@ -50,14 +50,14 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>, ZLibError> {
     let header_checksum = u16::from_be_bytes(bytes[..2].try_into().unwrap());
     if header_checksum % 31 != 0 {
         log::warn!("Invalid zlib header checksum: {header_checksum} (must be a multiple of 31)");
-        return Err(ZLibError::InvalidHeaderChecksum);
+        return Err(Error::InvalidHeaderChecksum);
     }
 
     match compression_method {
         8 => {
             // DEFLATE
             if 7 < compression_info {
-                return Err(ZLibError::CINFOTooLarge);
+                return Err(Error::CINFOTooLarge);
             }
 
             let _lz77_window_size = 1 << (compression_info as usize + 8);
@@ -67,7 +67,7 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>, ZLibError> {
             }
 
             let (decompressed, num_consumed_bytes) =
-                deflate::decode(&bytes[2..]).map_err(ZLibError::Deflate)?;
+                deflate::decompress(&bytes[2..]).map_err(Error::Deflate)?;
 
             // Verify the checksum provided after the compressed data
             let expected_checksum =
@@ -79,18 +79,18 @@ pub fn decode(bytes: &[u8]) -> Result<Vec<u8>, ZLibError> {
 
             if expected_checksum != computed_checksum {
                 log::warn!("Incorrect zlib checksum: expected {expected_checksum:0>8x}, found {computed_checksum:0>8x}");
-                return Err(ZLibError::IncorrectDataChecksum);
+                return Err(Error::IncorrectDataChecksum);
             }
 
             Ok(decompressed)
         },
         15 => {
             log::warn!("Reserved zlib compression method");
-            Err(ZLibError::ReservedCompressionMethod)
+            Err(Error::ReservedCompressionMethod)
         },
         _ => {
             log::warn!("Unknown zlib compression method: {compression_method}");
-            Err(ZLibError::UnknownCompressionMethod)
+            Err(Error::UnknownCompressionMethod)
         },
     }
 }
@@ -100,11 +100,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_zlib_decompression() -> Result<(), ZLibError> {
+    fn test_zlib_decompression() -> Result<(), Error> {
         let bytes = [
             0x78, 0x9c, 0x4b, 0x4c, 0x4a, 0x06, 0x00, 0x02, 0x4d, 0x01, 0x27,
         ];
-        let decompressed = decode(&bytes)?;
+        let decompressed = decompress(&bytes)?;
 
         assert_eq!(&decompressed, b"abc");
         Ok(())

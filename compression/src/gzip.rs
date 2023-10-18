@@ -29,7 +29,7 @@ pub enum Error {
     UnexpectedEOF,
     UnexpectedLength,
     ChecksumError,
-    Deflate(deflate::DeflateError),
+    Deflate(deflate::Error),
 }
 
 pub fn decompress(source_bytes: &[u8]) -> Result<Vec<u8>, Error> {
@@ -96,7 +96,7 @@ pub fn decompress(source_bytes: &[u8]) -> Result<Vec<u8>, Error> {
             .expect("we checked the length before"),
     );
 
-    let decompressed_bytes = deflate::decode(deflate_bytes)?.0;
+    let decompressed_bytes = deflate::decompress(deflate_bytes)?.0;
 
     // Note: The decompressed length is intentionally truncated (it is compared mod 2^32)
     if decompressed_bytes.len() as u32 != expected_length {
@@ -128,8 +128,8 @@ impl From<io::Error> for Error {
     }
 }
 
-impl From<deflate::DeflateError> for Error {
-    fn from(value: deflate::DeflateError) -> Self {
+impl From<deflate::Error> for Error {
+    fn from(value: deflate::Error) -> Self {
         Self::Deflate(value)
     }
 }

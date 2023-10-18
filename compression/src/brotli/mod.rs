@@ -16,8 +16,8 @@ macro_rules! update_block_type_and_count {
             .as_ref()
             .unwrap()
             .lookup_incrementally($reader)
-            .map_err(|_| BrotliError::SymbolNotFound)?
-            .ok_or(BrotliError::SymbolNotFound)?
+            .map_err(|_| Error::SymbolNotFound)?
+            .ok_or(Error::SymbolNotFound)?
             .val();
 
         let block_type = match btype_code {
@@ -33,14 +33,14 @@ macro_rules! update_block_type_and_count {
             .as_ref()
             .unwrap()
             .lookup_incrementally($reader)
-            .map_err(|_| BrotliError::SymbolNotFound)?
-            .ok_or(BrotliError::SymbolNotFound)?
+            .map_err(|_| Error::SymbolNotFound)?
+            .ok_or(Error::SymbolNotFound)?
             .val();
 
         let (base, num_extra_bits) = decode_blocklen(blen_code);
         let extra_bits = $reader
             .read_bits::<usize>(num_extra_bits as u8)
-            .map_err(BrotliError::BitReader)?;
+            .map_err(Error::BitReader)?;
         $blen = base + extra_bits;
     };
 }
@@ -106,7 +106,7 @@ const LUT2: [u8; 256] = [
 ];
 
 #[derive(Clone, Copy, Debug)]
-pub enum BrotliError {
+pub enum Error {
     InvalidFormat,
     InvalidSymbol,
     MismatchedChecksum,
@@ -119,7 +119,7 @@ pub enum BrotliError {
 }
 
 // https://www.rfc-editor.org/rfc/rfc7932#section-10
-pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
+pub fn decompress(source: &[u8]) -> Result<Vec<u8>, Error> {
     let mut reader = BitReader::new(source);
 
     // The stream initially contains two zero bytes since decoding relies on the "last two uncompressed bytes", which are initally 0
@@ -128,12 +128,12 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 
     // Read the Stream Header (which only contains the sliding window size)
     // https://www.rfc-editor.org/rfc/rfc7932#section-9.1
-    let wbits = if reader.read_bits::<u8>(1).map_err(BrotliError::BitReader)? == 0b0 {
+    let wbits = if reader.read_bits::<u8>(1).map_err(Error::BitReader)? == 0b0 {
         16
     } else {
-        let n2 = reader.read_bits::<u8>(3).map_err(BrotliError::BitReader)?;
+        let n2 = reader.read_bits::<u8>(3).map_err(Error::BitReader)?;
         if n2 == 0b000 {
-            let n3 = reader.read_bits::<u8>(3).map_err(BrotliError::BitReader)?;
+            let n3 = reader.read_bits::<u8>(3).map_err(Error::BitReader)?;
             if n3 == 0b000 {
                 17
             } else {
@@ -151,17 +151,17 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
     while !is_last {
         // read meta block header
         // read ISLAST bit
-        is_last = reader.read_single_bit().map_err(BrotliError::BitReader)?;
+        is_last = reader.read_single_bit().map_err(Error::BitReader)?;
 
         if is_last {
             // read ISLASTEMPTY bit
-            if reader.read_single_bit().map_err(BrotliError::BitReader)? {
+            if reader.read_single_bit().map_err(Error::BitReader)? {
                 break;
             }
         }
 
         // read MNIBBLES
-        let mnibbles = match reader.read_bits::<u8>(2).map_err(BrotliError::BitReader)? {
+        let mnibbles = match reader.read_bits::<u8>(2).map_err(Error::BitReader)? {
             0b11 => 0,
             0b00 => 4,
             0b01 => 5,
@@ -171,8 +171,8 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 
         let mlen = if mnibbles == 0 {
             // verify reserved bit is zero
-            if reader.read_single_bit().map_err(BrotliError::BitReader)? {
-                return Err(BrotliError::InvalidFormat);
+            if reader.read_single_bit().map_err(Error::BitReader)? {
+                return Err(Error::InvalidFormat);
             }
 
             // read MSKIPLEN
@@ -182,20 +182,18 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
             // read MLEN
             reader
                 .read_bits::<u32>(4 * mnibbles)
-                .map_err(BrotliError::BitReader)? as usize
+                .map_err(Error::BitReader)? as usize
                 + 1
         };
 
         if !is_last {
-            let is_uncompressed = reader.read_single_bit().map_err(BrotliError::BitReader)?;
+            let is_uncompressed = reader.read_single_bit().map_err(Error::BitReader)?;
 
             if is_uncompressed {
                 reader.align_to_byte_boundary();
 
                 let mut buffer = vec![0; mlen];
-                reader
-                    .read_bytes(&mut buffer)
-                    .map_err(BrotliError::BitReader)?;
+                reader.read_bytes(&mut buffer).map_err(Error::BitReader)?;
                 output_stream.extend(buffer);
                 continue;
             }
@@ -208,17 +206,12 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
         let (nbl_types_d, htree_btype_d, htree_blen_d, mut blen_d) = decode_blockdata(&mut reader)?;
 
         // read NPOSTFIX and NDIRECT
-        let npostfix = reader
-            .read_bits::<usize>(2)
-            .map_err(BrotliError::BitReader)?;
-        let ndirect = reader
-            .read_bits::<usize>(4)
-            .map_err(BrotliError::BitReader)?
-            << npostfix;
+        let npostfix = reader.read_bits::<usize>(2).map_err(Error::BitReader)?;
+        let ndirect = reader.read_bits::<usize>(4).map_err(Error::BitReader)? << npostfix;
 
         let mut context_modes_for_literal_block_types = Vec::with_capacity(nbl_types_l);
         for _ in 0..nbl_types_l {
-            let context_mode = reader.read_bits::<u8>(2).map_err(BrotliError::BitReader)?;
+            let context_mode = reader.read_bits::<u8>(2).map_err(Error::BitReader)?;
             context_modes_for_literal_block_types.push(context_mode);
         }
 
@@ -288,8 +281,8 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 
             let insert_and_copy_length_code = htree_i[btype_i]
                 .lookup_incrementally(&mut reader)
-                .map_err(|_| BrotliError::SymbolNotFound)?
-                .ok_or(BrotliError::SymbolNotFound)?
+                .map_err(|_| Error::SymbolNotFound)?
+                .ok_or(Error::SymbolNotFound)?
                 .val();
 
             let distance_is_implicit_zero = insert_and_copy_length_code < 128;
@@ -322,8 +315,8 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 
                 let literal_symbol = htree_l[cmap_l[64 * btype_l + cidl as usize] as usize]
                     .lookup_incrementally(&mut reader)
-                    .map_err(|_| BrotliError::SymbolNotFound)?
-                    .ok_or(BrotliError::SymbolNotFound)
+                    .map_err(|_| Error::SymbolNotFound)?
+                    .ok_or(Error::SymbolNotFound)
                     .unwrap();
 
                 output_stream.push(literal_symbol.val() as u8);
@@ -356,8 +349,8 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
                 let cidd = decode_distance_context_id(clen);
                 let distance_code = htree_d[cmap_d[4 * btype_d + cidd] as usize]
                     .lookup_incrementally(&mut reader)
-                    .map_err(|_| BrotliError::SymbolNotFound)?
-                    .ok_or(BrotliError::SymbolNotFound)?
+                    .map_err(|_| Error::SymbolNotFound)?
+                    .ok_or(Error::SymbolNotFound)?
                     .val();
 
                 let distance = distance_short_code_substitution(
@@ -412,25 +405,25 @@ pub fn decode(source: &[u8]) -> Result<Vec<u8>, BrotliError> {
 fn read_prefix_code(
     reader: &mut BitReader,
     alphabet_size: usize,
-) -> Result<HuffmanTree<Bits<usize>>, BrotliError> {
+) -> Result<HuffmanTree<Bits<usize>>, Error> {
     let alphabet_width = 16 - (alphabet_size as u16 - 1).leading_zeros() as u8;
 
-    let ident = reader.read_bits::<u8>(2).map_err(BrotliError::BitReader)?;
+    let ident = reader.read_bits::<u8>(2).map_err(Error::BitReader)?;
     let mut symbols_raw = vec![];
 
     let huffmantree = if ident == 1 {
         // Simple prefix code
-        let nsym = reader.read_bits::<u8>(2).map_err(BrotliError::BitReader)? + 1;
+        let nsym = reader.read_bits::<u8>(2).map_err(Error::BitReader)? + 1;
 
         // read nsym symbols
         for _ in 0..nsym {
             let symbol_raw = reader
                 .read_bits::<usize>(alphabet_width)
-                .map_err(BrotliError::BitReader)?;
+                .map_err(Error::BitReader)?;
 
             // Reject symbol if its not within the alphabet
             if symbol_raw >= alphabet_size {
-                return Err(BrotliError::InvalidSymbol);
+                return Err(Error::InvalidSymbol);
             }
             symbols_raw.push(symbol_raw);
         }
@@ -448,7 +441,7 @@ fn read_prefix_code(
                 vec![1, 2, 2]
             },
             4 => {
-                if reader.read_single_bit().map_err(BrotliError::BitReader)? {
+                if reader.read_single_bit().map_err(Error::BitReader)? {
                     symbols_raw[2..].sort();
                     vec![1, 2, 3, 3]
                 } else {
@@ -486,13 +479,13 @@ fn read_prefix_code(
             // 3          10
             // 4          01
             // 5        1111
-            *code_length = match reader.read_bits::<u8>(2).map_err(BrotliError::BitReader)? {
+            *code_length = match reader.read_bits::<u8>(2).map_err(Error::BitReader)? {
                 0b00 => 0,
                 0b10 => 3,
                 0b01 => 4,
                 0b11 => {
-                    if reader.read_single_bit().map_err(BrotliError::BitReader)? {
-                        if reader.read_single_bit().map_err(BrotliError::BitReader)? {
+                    if reader.read_single_bit().map_err(Error::BitReader)? {
+                        if reader.read_single_bit().map_err(Error::BitReader)? {
                             5
                         } else {
                             1
@@ -518,7 +511,7 @@ fn read_prefix_code(
                 "Incorret checksum for prefix code: expected {:0>8x}, found {checksum:0>8x}",
                 32
             );
-            return Err(BrotliError::MismatchedChecksum);
+            return Err(Error::MismatchedChecksum);
         }
 
         // Code lengths are not given in the correct order but our huffmantree implementation requires that
@@ -537,8 +530,8 @@ fn read_prefix_code(
         'read_length_codes: while i < alphabet_size {
             let symbol_length_code = *code_length_encoding
                 .lookup_incrementally(reader)
-                .map_err(|_| BrotliError::SymbolNotFound)?
-                .ok_or(BrotliError::SymbolNotFound)?;
+                .map_err(|_| Error::SymbolNotFound)?
+                .ok_or(Error::SymbolNotFound)?;
 
             match symbol_length_code {
                 0..=15 => {
@@ -557,9 +550,7 @@ fn read_prefix_code(
                     previous_repeat_count = None;
                 },
                 16 => {
-                    let extra_bits = reader
-                        .read_bits::<usize>(2)
-                        .map_err(BrotliError::BitReader)?;
+                    let extra_bits = reader.read_bits::<usize>(2).map_err(Error::BitReader)?;
 
                     let repeat_for = match previous_repeat_count {
                         Some((16, previous_repetitions)) => {
@@ -581,7 +572,7 @@ fn read_prefix_code(
 
                     // Make sure to not exceed the alphabet size
                     if i + repeat_for > alphabet_size {
-                        return Err(BrotliError::RunlengthEncodingExceedsExpectedSize);
+                        return Err(Error::RunlengthEncodingExceedsExpectedSize);
                     }
 
                     for j in 0..repeat_for {
@@ -595,9 +586,7 @@ fn read_prefix_code(
                     }
                 },
                 17 => {
-                    let extra_bits = reader
-                        .read_bits::<usize>(3)
-                        .map_err(BrotliError::BitReader)?;
+                    let extra_bits = reader.read_bits::<usize>(3).map_err(Error::BitReader)?;
 
                     let (repeat_for, total_repetitions) = match previous_repeat_count {
                         Some((17, previous_repetitions)) => {
@@ -613,7 +602,7 @@ fn read_prefix_code(
 
                     // Make sure to not exceed the alphabet size
                     if i + repeat_for > alphabet_size {
-                        return Err(BrotliError::RunlengthEncodingExceedsExpectedSize);
+                        return Err(Error::RunlengthEncodingExceedsExpectedSize);
                     }
 
                     i += repeat_for;
@@ -629,12 +618,12 @@ fn read_prefix_code(
                 "Incorret checksum for prefix code: expected {:0>8x}, found {checksum:0>8x}",
                 32768
             );
-            return Err(BrotliError::MismatchedChecksum);
+            return Err(Error::MismatchedChecksum);
         }
 
         // Every complex prefix code must contain at least two nonzero code lengths
         if symbol_lengths.iter().filter(|x| **x != 0).count() < 2 {
-            return Err(BrotliError::NotEnoughCodeLengths);
+            return Err(Error::NotEnoughCodeLengths);
         }
 
         let symbols: Vec<Bits<usize>> = (0..alphabet_size)
@@ -645,17 +634,17 @@ fn read_prefix_code(
     Ok(huffmantree)
 }
 
-fn decode_blocknum(reader: &mut BitReader) -> Result<u8, BrotliError> {
-    if reader.read_single_bit().map_err(BrotliError::BitReader)? {
-        let num_extrabits = reader.read_bits::<u8>(3).map_err(BrotliError::BitReader)?;
+fn decode_blocknum(reader: &mut BitReader) -> Result<u8, Error> {
+    if reader.read_single_bit().map_err(Error::BitReader)? {
+        let num_extrabits = reader.read_bits::<u8>(3).map_err(Error::BitReader)?;
 
         if num_extrabits > 7 {
-            return Err(BrotliError::InvalidFormat);
+            return Err(Error::InvalidFormat);
         }
 
         let extra = reader
             .read_bits::<u8>(num_extrabits)
-            .map_err(BrotliError::BitReader)?;
+            .map_err(Error::BitReader)?;
         Ok((1 << num_extrabits) + 1 + extra)
     } else {
         Ok(1)
@@ -667,10 +656,10 @@ fn decode_context_map(
     reader: &mut BitReader,
     num_trees: u8,
     size: usize,
-) -> Result<Vec<u8>, BrotliError> {
-    let rle_max = match reader.read_single_bit().map_err(BrotliError::BitReader)? {
+) -> Result<Vec<u8>, Error> {
+    let rle_max = match reader.read_single_bit().map_err(Error::BitReader)? {
         false => 0,
-        true => reader.read_bits::<u8>(4).map_err(BrotliError::BitReader)? + 1,
+        true => reader.read_bits::<u8>(4).map_err(Error::BitReader)? + 1,
     };
 
     let prefix_code = read_prefix_code(reader, (num_trees + rle_max) as usize)?;
@@ -692,8 +681,8 @@ fn decode_context_map(
     while context_map.len() < size {
         let symbol = prefix_code
             .lookup_incrementally(reader)
-            .map_err(|_| BrotliError::SymbolNotFound)?
-            .ok_or(BrotliError::SymbolNotFound)?
+            .map_err(|_| Error::SymbolNotFound)?
+            .ok_or(Error::SymbolNotFound)?
             .val();
 
         if symbol <= rle_max as usize {
@@ -702,11 +691,11 @@ fn decode_context_map(
             // Casting to u8 here is safe because rle_max can never exceed 255
             let extra_bits = reader
                 .read_bits::<u32>(symbol as u8)
-                .map_err(BrotliError::BitReader)?;
+                .map_err(Error::BitReader)?;
             let repeat_for = (1 << symbol) + extra_bits as usize;
 
             if context_map.len() + repeat_for > size {
-                return Err(BrotliError::RunlengthEncodingExceedsExpectedSize);
+                return Err(Error::RunlengthEncodingExceedsExpectedSize);
             }
 
             context_map.resize(context_map.len() + repeat_for, 0);
@@ -716,7 +705,7 @@ fn decode_context_map(
     }
 
     // Check whether we need to do an inverse move-to-front transform
-    if reader.read_single_bit().map_err(BrotliError::BitReader)? {
+    if reader.read_single_bit().map_err(Error::BitReader)? {
         inverse_move_to_front_transform(&mut context_map);
     }
 
@@ -744,7 +733,7 @@ fn inverse_move_to_front_transform(data: &mut [u8]) {
     }
 }
 
-fn read_block_count_code(reader: &mut BitReader, code: usize) -> Result<usize, BrotliError> {
+fn read_block_count_code(reader: &mut BitReader, code: usize) -> Result<usize, Error> {
     let (base, num_extra_bits) = match code {
         0 => (1, 2),
         1 => (5, 2),
@@ -776,11 +765,11 @@ fn read_block_count_code(reader: &mut BitReader, code: usize) -> Result<usize, B
     };
     let extra_bits = reader
         .read_bits::<usize>(num_extra_bits)
-        .map_err(BrotliError::BitReader)?;
+        .map_err(Error::BitReader)?;
 
     Ok(base + extra_bits)
 }
-fn read_insert_length_code(reader: &mut BitReader, code: usize) -> Result<usize, BrotliError> {
+fn read_insert_length_code(reader: &mut BitReader, code: usize) -> Result<usize, Error> {
     let (base, num_extra_bits) = match code {
         0 => (0, 0),
         1 => (1, 0),
@@ -811,12 +800,12 @@ fn read_insert_length_code(reader: &mut BitReader, code: usize) -> Result<usize,
 
     let extra_bits = reader
         .read_bits::<usize>(num_extra_bits)
-        .map_err(BrotliError::BitReader)?;
+        .map_err(Error::BitReader)?;
 
     Ok(base + extra_bits)
 }
 
-fn read_copy_length_code(reader: &mut BitReader, code: usize) -> Result<usize, BrotliError> {
+fn read_copy_length_code(reader: &mut BitReader, code: usize) -> Result<usize, Error> {
     let (base, num_extra_bits) = match code {
         0 => (2, 0),
         1 => (3, 0),
@@ -847,7 +836,7 @@ fn read_copy_length_code(reader: &mut BitReader, code: usize) -> Result<usize, B
 
     let extra_bits = reader
         .read_bits::<usize>(num_extra_bits)
-        .map_err(BrotliError::BitReader)?;
+        .map_err(Error::BitReader)?;
 
     Ok(base + extra_bits)
 }
@@ -855,7 +844,7 @@ fn read_copy_length_code(reader: &mut BitReader, code: usize) -> Result<usize, B
 /// Read the block type metadata from the meta header
 fn decode_blockdata(
     reader: &mut BitReader,
-) -> Result<(usize, Option<HuffmanBitTree>, Option<HuffmanBitTree>, usize), BrotliError> {
+) -> Result<(usize, Option<HuffmanBitTree>, Option<HuffmanBitTree>, usize), Error> {
     let num_blocks = decode_blocknum(reader)? as usize;
 
     if num_blocks >= 2 {
@@ -863,8 +852,8 @@ fn decode_blockdata(
         let block_count_prefix_code = read_prefix_code(reader, 26)?;
         let first_block_count_code = block_count_prefix_code
             .lookup_incrementally(reader)
-            .map_err(|_| BrotliError::SymbolNotFound)?
-            .ok_or(BrotliError::SymbolNotFound)?
+            .map_err(|_| Error::SymbolNotFound)?
+            .ok_or(Error::SymbolNotFound)?
             .val();
         let first_literal_block_count = read_block_count_code(reader, first_block_count_code)?;
 
@@ -920,7 +909,7 @@ fn distance_short_code_substitution(
     npostfix: usize,
     ndirect: usize,
     reader: &mut BitReader,
-) -> Result<usize, BrotliError> {
+) -> Result<usize, Error> {
     let postfix_mask = (1 << npostfix) - 1;
 
     let distance = match distance_code {
@@ -947,7 +936,7 @@ fn distance_short_code_substitution(
                 let num_extra_bits = 1 + ((d - ndirect - 16) >> (npostfix + 1));
                 let extra_bits = reader
                     .read_bits::<usize>(num_extra_bits as u8)
-                    .map_err(BrotliError::BitReader)?;
+                    .map_err(Error::BitReader)?;
 
                 let hcode = (d - ndirect - 16) >> npostfix;
                 let lcode = (d - ndirect - 16) & postfix_mask;
