@@ -3,6 +3,7 @@ use std::{
     net::{SocketAddr, TcpStream},
 };
 
+use compression::{brotli, gzip, zlib};
 use dns::DNSError;
 use tls::TLSConnection;
 use url::{Host, URL};
@@ -21,6 +22,9 @@ pub enum HTTPError {
     IO(io::Error),
     DNS(DNSError),
     TLS(tls::TLSError),
+    Gzip(gzip::Error),
+    Brotli(brotli::Error),
+    Zlib(zlib::Error),
     RedirectLoop,
     NonHTTPRedirect,
     NonHTTPURl,
@@ -89,6 +93,10 @@ impl Request {
         let mut headers = Headers::with_capacity(3);
         headers.set("User-Agent", USER_AGENT.to_string());
         headers.set("Accept", "*/*".to_string());
+        headers.set(
+            "Accept-Encoding",
+            "gzip, brotli, deflate, identity".to_string(),
+        );
         headers.set(
             "Host",
             url.host().expect("URL does not have a host").to_string(),
@@ -228,5 +236,23 @@ impl Request {
 impl From<io::Error> for HTTPError {
     fn from(value: io::Error) -> Self {
         Self::IO(value)
+    }
+}
+
+impl From<gzip::Error> for HTTPError {
+    fn from(value: gzip::Error) -> Self {
+        Self::Gzip(value)
+    }
+}
+
+impl From<brotli::Error> for HTTPError {
+    fn from(value: brotli::Error) -> Self {
+        Self::Brotli(value)
+    }
+}
+
+impl From<zlib::Error> for HTTPError {
+    fn from(value: zlib::Error) -> Self {
+        Self::Zlib(value)
     }
 }

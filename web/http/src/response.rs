@@ -2,6 +2,7 @@
 
 use std::io::{BufRead, BufReader, Read};
 
+use compression::{brotli, gzip, zlib};
 use sl_std::iter::MultiElementSplit;
 
 use crate::{
@@ -131,7 +132,7 @@ impl Response {
 
         // Anything after the headers is the actual response body
         // The length of the body depends on the headers that were sent
-        let body: Vec<u8> = if let Some(transfer_encoding) = headers.get("Transfer-encoding") {
+        let mut body: Vec<u8> = if let Some(transfer_encoding) = headers.get("Transfer-encoding") {
             match transfer_encoding {
                 "chunked" => {
                     let mut buffer = vec![];
@@ -175,6 +176,27 @@ impl Response {
             log::warn!("Neither Transfer-Encoding nor Content-Length were provided, we don't know how to decode the body!");
             return Err(HTTPError::InvalidResponse);
         };
+
+        // Take care of response compressions
+        if let Some(compression_algorithm) = headers.get("content-encoding") {
+            // See https://www.rfc-editor.org/rfc/rfc2616#section-3.5
+            match compression_algorithm {
+                "gzip" => {
+                    body = gzip::decompress(&body)?;
+                },
+                "brotli" => {
+                    body = brotli::decompress(&body)?;
+                },
+                "deflate" => {
+                    // The deflate encoding actually isn't just deflate, but also contains a zlib wrapper
+                    body = zlib::decompress(&body)?;
+                },
+                "identity" => {},
+                _ => {
+                    log::error!("Unknown HTTP Content-Encoding: {:?}", compression_algorithm);
+                },
+            }
+        }
 
         Ok(Self {
             status,
