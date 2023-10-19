@@ -148,6 +148,7 @@ perfect_set!(
         "class",
         
         // CSS terms
+        "absolute",
         "after",
         "auto",
         "background-color",
@@ -158,6 +159,7 @@ perfect_set!(
         "display",
         "first-line",
         "first-letter",
+        "fixed",
         "flex",
         "flow",
         "flow-root",
@@ -181,10 +183,14 @@ perfect_set!(
         "padding-left",
         "padding-right",
         "padding-top",
+        "position",
+        "relative",
         "rgb",
         "rgba",
         "ruby",
         "run-in",
+        "static",
+        "sticky",
         "transparent",
         "width",
 

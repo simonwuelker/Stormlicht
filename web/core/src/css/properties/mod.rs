@@ -1,10 +1,12 @@
 mod background_color;
 mod display;
+mod position;
 
 pub use background_color::BackgroundColorValue;
 pub use display::{
     DisplayBox, DisplayInside, DisplayInsideOutside, DisplayInternal, DisplayOutside, DisplayValue,
 };
+pub use position::Position;
 
 use super::{
     values::{color::Color, AutoOr, Length, PercentageOr},
@@ -61,6 +63,9 @@ pub enum StyleProperty {
 
     /// <https://drafts.csswg.org/css2/#propdef-padding-left>
     PaddingLeft(PercentageOr<Length>),
+
+    /// <https://drafts.csswg.org/css-position/#position-property>
+    Position(Position),
 }
 
 #[derive(Clone, Debug)]
@@ -94,6 +99,7 @@ impl StyleProperty {
             static_interned!("padding-left") => Self::PaddingLeft(CSSParse::parse(parser)?),
             static_interned!("width") => Self::Width(CSSParse::parse(parser)?),
             static_interned!("height") => Self::Height(CSSParse::parse(parser)?),
+            static_interned!("position") => Self::Position(CSSParse::parse(parser)?),
             _ => {
                 log::warn!("Unknown CSS property name: {:?}", property_name.to_string());
                 return Err(ParseError);

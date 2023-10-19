@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use super::{
     layout::Sides,
-    properties::{BackgroundColorValue, DisplayValue},
+    properties::{BackgroundColorValue, DisplayValue, Position},
     values::{color::Color, AutoOr, Length, PercentageOr},
 };
 
@@ -11,6 +11,9 @@ use super::{
 struct BoxStyleData {
     /// <https://drafts.csswg.org/css-display/#the-display-properties>
     display: DisplayValue,
+
+    /// https://drafts.csswg.org/css-position/#position-property>
+    position: Position,
 
     /// <https://drafts.csswg.org/css2/#propdef-width>
     width: AutoOr<PercentageOr<Length>>,
@@ -150,6 +153,7 @@ impl ComputedStyle {
         surround_data,
         PercentageOr<Length>
     );
+    property_access!(position, set_position, Position, box_style_data.position);
 }
 
 impl Default for InheritedData {

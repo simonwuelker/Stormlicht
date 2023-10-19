@@ -183,6 +183,7 @@ impl<'a> StyleComputer<'a> {
                     (PaddingRight, set_padding_right),
                     (PaddingTop, set_padding_top),
                     (Width, set_width),
+                    (Position, set_position)
                 );
             }
         }
