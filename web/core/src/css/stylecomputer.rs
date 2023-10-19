@@ -173,6 +173,7 @@ impl<'a> StyleComputer<'a> {
                     (BackgroundColor, set_background_color),
                     (Color, set_color),
                     (Display, set_display),
+                    (FontSize, set_font_size),
                     (Height, set_height),
                     (MarginBottom, set_margin_bottom),
                     (MarginLeft, set_margin_left),

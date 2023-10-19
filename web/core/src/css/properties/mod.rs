@@ -1,11 +1,13 @@
 mod background_color;
 mod display;
+mod font_size;
 mod position;
 
 pub use background_color::BackgroundColorValue;
 pub use display::{
     DisplayBox, DisplayInside, DisplayInsideOutside, DisplayInternal, DisplayOutside, DisplayValue,
 };
+pub use font_size::FontSize;
 pub use position::Position;
 
 use super::{
@@ -33,6 +35,9 @@ pub enum StyleProperty {
 
     /// <https://drafts.csswg.org/css-display/#the-display-properties>
     Display(DisplayValue),
+
+    /// <https://drafts.csswg.org/css2/#font-size-props>
+    FontSize(FontSize),
 
     /// <https://drafts.csswg.org/css-box-3/#propdef-margin-top>
     MarginTop(AutoOr<PercentageOr<Length>>),
@@ -89,6 +94,7 @@ impl StyleProperty {
                 Self::BackgroundColor(BackgroundColorValue::parse(parser)?)
             },
             static_interned!("display") => Self::Display(CSSParse::parse(parser)?),
+            static_interned!("font-size") => Self::FontSize(CSSParse::parse(parser)?),
             static_interned!("margin-top") => Self::MarginTop(CSSParse::parse(parser)?),
             static_interned!("margin-right") => Self::MarginRight(CSSParse::parse(parser)?),
             static_interned!("margin-bottom") => Self::MarginBottom(CSSParse::parse(parser)?),
