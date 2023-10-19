@@ -158,7 +158,7 @@ impl<T> AutoOr<T> {
     /// ```
     #[inline]
     #[must_use]
-    pub fn is_not_auto_and(self, f: impl FnOnce(T) -> bool) -> bool {
+    pub fn is_not_auto_and(&self, f: impl FnOnce(&T) -> bool) -> bool {
         match self {
             Self::Auto => false,
             Self::NotAuto(x) => f(x),

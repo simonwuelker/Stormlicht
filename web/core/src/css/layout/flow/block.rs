@@ -187,10 +187,10 @@ impl BlockLevelBox {
             .absolutize();
 
         // Margins are treated as zero if the total width exceeds the available width
-        let total_width_is_more_than_available = |width| {
+        let total_width_is_more_than_available = |width: &CSSPixels| {
             let total_width = margin_left.unwrap_or_default()
                 + padding_left
-                + width
+                + *width
                 + padding_right
                 + margin_right.unwrap_or_default();
             total_width > containing_block.width()
