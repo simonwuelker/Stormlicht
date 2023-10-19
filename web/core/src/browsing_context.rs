@@ -70,11 +70,7 @@ impl BrowsingContext {
         let style_computer = StyleComputer::new(&self.stylesheets);
 
         // Build a box tree for the parsed document
-        let box_tree = BlockFormattingContext::root(
-            self.document.clone(),
-            style_computer,
-            self.selection.clone(),
-        );
+        let box_tree = BlockFormattingContext::root(self.document.clone(), style_computer);
 
         // Build a fragment tree by fragmenting the boxes
         self.fragment_tree = box_tree.fragment(viewport_size);
