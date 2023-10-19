@@ -56,13 +56,13 @@ pub enum DisplayBox {
 
 /// <https://drafts.csswg.org/css-display/#the-display-properties>
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DisplayValue {
+pub enum Display {
     InsideOutside(DisplayInsideOutside),
     Internal(DisplayInternal),
     Box(DisplayBox),
 }
 
-impl Default for DisplayValue {
+impl Default for Display {
     fn default() -> Self {
         Self::InsideOutside(DisplayInsideOutside {
             outside: DisplayOutside::Inline,
@@ -118,12 +118,12 @@ impl TryFrom<InternedString> for Short {
     }
 }
 
-impl DisplayValue {
+impl Display {
     #[must_use]
     pub fn is_inline(&self) -> bool {
         matches!(
             self,
-            DisplayValue::InsideOutside(DisplayInsideOutside {
+            Display::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Inline,
                 ..
             })
@@ -134,7 +134,7 @@ impl DisplayValue {
     pub fn is_block(&self) -> bool {
         matches!(
             self,
-            DisplayValue::InsideOutside(DisplayInsideOutside {
+            Display::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Block,
                 ..
             })
@@ -154,7 +154,7 @@ impl DisplayValue {
     }
 }
 
-impl From<Short> for DisplayValue {
+impl From<Short> for Display {
     fn from(short: Short) -> Self {
         match short {
             Short::None => Self::Box(DisplayBox::None),
@@ -228,7 +228,7 @@ impl From<Short> for DisplayValue {
     }
 }
 
-impl<'a> CSSParse<'a> for DisplayValue {
+impl<'a> CSSParse<'a> for Display {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         // A display value always consists of up to three identifiers
         let mut idents = vec![];
@@ -309,18 +309,18 @@ impl DisplayInside {
 
 #[cfg(test)]
 mod tests {
-    use super::{DisplayBox, DisplayValue};
+    use super::{Display, DisplayBox};
     use crate::css::CSSParse;
 
     #[test]
     fn parse_box() {
         assert_eq!(
-            DisplayValue::parse_from_str("none"),
-            Ok(DisplayValue::Box(DisplayBox::None))
+            Display::parse_from_str("none"),
+            Ok(Display::Box(DisplayBox::None))
         );
         assert_eq!(
-            DisplayValue::parse_from_str("contents"),
-            Ok(DisplayValue::Box(DisplayBox::Contents))
+            Display::parse_from_str("contents"),
+            Ok(Display::Box(DisplayBox::Contents))
         );
     }
 }

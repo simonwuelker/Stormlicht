@@ -2,15 +2,14 @@ use std::rc::Rc;
 
 use super::{
     layout::Sides,
-    properties::{BackgroundColorValue, DisplayValue, FontSize, Position},
-    values::{color::Color, AutoOr, Length, PercentageOr},
+    values::{AutoOr, BackgroundColor, Color, Display, FontSize, Length, PercentageOr, Position},
 };
 
 /// Box data (not inherited)
 #[derive(Clone, Debug, Default)]
 struct BoxStyleData {
     /// <https://drafts.csswg.org/css-display/#the-display-properties>
-    display: DisplayValue,
+    display: Display,
 
     /// https://drafts.csswg.org/css-position/#position-property>
     position: Position,
@@ -34,7 +33,7 @@ struct FontStyleData {
 #[derive(Clone, Debug, Default)]
 struct BackgroundData {
     /// <https://drafts.csswg.org/css2/#background-properties>
-    background_color: BackgroundColorValue,
+    background_color: BackgroundColor,
 }
 
 /// Miscellaneous, inherited style data
@@ -117,11 +116,11 @@ impl ComputedStyle {
     property_access!(
         background_color,
         set_background_color,
-        BackgroundColorValue,
+        BackgroundColor,
         background_data.background_color
     );
     property_access!(color, set_color, Color, inherited_data.color);
-    property_access!(display, set_display, DisplayValue, box_style_data.display);
+    property_access!(display, set_display, Display, box_style_data.display);
     property_access!(font_size, set_font_size, FontSize, font_data.font_size);
     property_access!(
         height,

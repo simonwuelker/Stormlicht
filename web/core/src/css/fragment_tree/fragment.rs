@@ -4,8 +4,7 @@ use crate::{
     css::{
         display_list::Painter,
         layout::{CSSPixels, Sides},
-        properties::BackgroundColorValue,
-        values::color::Color,
+        values::{BackgroundColor, Color},
         ComputedStyle, FontMetrics,
     },
     dom::{self, dom_objects, DOMPtr},
@@ -166,10 +165,10 @@ impl BoxFragment {
 
     pub fn fill_display_list(&self, painter: &mut Painter) {
         match self.style().background_color() {
-            BackgroundColorValue::Transparent => {
+            BackgroundColor::Transparent => {
                 // Skip drawing the background entirely
             },
-            BackgroundColorValue::Color(color) => {
+            BackgroundColor::Color(color) => {
                 painter.rect(self.content_area, color.into());
             },
         }

@@ -3,13 +3,13 @@ use string_interner::{static_interned, static_str};
 
 /// <https://drafts.csswg.org/css2/#background-properties>
 #[derive(Clone, Copy, Debug, Default)]
-pub enum BackgroundColorValue {
+pub enum BackgroundColor {
     Color(Color),
     #[default]
     Transparent,
 }
 
-impl<'a> CSSParse<'a> for BackgroundColorValue {
+impl<'a> CSSParse<'a> for BackgroundColor {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         match parser.peek_token() {
             Some(Token::Ident(static_interned!("transparent"))) => {

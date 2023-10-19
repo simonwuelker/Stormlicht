@@ -1,11 +1,20 @@
 mod auto;
-pub mod color;
+mod background_color;
+mod color;
+mod display;
+mod font_size;
 mod length;
 mod percentage;
+mod position;
 
 pub use auto::AutoOr;
+pub use background_color::BackgroundColor;
+pub use color::Color;
+pub use display::Display;
+pub use font_size::FontSize;
 pub use length::Length;
 pub use percentage::{Percentage, PercentageOr};
+pub use position::Position;
 
 /// <https://drafts.csswg.org/css-values-4/#number-value>
 #[derive(Clone, Copy, Debug, PartialEq)]

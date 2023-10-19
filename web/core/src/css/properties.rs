@@ -1,17 +1,5 @@
-mod background_color;
-mod display;
-mod font_size;
-mod position;
-
-pub use background_color::BackgroundColorValue;
-pub use display::{
-    DisplayBox, DisplayInside, DisplayInsideOutside, DisplayInternal, DisplayOutside, DisplayValue,
-};
-pub use font_size::FontSize;
-pub use position::Position;
-
 use super::{
-    values::{color::Color, AutoOr, Length, PercentageOr},
+    values::{AutoOr, BackgroundColor, Color, Display, FontSize, Length, PercentageOr, Position},
     CSSParse, ParseError, Parser,
 };
 
@@ -31,10 +19,10 @@ pub enum StyleProperty {
     Color(Color),
 
     /// <https://drafts.csswg.org/css2/#background-properties>
-    BackgroundColor(BackgroundColorValue),
+    BackgroundColor(BackgroundColor),
 
     /// <https://drafts.csswg.org/css-display/#the-display-properties>
-    Display(DisplayValue),
+    Display(Display),
 
     /// <https://drafts.csswg.org/css2/#font-size-props>
     FontSize(FontSize),
@@ -91,7 +79,7 @@ impl StyleProperty {
         let property = match property_name {
             static_interned!("color") => Self::Color(CSSParse::parse(parser)?),
             static_interned!("background-color") => {
-                Self::BackgroundColor(BackgroundColorValue::parse(parser)?)
+                Self::BackgroundColor(BackgroundColor::parse(parser)?)
             },
             static_interned!("display") => Self::Display(CSSParse::parse(parser)?),
             static_interned!("font-size") => Self::FontSize(CSSParse::parse(parser)?),
