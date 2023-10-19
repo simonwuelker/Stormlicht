@@ -6,9 +6,8 @@ use crate::{
     css::{
         fragment_tree::{BoxFragment, Fragment, FragmentTree},
         layout::{CSSPixels, ContainingBlock, Sides},
-        stylecomputer::ComputedStyle,
         values::{AutoOr, Length, PercentageOr},
-        StyleComputer,
+        ComputedStyle, StyleComputer,
     },
     dom::{dom_objects, DOMPtr},
     Selection, TreeDebug, TreeFormatter,
