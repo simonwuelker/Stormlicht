@@ -52,29 +52,13 @@ use std::fmt;
 
 use crate::dom::{dom_objects::Element, DOMPtr};
 
-use super::{CSSParse, ParseError, Parser, Serializer};
+use super::Serializer;
 
 pub fn serialize_selector_list<S: Serializer>(
     selectors: &[ComplexSelector],
     mut serializer: S,
 ) -> fmt::Result {
     serializer.serialize_comma_seperated_list(selectors)
-}
-
-/// <https://drafts.csswg.org/selectors-4/#parse-selector>
-pub fn parse_selector(parser: &mut Parser<'_>) -> Result<SelectorList, ParseError> {
-    // 1. Let selector be the result of parsing source as a <selector-list>. If this returns failure,
-    //    it’s an invalid selector; return failure.
-    let selector = SelectorList::parse(parser)?;
-
-    // 2. If selector is an invalid selector for any other reason (such as, for example,
-    //    containing an undeclared namespace prefix), return failure.
-    if !selector.iter().all(CSSValidateSelector::is_valid) {
-        return Err(ParseError);
-    }
-
-    // 3. Otherwise, return selector.
-    Ok(selector)
 }
 
 pub trait CSSValidateSelector {

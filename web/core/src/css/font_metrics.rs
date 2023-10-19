@@ -12,17 +12,6 @@ pub struct FontMetrics {
     pub size: CSSPixels,
 }
 
-impl FontMetrics {
-    #[inline]
-    #[must_use]
-    pub fn width_of(&self, text: &str) -> CSSPixels {
-        CSSPixels(
-            self.font_face
-                .compute_rendered_width(text, self.size.into()),
-        )
-    }
-}
-
 impl Default for FontMetrics {
     fn default() -> Self {
         Self {

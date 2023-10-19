@@ -106,7 +106,7 @@ impl TextFragment {
         let color = math::Color::from(self.color);
 
         painter.text(
-            self.text.clone(),
+            self.text().to_owned(),
             self.area.top_left,
             color,
             self.font_metrics.clone(),
@@ -142,12 +142,6 @@ impl BoxFragment {
     #[must_use]
     pub fn children(&self) -> &[Fragment] {
         &self.children
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn inner_area(&self) -> Rectangle<CSSPixels> {
-        self.content_area
     }
 
     /// Compute the total space occupied by this fragment, including margins

@@ -64,11 +64,13 @@ pub struct ComputedStyle {
 macro_rules! property_access {
     ($name: ident, $set_name: ident, $type: ty, $group_ident: ident.$( $idents: ident ).+) => {
         #[inline]
+        #[allow(dead_code)]
         pub fn $name(&self) -> $type {
             self.$group_ident$(.$idents)+
         }
 
         #[inline]
+        #[allow(dead_code)]
         pub fn $set_name(&mut self, value: $type) {
             (*::std::rc::Rc::make_mut(&mut self.$group_ident))$(.$idents)+ = value;
         }

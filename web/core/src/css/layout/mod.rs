@@ -1,8 +1,6 @@
-mod box_dimensions;
 pub mod flow;
 mod pixels;
 
-pub use box_dimensions::BoxDimensions;
 use math::{Rectangle, Vec2D};
 pub use pixels::CSSPixels;
 

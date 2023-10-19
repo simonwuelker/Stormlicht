@@ -13,7 +13,7 @@ use crate::{
     TreeDebug, TreeFormatter,
 };
 
-use super::{BoxTreeBuilder, InlineFormattingContext, InlineLevelBox};
+use super::{BoxTreeBuilder, InlineFormattingContext};
 
 /// <https://drafts.csswg.org/css2/#block-formatting>
 #[derive(Clone)]
@@ -111,12 +111,6 @@ impl BlockLevelBox {
 
     #[inline]
     #[must_use]
-    pub fn is_anonymous(&self) -> bool {
-        self.node.is_none()
-    }
-
-    #[inline]
-    #[must_use]
     pub fn style(&self) -> &ComputedStyle {
         &self.style
     }
@@ -127,18 +121,6 @@ impl BlockLevelBox {
             style,
             node: None,
             contents,
-        }
-    }
-
-    #[must_use]
-    pub fn create_anonymous_wrapper_around(
-        inline_box: InlineLevelBox,
-        style: ComputedStyle,
-    ) -> Self {
-        Self {
-            style: style,
-            node: None,
-            contents: BlockContainer::InlineFormattingContext(vec![inline_box].into()),
         }
     }
 
