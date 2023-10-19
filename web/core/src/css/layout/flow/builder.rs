@@ -3,8 +3,6 @@
 //! Thanks to servo, the basic builder algorithm is the same as theirs
 //! <https://github.com/servo/servo/blob/main/components/layout_2020/flow/construct.rs>
 
-use std::rc::Rc;
-
 use sl_std::range::Range;
 
 use crate::{
@@ -21,9 +19,9 @@ use crate::{
 use super::TextRun;
 
 #[derive(Clone)]
-pub struct BoxTreeBuilder<'a> {
-    style_computer: StyleComputer<'a>,
-    style: Rc<ComputedStyle>,
+pub struct BoxTreeBuilder<'stylesheets, 'parent_style> {
+    style_computer: StyleComputer<'stylesheets>,
+    style: &'parent_style ComputedStyle,
     block_level_boxes: Vec<BlockLevelBox>,
     current_inline_formatting_context: InlineFormattingContext,
     inline_stack: Vec<InlineBox>,
@@ -47,16 +45,16 @@ enum Selected {
     After(usize),
 }
 
-impl<'a> BoxTreeBuilder<'a> {
+impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
     pub fn build(
         node: DOMPtr<dom_objects::Node>,
-        style_computer: StyleComputer<'a>,
-        style: Rc<ComputedStyle>,
+        style_computer: StyleComputer<'stylesheets>,
+        style: &'parent_style ComputedStyle,
         selection: Option<Selection>,
     ) -> BlockContainer {
         let mut builder = Self {
             style_computer,
-            style: style.clone(),
+            style,
             block_level_boxes: Vec::new(),
             current_inline_formatting_context: InlineFormattingContext::default(),
             inline_stack: Vec::new(),
@@ -78,11 +76,7 @@ impl<'a> BoxTreeBuilder<'a> {
         BlockContainer::BlockLevelBoxes(builder.block_level_boxes)
     }
 
-    fn traverse_subtree(
-        &mut self,
-        node: DOMPtr<dom_objects::Node>,
-        parent_style: Rc<ComputedStyle>,
-    ) {
+    fn traverse_subtree(&mut self, node: DOMPtr<dom_objects::Node>, parent_style: &ComputedStyle) {
         for child in node.borrow().children() {
             // Check if this child is the start/end node of the current document selection
             let selected_part = if let Some(selection) = &self.selection {
@@ -120,7 +114,9 @@ impl<'a> BoxTreeBuilder<'a> {
             };
 
             if let Some(element) = child.try_into_type::<dom_objects::Element>() {
-                let computed_style = Rc::new(self.style_computer.get_computed_style(element));
+                let computed_style = self
+                    .style_computer
+                    .get_computed_style(element, parent_style);
 
                 if computed_style.display().is_none() {
                     continue;
@@ -175,12 +171,12 @@ impl<'a> BoxTreeBuilder<'a> {
         }
     }
 
-    fn push_inline_box(&mut self, node: DOMPtr<dom_objects::Node>, style: Rc<ComputedStyle>) {
+    fn push_inline_box(&mut self, node: DOMPtr<dom_objects::Node>, style: ComputedStyle) {
         self.inline_stack
             .push(InlineBox::new(node.clone(), style.clone()));
 
         // Traverse all children, they will be appended to the inline box we just created
-        self.traverse_subtree(node, style);
+        self.traverse_subtree(node, &style);
 
         // Pop the inline box from the stack and append it to its parents list of children
         // unless the stack of open inline boxes is empty, in which case this was a top level box
@@ -200,7 +196,7 @@ impl<'a> BoxTreeBuilder<'a> {
         }
     }
 
-    fn push_block_box(&mut self, node: DOMPtr<dom_objects::Node>, style: Rc<ComputedStyle>) {
+    fn push_block_box(&mut self, node: DOMPtr<dom_objects::Node>, style: ComputedStyle) {
         // Split all currently open inline boxes around the block box
         if !self.inline_stack.is_empty() {
             // Split each inline box - these will end up on the "right side" of the block box
@@ -228,10 +224,10 @@ impl<'a> BoxTreeBuilder<'a> {
         }
 
         // Push the actual box
-        let contents = Self::build(
+        let contents = BoxTreeBuilder::build(
             node.clone(),
             self.style_computer,
-            style.clone(),
+            &style,
             self.selection.clone(),
         );
         self.block_level_boxes

@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use math::Rectangle;
 
 use crate::{
@@ -18,7 +16,7 @@ pub struct BoxFragment {
     /// The [DOM Node](dom) that produced this fragment
     dom_node: Option<DOMPtr<dom_objects::Node>>,
 
-    style: Rc<ComputedStyle>,
+    style: ComputedStyle,
     margin: Sides<CSSPixels>,
 
     /// Content area including padding
@@ -121,7 +119,7 @@ impl BoxFragment {
     #[must_use]
     pub fn new(
         dom_node: Option<DOMPtr<dom_objects::Node>>,
-        style: Rc<ComputedStyle>,
+        style: ComputedStyle,
         margin: Sides<CSSPixels>,
         content_area: Rectangle<CSSPixels>,
         content_area_including_overflow: Rectangle<CSSPixels>,
@@ -138,8 +136,8 @@ impl BoxFragment {
     }
 
     #[must_use]
-    pub fn style(&self) -> Rc<ComputedStyle> {
-        self.style.clone()
+    pub fn style(&self) -> &ComputedStyle {
+        &self.style
     }
 
     #[must_use]

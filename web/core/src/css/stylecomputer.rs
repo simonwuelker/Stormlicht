@@ -148,13 +148,17 @@ impl<'a> StyleComputer<'a> {
 
     /// Find all the [StyleProperties](StyleProperty) that apply to an [Element].
     /// This includes cascading values.
-    pub fn get_computed_style(&self, element: DOMPtr<Element>) -> ComputedStyle {
+    pub fn get_computed_style(
+        &self,
+        element: DOMPtr<Element>,
+        parent_style: &ComputedStyle,
+    ) -> ComputedStyle {
         let mut matched_properties = self.collect_matched_properties(element);
 
         // Sort matching rules in cascade order, see
         // https://drafts.csswg.org/css-cascade-4/#cascade-sort for more info
         matched_properties.sort_unstable_by(MatchingProperty::compare_in_cascade_order);
-        let mut computed_style = ComputedStyle::default();
+        let mut computed_style = parent_style.get_inherited();
 
         // Add properties in reverse order (most important first)
         let mut properties_added = HashSet::new();
