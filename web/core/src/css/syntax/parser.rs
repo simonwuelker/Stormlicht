@@ -329,6 +329,7 @@ impl<'a> Parser<'a> {
                 return None;
             };
         self.set_state(property_parser.state());
+        self.skip_whitespace();
 
         // Check for !important
         if matches!(self.peek_token(), Some(Token::Delim('!'))) {
@@ -346,7 +347,6 @@ impl<'a> Parser<'a> {
                 },
             }
         }
-        self.skip_whitespace();
 
         Some(StylePropertyDeclaration { value, important })
     }
