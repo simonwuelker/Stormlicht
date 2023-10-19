@@ -1,24 +1,24 @@
 //! Cascading Style Sheets
 
 mod computed_style;
-pub mod display_list;
+pub(crate) mod display_list;
 mod font_metrics;
-pub mod fragment_tree;
-pub mod layout;
+pub(crate) mod fragment_tree;
+pub(crate) mod layout;
 mod line_break;
 mod properties;
-pub mod selectors;
+mod selectors;
 mod serialize;
 mod stylecomputer;
 mod stylesheet;
-pub mod syntax;
-pub mod values;
+pub(crate) mod syntax;
+mod values;
 
 use computed_style::ComputedStyle;
-pub use font_metrics::FontMetrics;
-pub use line_break::LineBreakIterator;
-pub use properties::{StyleProperty, StylePropertyDeclaration};
-pub use serialize::{Serialize, Serializer};
-pub use stylecomputer::StyleComputer;
-pub use stylesheet::{Origin, StyleRule, Stylesheet};
-pub use syntax::parser::{CSSParse, ParseError, Parser};
+use font_metrics::FontMetrics;
+use line_break::LineBreakIterator;
+use properties::{StyleProperty, StylePropertyDeclaration};
+use serialize::{Serialize, Serializer};
+pub(crate) use stylecomputer::StyleComputer;
+pub(crate) use stylesheet::{Origin, StyleRule, Stylesheet};
+pub(crate) use syntax::parser::{CSSParse, ParseError, Parser};
