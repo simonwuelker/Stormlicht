@@ -7,9 +7,8 @@ use crate::{
         display_list::Painter,
         layout::{CSSPixels, Sides},
         properties::BackgroundColorValue,
-        stylecomputer::ComputedStyle,
         values::color::Color,
-        FontMetrics,
+        ComputedStyle, FontMetrics,
     },
     dom::{self, dom_objects, DOMPtr},
 };

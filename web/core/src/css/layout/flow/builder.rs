@@ -12,8 +12,7 @@ use crate::{
         layout::flow::{
             BlockContainer, BlockLevelBox, InlineBox, InlineFormattingContext, InlineLevelBox,
         },
-        stylecomputer::ComputedStyle,
-        StyleComputer,
+        ComputedStyle, StyleComputer,
     },
     dom::{dom_objects, DOMPtr},
     Selection,
