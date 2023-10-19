@@ -1,4 +1,4 @@
-use std::{fmt::Write, mem, rc::Rc};
+use std::{fmt::Write, mem};
 
 use font_metrics::FontMetrics;
 use math::{Rectangle, Vec2D};
@@ -24,14 +24,14 @@ pub enum InlineLevelBox {
 #[derive(Clone, Debug)]
 pub struct TextRun {
     text: String,
-    style: Rc<ComputedStyle>,
+    style: ComputedStyle,
 }
 
 /// <https://drafts.csswg.org/css2/#inline-box>
 #[derive(Clone, Debug)]
 pub struct InlineBox {
     node: DOMPtr<dom_objects::Node>,
-    style: Rc<ComputedStyle>,
+    style: ComputedStyle,
     contents: Vec<InlineLevelBox>,
 }
 
@@ -44,7 +44,7 @@ pub struct InlineFormattingContext {
 impl TextRun {
     #[inline]
     #[must_use]
-    pub fn new(text: String, style: Rc<ComputedStyle>) -> Self {
+    pub fn new(text: String, style: ComputedStyle) -> Self {
         Self { text, style }
     }
 
@@ -56,8 +56,8 @@ impl TextRun {
 
     #[inline]
     #[must_use]
-    pub fn style(&self) -> Rc<ComputedStyle> {
-        self.style.clone()
+    pub fn style(&self) -> &ComputedStyle {
+        &self.style
     }
 
     fn layout_into_line_items(&self, state: &mut InlineFormattingContextState) {
@@ -97,7 +97,7 @@ impl TextRun {
             let line_item = LineItem::TextRun(TextRunItem {
                 text: visual_text,
                 width: text_line.width,
-                style: self.style(),
+                style: self.style().get_inherited(),
             });
             state.push_line_item(line_item, text_line.width, height);
 
@@ -200,12 +200,12 @@ enum LineItem {
 struct TextRunItem {
     text: String,
     width: CSSPixels,
-    style: Rc<ComputedStyle>,
+    style: ComputedStyle,
 }
 
 #[derive(Clone, Debug)]
 struct InlineBoxItem {
-    style: Rc<ComputedStyle>,
+    style: ComputedStyle,
     children: Vec<LineItem>,
 }
 
@@ -261,7 +261,7 @@ impl InlineBoxItem {
 
         let box_fragment = BoxFragment::new(
             None,
-            self.style.clone(),
+            self.style,
             margin,
             content_area,
             content_area,
@@ -457,7 +457,7 @@ impl From<Vec<InlineLevelBox>> for InlineFormattingContext {
 
 impl InlineBox {
     #[inline]
-    pub fn new(node: DOMPtr<dom_objects::Node>, style: Rc<ComputedStyle>) -> Self {
+    pub fn new(node: DOMPtr<dom_objects::Node>, style: ComputedStyle) -> Self {
         Self {
             node,
             style,

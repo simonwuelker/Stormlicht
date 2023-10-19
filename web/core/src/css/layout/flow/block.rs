@@ -1,4 +1,4 @@
-use std::{fmt, fmt::Write, rc::Rc};
+use std::{fmt, fmt::Write};
 
 use math::{Rectangle, Vec2D};
 
@@ -25,7 +25,7 @@ pub struct BlockFormattingContext {
 /// <https://drafts.csswg.org/css2/#block-level-boxes>
 #[derive(Clone)]
 pub struct BlockLevelBox {
-    style: Rc<ComputedStyle>,
+    style: ComputedStyle,
 
     /// The DOM element that produced this box.
     /// Some boxes might not correspond to a DOM node,
@@ -57,15 +57,12 @@ impl BlockFormattingContext {
         style_computer: StyleComputer<'_>,
         selection: Option<Selection>,
     ) -> Self {
-        let document_style =
-            Rc::new(style_computer.get_computed_style(document.clone().into_type()));
+        let document_style = style_computer
+            .get_computed_style(document.clone().into_type(), &ComputedStyle::default());
 
-        let contents = BoxTreeBuilder::build(
-            document.clone(),
-            style_computer,
-            document_style.clone(),
-            selection,
-        );
+        let contents =
+            BoxTreeBuilder::build(document.clone(), style_computer, &document_style, selection);
+
         let root = BlockLevelBox {
             style: document_style,
             contents,
@@ -106,7 +103,7 @@ impl From<Vec<BlockLevelBox>> for BlockFormattingContext {
 impl BlockLevelBox {
     #[must_use]
     pub fn new(
-        style: Rc<ComputedStyle>,
+        style: ComputedStyle,
         node: Option<DOMPtr<dom_objects::Node>>,
         contents: BlockContainer,
     ) -> Self {
@@ -125,12 +122,12 @@ impl BlockLevelBox {
 
     #[inline]
     #[must_use]
-    pub fn style(&self) -> Rc<ComputedStyle> {
-        self.style.clone()
+    pub fn style(&self) -> &ComputedStyle {
+        &self.style
     }
 
     #[must_use]
-    pub fn create_anonymous_box(contents: BlockContainer, style: Rc<ComputedStyle>) -> Self {
+    pub fn create_anonymous_box(contents: BlockContainer, style: ComputedStyle) -> Self {
         Self {
             style,
             node: None,
@@ -141,7 +138,7 @@ impl BlockLevelBox {
     #[must_use]
     pub fn create_anonymous_wrapper_around(
         inline_box: InlineLevelBox,
-        style: Rc<ComputedStyle>,
+        style: ComputedStyle,
     ) -> Self {
         Self {
             style: style,
@@ -370,7 +367,7 @@ impl BlockLevelBox {
 
         BoxFragment::new(
             self.node.clone(),
-            self.style(),
+            self.style().clone(),
             margin,
             content_area,
             content_area_including_overflow,
