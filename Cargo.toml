@@ -22,6 +22,7 @@ members = [
     "taskrunner",
     "sl-std",
     "stormlicht",
+    "sys/fontconfig",
     "crypto/ciphers",
     "crypto/hash",
     "crypto/tls",
