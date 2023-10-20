@@ -1,9 +1,9 @@
 // See https://www.freedesktop.org/software/fontconfig/fontconfig-devel/
 // for documentation of the library API
 
-use std::ffi;
+use std::{ffi, iter::FusedIterator, marker::PhantomData};
 
-pub type FcChar8 = u8;
+pub type FcChar8 = i8;
 pub type FcChar16 = u16;
 pub type FcChar32 = u32;
 pub type FcBool = u8;
@@ -37,12 +37,12 @@ pub union FcValueContents {
 
 #[repr(C)]
 pub struct Set<T> {
-    n_value: ffi::c_int,
-    s_value: ffi::c_int,
-    value: *const T,
+    pub(crate) num_values: ffi::c_int,
+    pub(crate) s_value: ffi::c_int,
+    pub(crate) value: *mut T,
 }
 
-pub type FcFontSet = Set<*const FcPattern>;
+pub type FcFontSet = Set<*mut FcPattern>;
 pub type FcObjectSet = Set<*const ffi::c_char>;
 
 #[repr(C)]
@@ -93,6 +93,7 @@ pub enum FcSetName {
 pub type FT_Face = *mut FT_FaceRec_;
 
 #[link(name = "fontconfig")]
+#[allow(dead_code)]
 extern "C" {
     pub type FcCharSet;
     pub type FcLangSet;
@@ -106,6 +107,59 @@ extern "C" {
     pub type FcStrSet;
     pub type FcStrList;
     pub type FcConfigFileInfoIter;
+
+    pub static FC_FAMILY: *const ffi::c_char;
+    pub static FC_STYLE: *const ffi::c_char;
+    pub static FC_SLANT: *const ffi::c_char;
+    pub static FC_WEIGHT: *const ffi::c_char;
+    pub static FC_SIZE: *const ffi::c_char;
+    pub static FC_ASPECT: *const ffi::c_char;
+    pub static FC_PIXEL_SIZE: *const ffi::c_char;
+    pub static FC_SPACING: *const ffi::c_char;
+    pub static FC_FOUNDRY: *const ffi::c_char;
+    pub static FC_ANTIALIAS: *const ffi::c_char;
+    pub static FC_HINTING: *const ffi::c_char;
+    pub static FC_HINT_STYLE: *const ffi::c_char;
+    pub static FC_VERTICAL_LAYOUT: *const ffi::c_char;
+    pub static FC_AUTOHINT: *const ffi::c_char;
+    pub static FC_WIDTH: *const ffi::c_char;
+    pub static FC_FILE: *const ffi::c_char;
+    pub static FC_INDEX: *const ffi::c_char;
+    pub static FC_FT_FACE: *const ffi::c_char;
+    pub static FC_RASTERIZER: *const ffi::c_char;
+    pub static FC_OUTLINE: *const ffi::c_char;
+    pub static FC_SCALABLE: *const ffi::c_char;
+    pub static FC_COLOR: *const ffi::c_char;
+    pub static FC_VARIABLE: *const ffi::c_char;
+    pub static FC_SCALE: *const ffi::c_char;
+    pub static FC_SYMBOL: *const ffi::c_char;
+    pub static FC_DPI: *const ffi::c_char;
+    pub static FC_RGBA: *const ffi::c_char;
+    pub static FC_MINSPACE: *const ffi::c_char;
+    pub static FC_SOURCE: *const ffi::c_char;
+    pub static FC_CHARSET: *const ffi::c_char;
+    pub static FC_LANG: *const ffi::c_char;
+    pub static FC_FONTVERSION: *const ffi::c_char;
+    pub static FC_FULLNAME: *const ffi::c_char;
+    pub static FC_FAMILYLANG: *const ffi::c_char;
+    pub static FC_STYLELANG: *const ffi::c_char;
+    pub static FC_FULLNAMELANG: *const ffi::c_char;
+    pub static FC_CAPABILITY: *const ffi::c_char;
+    pub static FC_FONTFORMAT: *const ffi::c_char;
+    pub static FC_EMBOLDEN: *const ffi::c_char;
+    pub static FC_EMBEDDED_BITMAP: *const ffi::c_char;
+    pub static FC_DECORATIVE: *const ffi::c_char;
+    pub static FC_LCD_FILTER: *const ffi::c_char;
+    pub static FC_FONT_FEATURES: *const ffi::c_char;
+    pub static FC_FONT_VARIATIONS: *const ffi::c_char;
+    pub static FC_NAMELANG: *const ffi::c_char;
+    pub static FC_PRGNAME: *const ffi::c_char;
+    pub static FC_HASH: *const ffi::c_char;
+    pub static FC_POSTSCRIPT_NAME: *const ffi::c_char;
+
+    pub static FC_CACHE_SUFFIX: *const ffi::c_char;
+    pub static FC_DIR_CACHE_FILE: *const ffi::c_char;
+    pub static FC_USER_CACHE_FILE: *const ffi::c_char;
 
     /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcinitloadconfig.html>
     pub fn FcInitLoadConfig() -> *mut FcConfig;
@@ -268,7 +322,7 @@ extern "C" {
         p: *mut FcPattern,
         object: *const ffi::c_char,
         n: ffi::c_int,
-        s: *mut *mut FcChar8,
+        s: *mut *const FcChar8,
     ) -> FcResult;
 
     /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcpatternget-type.html>
@@ -426,6 +480,18 @@ extern "C" {
         csp: *mut *mut FcCharSet,
         result: *mut FcResult,
     ) -> *mut FcFontSet;
+
+    /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcobjectsetcreate.html>
+    pub fn FcObjectSetCreate() -> *mut FcObjectSet;
+
+    /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcobjectsetadd.html>
+    pub fn FcObjectSetAdd(os: *mut FcObjectSet, object: *const ffi::c_char) -> FcBool;
+
+    /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcobjectsetdestroy.html>
+    pub fn FcObjectSetDestroy(os: *mut FcObjectSet);
+
+    /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcobjectsetbuild.html>
+    pub fn FcObjectSetBuild(first: *const ffi::c_char, ...) -> *mut FcObjectSet;
 
     // MISSING METHODS HERE
 
@@ -617,3 +683,44 @@ extern "C" {
     /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcstrfree.html>
     pub fn FcStrFree(s: *mut FcChar8);
 }
+
+#[inline]
+pub(crate) fn fcbool(fcbool: FcBool) -> bool {
+    fcbool != 0
+}
+
+pub struct SetIterator<'a, T>
+where
+    T: ?Sized,
+{
+    pub(crate) current: *mut *mut T,
+    pub(crate) remaining: usize,
+    pub(crate) phantom_data: PhantomData<&'a T>,
+}
+
+impl<'a, T> Iterator for SetIterator<'a, T>
+where
+    T: ?Sized,
+{
+    type Item = &'a *mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.remaining == 0 {
+            return None;
+        }
+
+        let item = self.current;
+
+        self.current = self.current.wrapping_add(1);
+        self.remaining -= 1;
+
+        assert!(!item.is_null());
+        Some(unsafe { &*item })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.remaining, Some(self.remaining))
+    }
+}
+
+impl<'a, T> FusedIterator for SetIterator<'a, T> {}
