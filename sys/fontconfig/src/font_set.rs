@@ -25,7 +25,7 @@ impl FontSet {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Pattern> {
-        let set = unsafe { &*self.ptr };
+        let set = self.as_ref();
         let iter = SetIterator {
             current: set.value,
             remaining: set.num_values as usize,
@@ -37,5 +37,21 @@ impl FontSet {
             //         *mut FcPattern because of #[repr(transparent)]
             unsafe { mem::transmute(pattern_ptr) }
         })
+    }
+
+    /// Returns the number of elements in the font set
+    pub fn len(&self) -> usize {
+        self.as_ref().num_values as usize
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl AsRef<bindings::FcFontSet> for FontSet {
+    fn as_ref(&self) -> &bindings::FcFontSet {
+        // SAFETY: self.ptr is guaranteed to be valid
+        unsafe { &*self.ptr }
     }
 }

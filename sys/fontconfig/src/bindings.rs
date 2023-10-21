@@ -108,59 +108,6 @@ extern "C" {
     pub type FcStrList;
     pub type FcConfigFileInfoIter;
 
-    pub static FC_FAMILY: *const ffi::c_char;
-    pub static FC_STYLE: *const ffi::c_char;
-    pub static FC_SLANT: *const ffi::c_char;
-    pub static FC_WEIGHT: *const ffi::c_char;
-    pub static FC_SIZE: *const ffi::c_char;
-    pub static FC_ASPECT: *const ffi::c_char;
-    pub static FC_PIXEL_SIZE: *const ffi::c_char;
-    pub static FC_SPACING: *const ffi::c_char;
-    pub static FC_FOUNDRY: *const ffi::c_char;
-    pub static FC_ANTIALIAS: *const ffi::c_char;
-    pub static FC_HINTING: *const ffi::c_char;
-    pub static FC_HINT_STYLE: *const ffi::c_char;
-    pub static FC_VERTICAL_LAYOUT: *const ffi::c_char;
-    pub static FC_AUTOHINT: *const ffi::c_char;
-    pub static FC_WIDTH: *const ffi::c_char;
-    pub static FC_FILE: *const ffi::c_char;
-    pub static FC_INDEX: *const ffi::c_char;
-    pub static FC_FT_FACE: *const ffi::c_char;
-    pub static FC_RASTERIZER: *const ffi::c_char;
-    pub static FC_OUTLINE: *const ffi::c_char;
-    pub static FC_SCALABLE: *const ffi::c_char;
-    pub static FC_COLOR: *const ffi::c_char;
-    pub static FC_VARIABLE: *const ffi::c_char;
-    pub static FC_SCALE: *const ffi::c_char;
-    pub static FC_SYMBOL: *const ffi::c_char;
-    pub static FC_DPI: *const ffi::c_char;
-    pub static FC_RGBA: *const ffi::c_char;
-    pub static FC_MINSPACE: *const ffi::c_char;
-    pub static FC_SOURCE: *const ffi::c_char;
-    pub static FC_CHARSET: *const ffi::c_char;
-    pub static FC_LANG: *const ffi::c_char;
-    pub static FC_FONTVERSION: *const ffi::c_char;
-    pub static FC_FULLNAME: *const ffi::c_char;
-    pub static FC_FAMILYLANG: *const ffi::c_char;
-    pub static FC_STYLELANG: *const ffi::c_char;
-    pub static FC_FULLNAMELANG: *const ffi::c_char;
-    pub static FC_CAPABILITY: *const ffi::c_char;
-    pub static FC_FONTFORMAT: *const ffi::c_char;
-    pub static FC_EMBOLDEN: *const ffi::c_char;
-    pub static FC_EMBEDDED_BITMAP: *const ffi::c_char;
-    pub static FC_DECORATIVE: *const ffi::c_char;
-    pub static FC_LCD_FILTER: *const ffi::c_char;
-    pub static FC_FONT_FEATURES: *const ffi::c_char;
-    pub static FC_FONT_VARIATIONS: *const ffi::c_char;
-    pub static FC_NAMELANG: *const ffi::c_char;
-    pub static FC_PRGNAME: *const ffi::c_char;
-    pub static FC_HASH: *const ffi::c_char;
-    pub static FC_POSTSCRIPT_NAME: *const ffi::c_char;
-
-    pub static FC_CACHE_SUFFIX: *const ffi::c_char;
-    pub static FC_DIR_CACHE_FILE: *const ffi::c_char;
-    pub static FC_USER_CACHE_FILE: *const ffi::c_char;
-
     /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcinitloadconfig.html>
     pub fn FcInitLoadConfig() -> *mut FcConfig;
 
@@ -689,6 +636,13 @@ pub(crate) fn fcbool(fcbool: FcBool) -> bool {
     fcbool != 0
 }
 
+#[inline]
+pub(crate) unsafe fn to_str<'a>(char_ptr: *const ffi::c_char) -> &'a str {
+    let c_str = ffi::CStr::from_ptr(char_ptr);
+    let bytes = c_str.to_bytes();
+    std::str::from_utf8(bytes).expect("fontconfig gave us a non-utf8 string")
+}
+
 pub struct SetIterator<'a, T>
 where
     T: ?Sized,
@@ -724,3 +678,23 @@ where
 }
 
 impl<'a, T> FusedIterator for SetIterator<'a, T> {}
+
+#[derive(Clone, Copy, Debug)]
+pub enum LookupError {
+    NoMatch,
+    TypeMismatch,
+    NoId,
+    OutOfMemory,
+}
+
+impl FcResult {
+    pub fn to_rust_result<T, F: FnOnce() -> T>(&self, f: F) -> Result<T, LookupError> {
+        match self {
+            Self::FcResultMatch => Ok(f()),
+            Self::FcResultNoMatch => Err(LookupError::NoMatch),
+            Self::FcResultTypeMismatch => Err(LookupError::TypeMismatch),
+            Self::FcResultNoId => Err(LookupError::NoId),
+            Self::FcResultOutOfMemory => Err(LookupError::OutOfMemory),
+        }
+    }
+}

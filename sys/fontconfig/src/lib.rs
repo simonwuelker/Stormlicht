@@ -2,6 +2,7 @@
 
 pub mod bindings;
 mod config;
+pub mod consts;
 mod font_set;
 mod object_set;
 mod pattern;
