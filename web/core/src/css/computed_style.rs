@@ -2,7 +2,10 @@ use std::rc::Rc;
 
 use super::{
     layout::Sides,
-    values::{AutoOr, BackgroundColor, Color, Display, FontSize, Length, PercentageOr, Position},
+    values::{
+        AutoOr, BackgroundColor, Color, Display, FontFamily, FontSize, Length, PercentageOr,
+        Position,
+    },
 };
 
 /// Box data (not inherited)
@@ -24,8 +27,11 @@ struct BoxStyleData {
     // Z-Index
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct FontStyleData {
+    /// <https://drafts.csswg.org/css-fonts/#font-family-prop>
+    font_family: FontFamily,
+
     /// <https://drafts.csswg.org/css2/#font-size-props>
     font_size: FontSize,
 }
@@ -123,6 +129,12 @@ impl ComputedStyle {
     );
     property_access!(color, set_color, Color, inherited_data.color);
     property_access!(display, set_display, Display, box_style_data.display);
+    property_access!(
+        font_family,
+        set_font_family,
+        FontFamily,
+        font_data.font_family
+    );
     property_access!(font_size, set_font_size, FontSize, font_data.font_size);
     property_access!(
         height,
