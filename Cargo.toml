@@ -29,6 +29,37 @@ members = [
 ]
 resolver = "2"
 
+[workspace.dependencies]
+core = { path = "web/core" }
+http = { path = "web/http" }
+url = { path = "web/url" }
+dns = { path = "web/dns" }
+dom-derive = { path = "web/dom-derive" }
+render = { path = "graphics/render" }
+font = { path = "graphics/font" }
+math = { path = "graphics/math" }
+compression = { path = "compression" }
+cli = { path = "util/cli" }
+cli-derive = { path = "util/cli-derive" }
+mime = { path = "util/mime" }
+serialize = { path = "util/serialization/serialize" }
+serialize-derive = { path = "util/serialization/serialize-derive" }
+string_interner = { path = "util/string_interner" }
+perfect_hash = { path = "util/perfect_hash" }
+perfect_hash_derive = { path = "util/perfect_hash_derive" }
+taskrunner = { path = "taskrunner" }
+sl-std = { path = "sl-std" }
+fontconfig = { path = "sys/fontconfig" }
+ciphers = { path = "crypto/ciphers" }
+hash = { path = "crypto/hash" }
+tls = { path = "crypto/tls" }
+
+log = "0.4"
+criterion = { version = "0.4", features = ["html_reports"] }
+syn = "2"
+quote = "1"
+proc-macro2 = "^1.0.60"
+
 [workspace.package]
 authors = ["Simon Wülker"]
 edition = "2021"

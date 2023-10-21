@@ -1,14 +1,17 @@
 [package]
 name = "font"
 version = "0.1.0"
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fontconfig = { path = "../../sys/fontconfig" }
-math = { path = "../math" }
-log = "0.4"
+fontconfig = { workspace = true }
+math = { workspace = true }
+log = { workspace = true }
 
 [features]
 default = ["fontconfig"]
