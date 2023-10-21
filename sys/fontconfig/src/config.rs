@@ -8,8 +8,6 @@ pub struct Config {
 
 impl Config {
     pub fn init() -> Self {
-        log::info!("Using fontconfig version {}", Version::get());
-
         let config = unsafe { bindings::FcInitLoadConfigAndFonts() };
 
         Self { ptr: config }
