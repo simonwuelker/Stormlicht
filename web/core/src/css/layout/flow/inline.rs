@@ -445,7 +445,7 @@ impl TextRunItem {
 
         state.width += self.width;
 
-        TextFragment::new(self.text, area, self.style.color(), font_metrics)
+        TextFragment::new(self.text, area, *self.style.color(), font_metrics)
     }
 }
 

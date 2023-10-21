@@ -65,8 +65,8 @@ macro_rules! property_access {
     ($name: ident, $set_name: ident, $type: ty, $group_ident: ident.$( $idents: ident ).+) => {
         #[inline]
         #[allow(dead_code)]
-        pub fn $name(&self) -> $type {
-            self.$group_ident$(.$idents)+
+        pub fn $name(&self) -> &$type {
+            &self.$group_ident$(.$idents)+
         }
 
         #[inline]
