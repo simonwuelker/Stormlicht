@@ -1,33 +1,31 @@
-use core::ffi;
-use std::ptr;
+use std::{ffi, ptr};
 
-use crate::{bindings, Object};
+use crate::{
+    bindings::{self, fcbool},
+    Object,
+};
 
 #[repr(transparent)]
 pub struct Pattern {
     ptr: *mut bindings::FcPattern,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum LookupError {
-    FcResultNoMatch,
-    FcResultTypeMismatch,
-    FcResultNoId,
-    FcResultOutOfMemory,
-}
-
 impl Pattern {
+    pub(crate) fn from_ptr(ptr: *mut bindings::FcPattern) -> Self {
+        Self { ptr }
+    }
+
     pub fn debug_print(&self) {
         // SAFETY: ptr is guaranteed to be a valid FcPattern pointer
         unsafe { bindings::FcPatternPrint(self.ptr) }
     }
 
-    pub fn to_string(&self) -> &ffi::CStr {
+    pub fn to_str(&self) -> &str {
         // SAFETY: FcNameUnparse is safe, assuming our ptr is valid
         let ptr = unsafe { bindings::FcNameUnparse(self.ptr) };
 
         // SAFETY: fontconfig is guaranteed (assumed) to always return valid strings
-        unsafe { ffi::CStr::from_ptr(ptr) }
+        unsafe { bindings::to_str(ptr) }
     }
 
     pub fn object_count(&self) -> usize {
@@ -41,21 +39,38 @@ impl Pattern {
         self.ptr
     }
 
-    pub fn get_string(&self, key: Object) -> Result<&ffi::CStr, LookupError> {
+    pub fn get_string(&self, key: Object) -> Result<&str, bindings::LookupError> {
         let mut result_ptr = std::ptr::null();
         let return_code = unsafe {
             bindings::FcPatternGetString(self.ptr, key.as_ptr(), 0, ptr::addr_of_mut!(result_ptr))
         };
-        match return_code {
-            bindings::FcResult::FcResultMatch => {
-                let result = unsafe { ffi::CStr::from_ptr(result_ptr) };
-                Ok(result)
-            },
-            bindings::FcResult::FcResultNoMatch => Err(LookupError::FcResultNoMatch),
-            bindings::FcResult::FcResultTypeMismatch => Err(LookupError::FcResultTypeMismatch),
-            bindings::FcResult::FcResultNoId => Err(LookupError::FcResultNoId),
-            bindings::FcResult::FcResultOutOfMemory => Err(LookupError::FcResultOutOfMemory),
+
+        return_code.to_rust_result(|| unsafe { bindings::to_str(result_ptr) })
+    }
+
+    pub fn add_string(&self, key: Object, value: &str) {
+        let c_string = ffi::CString::new(value).expect("null byte inside value");
+        // NOTE: fontconfig keeps no references to the passed string, so it is safe to drop it at the end
+        //       of this function
+        let success =
+            unsafe { bindings::FcPatternAddString(self.as_ptr(), key.as_ptr(), c_string.as_ptr()) };
+
+        if !fcbool(success) {
+            panic!("failed to insert {key:?} with value {value:?} into pattern");
         }
+    }
+
+    pub fn add_int(&self, key: Object, value: i32) {
+        let success = unsafe { bindings::FcPatternAddInteger(self.as_ptr(), key.as_ptr(), value) };
+
+        if !fcbool(success) {
+            panic!("failed to insert {key:?} with value {value:?} into pattern");
+        }
+    }
+
+    /// Calls [fcdefaultsubstitute](https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcdefaultsubstitute.html) on the pattern
+    pub fn perform_default_substitutions(&self) {
+        unsafe { bindings::FcDefaultSubstitute(self.as_ptr()) }
     }
 }
 
