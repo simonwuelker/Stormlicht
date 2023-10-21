@@ -1,12 +1,15 @@
 [package]
 name = "mime"
 version = "0.1.0"
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-url = { path = "../../web/url" }
-http = { path = "../../web/http" }
-sl-std = { path = "../../sl-std" }
-log = "0.4"
+url = { workspace = true }
+http = { workspace = true }
+sl-std = { workspace = true }
+log = { workspace = true }

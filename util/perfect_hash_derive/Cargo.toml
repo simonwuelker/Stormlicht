@@ -1,14 +1,17 @@
 [package]
 name = "perfect_hash_derive"
 version = "0.1.0"
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-syn = "2"
-quote = "1"
-proc-macro2 = "^1.0.60"
+syn = { workspace = true }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }
 
 [lib]
 proc-macro = true

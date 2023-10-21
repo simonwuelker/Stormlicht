@@ -11,12 +11,12 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cli = { path = "../util/cli" }
 env_logger = "0.10"
-log = "0.4"
 glazier = { git = "https://github.com/linebender/glazier" }
 softbuffer = "0.2"
-render = { path = "../graphics/render" }
-math = { path = "../graphics/math" }
-core = { path = "../web/core" }
-url = { path = "../web/url" }
+cli = { workspace = true }
+log = { workspace = true }
+render = { workspace = true }
+math = { workspace = true }
+core = { workspace = true }
+url = { workspace = true }
