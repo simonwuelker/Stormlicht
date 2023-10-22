@@ -117,6 +117,7 @@ impl ComputedStyle {
     pub fn get_inherited(&self) -> Self {
         Self {
             inherited_data: self.inherited_data.clone(),
+            font_data: self.font_data.clone(),
             ..Default::default()
         }
     }
