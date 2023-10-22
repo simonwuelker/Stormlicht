@@ -12,7 +12,7 @@ use super::{
 };
 
 /// <https://drafts.csswg.org/selectors-4/#attribute-selectors>
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum AttributeSelector {
     Exists {
         attribute_name: WQName,
@@ -20,7 +20,7 @@ pub enum AttributeSelector {
     Matches {
         attribute_name: WQName,
         matcher: AttributeMatcher,
-        value: InternedString,
+        value: String,
         modifier: AttributeModifier,
     },
 }
@@ -51,7 +51,7 @@ impl<'a> CSSParse<'a> for AttributeSelector {
             Some((matcher, value, modifier)) => Ok(AttributeSelector::Matches {
                 attribute_name,
                 matcher,
-                value,
+                value: value.to_string(),
                 modifier,
             }),
             None => Ok(AttributeSelector::Exists { attribute_name }),
@@ -91,9 +91,43 @@ impl CSSValidateSelector for AttributeSelector {
 }
 
 impl Selector for AttributeSelector {
-    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
-        log::warn!("FIXME: Attribute selector matching");
-        false
+    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+        match self {
+            Self::Exists { attribute_name } => {
+                // FIXME: Don't consider attribute namespace
+                element
+                    .borrow()
+                    .attributes()
+                    .get(&attribute_name.ident)
+                    .is_some()
+            },
+            Self::Matches {
+                attribute_name,
+                matcher,
+                value: selector_value,
+                modifier,
+            } => {
+                let borrowed_elem = element.borrow();
+                let attribute_value = borrowed_elem.attributes().get(&attribute_name.ident);
+
+                match attribute_value {
+                    Some(interned_value) => {
+                        if modifier.is_case_insensitive() {
+                            matcher.are_matching(
+                                &selector_value.to_lowercase(),
+                                &interned_value.to_string().to_ascii_lowercase(),
+                            )
+                        } else {
+                            matcher.are_matching(
+                                selector_value,
+                                &interned_value.to_string().to_ascii_lowercase(),
+                            )
+                        }
+                    },
+                    None => false,
+                }
+            },
+        }
     }
 
     fn specificity(&self) -> Specificity {
@@ -128,6 +162,25 @@ impl Serialize for AttributeSelector {
     }
 }
 
+impl AttributeMatcher {
+    fn are_matching(&self, selector_value: &str, attribute_value: &str) -> bool {
+        match self {
+            Self::ContainsSubstring => attribute_value.contains(selector_value),
+            Self::EndsWith => attribute_value.ends_with(selector_value),
+            Self::EqualTo => attribute_value.eq(selector_value),
+            Self::HyphenSeperatedListBeginningWith => {
+                let following_char = attribute_value.as_bytes().get(selector_value.len() + 1);
+
+                attribute_value.starts_with(selector_value)
+                    && matches!(following_char, None | Some(b'-'))
+            },
+            Self::StartsWith => attribute_value.starts_with(selector_value),
+            Self::WhiteSpaceSeperatedListContaining => attribute_value
+                .split(|c: char| c.is_ascii_whitespace())
+                .any(|element| element == selector_value),
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::AttributeSelector;
