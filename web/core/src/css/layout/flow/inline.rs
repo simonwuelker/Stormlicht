@@ -5,7 +5,7 @@ use math::{Rectangle, Vec2D};
 
 use crate::{
     css::{
-        font_metrics,
+        self, font_metrics,
         fragment_tree::{BoxFragment, Fragment, TextFragment},
         layout::{CSSPixels, ContainingBlock, Sides},
         ComputedStyle, LineBreakIterator,
@@ -61,7 +61,13 @@ impl TextRun {
     }
 
     fn layout_into_line_items(&self, state: &mut InlineFormattingContextState) {
-        let font_metrics = FontMetrics::default();
+        // FIXME: use the inherited font size here, not the default one
+        let font_size = self
+            .style()
+            .font_size()
+            .to_pixels(css::font_metrics::DEFAULT_FONT_SIZE);
+
+        let font_metrics = FontMetrics::new(font_size);
         let height = font_metrics.size;
 
         // Collapse sequences of whitespace in the text and remove newlines as defined in
@@ -79,7 +85,7 @@ impl TextRun {
         let remaining_text = &text_without_whitespace_sequences;
         let mut lines = LineBreakIterator::new(
             remaining_text,
-            font_metrics,
+            font_metrics.clone(),
             state.remaining_width_for_line_box(),
         );
 
@@ -95,6 +101,7 @@ impl TextRun {
             };
 
             let line_item = LineItem::TextRun(TextRunItem {
+                metrics: font_metrics.clone(),
                 text: visual_text,
                 width: text_line.width,
                 style: self.style().get_inherited(),
@@ -198,6 +205,7 @@ enum LineItem {
 /// A piece of text that takes up at most one line
 #[derive(Clone, Debug)]
 struct TextRunItem {
+    metrics: FontMetrics,
     text: String,
     width: CSSPixels,
     style: ComputedStyle,
@@ -424,8 +432,7 @@ impl<'box_tree> InlineBoxContainerState<'box_tree> {
 impl TextRunItem {
     fn layout(self, state: &mut LineItemLayoutState) -> TextFragment {
         // Make the line box high enough to fit the line
-        let font_metrics = FontMetrics::default();
-        let line_height = font_metrics.size;
+        let line_height = self.metrics.size;
         if line_height > state.height {
             state.height = line_height;
         }
@@ -445,7 +452,7 @@ impl TextRunItem {
 
         state.width += self.width;
 
-        TextFragment::new(self.text, area, *self.style.color(), font_metrics)
+        TextFragment::new(self.text, area, *self.style.color(), self.metrics)
     }
 }
 
