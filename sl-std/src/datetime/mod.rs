@@ -135,7 +135,7 @@ impl DateTime {
         let days = seconds / consts::SECONDS_PER_DAY;
         let seconds = seconds % consts::SECONDS_PER_DAY;
 
-        let date = Date::new_from_n_days(days + consts::DAYS_BEFORE_UNIX_TIME);
+        let date = Date::new_from_n_days(days);
         let time = Time::new_from_n_seconds_since_midnight(seconds);
 
         Self { date, time }
@@ -153,5 +153,13 @@ impl DateTime {
         let time = Time::from_hms(hour, minute, second)?;
 
         Some(Self { date, time })
+    }
+
+    pub fn date(&self) -> Date {
+        self.date
+    }
+
+    pub fn time(&self) -> Time {
+        self.time
     }
 }
