@@ -5,7 +5,7 @@ use crate::css::{self, syntax::Token, CSSParse};
 /// <https://drafts.csswg.org/css-fonts/#font-family-prop>
 #[derive(Clone, Debug)]
 pub struct FontFamily {
-    desired_fonts: Vec<DesiredFont>,
+    _desired_fonts: Vec<DesiredFont>,
 }
 
 #[derive(Clone, Debug)]
@@ -58,17 +58,11 @@ enum GenericFontFamily {
     UiRounded,
 }
 
-impl FontFamily {
-    pub fn desired_fonts(&self) -> &[DesiredFont] {
-        &self.desired_fonts
-    }
-}
-
 impl Default for FontFamily {
     fn default() -> Self {
         // The initial value is UA dependent
         Self {
-            desired_fonts: vec![DesiredFont::GenericFamily(GenericFontFamily::SansSerif)],
+            _desired_fonts: vec![DesiredFont::GenericFamily(GenericFontFamily::SansSerif)],
         }
     }
 }
@@ -85,7 +79,9 @@ impl<'a> CSSParse<'a> for FontFamily {
             return Err(css::ParseError);
         }
 
-        Ok(Self { desired_fonts })
+        Ok(Self {
+            _desired_fonts: desired_fonts,
+        })
     }
 }
 
