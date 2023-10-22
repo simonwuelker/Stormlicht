@@ -2,7 +2,10 @@ use std::rc::Rc;
 
 use super::{
     layout::Sides,
-    values::{AutoOr, BackgroundColor, Color, Display, FontSize, Length, PercentageOr, Position},
+    values::{
+        AutoOr, BackgroundColor, Color, Display, FontFamily, FontSize, Length, PercentageOr,
+        Position,
+    },
 };
 
 /// Box data (not inherited)
@@ -24,8 +27,14 @@ struct BoxStyleData {
     // Z-Index
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug)]
 struct FontStyleData {
+    /// <https://drafts.csswg.org/css2/#colors>
+    color: Color,
+
+    /// <https://drafts.csswg.org/css-fonts/#font-family-prop>
+    font_family: FontFamily,
+
     /// <https://drafts.csswg.org/css2/#font-size-props>
     font_size: FontSize,
 }
@@ -34,13 +43,6 @@ struct FontStyleData {
 struct BackgroundData {
     /// <https://drafts.csswg.org/css2/#background-properties>
     background_color: BackgroundColor,
-}
-
-/// Miscellaneous, inherited style data
-#[derive(Clone, Debug)]
-struct InheritedData {
-    /// <https://drafts.csswg.org/css2/#colors>
-    color: Color,
 }
 
 #[derive(Clone, Debug)]
@@ -55,7 +57,6 @@ struct SurroundData {
 #[derive(Clone, Debug, Default)]
 pub struct ComputedStyle {
     font_data: Rc<FontStyleData>,
-    inherited_data: Rc<InheritedData>,
     surround_data: Rc<SurroundData>,
     box_style_data: Rc<BoxStyleData>,
     background_data: Rc<BackgroundData>,
@@ -65,8 +66,8 @@ macro_rules! property_access {
     ($name: ident, $set_name: ident, $type: ty, $group_ident: ident.$( $idents: ident ).+) => {
         #[inline]
         #[allow(dead_code)]
-        pub fn $name(&self) -> $type {
-            self.$group_ident$(.$idents)+
+        pub fn $name(&self) -> &$type {
+            &self.$group_ident$(.$idents)+
         }
 
         #[inline]
@@ -110,7 +111,7 @@ macro_rules! property_access_4_sides {
 impl ComputedStyle {
     pub fn get_inherited(&self) -> Self {
         Self {
-            inherited_data: self.inherited_data.clone(),
+            font_data: self.font_data.clone(),
             ..Default::default()
         }
     }
@@ -121,8 +122,14 @@ impl ComputedStyle {
         BackgroundColor,
         background_data.background_color
     );
-    property_access!(color, set_color, Color, inherited_data.color);
+    property_access!(color, set_color, Color, font_data.color);
     property_access!(display, set_display, Display, box_style_data.display);
+    property_access!(
+        font_family,
+        set_font_family,
+        FontFamily,
+        font_data.font_family
+    );
     property_access!(font_size, set_font_size, FontSize, font_data.font_size);
     property_access!(
         height,
@@ -165,11 +172,15 @@ impl ComputedStyle {
     property_access!(position, set_position, Position, box_style_data.position);
 }
 
-impl Default for InheritedData {
+impl Default for FontStyleData {
     fn default() -> Self {
         Self {
             // Default "color" is UA dependent (<https://drafts.csswg.org/css2/#colors>)
             color: Color::BLACK,
+
+            font_family: FontFamily::default(),
+
+            font_size: Default::default(),
         }
     }
 }

@@ -158,7 +158,7 @@ impl BoxFragment {
     }
 
     pub fn fill_display_list(&self, painter: &mut Painter) {
-        match self.style().background_color() {
+        match *self.style().background_color() {
             BackgroundColor::Transparent => {
                 // Skip drawing the background entirely
             },

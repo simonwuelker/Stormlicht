@@ -1,5 +1,8 @@
 use super::{
-    values::{AutoOr, BackgroundColor, Color, Display, FontSize, Length, PercentageOr, Position},
+    values::{
+        AutoOr, BackgroundColor, Color, Display, FontFamily, FontSize, Length, PercentageOr,
+        Position,
+    },
     CSSParse, ParseError, Parser,
 };
 
@@ -23,6 +26,9 @@ pub enum StyleProperty {
 
     /// <https://drafts.csswg.org/css-display/#the-display-properties>
     Display(Display),
+
+    /// <https://drafts.csswg.org/css-fonts/#font-family-prop>
+    FontFamily(FontFamily),
 
     /// <https://drafts.csswg.org/css2/#font-size-props>
     FontSize(FontSize),
@@ -82,6 +88,7 @@ impl StyleProperty {
                 Self::BackgroundColor(BackgroundColor::parse(parser)?)
             },
             static_interned!("display") => Self::Display(CSSParse::parse(parser)?),
+            static_interned!("font-family") => Self::FontFamily(CSSParse::parse(parser)?),
             static_interned!("font-size") => Self::FontSize(CSSParse::parse(parser)?),
             static_interned!("margin-top") => Self::MarginTop(CSSParse::parse(parser)?),
             static_interned!("margin-right") => Self::MarginRight(CSSParse::parse(parser)?),
