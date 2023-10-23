@@ -14,7 +14,7 @@ pub struct Date {
     day: u8,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Year(YearRange);
 
 /// A Month within a year
@@ -22,14 +22,14 @@ pub struct Year(YearRange);
 /// # Note
 /// The internal representation is an index into the range `[Jan, Dec]`, **not**
 /// the `[Mar, Feb]` used in [Date].
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Month(u8);
 
 /// A specific day within a week
 ///
 /// # Note
 /// The internal representation is an index into the range `[Sun, Sat]`.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Weekday(u8);
 
 impl Year {
@@ -105,6 +105,14 @@ impl Month {
 }
 
 impl Weekday {
+    pub const SUNDAY: Self = Self(0);
+    pub const MONDAY: Self = Self(1);
+    pub const TUESDAY: Self = Self(2);
+    pub const WEDNESDAY: Self = Self(3);
+    pub const THURSDAY: Self = Self(4);
+    pub const FRIDAY: Self = Self(5);
+    pub const SATURDAY: Self = Self(6);
+
     pub const fn new(index: u8) -> Self {
         assert!(index < 7);
         Self(index)
@@ -156,6 +164,9 @@ impl Date {
         }
     }
 
+    /// Return number of days since [Date::UNIX].
+    ///
+    /// <https://howardhinnant.github.io/date_algorithms.html#days_from_civil>
     pub const fn days_since_unix(&self) -> u64 {
         let era = self.year.div_euclid(400) as usize;
 
@@ -237,6 +248,15 @@ mod tests {
     #[test]
     fn days_since_unix() {
         assert_eq!(Date::UNIX.days_since_unix(), 0);
+    }
+
+    #[test]
+    fn weekday() {
+        assert_eq!(Date::UNIX.weekday(), Weekday::THURSDAY);
+        assert_eq!(
+            Date::from_ymd(Year(2023), Month::OCTOBER, 23).weekday(),
+            Weekday::MONDAY
+        );
     }
 
     #[test]
