@@ -1,18 +1,15 @@
 use compression::brotli;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use std::{fs, io::Read};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
-const COMPRESSED_FILE: &str = "../downloads/brotli/testdata/tests/testdata/alice29.txt.compressed";
+const COMPRESSED_FILE: &[u8] =
+    include_bytes!("../../downloads/brotli/testdata/tests/testdata/alice29.txt.compressed");
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let mut data = vec![];
-    fs::File::open(COMPRESSED_FILE)
-        .expect("alice29.txt.compressed not found, did you run download.sh?")
-        .read_to_end(&mut data)
-        .unwrap();
-    c.bench_function("brotli alice29.txt", |b| {
-        b.iter(|| brotli::decompress(black_box(&data)))
-    });
+    c.bench_with_input(
+        BenchmarkId::new("brotli decompress", "alice29.txt"),
+        &COMPRESSED_FILE,
+        |b, &data| b.iter(|| brotli::decompress(data)),
+    );
 }
 
 criterion_group!(benches, criterion_benchmark);
