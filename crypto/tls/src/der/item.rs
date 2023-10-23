@@ -177,8 +177,9 @@ impl<'a> Item<'a> {
                         Err(_) => return Err(Error::IllegalValue),
                     };
 
-                    let month =
-                        str::parse(string[2..4].as_str()).map_err(|_| Error::IllegalValue)?;
+                    let month = str::parse::<u8>(string[2..4].as_str())
+                        .map_err(|_| Error::IllegalValue)?
+                        - 1;
 
                     let day = str::parse(string[4..6].as_str()).map_err(|_| Error::IllegalValue)?;
                     let hour =
