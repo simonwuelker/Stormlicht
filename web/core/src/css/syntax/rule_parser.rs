@@ -25,15 +25,16 @@ impl RuleParser {
         while !parser.is_exhausted() {
             if let Some(declaration) = parser.consume_declaration() {
                 properties.push(declaration);
-            }
 
-            if parser.expect_token(Token::Semicolon).is_err() {
-                // If this is not the last property in the rule body, this is a parse error!
+                if parser.expect_token(Token::Semicolon).is_err() {
+                    // If this is not the last property in the rule body, this is a parse error!
+                    parser.skip_whitespace();
+                    parser.expect_exhausted()?;
+                    break;
+                }
+
                 parser.skip_whitespace();
-                parser.expect_exhausted()?;
-                break;
             }
-            parser.skip_whitespace();
         }
 
         Ok(StyleRule::new(selectors, properties))
