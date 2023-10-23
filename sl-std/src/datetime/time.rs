@@ -9,10 +9,10 @@ pub struct Time {
 
 impl Time {
     pub const fn new_from_n_seconds_since_midnight(seconds: u64) -> Self {
-        let hour = seconds / consts::SECONDS_PER_HOUR;
-        let seconds = seconds % consts::SECONDS_PER_HOUR;
-        let minute = seconds / consts::SECONDS_PER_MINUTE;
-        let second = seconds % consts::SECONDS_PER_MINUTE;
+        let hour = seconds / consts::SECONDS_PER_HOUR as u64;
+        let seconds = seconds % consts::SECONDS_PER_HOUR as u64;
+        let minute = seconds / consts::SECONDS_PER_MINUTE as u64;
+        let second = seconds % consts::SECONDS_PER_MINUTE as u64;
 
         Self {
             hour,
