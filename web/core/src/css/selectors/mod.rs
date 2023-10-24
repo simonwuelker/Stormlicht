@@ -1,5 +1,9 @@
 //! <https://drafts.csswg.org/selectors-4/>
 
+// Not all of these selectors are in use right now, but they are all
+// in the specification so presumably we will need them at some point
+#![allow(unused_imports)]
+
 mod any_value;
 mod attribute_matcher;
 mod attribute_modifier;
@@ -48,28 +52,6 @@ pub use subclass_selector::SubClassSelector;
 pub use type_selector::TypeSelector;
 pub use wq_name::WQName;
 
-use std::fmt;
+mod selector;
 
-use crate::dom::{dom_objects::Element, DOMPtr};
-
-use super::Serializer;
-
-pub fn serialize_selector_list<S: Serializer>(
-    selectors: &[ComplexSelector],
-    mut serializer: S,
-) -> fmt::Result {
-    serializer.serialize_comma_seperated_list(selectors)
-}
-
-pub trait CSSValidateSelector {
-    /// <https://drafts.csswg.org/selectors-4/#invalid-selector>
-    fn is_valid(&self) -> bool;
-}
-
-pub trait Selector {
-    /// Determine if the given selector matches the given element
-    fn matches(&self, element: &DOMPtr<Element>) -> bool;
-
-    /// Calculate the selectors [Specificity](https://drafts.csswg.org/selectors-4/#specificity)
-    fn specificity(&self) -> Specificity;
-}
+pub use selector::{serialize_selector_list, CSSValidateSelector, Selector};
