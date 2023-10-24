@@ -8,4 +8,11 @@ license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[dev-dependencies]
+criterion = { workspace = true }
+
 [dependencies]
+
+[[bench]]
+name = "date_from_days_since_unix"
+harness = false
