@@ -9,10 +9,8 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fontconfig = { workspace = true }
 math = { workspace = true }
 log = { workspace = true }
 
-[features]
-default = ["fontconfig"]
-fontconfig = []
+[target.'cfg( target_os = "linux" )'.dependencies]
+fontconfig = { workspace = true }

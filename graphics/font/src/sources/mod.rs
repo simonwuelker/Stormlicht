@@ -1,8 +1,5 @@
-mod fontconfig;
-
 use std::path;
 
-pub use fontconfig::FontConfig;
 
 /// Used to abstract over font source backends (fontconfig etc)
 ///
@@ -19,7 +16,11 @@ pub struct GenericSystemStore<T> {
 }
 
 cfg_match! {
-    cfg(feature = "fontconfig") => {
+    cfg(target_os = "linux") => {
+        mod fontconfig;
+
+        pub use fontconfig::FontConfig;
+
         pub type SystemStore = GenericSystemStore<FontConfig>;
     }
     _ => {
