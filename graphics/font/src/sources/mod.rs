@@ -24,7 +24,20 @@ cfg_match! {
         pub type SystemStore = GenericSystemStore<FontConfig>;
     }
     _ => {
-        compile_error!("No system font store found");
+        pub struct DummyStore;
+
+        impl FontStore for DummyStore {
+            fn new() -> Self {
+                log::warn!("Failed to find font store for system, using fallback font instead");
+                Self
+            }
+
+            fn lookup(&self, _query: FontQuery<'_, Self>) -> MatchedFont {
+                MatchedFont::fallback()
+            }
+        }
+
+        pub type SystemStore = GenericSystemStore<DummyStore>;
     }
 }
 
