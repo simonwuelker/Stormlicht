@@ -1,11 +1,13 @@
 use std::fmt;
 
 use crate::{
-    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser, Serialize, Serializer},
+    css::{
+        selectors::{CSSValidateSelector, Combinator, ComplexSelectorUnit, Selector, Specificity},
+        syntax::WhitespaceAllowed,
+        CSSParse, ParseError, Parser, Serialize, Serializer,
+    },
     dom::{dom_objects::Element, DOMPtr},
 };
-
-use super::{CSSValidateSelector, Combinator, ComplexSelectorUnit, Selector, Specificity};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-complex-selector>
 #[derive(Clone, Debug, PartialEq)]

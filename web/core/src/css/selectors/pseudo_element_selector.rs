@@ -1,10 +1,14 @@
 use std::fmt;
 
-use super::{
-    CSSValidateSelector, LegacyPseudoElementSelector, PseudoClassSelector, Selector, Specificity,
-};
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer},
+    css::{
+        selectors::{
+            CSSValidateSelector, LegacyPseudoElementSelector, PseudoClassSelector, Selector,
+            Specificity,
+        },
+        syntax::Token,
+        CSSParse, ParseError, Parser, Serialize, Serializer,
+    },
     dom::{dom_objects::Element, DOMPtr},
 };
 

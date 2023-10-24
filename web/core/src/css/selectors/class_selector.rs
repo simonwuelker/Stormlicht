@@ -2,9 +2,12 @@ use std::fmt;
 
 use string_interner::InternedString;
 
-use super::{CSSValidateSelector, Selector, Specificity};
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer},
+    css::{
+        selectors::{CSSValidateSelector, Selector, Specificity},
+        syntax::Token,
+        CSSParse, ParseError, Parser, Serialize, Serializer,
+    },
     dom::{dom_objects::Element, DOMPtr},
 };
 

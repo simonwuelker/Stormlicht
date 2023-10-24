@@ -3,12 +3,14 @@ use std::fmt;
 use string_interner::InternedString;
 
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer},
+    css::{
+        selectors::{
+            AttributeMatcher, AttributeModifier, CSSValidateSelector, Selector, Specificity, WQName,
+        },
+        syntax::Token,
+        CSSParse, ParseError, Parser, Serialize, Serializer,
+    },
     dom::{dom_objects::Element, DOMPtr},
-};
-
-use super::{
-    AttributeMatcher, AttributeModifier, CSSValidateSelector, Selector, Specificity, WQName,
 };
 
 /// <https://drafts.csswg.org/selectors-4/#attribute-selectors>

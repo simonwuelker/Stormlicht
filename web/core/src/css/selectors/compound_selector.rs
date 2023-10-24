@@ -1,8 +1,11 @@
 use std::fmt;
 
-use super::{CSSValidateSelector, Selector, Specificity, SubClassSelector, TypeSelector};
 use crate::{
-    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser, Serialize, Serializer},
+    css::{
+        selectors::{CSSValidateSelector, Selector, Specificity, SubClassSelector, TypeSelector},
+        syntax::WhitespaceAllowed,
+        CSSParse, ParseError, Parser, Serialize, Serializer,
+    },
     dom::{dom_objects::Element, DOMPtr},
 };
 

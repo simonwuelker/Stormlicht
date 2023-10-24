@@ -1,7 +1,6 @@
 use string_interner::InternedString;
 
-use super::CSSValidateSelector;
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use crate::css::{selectors::CSSValidateSelector, syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-ns-prefix>
 #[derive(Clone, Copy, Debug, PartialEq)]

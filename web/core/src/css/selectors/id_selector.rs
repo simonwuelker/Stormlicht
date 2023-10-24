@@ -2,9 +2,9 @@ use std::fmt;
 
 use string_interner::InternedString;
 
-use super::{CSSValidateSelector, Selector, Specificity};
 use crate::{
     css::{
+        selectors::{CSSValidateSelector, Selector, Specificity},
         syntax::{HashFlag, Token},
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },

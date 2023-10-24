@@ -2,8 +2,11 @@ use std::fmt;
 
 use string_interner::InternedString;
 
-use super::{CSSValidateSelector, NSPrefix};
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer};
+use crate::css::{
+    selectors::{CSSValidateSelector, NSPrefix},
+    syntax::Token,
+    CSSParse, ParseError, Parser, Serialize, Serializer,
+};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-wq-name>
 #[derive(Clone, Copy, Debug, PartialEq)]

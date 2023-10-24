@@ -1,8 +1,13 @@
 use std::fmt;
 
-use super::{CSSValidateSelector, CompoundSelector, PseudoCompoundSelector, Selector, Specificity};
 use crate::{
-    css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser, Serialize, Serializer},
+    css::{
+        selectors::{
+            CSSValidateSelector, CompoundSelector, PseudoCompoundSelector, Selector, Specificity,
+        },
+        syntax::WhitespaceAllowed,
+        CSSParse, ParseError, Parser, Serialize, Serializer,
+    },
     dom::{dom_objects::Element, DOMPtr},
 };
 

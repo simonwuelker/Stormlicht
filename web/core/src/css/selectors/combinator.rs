@@ -1,7 +1,9 @@
 use std::fmt;
 
-use super::CSSValidateSelector;
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer};
+use crate::css::{
+    selectors::CSSValidateSelector, syntax::Token, CSSParse, ParseError, Parser, Serialize,
+    Serializer,
+};
 
 /// <https://drafts.csswg.org/selectors-4/#combinators>
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

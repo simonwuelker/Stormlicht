@@ -1,5 +1,8 @@
-use super::{CSSValidateSelector, Combinator, CompoundSelector};
-use crate::css::{syntax::WhitespaceAllowed, CSSParse, ParseError, Parser};
+use crate::css::{
+    selectors::{CSSValidateSelector, Combinator, CompoundSelector},
+    syntax::WhitespaceAllowed,
+    CSSParse, ParseError, Parser,
+};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-complex-real-selector>
 #[derive(Clone, Debug, PartialEq)]
