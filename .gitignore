@@ -6,3 +6,6 @@ Cargo.lock
 perf.data*
 flamegraph.svg
 callgrind.out.*
+
+# Editor artifacts
+/.vscode
