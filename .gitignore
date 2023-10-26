@@ -1,5 +1,6 @@
 /target
 /downloads
+Cargo.lock
 
 # Benchmarking results
 perf.data*
