@@ -7,5 +7,8 @@ perf.data*
 flamegraph.svg
 callgrind.out.*
 
+# Compiled GTK4 blueprints
+*.ui
+
 # Editor artifacts
 /.vscode
