@@ -20,3 +20,7 @@ render = { workspace = true }
 math = { workspace = true }
 core = { workspace = true }
 url = { workspace = true }
+gtk = { package = "gtk4", version = "0.7.3" }
+
+[build-dependencies]
+glib-build-tools = "0.18.0"

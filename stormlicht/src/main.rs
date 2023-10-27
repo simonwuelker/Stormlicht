@@ -1,10 +1,9 @@
 #![feature(panic_update_hook)]
 
-mod browser_application;
+// mod browser_application;
+mod chrome;
 
 use std::process::ExitCode;
-
-use browser_application::BrowserApplication;
 
 use cli::CommandLineArgumentParser;
 
@@ -17,7 +16,7 @@ struct ArgumentParser {
         long_name = "URL",
         description = "URL to load"
     )]
-    url: Option<String>,
+    _url: Option<String>,
 
     #[argument(
         flag,
@@ -88,5 +87,5 @@ pub fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    BrowserApplication::run(arguments.url.as_deref())
+    chrome::gtk::run()
 }

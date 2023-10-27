@@ -20,6 +20,7 @@ def build_documentation(args, unknown_args):
 
 
 def run(args, unknown_args):
+    build_gtk_blueprints()
     cmd = ["cargo", "run"]
     if args.release:
         cmd.append("--release")
@@ -29,9 +30,26 @@ def run(args, unknown_args):
 
 
 def build(args, unknown_args):
+    build_gtk_blueprints()
     cmd = ["cargo", "build"]
     if args.release:
         cmd.append("--release")
+    subprocess.run(cmd)
+
+
+def build_gtk_blueprints():
+    blueprint_dir = "stormlicht/resources"
+    blueprint_files = [
+        os.path.join(blueprint_dir, file)
+        for file in os.listdir(blueprint_dir)
+        if file.endswith(".blp")
+    ]
+    cmd = [
+        "blueprint-compiler",
+        "batch-compile",
+        blueprint_dir,
+        blueprint_dir,
+    ] + blueprint_files
     subprocess.run(cmd)
 
 

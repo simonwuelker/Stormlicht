@@ -1,6 +1,11 @@
 use std::process::Command;
 
 fn main() {
+    get_environment_info();
+    compile_glib_resources();
+}
+
+fn get_environment_info() {
     let output = Command::new("git")
         .args(["rev-parse", "HEAD"])
         .output()
@@ -15,5 +20,13 @@ fn main() {
     println!(
         "cargo:rustc-env=RUSTC_VERSION={}",
         std::env::var("RUSTC").unwrap()
+    );
+}
+
+fn compile_glib_resources() {
+    glib_build_tools::compile_resources(
+        &["resources"],
+        "resources/gresources.xml",
+        "composite_template.gresource",
     );
 }

@@ -3,18 +3,6 @@ use url::URL;
 
 use std::process::ExitCode;
 
-/// Initial viewport width, in display points
-const INITIAL_WIDTH: u16 = 800;
-
-/// Initial viewport height, in display points
-const INITIAL_HEIGHT: u16 = 600;
-
-const WELCOME_PAGE: &str = concat!(
-    "file://localhost/",
-    env!("CARGO_MANIFEST_DIR"),
-    "/../pages/welcome.html"
-);
-
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 enum RepaintRequired {
     #[default]
