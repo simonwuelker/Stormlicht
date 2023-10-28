@@ -3,5 +3,5 @@
 mod command;
 mod painter;
 
-pub use painter::Painter;
 pub use command::Command;
+pub use painter::Painter;
