@@ -104,7 +104,9 @@ where
             // https://url.spec.whatwg.org/#scheme-start-state
             URLParserState::SchemeStart => {
                 // If c is an ASCII alpha,
-                if let Some(c) = self.input.current() && c.is_ascii_alphabetic() {
+                if let Some(c) = self.input.current()
+                    && c.is_ascii_alphabetic()
+                {
                     // Append c, lowercased, to buffer,
                     self.buffer.push(c.to_ascii_lowercase());
 
@@ -130,7 +132,9 @@ where
                 let c = self.input.current();
 
                 // If c is an ASCII alphanumeric, U+002B (+), U+002D (-), or U+002E (.),
-                if let Some(c) = c && matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '+' | '-' | '.') {
+                if let Some(c) = c
+                    && matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '+' | '-' | '.')
+                {
                     // Append c, lowercased, to buffer
                     self.buffer.push(c.to_ascii_lowercase());
                 }
@@ -188,7 +192,9 @@ where
                         // If remaining does not start with "//"
                         if !self.input.remaining().starts_with("//") {
                             // special-scheme-missing-following-solidus validation error.
-                            self.error_handler.validation_error(ValidationError::SpecialSchemeMissingFollowingSolidus);
+                            self.error_handler.validation_error(
+                                ValidationError::SpecialSchemeMissingFollowingSolidus,
+                            );
                         }
 
                         // Set state to file state.
@@ -196,7 +202,11 @@ where
                     }
                     // Otherwise, if url is special, base is non-null, and base’s scheme is url’s scheme:
                     else if self.url.is_special()
-                        && self.base.as_ref().map(URL::scheme).is_some_and(|scheme| scheme == self.url.scheme())
+                        && self
+                            .base
+                            .as_ref()
+                            .map(URL::scheme)
+                            .is_some_and(|scheme| scheme == self.url.scheme())
                     {
                         // Assert: base is is special (and therefore does not have an opaque path).
                         assert!(self.base.as_ref().is_some_and(URL::is_special));
@@ -776,14 +786,17 @@ where
                     // If c is U+005C (\),
                     if c == Some('\\') {
                         // invalid-reverse-solidus validation error.
-                        self.error_handler.validation_error(ValidationError::InvalidReverseSolidus);
+                        self.error_handler
+                            .validation_error(ValidationError::InvalidReverseSolidus);
                     }
 
                     // Set state to file slash state.
                     self.set_state(URLParserState::FileSlash);
                 }
                 // Otherwise, if base is non-null and base’s scheme is "file":
-                else if let Some(base) = &self.base && base.scheme == "file" {
+                else if let Some(base) = &self.base
+                    && base.scheme == "file"
+                {
                     // Set url’s host to base’s host,
                     self.url.host = base.host.clone();
 
@@ -824,7 +837,8 @@ where
                     // Otherwise:
                     else {
                         // File-invalid-Windows-drive-letter validation error.
-                        self.error_handler.validation_error(ValidationError::FileInvalidWindowsDriveLetter);
+                        self.error_handler
+                            .validation_error(ValidationError::FileInvalidWindowsDriveLetter);
 
                         // Set url’s path to an empty list.
                         self.url.path = vec![];
@@ -863,7 +877,9 @@ where
                 // Otherwise:
                 else {
                     // If base is non-null and base’s scheme is "file", then:
-                    if let Some(base) = &self.base && base.scheme == "file" {
+                    if let Some(base) = &self.base
+                        && base.scheme == "file"
+                    {
                         // Set url’s host to base’s host.
                         self.url.host = base.host.clone();
 
@@ -931,8 +947,10 @@ where
                             .map_err(|_| Failure)?;
 
                             // If host is "localhost", then set host to the empty string.
-                            if let Host::Domain(domain) = &host && domain.as_str() == "localhost" {
-                                    host = Host::OpaqueHost(ascii::String::default());
+                            if let Host::Domain(domain) = &host
+                                && domain.as_str() == "localhost"
+                            {
+                                host = Host::OpaqueHost(ascii::String::default());
                             }
 
                             // Set url’s host to host.

@@ -56,7 +56,9 @@ pub fn percent_encode<W: ascii::Write, F: Fn(u8) -> bool>(
     writer: &mut W,
 ) {
     for &byte in input {
-        if let Some(c) = ascii::Char::from_u8(byte) && !in_encode_set(byte) {
+        if let Some(c) = ascii::Char::from_u8(byte)
+            && !in_encode_set(byte)
+        {
             writer.write_char(c)
         } else {
             percent_encode_byte(byte, writer);
@@ -114,8 +116,9 @@ pub fn percent_decode(encoded: &ascii::Str) -> Vec<u8> {
         // 1. If byte is not 0x25 (%), then append byte to output.
         if chars[i] != ascii::Char::PercentSign {
             result.push(chars[i].to_u8());
-        }
-        else if i + 2 < chars.len() && let Some(c) = decode(chars[i + 1], chars[i + 2]) {
+        } else if i + 2 < chars.len()
+            && let Some(c) = decode(chars[i + 1], chars[i + 2])
+        {
             result.push(c);
             i += 2;
         } else {
