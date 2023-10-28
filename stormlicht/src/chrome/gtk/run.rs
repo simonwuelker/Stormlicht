@@ -4,7 +4,7 @@ use super::Window;
 
 use std::process::ExitCode;
 
-use gtk::{gio, glib, prelude::*, Application};
+use gtk::{gio, glib, prelude::*};
 
 const APP_ID: &str = "rs.stormlicht.browser";
 
@@ -12,7 +12,7 @@ pub fn run() -> ExitCode {
     gio::resources_register_include!("composite_template.gresource")
         .expect("Failed to register resources.");
 
-    let application = gtk::Application::builder().application_id(APP_ID).build();
+    let application = adw::Application::builder().application_id(APP_ID).build();
 
     let quit = gio::SimpleAction::new("quit", None);
     quit.connect_activate(
@@ -29,7 +29,7 @@ pub fn run() -> ExitCode {
     ExitCode::from(glib_exit_code.value() as u8)
 }
 
-fn build_ui(app: &Application) {
+fn build_ui(app: &adw::Application) {
     let window = Window::new(app);
     window.set_default_width(INITIAL_WIDTH as i32);
     window.set_default_height(INITIAL_HEIGHT as i32);

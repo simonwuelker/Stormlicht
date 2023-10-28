@@ -21,6 +21,7 @@ math = { workspace = true }
 core = { workspace = true }
 url = { workspace = true }
 gtk = { package = "gtk4", version = "0.7.3" }
+adw = { version = "0.5.3", package = "libadwaita", features = ["v1_3"] }
 
 [build-dependencies]
 glib-build-tools = "0.18.0"

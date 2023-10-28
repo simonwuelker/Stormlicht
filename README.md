@@ -42,8 +42,16 @@ sudo apt install git python3
 # Download required files (fonts etc..)
 python3 setup.py
 
-# Run the browser
-cargo r
+./stormlicht.py run
+```
+
+### 1.2.2 Fedora
+```console
+sudo dnf install gtk4-devel libxkbcommon-x11-devel
+
+python3 setup.py
+
+./stormlicht.py run
 ```
 
 ## 1.3. Development

@@ -1,11 +1,9 @@
 using Gtk 4.0;
+using Adw 1;
 
-template $StormlichtWindow: Gtk.ApplicationWindow {
+template $StormlichtWindow: Adw.ApplicationWindow {
     title: "Stormlicht";
-
-    [titlebar]
-    HeaderBar header_bar {}
-
+    
     Label {
         styles ["heading"]
         label: _("Hello, world!");

@@ -1,4 +1,5 @@
-use gtk::{glib, subclass::prelude::*, CompositeTemplate};
+use adw::subclass::prelude::*;
+use gtk::{glib, CompositeTemplate};
 
 use glib::subclass::InitializingObject;
 
@@ -11,7 +12,7 @@ impl ObjectSubclass for Window {
     const NAME: &'static str = "StormlichtWindow";
 
     type Type = super::Window;
-    type ParentType = gtk::ApplicationWindow;
+    type ParentType = adw::ApplicationWindow;
 
     fn class_init(klass: &mut Self::Class) {
         klass.bind_template();
@@ -23,7 +24,7 @@ impl ObjectSubclass for Window {
 }
 
 impl ObjectImpl for Window {}
-
+impl AdwApplicationWindowImpl for Window {}
 impl WidgetImpl for Window {}
 impl WindowImpl for Window {}
 impl ApplicationWindowImpl for Window {}
