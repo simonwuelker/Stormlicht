@@ -1,6 +1,5 @@
 use std::path;
 
-
 /// Used to abstract over font source backends (fontconfig etc)
 ///
 /// The actual backend used is known at compile time, but we need to
