@@ -1,0 +1,6 @@
+[wrap-git]
+method = cargo
+directory = env_logger-0.10.0
+url = https://github.com/rust-cli/env_logger
+revision = main
+depth = 1
