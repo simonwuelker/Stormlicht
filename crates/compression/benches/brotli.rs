@@ -2,7 +2,7 @@ use compression::brotli;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 const COMPRESSED_FILE: &[u8] =
-    include_bytes!("../../downloads/brotli/testdata/tests/testdata/alice29.txt.compressed");
+    include_bytes!("../../../downloads/brotli/testdata/tests/testdata/alice29.txt.compressed");
 
 fn criterion_benchmark(c: &mut Criterion) {
     c.bench_with_input(

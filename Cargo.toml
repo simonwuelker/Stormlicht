@@ -1,56 +1,56 @@
 [workspace]
 members = [
-    "web/core",
-    "web/http",
-    "web/url",
-    "web/dns",
-    "web/dom-derive",
-    "graphics/render",
-    "graphics/font",
-    "graphics/math",
-    "compression",
+    "crates/web/core",
+    "crates/web/http",
+    "crates/web/url",
+    "crates/web/dns",
+    "crates/web/dom-derive",
+    "crates/graphics/render",
+    "crates/graphics/font",
+    "crates/graphics/math",
+    "crates/compression",
+    "crates/util/cli",
+    "crates/util/cli-derive",
+    "crates/util/mime",
+    "crates/util/serialization/serialize",
+    "crates/util/serialization/serialize-derive",
+    "crates/util/string_interner",
+    "crates/util/perfect_hash",
+    "crates/util/perfect_hash_derive",
+    "crates/sl-std",
+    "crates/sys/fontconfig",
+    "crates/crypto/ciphers",
+    "crates/crypto/hash",
+    "crates/crypto/tls",
+    "stormlicht",
     "tests/runners/text-rendering",
     "tests/runners/html5lib",
-    "util/cli",
-    "util/cli-derive",
-    "util/mime",
-    "util/serialization/serialize",
-    "util/serialization/serialize-derive",
-    "util/string_interner",
-    "util/perfect_hash",
-    "util/perfect_hash_derive",
-    "sl-std",
-    "stormlicht",
-    "sys/fontconfig",
-    "crypto/ciphers",
-    "crypto/hash",
-    "crypto/tls",
 ]
 resolver = "2"
 
 [workspace.dependencies]
-core = { path = "web/core" }
-http = { path = "web/http" }
-url = { path = "web/url" }
-dns = { path = "web/dns" }
-dom-derive = { path = "web/dom-derive" }
-render = { path = "graphics/render" }
-font = { path = "graphics/font" }
-math = { path = "graphics/math" }
-compression = { path = "compression" }
-cli = { path = "util/cli" }
-cli-derive = { path = "util/cli-derive" }
-mime = { path = "util/mime" }
-serialize = { path = "util/serialization/serialize" }
-serialize-derive = { path = "util/serialization/serialize-derive" }
-string_interner = { path = "util/string_interner" }
-perfect_hash = { path = "util/perfect_hash" }
-perfect_hash_derive = { path = "util/perfect_hash_derive" }
-sl-std = { path = "sl-std" }
-fontconfig = { path = "sys/fontconfig" }
-ciphers = { path = "crypto/ciphers" }
-hash = { path = "crypto/hash" }
-tls = { path = "crypto/tls" }
+core = { path = "crates/web/core" }
+http = { path = "crates/web/http" }
+url = { path = "crates/web/url" }
+dns = { path = "crates/web/dns" }
+dom-derive = { path = "crates/web/dom-derive" }
+render = { path = "crates/graphics/render" }
+font = { path = "crates/graphics/font" }
+math = { path = "crates/graphics/math" }
+compression = { path = "crates/compression" }
+cli = { path = "crates/util/cli" }
+cli-derive = { path = "crates/util/cli-derive" }
+mime = { path = "crates/util/mime" }
+serialize = { path = "crates/util/serialization/serialize" }
+serialize-derive = { path = "crates/util/serialization/serialize-derive" }
+string_interner = { path = "crates/util/string_interner" }
+perfect_hash = { path = "crates/util/perfect_hash" }
+perfect_hash_derive = { path = "crates/util/perfect_hash_derive" }
+sl-std = { path = "crates/sl-std" }
+fontconfig = { path = "crates/sys/fontconfig" }
+ciphers = { path = "crates/crypto/ciphers" }
+hash = { path = "crates/crypto/hash" }
+tls = { path = "crates/crypto/tls" }
 
 log = "0.4"
 criterion = { version = "0.4", features = ["html_reports"] }
