@@ -12,3 +12,5 @@ callgrind.out.*
 
 # Editor artifacts
 /.vscode
+
+__pycache__
