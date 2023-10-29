@@ -20,8 +20,8 @@ class ExecutableStore:
                 ExecutableStore.known_executables[name] = full_path
                 return full_path
 
-def run_cmd(cmd, stdin=None, stdout=None, stderr=None, timeout=None):
+def run_cmd(cmd, **kwargs):
     cmd[0] = ExecutableStore.get(cmd[0])
-    result = subprocess.run(cmd, stdin, stdout, stderr, timeout)
+    result = subprocess.run(cmd, **kwargs)
     if result.returncode != 0:
         log.error(f"Failed to run {cmd}: Process exited with exit code {result.returncode}")
