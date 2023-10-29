@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = serde_json-1.0.107
+source_url = https://crates.io/api/v1/crates/serde_json/1.0.107/download
+source_filename = serde_json-1.0.107.tar.gz
+source_hash = 6b420ce6e3d8bd882e9b243c6eed35dbc9a6110c9769e74b584e0d68d1f20c65
+method = cargo

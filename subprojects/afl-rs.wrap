@@ -1,0 +1,6 @@
+[wrap-file]
+directory = afl-0.14.3
+source_url = https://crates.io/api/v1/crates/afl/0.14.3/download
+source_filename = afl-0.14.3.tar.gz
+source_hash = 330d7251127b228cb4187ac2373dc37f615d65199f93b5443edeeed839fff5df
+method = cargo

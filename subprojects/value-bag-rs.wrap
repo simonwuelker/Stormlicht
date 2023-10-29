@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = value-bag-1.4.2
+source_url = https://crates.io/api/v1/crates/value-bag/1.4.2/download
+source_filename = value_bag-1.4.2.tar.gz
+source_hash = 4a72e1902dde2bd6441347de2b70b7f5d59bf157c6c62f0c44572607a1d55bbe
+method = cargo

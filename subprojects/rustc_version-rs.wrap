@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = rustc_version-0.4.0
+source_url = https://crates.io/api/v1/crates/rustc_version/0.4.0/download
+source_filename = rustc_version-0.4.0.tar.gz
+source_hash = bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366
+method = cargo

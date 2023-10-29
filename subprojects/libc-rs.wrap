@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = libc-0.2.149
+source_url = https://crates.io/api/v1/crates/libc/0.2.149/download
+source_filename = libc-0.2.149.tar.gz
+source_hash = a08173bc88b7955d1b3145aa561539096c421ac8debde8cbc3612ec635fee29b
+method = cargo

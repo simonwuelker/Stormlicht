@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = parking_lot_core-0.9.9
+source_url = https://crates.io/api/v1/crates/parking_lot_core/0.9.9/download
+source_filename = parking_lot_core-0.9.9.tar.gz
+source_hash = 4c42a9226546d68acdd9c0a280d17ce19bfe27a46bf68784e4066115788d008e
+method = cargo

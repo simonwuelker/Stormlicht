@@ -12,3 +12,6 @@ callgrind.out.*
 
 # Editor artifacts
 /.vscode
+
+subprojects/*
+!subprojects/*.wrap

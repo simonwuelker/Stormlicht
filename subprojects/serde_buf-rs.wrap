@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = serde_buf-0.1.1
+source_url = https://crates.io/api/v1/crates/serde_buf/0.1.1/download
+source_filename = serde_buf-0.1.1.tar.gz
+source_hash = 3a86be9d6c7d34718d2ec6f56c8d6a4671d1a7357c2a6921f47fe5a3ee6056cc
+method = cargo

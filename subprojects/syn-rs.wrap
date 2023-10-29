@@ -1,0 +1,6 @@
+[wrap-file]
+directory = syn-2.0.38
+source_url = https://crates.io/api/v1/crates/syn/2.0.38/download
+source_filename = syn-2.0.38.tar.gz
+source_hash = e96b79aaa137db8f61e26363a0c9b47d8b4ec75da28b7d1d614c2303e232408b
+method = cargo

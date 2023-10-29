@@ -77,6 +77,12 @@ There are currently very smart people working to solve these issues[^3], but I a
 
 But there is another reason: A browser engine is really just a highly complex framework for implementing user interfaces. If I procrastinate on implementing a GUI library long enough, i can just write it in HTML!
 
+## Why are you not using `cargo`?
+`cargo` is an extremely pleasant build system, as long as you only need to build rust code. However, things start to break down quickly
+if you need to do other things, like compiling other languages or downloading files at build time etc.
+At the same time, integrating `cargo` with other build systems is difficult. This isn't `cargo`'s fault, other build systems
+have simply not provided integrations yet.
+
 
 ## 1.5. Credits
 This project is inspired by [Andreas Kling](https://github.com/awesomekling)/[the Ladybird Browser](https://awesomekling.github.io/Ladybird-a-new-cross-platform-browser-project/)

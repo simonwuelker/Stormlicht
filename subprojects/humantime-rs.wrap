@@ -1,0 +1,6 @@
+[wrap-file]
+directory = humantime-2.1.0
+source_url = https://crates.io/api/v1/crates/humantime/2.1.0/download
+source_filename = humantime-2.1.0.tar.gz
+source_hash = 9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4
+method = cargo

@@ -1,6 +1,6 @@
-[wrap-git]
-method = cargo
+[wrap-file]
 directory = env_logger-0.10.0
-url = https://github.com/rust-cli/env_logger
-revision = main
-depth = 1
+source_url = https://crates.io/api/v1/crates/env_logger/0.10.0/download
+source_filename = env_logger-0.10.0.tar.gz
+source_hash = 85cdab6a89accf66733ad5a1693a4dcced6aeff64602b634530dd73c1f3ee9f0
+method = cargo

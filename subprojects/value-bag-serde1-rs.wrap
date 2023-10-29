@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = value-bag-serde1-1.4.2
+source_url = https://crates.io/api/v1/crates/value-bag-serde1/1.4.2/download
+source_filename = value_bag_serde1-1.4.2.tar.gz
+source_hash = 07ba39dc791ecb35baad371a3fc04c6eab688c04937d2e0ac6c22b612c0357bf
+method = cargo

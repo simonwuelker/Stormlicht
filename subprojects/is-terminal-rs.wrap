@@ -1,0 +1,6 @@
+[wrap-file]
+directory = is-terminal-0.4.9
+source_url = https://crates.io/api/v1/crates/is-terminal/0.4.9/download
+source_filename = is-terminal-0.4.9.tar.gz
+source_hash = cb0889898416213fab133e1d33a0e5858a48177452750691bde3666d0fdbaf8b
+method = cargo

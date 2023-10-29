@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = compiler_builtins-0.1.101
+source_url = https://crates.io/api/v1/crates/compiler_builtins/0.1.101/download
+source_filename = compiler_builtins-0.1.101.tar.gz
+source_hash = 01a6d58e9c3408138099a396a98fd0d0e6cfb25d723594d2ae48b5004513fd5b
+method = cargo

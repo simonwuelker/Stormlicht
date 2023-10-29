@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = backtrace-0.3.69
+source_url = https://crates.io/api/v1/crates/backtrace/0.3.69/download
+source_filename = backtrace-0.3.69.tar.gz
+source_hash = 2089b7e3f35b9dd2d0ed921ead4f6d318c27680d4a5bd167b3ee120edb105837
+method = cargo

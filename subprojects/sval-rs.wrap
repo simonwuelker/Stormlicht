@@ -1,0 +1,6 @@
+[wrap-file]
+directory = sval-2.10.2
+source_url = https://crates.io/api/v1/crates/sval/2.10.2/download
+source_filename = sval-2.10.2.tar.gz
+source_hash = b15df12a8db7c216a04b4b438f90d50d5335cd38f161b56389c9f5c9d96d0873
+method = cargo

@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = critical-section-1.1.2
+source_url = https://crates.io/api/v1/crates/critical-section/1.1.2/download
+source_filename = critical_section-1.1.2.tar.gz
+source_hash = 7059fff8937831a9ae6f0fe4d658ffabf58f2ca96aa9dec1c889f936f705f216
+method = cargo

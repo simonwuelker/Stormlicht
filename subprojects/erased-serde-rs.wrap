@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = erased-serde-0.3.31
+source_url = https://crates.io/api/v1/crates/erased-serde/0.3.31/download
+source_filename = erased_serde-0.3.31.tar.gz
+source_hash = 6c138974f9d5e7fe373eb04df7cae98833802ae4b11c24ac7039a21d5af4b26c
+method = cargo

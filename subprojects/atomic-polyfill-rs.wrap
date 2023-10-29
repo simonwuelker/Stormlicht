@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = atomic-polyfill-1.0.3
+source_url = https://crates.io/api/v1/crates/atomic-polyfill/1.0.3/download
+source_filename = atomic_polyfill-1.0.3.tar.gz
+source_hash = 8cf2bce30dfe09ef0bfaef228b9d414faaf7e563035494d7fe092dba54b300f4
+method = cargo

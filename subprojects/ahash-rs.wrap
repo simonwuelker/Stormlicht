@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = ahash-0.8.6
+source_url = https://crates.io/api/v1/crates/ahash/0.8.6/download
+source_filename = ahash-0.8.6.tar.gz
+source_hash = 91429305e9f0a25f6205c5b8e0d2db09e0708a7a6df0f42212bb56c32c8ac97a
+method = cargo

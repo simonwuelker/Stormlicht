@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = serde_fmt-1.0.3
+source_url = https://crates.io/api/v1/crates/serde_fmt/1.0.3/download
+source_filename = serde_fmt-1.0.3.tar.gz
+source_hash = e1d4ddca14104cd60529e8c7f7ba71a2c8acd8f7f5cfcdc2faf97eeb7c3010a4
+method = cargo

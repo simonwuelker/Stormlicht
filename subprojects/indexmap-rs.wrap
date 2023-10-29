@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = indexmap-2.0.2
+source_url = https://crates.io/api/v1/crates/indexmap/2.0.2/download
+source_filename = indexmap-2.0.2.tar.gz
+source_hash = 8adf3ddd720272c6ea8bf59463c04e0f93d0bbf7c5439b691bca2987e0270897
+method = cargo

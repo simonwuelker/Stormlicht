@@ -11,6 +11,13 @@ const APP_ID: &str = "rs.stormlicht.browser";
 pub fn run() -> ExitCode {
     gio::resources_register_include!("composite_template.gresource")
         .expect("Failed to register resources.");
+    // let resource = gio::Resource::load(
+    //     crate::env::pkg_data_dir()
+    //         .expect("Could not retrieve pkg data dir")
+    //         .join(globals::GRESOURCES_FILENAME),
+    // )
+    // .expect("Could not load gresource file");
+    // gio::resources_register(&resource);
 
     let application = adw::Application::builder().application_id(APP_ID).build();
 

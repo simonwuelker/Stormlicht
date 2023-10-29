@@ -1,0 +1,7 @@
+
+[wrap-file]
+directory = const-random-0.1.16
+source_url = https://crates.io/api/v1/crates/const-random/0.1.16/download
+source_filename = const_random-0.1.16.tar.gz
+source_hash = 11df32a13d7892ec42d51d3d175faba5211ffe13ed25d4fb348ac9e9ce835593
+method = cargo

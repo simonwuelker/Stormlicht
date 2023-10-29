@@ -1,0 +1,10 @@
+option(
+  'profile',
+  type: 'combo',
+  choices: [
+    'development',
+    'release'
+  ],
+  value: 'development',
+  description: 'The build profile for stormlicht. One of "development" or "release".',
+)
