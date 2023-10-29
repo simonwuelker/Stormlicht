@@ -5,8 +5,8 @@ HEADER = "\033[95m"
 BLUE = "\033[94m"
 CYAN = "\033[96m"
 GREEN = "\033[92m"
-WARNING = "\033[93m"
-FAIL = "\033[91m"
+ORANGE = "\033[93m"
+RED = "\033[91m"
 ENDC = "\033[0m"
 BOLD = "\033[1m"
 UNDERLINE = "\033[4m"
@@ -15,12 +15,15 @@ UNDERLINE = "\033[4m"
 if platform.system() == "Windows":
     os.system("color")
 
-def error(msg):
-    print("[" + FAIL + BOLD + "ERROR" + ENDC + "]: " + msg)
+def colored(text: str, color: str) -> str:
+    return color + text + ENDC
+
+def error(msg: str, **kwargs):
+    print("[" + colored("ERROR", RED + BOLD) + "]: " + msg, **kwargs)
     exit(1)
 
-def info(msg):
-    print("[" + BLUE + BOLD + "INFO" + ENDC + "]: " + msg)
+def info(msg: str, **kwargs):
+    print("[" + colored("INFO", BLUE + BOLD) + "]: " + msg, **kwargs)
 
-def warning(msg):
-    print("[" + WARNING + BOLD + "WARNING" + ENDC + "]: " + msg)
+def warning(msg: str, **kwargs):
+    print("[" + colored("WARNING", ORANGE + BOLD) + "]: " + msg, **kwargs)
