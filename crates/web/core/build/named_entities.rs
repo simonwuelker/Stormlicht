@@ -9,10 +9,11 @@ struct CharacterEntity {
     characters: String,
 }
 
+const NAMED_ENTITIES: &str =
+    include_str!(concat!(env!("DOWNLOAD_DIR"), "/html_named_entities.json"));
+
 pub fn generate() -> Result<(), io::Error> {
-    let json = String::from_utf8(fs::read("../../../downloads/html_named_entities.json")?)
-        .expect("html_named_entities.json contains invalid utf-8");
-    let mut deserializer = JsonDeserializer::new(&json);
+    let mut deserializer = JsonDeserializer::new(NAMED_ENTITIES);
     let entities: HashMap<String, CharacterEntity> =
         HashMap::deserialize(&mut deserializer).expect("invalid named entities json");
 
