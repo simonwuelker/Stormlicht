@@ -11,7 +11,7 @@ use sl_std::{big_num::BigNum, datetime::DateTime};
 pub struct X509Certificate {
     pub version: usize,
     pub serial_number: BigNum,
-    pub signature: AlgorithmIdentifier,
+    pub signature_algorithm: AlgorithmIdentifier,
     pub issuer: Identity,
     pub validity: Validity,
 }
@@ -23,7 +23,7 @@ pub struct SignedCertificate {
     _signature: BitString,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AlgorithmIdentifier {
     pub identifier: der::ObjectIdentifier,
 }
@@ -74,7 +74,8 @@ impl der::Parse for X509Certificate {
 
         let serial_number = expect_type!(expect_next_item!(certificate)?, Integer)?.into();
 
-        let signature = AlgorithmIdentifier::try_from_item(expect_next_item!(certificate)?)?;
+        let signature_algorithm =
+            AlgorithmIdentifier::try_from_item(expect_next_item!(certificate)?)?;
 
         let issuer = Identity::try_from_item(expect_next_item!(certificate)?)?;
 
@@ -83,7 +84,7 @@ impl der::Parse for X509Certificate {
         Ok(Self {
             version,
             serial_number,
-            signature,
+            signature_algorithm,
             issuer,
             validity,
         })
@@ -112,6 +113,11 @@ impl SignedCertificate {
         let _signature = expect_type!(expect_next_item!(root_sequence)?, BitString)?;
 
         if root_sequence.next().is_some() {
+            return Err(Error::InvalidFormat);
+        }
+
+        if certificate.signature_algorithm != signature_algorithm {
+            log::error!("The signature algorithm specified in the certificate {:?} does not match the algorithm used for the actual signature {:?}", certificate.signature_algorithm, signature_algorithm);
             return Err(Error::InvalidFormat);
         }
 

@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ObjectIdentifier {
     parts: Vec<usize>,
 }
