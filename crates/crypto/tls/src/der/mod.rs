@@ -1,8 +1,10 @@
+mod bit_string;
 mod integer;
 mod item;
 pub mod object_identifier;
 mod sequence;
 
+pub use bit_string::{BitString, BitStringParseError};
 pub use integer::Integer;
 pub use item::Item;
 pub use object_identifier::ObjectIdentifier;
@@ -39,6 +41,9 @@ pub enum Error {
     IndefiniteLength,
     ReservedLength,
     UnexpectedEOF,
+
+    /// An error occured while trying to parse a [BitString]
+    BitString(BitStringParseError),
     IllegalValue,
 }
 

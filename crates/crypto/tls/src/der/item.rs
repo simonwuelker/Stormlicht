@@ -1,13 +1,15 @@
 use sl_std::{ascii, datetime::DateTime};
 
-use super::{ClassTag, Error, Integer, ObjectIdentifier, PrimitiveOrConstructed, Sequence};
+use super::{
+    BitString, ClassTag, Error, Integer, ObjectIdentifier, PrimitiveOrConstructed, Sequence,
+};
 
 #[derive(Clone, Debug)]
 pub enum Item<'a> {
     EndOfContent,
     Boolean,
     Integer(Integer),
-    BitString,
+    BitString(BitString),
     OctetString,
     Null,
     ObjectIdentifier(ObjectIdentifier),
@@ -130,7 +132,7 @@ impl<'a> Item<'a> {
                 0 => Item::EndOfContent,
                 1 => Item::Boolean,
                 2 => Item::Integer(Integer::from_be_bytes(value_bytes)),
-                3 => Item::BitString,
+                3 => Item::BitString(BitString::try_from(value_bytes)?),
                 4 => Item::OctetString,
                 5 => Item::Null,
                 6 => Item::ObjectIdentifier(ObjectIdentifier::try_from(value_bytes)?),
