@@ -9,6 +9,8 @@ pub struct Str {
 }
 
 impl Str {
+    pub const EMPTY: &'static Self = Self::from_ascii_chars(&[]);
+
     #[must_use]
     pub const fn len(&self) -> usize {
         self.chars().len()
