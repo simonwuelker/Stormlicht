@@ -1,7 +1,7 @@
 use compression::brotli;
 use std::{fs, io::Read};
 
-const TESTS_DIR: &str = "../downloads/brotli/testdata/tests/testdata";
+const TESTS_DIR: &str = concat!(env!("DOWNLOAD_DIR"), "/brotli/testdata/tests/testdata");
 
 #[test]
 fn test_brotli_decompress() -> Result<(), std::io::Error> {
