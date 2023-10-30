@@ -2,7 +2,7 @@
 
 pub mod identity;
 
-use crate::der::{self, Parse};
+use crate::der::{self, BitString, Parse};
 pub use identity::Identity;
 
 use sl_std::{big_num::BigNum, datetime::DateTime};
@@ -20,7 +20,7 @@ pub struct X509Certificate {
 pub struct SignedCertificate {
     certificate: X509Certificate,
     _signature_algorithm: AlgorithmIdentifier,
-    _signature: (),
+    _signature: BitString,
 }
 
 #[derive(Clone, Debug)]
@@ -109,8 +109,7 @@ impl SignedCertificate {
         let signature_algorithm =
             AlgorithmIdentifier::try_from_item(expect_next_item!(root_sequence)?)?;
 
-        // FIXME: Properly parse signature
-        let _signature = expect_next_item!(root_sequence)?;
+        let _signature = expect_type!(expect_next_item!(root_sequence)?, BitString)?;
 
         if root_sequence.next().is_some() {
             return Err(Error::InvalidFormat);
@@ -119,7 +118,7 @@ impl SignedCertificate {
         Ok(Self {
             certificate,
             _signature_algorithm: signature_algorithm,
-            _signature: (),
+            _signature,
         })
     }
 
