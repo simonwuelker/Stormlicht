@@ -184,7 +184,6 @@ impl<W: io::Write> TLSRecordWriter<W> {
         self.out.write_all(&TLS_VERSION.as_bytes())?;
         self.out.write_all(&length.to_be_bytes())?;
         self.out.write_all(encrypted)?;
-        log::info!("wow we wrote such a good message");
 
         self.cursor.set_position(0);
         Ok(())
