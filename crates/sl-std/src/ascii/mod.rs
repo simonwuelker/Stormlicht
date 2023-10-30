@@ -3,7 +3,7 @@ mod str;
 mod string;
 mod write;
 
-pub use pattern::{Pattern, Searcher};
+pub use pattern::{DoubleEndedSearcher, Pattern, ReverseSearcher, Searcher};
 pub use str::Str;
 pub use string::{NotAscii, String};
 pub use write::Write;

@@ -1,4 +1,4 @@
-use super::{NotAscii, String};
+use super::{NotAscii, ReverseSearcher, Searcher, String};
 use std::{ascii::Char, fmt, ops, slice::SliceIndex};
 
 /// A borrowed [String]
@@ -66,23 +66,50 @@ impl Str {
         &mut self.chars
     }
 
+    /// Find a pattern in the string
+    ///
+    /// # Examples
+    /// ```
+    /// #![feature(ascii_char_variants, ascii_char)]
+    /// # use sl_std::ascii;
+    ///
+    /// let haystack: &ascii::Str = "abcdef".try_into().unwrap();
+    ///
+    /// assert_eq!(haystack.find(ascii::Char::SmallB), Some(1));
+    /// assert_eq!(haystack.find(ascii::Char::SmallX), None)
+    /// ```
     #[must_use]
-    pub fn find(&self, c: Char) -> Option<usize> {
-        self.chars
-            .iter()
-            .enumerate()
-            .find(|(_, &element)| element == c)
-            .map(|(i, _)| i)
+    pub fn find<'a, P: super::Pattern<'a>>(&'a self, pattern: P) -> Option<usize> {
+        pattern
+            .into_searcher(self)
+            .next_match()
+            .map(|(start, _end)| start)
     }
 
+    /// Find a pattern from the right in the string
+    ///
+    /// Note that the index returned will still be the start of the pattern
+    /// (the index of the *left*most character)
+    ///
+    /// # Examples
+    /// ```
+    /// #![feature(ascii_char_variants, ascii_char)]
+    /// # use sl_std::ascii;
+    ///
+    /// let haystack: &ascii::Str = "abcdef".try_into().unwrap();
+    ///
+    /// assert_eq!(haystack.rfind(ascii::Char::SmallE), Some(4));
+    /// assert_eq!(haystack.rfind(ascii::Char::SmallX), None)
+    /// ```
     #[must_use]
-    pub fn rfind(&self, c: Char) -> Option<usize> {
-        self.chars
-            .iter()
-            .enumerate()
-            .rev()
-            .find(|(_, &element)| element == c)
-            .map(|(i, _)| i)
+    pub fn rfind<'a, P: super::Pattern<'a>>(&'a self, pattern: P) -> Option<usize>
+    where
+        P::Searcher: ReverseSearcher<'a>,
+    {
+        pattern
+            .into_searcher(self)
+            .next_match_back()
+            .map(|(start, _end)| start)
     }
 
     #[inline]
