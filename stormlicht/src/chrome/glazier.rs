@@ -90,9 +90,9 @@ impl glazier::WinHandler for BrowserApplication {
 
     fn pointer_down(&mut self, glazier_event: &glazier::PointerEvent) {
         let button = match glazier_event.button {
-            glazier::PointerButton::Left => event::MouseButton::Left,
-            glazier::PointerButton::Middle => event::MouseButton::Middle,
-            glazier::PointerButton::Right => event::MouseButton::Right,
+            glazier::PointerButton::Primary => event::MouseButton::Left,
+            glazier::PointerButton::Auxiliary => event::MouseButton::Middle,
+            glazier::PointerButton::Secondary => event::MouseButton::Right,
             _ => {
                 // Some kind of button we don't support
                 return;
@@ -125,9 +125,9 @@ impl glazier::WinHandler for BrowserApplication {
 
     fn pointer_up(&mut self, glazier_event: &glazier::PointerEvent) {
         let button = match glazier_event.button {
-            glazier::PointerButton::Left => event::MouseButton::Left,
-            glazier::PointerButton::Middle => event::MouseButton::Middle,
-            glazier::PointerButton::Right => event::MouseButton::Right,
+            glazier::PointerButton::Primary => event::MouseButton::Left,
+            glazier::PointerButton::Auxiliary => event::MouseButton::Middle,
+            glazier::PointerButton::Secondary => event::MouseButton::Right,
             _ => {
                 // Some kind of button we don't support
                 return;
@@ -147,66 +147,6 @@ impl glazier::WinHandler for BrowserApplication {
 }
 
 impl BrowserApplication {
-    pub fn run(url: Option<&str>) -> ExitCode {
-        let url = match URL::from_user_input(url.unwrap_or(WELCOME_PAGE)) {
-            Ok(parsed_url) => parsed_url,
-            Err(error) => {
-                log::error!("Failed to parse {url:?} as a URL: {error:?}");
-                return ExitCode::FAILURE;
-            },
-        };
-
-        let browsing_context = match BrowsingContext::load(&url) {
-            Ok(context) => context,
-            Err(error) => {
-                log::error!("Failed to load {}: {error:?}", url.to_string());
-                return ExitCode::FAILURE;
-            },
-        };
-
-        // The view buffer is initialized once the window size method is called on startup.
-        // Before that, we can't know the windows dpi scaling and therefore cant know how large the
-        // view buffer needs to be.
-        let view_buffer = math::Bitmap::new(0, 0);
-
-        let application = Self {
-            view_buffer,
-            graphics_context: None,
-            viewport_size: (INITIAL_WIDTH, INITIAL_HEIGHT),
-            repaint_required: RepaintRequired::Yes,
-            composition: render::Composition::default(),
-            window_handle: glazier::WindowHandle::default(),
-            browsing_context: browsing_context,
-        };
-
-        let app = match glazier::Application::new() {
-            Ok(app) => app,
-            Err(error) => {
-                log::error!("Failed to initialize application: {error:?}");
-                return ExitCode::FAILURE;
-            },
-        };
-
-        let window_or_error = glazier::WindowBuilder::new(app.clone())
-            .resizable(true)
-            .size(((INITIAL_WIDTH) as f64, (INITIAL_HEIGHT) as f64).into())
-            .handler(Box::new(application))
-            .title("Stormlicht")
-            .build();
-
-        match window_or_error {
-            Ok(window) => {
-                window.show();
-                app.run(None);
-                ExitCode::SUCCESS
-            },
-            Err(error) => {
-                log::error!("Failed to create application window: {error:?}");
-                ExitCode::FAILURE
-            },
-        }
-    }
-
     /// Forwards an event to the browsing context and repaints if necessary
     pub fn dispatch_event(&mut self, event: event::Event) {
         let needs_repaint = self.browsing_context.handle_event(event);
@@ -214,5 +154,71 @@ impl BrowserApplication {
         if needs_repaint {
             self.window_handle.invalidate();
         }
+    }
+}
+
+pub fn run(url: Option<&str>) -> ExitCode {
+    let url = match URL::from_user_input(url.unwrap_or(super::WELCOME_PAGE)) {
+        Ok(parsed_url) => parsed_url,
+        Err(error) => {
+            log::error!("Failed to parse {url:?} as a URL: {error:?}");
+            return ExitCode::FAILURE;
+        },
+    };
+
+    let browsing_context = match BrowsingContext::load(&url) {
+        Ok(context) => context,
+        Err(error) => {
+            log::error!("Failed to load {}: {error:?}", url.to_string());
+            return ExitCode::FAILURE;
+        },
+    };
+
+    // The view buffer is initialized once the window size method is called on startup.
+    // Before that, we can't know the windows dpi scaling and therefore cant know how large the
+    // view buffer needs to be.
+    let view_buffer = math::Bitmap::new(0, 0);
+
+    let application = BrowserApplication {
+        view_buffer,
+        graphics_context: None,
+        viewport_size: (super::INITIAL_WIDTH, super::INITIAL_HEIGHT),
+        repaint_required: RepaintRequired::Yes,
+        composition: render::Composition::default(),
+        window_handle: glazier::WindowHandle::default(),
+        browsing_context: browsing_context,
+    };
+
+    let app = match glazier::Application::new() {
+        Ok(app) => app,
+        Err(error) => {
+            log::error!("Failed to initialize application: {error:?}");
+            return ExitCode::FAILURE;
+        },
+    };
+
+    let window_or_error = glazier::WindowBuilder::new(app.clone())
+        .resizable(true)
+        .size(
+            (
+                (super::INITIAL_WIDTH) as f64,
+                (super::INITIAL_HEIGHT) as f64,
+            )
+                .into(),
+        )
+        .handler(Box::new(application))
+        .title("Stormlicht")
+        .build();
+
+    match window_or_error {
+        Ok(window) => {
+            window.show();
+            app.run(None);
+            ExitCode::SUCCESS
+        },
+        Err(error) => {
+            log::error!("Failed to create application window: {error:?}");
+            ExitCode::FAILURE
+        },
     }
 }

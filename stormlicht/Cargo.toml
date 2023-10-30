@@ -12,16 +12,24 @@ license.workspace = true
 
 [dependencies]
 env_logger = "0.10"
-glazier = { git = "https://github.com/linebender/glazier" }
-softbuffer = "0.2"
 cli = { workspace = true }
 log = { workspace = true }
 render = { workspace = true }
 math = { workspace = true }
 core = { workspace = true }
 url = { workspace = true }
-gtk = { package = "gtk4", version = "0.7.3" }
-adw = { version = "0.5.3", package = "libadwaita", features = ["v1_3"] }
+
+glazier = { git = "https://github.com/linebender/glazier", optional = true }
+softbuffer = { version = "0.2", optional = true }
+
+gtk = { package = "gtk4", version = "0.7.3", optional = true }
+adw = { version = "0.5.3", package = "libadwaita", optional = true }
+
+[features]
+default = ["chrome-glazier"]
+chrome-gtk = ["gtk", "adw"]
+chrome-glazier = ["glazier", "softbuffer"]
+
 
 [build-dependencies]
 glib-build-tools = "0.18.0"
