@@ -125,7 +125,8 @@ pub struct MatchedFont {
 
 impl MatchedFont {
     pub(crate) fn fallback() -> Self {
-        const FALLBACK_FONT: &str = "../../../downloads/fonts/roboto/Roboto-Medium.ttf";
+        const FALLBACK_FONT: &str =
+            concat!(env!("DOWNLOAD_DIR"), "/fonts/roboto/Roboto-Medium.ttf");
 
         Self {
             file: path::PathBuf::from(FALLBACK_FONT),

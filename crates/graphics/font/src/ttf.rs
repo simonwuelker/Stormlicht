@@ -17,8 +17,10 @@ use crate::{
     },
 };
 
-const DEFAULT_FONT: &[u8; 168644] =
-    include_bytes!("../../../../downloads/fonts/roboto/Roboto-Medium.ttf");
+const DEFAULT_FONT: &[u8; 168644] = include_bytes!(concat!(
+    env!("DOWNLOAD_DIR"),
+    "/fonts/roboto/Roboto-Medium.ttf"
+));
 
 const CMAP_TAG: u32 = u32::from_be_bytes(*b"cmap");
 const HEAD_TAG: u32 = u32::from_be_bytes(*b"head");
