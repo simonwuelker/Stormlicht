@@ -51,9 +51,7 @@ def download_required_files():
         os.makedirs(os.path.join(BASE_DIR, "brotli/testdata"))
         testdata_dir = os.path.join(BASE_DIR, "brotli/testdata")
 
-        util.run_cmd(
-            [
-                "git",
+        util.Command.create("git").with_arguments([
                 "clone",
                 "-n",
                 "--depth=1",
@@ -61,30 +59,20 @@ def download_required_files():
                 "-q",
                 BROTLI_REPO_URL,
                 testdata_dir,
-            ],
-            stderr=subprocess.DEVNULL,
-        )
-
-        util.run_cmd(
-            [
-                "git",
+            ]).run(stderr=subprocess.DEVNULL)
+        
+        util.Command.create("git").with_arguments([
                 "-C",
                 testdata_dir,
                 "sparse-checkout",
                 "set",
                 "tests/testdata",
                 "-q",
-            ],
-            stderr=subprocess.DEVNULL,
-        )
-
-        util.run_cmd(
-            [
-                "git",
+            ]).run(stderr=subprocess.DEVNULL)
+        
+        util.Command.create("git").with_arguments([
                 "-C",
                 testdata_dir,
                 "checkout",
                 "-q",
-            ],
-            stderr=subprocess.DEVNULL,
-        )
+            ]).run(stderr=subprocess.DEVNULL)

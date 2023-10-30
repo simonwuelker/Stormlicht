@@ -20,8 +20,36 @@ class ExecutableStore:
                 ExecutableStore.known_executables[name] = full_path
                 return full_path
 
-def run_cmd(cmd, **kwargs):
-    cmd[0] = ExecutableStore.get(cmd[0])
-    result = subprocess.run(cmd, **kwargs)
-    if result.returncode != 0:
-        log.error(f"Failed to run {cmd}: Process exited with exit code {result.returncode}")
+class Command:
+    def create(name: str):
+        cmd = Command()
+        cmd.binary = ExecutableStore.get(name)
+        cmd.args = []
+        cmd.forwarded_args = []
+        return cmd
+    
+    def with_arguments(self, args: list):
+        self.args = args
+        return self
+
+    def with_forwarded_arguments(self, forwarded_args: list):
+        self.forwarded_args = forwarded_args
+        return self
+    
+    def append_argument(self, arg: str):
+        self.args.append(arg)
+        return self
+    
+    def extend_arguments(self, args: list):
+        self.args += args
+        return self
+    
+    def run(self, **kwargs):
+        cmd = [self.binary] + self.args
+
+        if len(self.forwarded_args) != 0:
+            cmd += ["--"] + self.forwarded_args
+        
+        result = subprocess.run(cmd, **kwargs)
+        if result.returncode != 0:
+            log.error(f"Failed to run {cmd}: Process exited with exit code {result.returncode}")

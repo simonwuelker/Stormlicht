@@ -9,37 +9,40 @@ from . import log, util, downloads
 from .testrunners import test_html_parser, test_font_rendering
 
 def ensure_submodules_are_downloaded():
-    util.run_cmd(["git", "submodule", "update", "--init", "--recursive"])
+    util.Command.create("git").with_arguments(["submodule", "update", "--init", "--recursive"]).run()
 
 def build_documentation(args, unknown_args):
-    cmd = ["cargo", "doc"]
+    cmd = util.Command.create("cargo").with_arguments(["doc"]).with_forwarded_arguments(unknown_args)
+
     if args.open:
-        cmd.append("--open")
-    util.run_cmd(cmd)
+        cmd.append_argument("--open")
+
+    log.info("Building stormlicht documentation...")
+    cmd.run()
 
 
 def run_stormlicht(args, unknown_args):
     build_gtk_blueprints()
 
-    cmd = ["cargo", "run"]
+    cmd = util.Command.create("cargo").with_arguments(["run"]).with_forwarded_arguments(unknown_args)
+
     if args.release:
-        cmd.append("--release")
-    cmd.append("--")
-    cmd.extend(unknown_args)
+        cmd.append_argument("--release")
 
     log.info("Compiling and running stormlicht...")
-    util.run_cmd(cmd)
+    cmd.run()
 
 
 def build_stormlicht(args, unknown_args):
     build_gtk_blueprints()
 
-    cmd = ["cargo", "build"]
+    cmd = util.Command.create("cargo").with_arguments(["build"]).with_forwarded_arguments(unknown_args)
+
     if args.release:
-        cmd.append("--release")
+        cmd.append_argument("--release")
 
     log.info("Compiling stormlicht...")
-    util.run_cmd(cmd)
+    cmd.run()
 
 
 def build_gtk_blueprints():
@@ -51,19 +54,11 @@ def build_gtk_blueprints():
         for file in os.listdir(blueprint_dir)
         if file.endswith(".blp")
     ]
-    cmd = [
-        "blueprint-compiler",
-        "batch-compile",
-        blueprint_dir,
-        blueprint_dir,
-    ] + blueprint_files
-    util.run_cmd(cmd)
 
+    util.Command.create("blueprint-compiler").with_arguments(["batch-compile", blueprint_dir, blueprint_dir]).extend_arguments(blueprint_files).run()
 
 def test_stormlicht(args, unknown_args):
-    cmd = ["cargo", "t"]
-    util.run_cmd(cmd)
-
+    cmd = util.Command.create("cargo").with_arguments(["test"]).with_forwarded_arguments(unknown_args).run()
 
 def run():
     # Install git pre-commit hook
