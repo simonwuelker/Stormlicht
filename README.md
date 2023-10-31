@@ -1,4 +1,4 @@
-[![Clippy check](https://github.com/Wuelle/Stormlicht/actions/workflows/clippy.yaml/badge.svg)](https://github.com/Wuelle/Stormlicht/actions/workflows/clippy.yaml)
+[![rustfmt](https://github.com/Wuelle/Stormlicht/actions/workflows/rustfmt.yaml/badge.svg)](https://github.com/Wuelle/Stormlicht/actions/workflows/rustfmt.yaml)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://user-images.githubusercontent.com/58120269/241563717-f73e2144-9101-4d3f-b7d2-ed2459e5d8e0.svg" width="200px">
