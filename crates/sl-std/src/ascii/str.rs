@@ -1,5 +1,5 @@
 use super::{NotAscii, ReverseSearcher, Searcher, String};
-use std::{ascii::Char, fmt, ops, slice::SliceIndex};
+use std::{ascii::Char, fmt, iter::FusedIterator, ops, slice::SliceIndex};
 
 /// A borrowed [String]
 #[repr(transparent)]
@@ -64,6 +64,34 @@ impl Str {
     #[must_use]
     pub fn chars_mut(&mut self) -> &mut [Char] {
         &mut self.chars
+    }
+
+    pub fn lines(&self) -> SplitIterator<'_, Char> {
+        self.split(Char::LineFeed)
+    }
+
+    /// Split the string at the occurences of a pattern
+    ///
+    /// The matched substring will not be contained in any of the segments.
+    ///
+    /// # Examples
+    /// Basic Usage:
+    /// ```
+    /// # use sl_std::ascii;
+    /// let haystack: &ascii::Str = "Lorem ipsum dolor".try_into().unwrap();
+    /// let mut splits = haystack.split("m ");
+    /// assert_eq!(splits.next().map(ascii::Str::as_str), Some("Lore"));
+    /// assert_eq!(splits.next().map(ascii::Str::as_str), Some("ipsu"));
+    /// assert_eq!(splits.next().map(ascii::Str::as_str), Some("dolor"));
+    /// assert!(splits.next().is_none())
+    /// ````
+    pub fn split<'a, P: super::Pattern<'a>>(&'a self, pattern: P) -> SplitIterator<'a, P> {
+        SplitIterator {
+            is_done: false,
+            start: 0,
+            end: self.len(),
+            searcher: pattern.into_searcher(self),
+        }
     }
 
     /// Find a pattern in the string
@@ -278,6 +306,7 @@ impl<'a> TryFrom<&'a str> for &'a Str {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct AsciiMatchIndices<'a, P>
 where
     P: super::Pattern<'a>,
@@ -295,3 +324,69 @@ where
         self.searcher.next_match()
     }
 }
+
+impl<'a, P> FusedIterator for AsciiMatchIndices<'a, P> where P: super::Pattern<'a> {}
+
+#[derive(Clone, Copy, Debug)]
+pub struct SplitIterator<'a, P>
+where
+    P: super::Pattern<'a>,
+{
+    is_done: bool,
+    start: usize,
+    end: usize,
+    searcher: P::Searcher,
+}
+
+impl<'a, P> Iterator for SplitIterator<'a, P>
+where
+    P: super::Pattern<'a>,
+{
+    type Item = &'a Str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.is_done {
+            return None;
+        }
+
+        let haystack = self.searcher.haystack();
+        match self.searcher.next_match() {
+            None => {
+                self.is_done = true;
+                Some(&haystack[self.start..self.end])
+            },
+            Some((match_start, match_end)) => {
+                let split_item = &haystack[self.start..match_start];
+                self.start = match_end;
+                Some(split_item)
+            },
+        }
+    }
+}
+
+impl<'a, P> DoubleEndedIterator for SplitIterator<'a, P>
+where
+    P: super::Pattern<'a>,
+    P::Searcher: ReverseSearcher<'a>,
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.is_done {
+            return None;
+        }
+
+        let haystack = self.searcher.haystack();
+        match self.searcher.next_match_back() {
+            None => {
+                self.is_done = true;
+                Some(&haystack[self.start..self.end])
+            },
+            Some((match_start, match_end)) => {
+                let split_item = &haystack[match_end..self.end];
+                self.end = match_start;
+                Some(split_item)
+            },
+        }
+    }
+}
+
+impl<'a, P> FusedIterator for SplitIterator<'a, P> where P: super::Pattern<'a> {}
