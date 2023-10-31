@@ -1,3 +1,5 @@
+#![feature(cfg_match)]
+
 mod adler32;
 mod crc32;
 mod sha;

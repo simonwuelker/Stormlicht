@@ -49,13 +49,25 @@ impl Default for CRC32Hasher {
 }
 
 impl CRC32Hasher {
-    pub fn write(&mut self, bytes: &[u8]) {
-        self.0 = if is_x86_feature_detected!("sse2") {
-            // Safe, we just verified that SSE is supported
-            unsafe { simd::crc32_update(self.0, bytes) }
-        } else {
-            crc32_update_no_simd(self.0, bytes)
-        };
+    cfg_match! {
+        cfg(all(
+            any(target_arch = "x86", target_arch = "x86_64"),
+            target_feature = "sse2"
+        )) => {
+            pub fn write(&mut self, bytes: &[u8]) {
+                self.0 = if is_x86_feature_detected!("sse2") {
+                    // Safe, we just verified that SSE is supported
+                    unsafe { simd::crc32_update(self.0, bytes) }
+                } else {
+                    crc32_update_no_simd(self.0, bytes)
+                };
+            }
+        }
+        _ => {
+            pub fn write(&mut self, bytes: &[u8]) {
+                self.0 = crc32_update_no_simd(self.0, bytes);
+            }
+        }
     }
 
     pub fn finish(self) -> u32 {
