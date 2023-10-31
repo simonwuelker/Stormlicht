@@ -179,6 +179,18 @@ impl FromIterator<Char> for String {
     }
 }
 
+impl<'a> FromIterator<&'a Str> for String {
+    fn from_iter<T: IntoIterator<Item = &'a Str>>(iter: T) -> Self {
+        let mut result = Self::new();
+
+        for item in iter {
+            result.push_str(item);
+        }
+
+        result
+    }
+}
+
 impl TryFrom<&str> for String {
     type Error = NotAscii;
 
