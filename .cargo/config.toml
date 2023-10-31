@@ -16,3 +16,9 @@ rustflags = [
 [env]
 DOWNLOAD_DIR = { value = "downloads", relative = true }
 BASE_DIR = { value = ".", relative = true }
+
+[unstable]
+codegen-backend = true
+
+[profile.dev]
+codegen-backend = "cranelift"
