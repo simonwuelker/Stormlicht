@@ -86,6 +86,39 @@ impl Str {
             .map(|(start, _end)| start)
     }
 
+    /// Replace occurences of a pattern with another string
+    ///
+    /// # Examples
+    /// Basic Usage:
+    /// ```
+    /// # use sl_std::ascii;
+    /// let haystack: &ascii::Str = "this is old".try_into().unwrap();
+    ///
+    /// assert_eq!("this is new", haystack.replace("old", "new".try_into().unwrap()).as_str());
+    /// assert_eq!("than an old", haystack.replace("is", "an".try_into().unwrap()).as_str());
+    /// ````
+    pub fn replace<'a, P: super::Pattern<'a>>(&'a self, pattern: P, replace_with: &Self) -> String {
+        let mut result = String::new();
+
+        let mut last_match_end = 0;
+        for (start, end) in self.match_indices(pattern) {
+            result.push_str(&self[last_match_end..start]);
+            result.push_str(replace_with);
+            last_match_end = end;
+        }
+        result.push_str(&self[last_match_end..]);
+        result
+    }
+
+    pub fn match_indices<'a, P: super::Pattern<'a>>(
+        &'a self,
+        pattern: P,
+    ) -> AsciiMatchIndices<'a, P> {
+        AsciiMatchIndices {
+            searcher: pattern.into_searcher(self),
+        }
+    }
+
     /// Find a pattern from the right in the string
     ///
     /// Note that the index returned will still be the start of the pattern
@@ -242,5 +275,23 @@ impl<'a> TryFrom<&'a str> for &'a Str {
 
     fn try_from(value: &'a str) -> Result<Self, NotAscii> {
         Str::from_bytes(value.as_bytes()).ok_or(NotAscii)
+    }
+}
+
+pub struct AsciiMatchIndices<'a, P>
+where
+    P: super::Pattern<'a>,
+{
+    searcher: P::Searcher,
+}
+
+impl<'a, P> Iterator for AsciiMatchIndices<'a, P>
+where
+    P: super::Pattern<'a>,
+{
+    type Item = (usize, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.searcher.next_match()
     }
 }
