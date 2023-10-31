@@ -381,6 +381,126 @@ impl<'a> ReverseSearcher<'a> for AsciiCharSearcher<'a> {
     }
 }
 
+impl<'a> DoubleEndedSearcher<'a> for AsciiCharSearcher<'a> {}
+
+/// A [ascii::Searcher](Searcher) used by various byte-sequence types ([&str](str) and [&ascii::Str](super::Str))
+///
+/// Generally, searching for non-ascii data in a [&ascii::Str](super::Str) will yield no matches.
+#[derive(Clone, Copy, Debug)]
+pub struct BytesSearcher<'a> {
+    haystack: &'a super::Str,
+    pos_front: usize,
+    pos_back: usize,
+    needle: &'a [u8],
+}
+
+impl<'a> Pattern<'a> for &'a super::Str {
+    type Searcher = BytesSearcher<'a>;
+
+    fn into_searcher(self, haystack: &'a super::Str) -> Self::Searcher {
+        BytesSearcher {
+            haystack,
+            pos_front: 0,
+            pos_back: haystack.len(),
+            needle: self.as_bytes(),
+        }
+    }
+}
+
+impl<'a> Pattern<'a> for &'a str {
+    type Searcher = BytesSearcher<'a>;
+
+    fn into_searcher(self, haystack: &'a super::Str) -> Self::Searcher {
+        BytesSearcher {
+            haystack,
+            pos_front: 0,
+            pos_back: haystack.len(),
+            needle: self.as_bytes(),
+        }
+    }
+}
+
+impl<'a> Pattern<'a> for &'a [super::Char] {
+    type Searcher = BytesSearcher<'a>;
+
+    fn into_searcher(self, haystack: &'a super::Str) -> Self::Searcher {
+        super::Str::from_ascii_chars(self).into_searcher(haystack)
+    }
+}
+
+impl<'a> Searcher<'a> for BytesSearcher<'a> {
+    fn haystack(&self) -> &'a super::Str {
+        self.haystack
+    }
+
+    fn next(&mut self) -> SearchStep {
+        let remaining = &self.haystack[self.pos_front..self.pos_back];
+        if remaining.is_empty() {
+            return SearchStep::Done;
+        }
+
+        let index = remaining
+            .as_bytes()
+            .windows(self.needle.len())
+            .position(|window| window == self.needle);
+
+        match index {
+            None => {
+                let reject_range = SearchStep::Reject(self.pos_front, self.pos_back);
+                self.pos_front = self.pos_back;
+                reject_range
+            },
+            Some(0) => {
+                let match_range =
+                    SearchStep::Match(self.pos_front, self.pos_front + self.needle.len());
+                self.pos_front += self.needle.len();
+                match_range
+            },
+            Some(i) => {
+                let reject_range = SearchStep::Reject(self.pos_front, self.pos_front + i);
+                self.pos_front += i;
+                reject_range
+            },
+        }
+    }
+}
+
+impl<'a> ReverseSearcher<'a> for BytesSearcher<'a> {
+    fn next_back(&mut self) -> SearchStep {
+        let remaining = &self.haystack[self.pos_front..self.pos_back];
+        if remaining.is_empty() {
+            return SearchStep::Done;
+        }
+
+        let index_from_back = remaining
+            .as_bytes()
+            .windows(self.needle.len())
+            .rev()
+            .position(|window| window == self.needle);
+
+        match index_from_back {
+            None => {
+                let reject_range = SearchStep::Reject(self.pos_front, self.pos_back);
+                self.pos_back = self.pos_front;
+                reject_range
+            },
+            Some(0) => {
+                let match_range =
+                    SearchStep::Match(self.pos_back - self.needle.len(), self.pos_back);
+                self.pos_back -= self.needle.len();
+                match_range
+            },
+            Some(i) => {
+                let reject_range = SearchStep::Reject(self.pos_back - i, self.pos_back);
+                self.pos_back -= i;
+                reject_range
+            },
+        }
+    }
+}
+
+impl<'a> DoubleEndedSearcher<'a> for BytesSearcher<'a> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -388,7 +508,7 @@ mod tests {
     use crate::ascii;
 
     #[test]
-    fn char_pattern() {
+    fn ascii_char_pattern() {
         let haystack: &ascii::Str = "foobar".try_into().unwrap();
 
         assert!(ascii::Char::SmallF.is_prefix_of(haystack));
@@ -424,5 +544,27 @@ mod tests {
         assert_eq!(o_searcher.next_match_back(), Some((2, 3)));
         assert_eq!(o_searcher.next_match_back(), Some((1, 2)));
         assert_eq!(o_searcher.next_match_back(), None);
+    }
+
+    #[test]
+    fn str_pattern() {
+        let haystack: &ascii::Str = "Lorem ipsum dolor".try_into().unwrap();
+
+        assert!("Lorem".is_prefix_of(haystack));
+        assert!(!"lorem".is_prefix_of(haystack));
+        assert!("dolor".is_suffix_of(haystack));
+
+        assert_eq!(
+            "Lorem".strip_prefix_of(haystack).map(ascii::Str::as_str),
+            Some(" ipsum dolor")
+        );
+        assert_eq!(
+            "ipsum".strip_prefix_of(haystack).map(ascii::Str::as_str),
+            None
+        );
+        assert_eq!(
+            "dolor".strip_suffix_of(haystack).map(ascii::Str::as_str),
+            Some("Lorem ipsum ")
+        );
     }
 }
