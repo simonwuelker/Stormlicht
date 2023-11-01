@@ -9,3 +9,22 @@ pub use string::{NotAscii, String};
 pub use write::Write;
 
 pub use std::ascii::Char;
+
+trait AsciiCharExt {
+    /// <https://infra.spec.whatwg.org/#ascii-whitespace>
+    fn is_whitespace(&self) -> bool;
+    fn is_newline(&self) -> bool;
+}
+
+impl AsciiCharExt for Char {
+    fn is_whitespace(&self) -> bool {
+        matches!(
+            self,
+            Self::LineTabulation | Self::LineFeed | Self::FormFeed | Self::Space
+        )
+    }
+
+    fn is_newline(&self) -> bool {
+        matches!(self, Char::LineFeed | Char::CarriageReturn)
+    }
+}

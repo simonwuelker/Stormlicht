@@ -1,4 +1,4 @@
-use super::{NotAscii, ReverseSearcher, Searcher, String};
+use super::{AsciiCharExt, NotAscii, ReverseSearcher, Searcher, String};
 use std::{ascii::Char, fmt, iter::FusedIterator, ops, slice::SliceIndex};
 
 /// A borrowed [String]
@@ -66,8 +66,8 @@ impl Str {
         &mut self.chars
     }
 
-    pub fn lines(&self) -> SplitIterator<'_, Char> {
-        self.split(Char::LineFeed)
+    pub fn lines(&self) -> SplitIterator<'_, for<'a> fn(&'a std::ascii::Char) -> bool> {
+        self.split(Char::is_newline)
     }
 
     /// Split the string at the occurences of a pattern
