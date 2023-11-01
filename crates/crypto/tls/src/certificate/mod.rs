@@ -5,7 +5,7 @@ pub mod identity;
 use crate::der::{self, BitString, Parse};
 pub use identity::Identity;
 
-use sl_std::{big_num::BigNum, datetime::DateTime};
+use sl_std::{ascii, base64, big_num::BigNum, datetime::DateTime};
 
 #[derive(Clone, Debug)]
 pub struct X509Certificate {
@@ -39,6 +39,12 @@ pub enum Error {
     InvalidFormat,
     ParsingFailed(der::Error),
     TrailingBytes,
+}
+
+#[derive(Debug)]
+pub enum PemParseError {
+    Certificate(Error),
+    MalformedPem,
 }
 
 macro_rules! expect_next_item {
@@ -137,6 +143,23 @@ impl SignedCertificate {
         let now = DateTime::now();
         self.certificate.validity.not_before <= now && now <= self.certificate.validity.not_after
     }
+
+    pub fn load_from_pem(data: &[u8]) -> Result<Self, PemParseError> {
+        let str: &ascii::Str = data.try_into().map_err(|_| PemParseError::MalformedPem)?;
+        let mut lines = str.trim().lines();
+
+        // Throw away the first and last lines (those delimit the b64 data)
+        lines.next().ok_or(PemParseError::MalformedPem)?;
+        lines.next_back().ok_or(PemParseError::MalformedPem)?;
+
+        let base64_data: ascii::String = lines.collect();
+        let certificate_bytes =
+            base64::b64decode(&base64_data).map_err(|_| PemParseError::MalformedPem)?;
+
+        let certificate = Self::new(&certificate_bytes)?;
+
+        Ok(certificate)
+    }
 }
 
 impl From<der::Error> for Error {
@@ -191,5 +214,24 @@ fn parse_certificate_version(item: der::Item<'_>) -> Result<usize, Error> {
 impl From<SignedCertificate> for X509Certificate {
     fn from(value: SignedCertificate) -> Self {
         value.certificate
+    }
+}
+
+impl From<Error> for PemParseError {
+    fn from(value: Error) -> Self {
+        Self::Certificate(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EXAMPLE_PEM: &[u8] =
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/cert.pem"));
+
+    #[test]
+    fn parse_pem() {
+        let _parsed_certificate = SignedCertificate::load_from_pem(EXAMPLE_PEM).unwrap();
     }
 }
