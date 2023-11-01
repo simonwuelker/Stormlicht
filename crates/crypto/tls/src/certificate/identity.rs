@@ -47,26 +47,26 @@ impl der::Parse for Identity {
 
                 // NOTE: This code might seem redundant, but technically the property value type depends on the
                 //       key. In the future, we might support values that are not strings.
-                let property = match key.digits() {
-                    der::object_identifier::COUNTRYNAME => {
+                let property = match key {
+                    der::ObjectIdentifier::CountryName => {
                         Property::Country(parse_directory_string(value)?)
                     },
-                    der::object_identifier::ORGANIZATIONNAME => {
+                    der::ObjectIdentifier::OrganizationName => {
                         Property::Organization(parse_directory_string(value)?)
                     },
-                    der::object_identifier::ORGANIZATIONALUNITNAME => {
+                    der::ObjectIdentifier::OrganizationalUnitName => {
                         Property::OrganizationalUnit(parse_directory_string(value)?)
                     },
-                    der::object_identifier::DISTINGUISHEDNAME => {
+                    der::ObjectIdentifier::DistinguishedName => {
                         Property::DistinguishedName(parse_directory_string(value)?)
                     },
-                    der::object_identifier::STATEORPROVINCENAME => {
+                    der::ObjectIdentifier::StateOrProvinceName => {
                         Property::StateOrProvince(parse_directory_string(value)?)
                     },
-                    der::object_identifier::COMMONNAME => {
+                    der::ObjectIdentifier::CommonName => {
                         Property::CommonName(parse_directory_string(value)?)
                     },
-                    der::object_identifier::SERIALNUMBER => {
+                    der::ObjectIdentifier::SerialNumber => {
                         Property::SerialNumber(parse_directory_string(value)?)
                     },
                     _ => {

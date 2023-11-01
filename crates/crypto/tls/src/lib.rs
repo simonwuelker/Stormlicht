@@ -5,7 +5,8 @@
     array_chunks,
     result_flattening,
     exclusive_range_pattern,
-    ascii_char
+    ascii_char,
+    ascii_char_variants
 )]
 
 pub mod alert;

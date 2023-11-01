@@ -115,8 +115,7 @@ impl TLSConnection {
                     dbg!(alert);
                 },
                 ContentType::Handshake => {
-                    let handshake_msg = HandshakeMessage::new(&record.data)?;
-                    dbg!(handshake_msg);
+                    let _handshake_msg = HandshakeMessage::new(&record.data)?;
                 },
                 _ => {},
             }

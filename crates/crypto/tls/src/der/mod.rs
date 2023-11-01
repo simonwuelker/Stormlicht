@@ -45,6 +45,7 @@ pub enum Error {
     /// An error occured while trying to parse a [BitString]
     BitString(BitStringParseError),
     IllegalValue,
+    UnknownObjectIdentifer,
 }
 
 pub trait Parse: Sized {
@@ -56,5 +57,11 @@ pub trait Parse: Sized {
         let (item, length) = Item::parse(bytes)?;
         let parsed_value = Self::try_from_item(item)?;
         Ok((parsed_value, &bytes[length..]))
+    }
+}
+
+impl From<object_identifier::UnknownObjectIdentifier> for Error {
+    fn from(_: object_identifier::UnknownObjectIdentifier) -> Self {
+        Self::UnknownObjectIdentifer
     }
 }
