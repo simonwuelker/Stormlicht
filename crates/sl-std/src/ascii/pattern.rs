@@ -257,16 +257,54 @@ pub trait ReverseSearcher<'a>: Searcher<'a> {
 /// from both ends.
 pub trait DoubleEndedSearcher<'a>: ReverseSearcher<'a> {}
 
+pub trait SingleCharEq {
+    fn matches_char(&self, c: &super::Char) -> bool;
+}
+
+impl SingleCharEq for super::Char {
+    fn matches_char(&self, c: &super::Char) -> bool {
+        self == c
+    }
+}
+
+impl<F> SingleCharEq for F
+where
+    F: Fn(&super::Char) -> bool,
+{
+    fn matches_char(&self, c: &super::Char) -> bool {
+        self(c)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
-pub struct AsciiCharSearcher<'a> {
+pub struct AsciiCharSearcher<'a, T>
+where
+    T: SingleCharEq,
+{
     haystack: &'a super::Str,
     pos_front: usize,
     pos_back: usize,
-    needle: super::Char,
+    needle: T,
+}
+
+impl<'a, F> Pattern<'a> for F
+where
+    F: Fn(&super::Char) -> bool,
+{
+    type Searcher = AsciiCharSearcher<'a, F>;
+
+    fn into_searcher(self, haystack: &'a super::Str) -> Self::Searcher {
+        AsciiCharSearcher {
+            haystack,
+            pos_front: 0,
+            pos_back: haystack.len(),
+            needle: self,
+        }
+    }
 }
 
 impl<'a> Pattern<'a> for super::Char {
-    type Searcher = AsciiCharSearcher<'a>;
+    type Searcher = AsciiCharSearcher<'a, Self>;
 
     fn into_searcher(self, haystack: &'a super::Str) -> Self::Searcher {
         AsciiCharSearcher {
@@ -312,7 +350,10 @@ impl<'a> Pattern<'a> for super::Char {
     }
 }
 
-impl<'a> Searcher<'a> for AsciiCharSearcher<'a> {
+impl<'a, T> Searcher<'a> for AsciiCharSearcher<'a, T>
+where
+    T: SingleCharEq,
+{
     fn haystack(&self) -> &'a super::Str {
         self.haystack
     }
@@ -323,7 +364,10 @@ impl<'a> Searcher<'a> for AsciiCharSearcher<'a> {
             return SearchStep::Done;
         }
 
-        let index = remaining.chars().iter().position(|&c| c == self.needle);
+        let index = remaining
+            .chars()
+            .iter()
+            .position(|c| self.needle.matches_char(c));
 
         match index {
             None => {
@@ -347,7 +391,10 @@ impl<'a> Searcher<'a> for AsciiCharSearcher<'a> {
     }
 }
 
-impl<'a> ReverseSearcher<'a> for AsciiCharSearcher<'a> {
+impl<'a, T> ReverseSearcher<'a> for AsciiCharSearcher<'a, T>
+where
+    T: SingleCharEq,
+{
     fn next_back(&mut self) -> SearchStep {
         let remaining = &self.haystack[self.pos_front..self.pos_back];
         if remaining.is_empty() {
@@ -358,7 +405,7 @@ impl<'a> ReverseSearcher<'a> for AsciiCharSearcher<'a> {
             .chars()
             .iter()
             .rev()
-            .position(|&c| c == self.needle);
+            .position(|c| self.needle.matches_char(c));
 
         match index {
             None => {
@@ -381,7 +428,7 @@ impl<'a> ReverseSearcher<'a> for AsciiCharSearcher<'a> {
     }
 }
 
-impl<'a> DoubleEndedSearcher<'a> for AsciiCharSearcher<'a> {}
+impl<'a, T> DoubleEndedSearcher<'a> for AsciiCharSearcher<'a, T> where T: SingleCharEq {}
 
 /// A [ascii::Searcher](Searcher) used by various byte-sequence types ([&str](str) and [&ascii::Str](super::Str))
 ///
@@ -541,6 +588,40 @@ mod tests {
         assert_eq!(o_searcher.next_match(), None);
 
         let mut o_searcher = ascii::Char::SmallO.into_searcher(haystack);
+        assert_eq!(o_searcher.next_match_back(), Some((2, 3)));
+        assert_eq!(o_searcher.next_match_back(), Some((1, 2)));
+        assert_eq!(o_searcher.next_match_back(), None);
+    }
+
+    #[test]
+    fn fn_pattern() {
+        let haystack: &ascii::Str = "foobar".try_into().unwrap();
+
+        let f = |c: &ascii::Char| *c == ascii::Char::SmallF;
+        let a_or_r = |c: &ascii::Char| matches!(c, ascii::Char::SmallA | ascii::Char::SmallR);
+
+        assert!(f.is_prefix_of(haystack));
+        assert!(!a_or_r.is_prefix_of(haystack));
+        assert!(a_or_r.is_suffix_of(haystack));
+
+        assert_eq!(
+            f.strip_prefix_of(haystack).map(ascii::Str::as_str),
+            Some("oobar")
+        );
+
+        assert_eq!(
+            a_or_r.strip_suffix_of(haystack).map(ascii::Str::as_str),
+            Some("fooba")
+        );
+
+        assert_eq!(f.strip_suffix_of(haystack).map(ascii::Str::as_str), None);
+
+        let mut o_searcher = (|c: &ascii::Char| *c == ascii::Char::SmallO).into_searcher(haystack);
+        assert_eq!(o_searcher.next_match(), Some((1, 2)));
+        assert_eq!(o_searcher.next_match(), Some((2, 3)));
+        assert_eq!(o_searcher.next_match(), None);
+
+        let mut o_searcher = (|c: &ascii::Char| *c == ascii::Char::SmallO).into_searcher(haystack);
         assert_eq!(o_searcher.next_match_back(), Some((2, 3)));
         assert_eq!(o_searcher.next_match_back(), Some((1, 2)));
         assert_eq!(o_searcher.next_match_back(), None);
