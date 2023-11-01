@@ -70,6 +70,64 @@ impl Str {
         self.split(Char::is_newline)
     }
 
+    pub fn trim(&self) -> &Self {
+        self.trim_matches(Char::is_whitespace)
+    }
+
+    pub fn trim_start(&self) -> &Self {
+        self.trim_matches_start(Char::is_whitespace)
+    }
+
+    pub fn trim_end(&self) -> &Self {
+        self.trim_matches_end(Char::is_whitespace)
+    }
+
+    pub fn trim_matches<'a, P>(&'a self, pattern: P) -> &Self
+    where
+        P: super::Pattern<'a>,
+        P::Searcher: super::DoubleEndedSearcher<'a>,
+    {
+        let mut start = 0;
+        let mut end = 0;
+
+        let mut searcher = pattern.into_searcher(self);
+        if let Some((reject_start, reject_end)) = searcher.next_reject() {
+            start = reject_start;
+            end = reject_end
+        }
+
+        if let Some((_, reject_end)) = searcher.next_reject_back() {
+            end = reject_end;
+        }
+
+        &self[start..end]
+    }
+
+    pub fn trim_matches_start<'a, P>(&'a self, pattern: P) -> &Self
+    where
+        P: super::Pattern<'a>,
+    {
+        let mut searcher = pattern.into_searcher(self);
+        if let Some((reject_start, _)) = searcher.next_reject() {
+            &self[reject_start..]
+        } else {
+            self
+        }
+    }
+
+    pub fn trim_matches_end<'a, P>(&'a self, pattern: P) -> &Self
+    where
+        P: super::Pattern<'a>,
+        P::Searcher: super::DoubleEndedSearcher<'a>,
+    {
+        let mut searcher = pattern.into_searcher(self);
+        if let Some((_, reject_end)) = searcher.next_reject_back() {
+            &self[..reject_end]
+        } else {
+            self
+        }
+    }
+
     /// Split the string at the occurences of a pattern
     ///
     /// The matched substring will not be contained in any of the segments.
@@ -185,18 +243,6 @@ impl Str {
     #[must_use]
     pub fn split_at(&self, index: usize) -> (&Self, &Self) {
         (&self[..index], &self[index..])
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn trim_end(&self, trim: Char) -> &Self {
-        let num_chars_to_remove = self
-            .chars()
-            .iter()
-            .rev()
-            .position(|&c| c != trim)
-            .unwrap_or(self.len());
-        &self[..self.len() - num_chars_to_remove]
     }
 }
 
