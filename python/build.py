@@ -20,6 +20,12 @@ def build_documentation(args, unknown_args):
     log.info("Building stormlicht documentation...")
     cmd.run()
 
+def clean(args, unknown_args):
+    cmd = util.Command.create("cargo").with_arguments(["clean"]).with_forwarded_arguments(unknown_args)
+
+    log.info("Removing target directory...")
+    cmd.run()
+
 
 def run_stormlicht(args, unknown_args):
     build_gtk_blueprints()
@@ -80,8 +86,17 @@ def run():
 
     subparsers = parser.add_subparsers(required=True)
 
+    # Remove build files
+    parser_clean = subparsers.add_parser("clean", help="Remove target directory")
+    parser_clean.add_argument(
+        "--open",
+        action="store_true",
+        help="Open documentation in the browser after building",
+    )
+    parser_clean.set_defaults(handler=clean)
+
     # Documentation
-    parser_doc = subparsers.add_parser("doc", help="build documentation")
+    parser_doc = subparsers.add_parser("doc", help="Build documentation")
     parser_doc.add_argument(
         "--open",
         action="store_true",
@@ -90,7 +105,7 @@ def run():
     parser_doc.set_defaults(handler=build_documentation)
 
     # Run browser
-    parser_run = subparsers.add_parser("run", help="run Stormlicht")
+    parser_run = subparsers.add_parser("run", help="Run Stormlicht")
     parser_run.add_argument(
         "--release",
         action="store_true",
@@ -99,7 +114,7 @@ def run():
     parser_run.set_defaults(handler=run_stormlicht)
 
     # Build browser
-    parser_build = subparsers.add_parser("build", help="build Stormlicht")
+    parser_build = subparsers.add_parser("build", help="Build Stormlicht")
     parser_build.add_argument(
         "--release",
         action="store_true",
@@ -108,12 +123,12 @@ def run():
     parser_build.set_defaults(handler=build_stormlicht)
 
     # Testing
-    parser_test = subparsers.add_parser("test", help="test Stormlicht")
+    parser_test = subparsers.add_parser("test", help="Test Stormlicht")
     parser_test.set_defaults(handler=test_stormlicht)
 
     test_subparsers = parser_test.add_subparsers()
     parser_test_text_rendering = test_subparsers.add_parser(
-        "text-rendering", help="test text rendering"
+        "text-rendering", help="Test text rendering"
     )
     parser_test_text_rendering.add_argument(
         "--open",
@@ -122,15 +137,15 @@ def run():
     )
     parser_test_text_rendering.set_defaults(handler=test_font_rendering)
 
-    parser_test_html = test_subparsers.add_parser("html", help="test html parsing")
+    parser_test_html = test_subparsers.add_parser("html", help="Test html parsing")
     parser_test_html.add_argument(
-        "filter", nargs="?", default=None, help="filter test cases by name"
+        "filter", nargs="?", default=None, help="Filter test cases by name"
     )
     parser_test_html.add_argument(
         "-v",
         "--verbose",
         action="store_true",
-        help="print detailed information about each failed test",
+        help="Print detailed information about each failed test",
     )
     parser_test_html.set_defaults(handler=test_html_parser)
 
