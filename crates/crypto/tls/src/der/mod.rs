@@ -2,34 +2,15 @@ mod bit_string;
 mod integer;
 mod item;
 pub mod object_identifier;
+mod reader;
 mod sequence;
 
 pub use bit_string::{BitString, BitStringParseError};
 pub use integer::Integer;
 pub use item::Item;
 pub use object_identifier::ObjectIdentifier;
+pub use reader::{ClassTag, Deserialize, Deserializer, PrimitiveOrConstructed, TypeTag};
 pub use sequence::Sequence;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ClassTag {
-    /// The type is native to ASN.1
-    Universal,
-
-    /// The type is only valid for one specific application
-    Application,
-
-    /// Meaning of this type depends on the context (such as within a sequence, set or choice)
-    ContextSpecific,
-
-    /// Defined in private specifications
-    Private,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum PrimitiveOrConstructed {
-    Primitive,
-    Constructed,
-}
 
 #[derive(Clone, Copy, Debug)]
 pub enum Error {
@@ -46,6 +27,7 @@ pub enum Error {
     BitString(BitStringParseError),
     IllegalValue,
     UnknownObjectIdentifer,
+    TrailingBytes,
 }
 
 pub trait Parse: Sized {

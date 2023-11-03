@@ -1,5 +1,7 @@
 use sl_std::big_num::BigNum;
 
+use super::{Deserialize, Deserializer, Error, TypeTag};
+
 #[derive(Clone, Debug)]
 pub enum Integer {
     Small(usize),
@@ -37,5 +39,17 @@ impl Integer {
         } else {
             Self::Big(BigNum::from_be_bytes(bytes))
         }
+    }
+}
+
+impl Deserialize for Integer {
+    type Error = Error;
+
+    fn deserialize(deserializer: &mut Deserializer<'_>) -> Result<Self, Self::Error> {
+        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::Integer)?;
+
+        let integer = Self::from_be_bytes(bytes);
+
+        Ok(integer)
     }
 }
