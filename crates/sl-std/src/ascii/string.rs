@@ -111,11 +111,11 @@ impl String {
     /// ```
     pub fn from_bytes(bytes: Vec<u8>) -> Option<Self> {
         if bytes.is_ascii() {
-            let chars = unsafe {
-                // Ensure the original vector is not dropped.
-                let mut wrapped_bytes = mem::ManuallyDrop::new(bytes);
+            // Ensure the original vector is not dropped.
+            let mut wrapped_bytes = mem::ManuallyDrop::new(bytes);
 
-                // SAFETY: Vec<u8> has the same layout as Vec<ascii::Char>
+            // SAFETY: Vec<u8> has the same layout as Vec<ascii::Char>
+            let chars = unsafe {
                 Vec::from_raw_parts(
                     wrapped_bytes.as_mut_ptr() as *mut Char,
                     wrapped_bytes.len(),
@@ -132,6 +132,20 @@ impl String {
     #[must_use]
     pub fn as_ascii_str(&self) -> &'_ Str {
         self.deref()
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        // Ensure the original vector is not dropped.
+        let mut wrapped_chars = mem::ManuallyDrop::new(self.chars);
+
+        // SAFETY: Vec<u8> has the same layout as Vec<ascii::Char>
+        unsafe {
+            Vec::from_raw_parts(
+                wrapped_chars.as_mut_ptr() as *mut u8,
+                wrapped_chars.len(),
+                wrapped_chars.capacity(),
+            )
+        }
     }
 }
 
@@ -218,5 +232,15 @@ impl PartialEq<Str> for String {
 impl PartialEq<&str> for String {
     fn eq(&self, other: &&str) -> bool {
         self.as_bytes().eq(other.as_bytes())
+    }
+}
+
+impl From<String> for Utf8String {
+    fn from(value: String) -> Self {
+        let ascii_bytes = value.into_bytes();
+        debug_assert!(ascii_bytes.is_ascii()); // Chance at catching some UB
+
+        // SAFETY: Ascii is guaranteed to be a subset of valid utf8
+        unsafe { Utf8String::from_utf8_unchecked(ascii_bytes) }
     }
 }
