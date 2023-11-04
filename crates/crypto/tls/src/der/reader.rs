@@ -1,16 +1,23 @@
 use super::Error;
 
 /// Implemented by data types that can be deserialized from DER data
-pub trait Deserialize: Sized {
+pub trait Deserialize<'a>: Sized {
     type Error;
 
-    fn deserialize(deserializer: &mut Deserializer<'_>) -> Result<Self, Self::Error>;
+    fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error>;
+
+    fn from_bytes(bytes: &'a [u8], error: Self::Error) -> Result<Self, Self::Error> {
+        let mut deserializer = Deserializer::new(bytes);
+        let value = deserializer.parse_complete(error)?;
+
+        Ok(value)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
 pub struct Deserializer<'a> {
-    bytes: &'a [u8],
-    ptr: usize,
+    pub bytes: &'a [u8],
+    pub ptr: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -86,21 +93,26 @@ impl<'a> Deserializer<'a> {
         Self { bytes, ptr: 0 }
     }
 
-    pub fn is_done(&self) -> bool {
+    pub fn is_exhausted(&self) -> bool {
         self.ptr == self.bytes.len()
     }
 
-    pub fn expect_next<T: Deserialize>(&mut self) -> Result<T, <T as Deserialize>::Error> {
+    pub fn expect_exhausted<T>(&self, error: T) -> Result<(), T> {
+        if self.is_exhausted() {
+            Ok(())
+        } else {
+            Err(error)
+        }
+    }
+
+    pub fn parse<T: Deserialize<'a>>(&mut self) -> Result<T, T::Error> {
         T::deserialize(self)
     }
 
-    pub fn parse_complete<T: Deserialize>(&mut self) -> Result<T, Error>
-    where
-        Error: From<T::Error>,
-    {
-        let value = self.expect_next()?;
-        if self.is_done() {
-            return Err(Error::TrailingBytes);
+    pub fn parse_complete<T: Deserialize<'a>>(&mut self, error: T::Error) -> Result<T, T::Error> {
+        let value: T = self.parse()?;
+        if !self.is_exhausted() {
+            return Err(error);
         }
         Ok(value)
     }
@@ -128,6 +140,32 @@ impl<'a> Deserializer<'a> {
         }
 
         Ok(item.bytes)
+    }
+
+    pub fn peek_item_tag(&mut self) -> Result<TypeTag, Error> {
+        let old_position = self.ptr;
+        let byte = self.next_byte()?;
+
+        let type_tag = if byte & 0b00011111 == 31 {
+            // Type tag is encoded using long form
+            let mut done = false;
+            let mut type_tag_value = 0;
+            while !done {
+                let byte = self.next_byte()?;
+
+                type_tag_value <<= 7;
+                type_tag_value |= (byte & 0b01111111) as u32;
+
+                done = byte & 0b1000000 == 0;
+            }
+            type_tag_value
+        } else {
+            (byte & 0b00011111) as u32
+        };
+
+        self.ptr = old_position;
+
+        TypeTag::try_from(type_tag)
     }
 
     fn next_primitive_item(&mut self) -> Result<Item<'a>, Error> {

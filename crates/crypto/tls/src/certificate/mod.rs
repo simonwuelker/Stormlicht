@@ -2,14 +2,14 @@
 
 pub mod identity;
 
-use crate::der::{self, BitString, Parse};
+use crate::der::{self, Deserialize};
 pub use identity::Identity;
 
 use sl_std::{ascii, base64, big_num::BigNum, datetime::DateTime};
 
 #[derive(Clone, Debug)]
 pub struct X509Certificate {
-    pub version: usize,
+    pub version: CertificateVersion,
     pub serial_number: BigNum,
     pub signature_algorithm: AlgorithmIdentifier,
     pub issuer: Identity,
@@ -20,8 +20,11 @@ pub struct X509Certificate {
 pub struct SignedCertificate {
     certificate: X509Certificate,
     _signature_algorithm: AlgorithmIdentifier,
-    _signature: BitString,
+    _signature: der::BitString,
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct CertificateVersion(usize);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AlgorithmIdentifier {
@@ -47,93 +50,66 @@ pub enum PemParseError {
     MalformedPem,
 }
 
-macro_rules! expect_next_item {
-    ($sequence: expr) => {
-        $sequence
-            .next()
-            .map(|e| e.map_err($crate::certificate::Error::ParsingFailed))
-            .ok_or($crate::certificate::Error::InvalidFormat)
-            .flatten()
-    };
-}
-
-macro_rules! expect_type {
-    ($item: expr, $expected_type: ident) => {
-        if let der::Item::$expected_type(value) = $item {
-            Ok(value)
-        } else {
-            Err($crate::certificate::Error::InvalidFormat)
-        }
-    };
-}
-
-// Export the macros above within the crate (but don't expose the publicly)
-pub(crate) use {expect_next_item, expect_type};
-
-impl der::Parse for X509Certificate {
+impl<'a> der::Deserialize<'a> for X509Certificate {
     type Error = Error;
 
-    fn try_from_item(item: der::Item<'_>) -> Result<Self, Self::Error> {
-        let mut certificate = expect_type!(item, Sequence)?;
+    fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
+        let sequence: der::Sequence = deserializer.parse()?;
+        let mut deserializer = sequence.deserializer();
+        println!("sequence: {:?}", deserializer.ptr);
+        let version: CertificateVersion = deserializer.parse()?;
+        let serial_number: der::Integer = deserializer.parse()?;
+        let algorithm: AlgorithmIdentifier = deserializer.parse()?;
+        let issuer: Identity = deserializer.parse()?;
+        let validity: Validity = deserializer.parse()?;
 
-        let version = parse_certificate_version(expect_next_item!(certificate)?)?;
+        deserializer.expect_exhausted(Error::TrailingBytes)?;
 
-        let serial_number = expect_type!(expect_next_item!(certificate)?, Integer)?.into();
-
-        let signature_algorithm =
-            AlgorithmIdentifier::try_from_item(expect_next_item!(certificate)?)?;
-
-        let issuer = Identity::try_from_item(expect_next_item!(certificate)?)?;
-
-        let validity = Validity::try_from_item(expect_next_item!(certificate)?)?;
-
-        Ok(Self {
+        let certificate = Self {
             version,
-            serial_number,
-            signature_algorithm,
+            serial_number: serial_number.into(),
+            signature_algorithm: algorithm,
             issuer,
             validity,
-        })
+        };
+
+        Ok(certificate)
+    }
+}
+
+impl<'a> der::Deserialize<'a> for SignedCertificate {
+    type Error = Error;
+
+    fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
+        let sequence: der::Sequence = deserializer.parse()?;
+        let mut deserializer = sequence.deserializer();
+
+        let certificate: X509Certificate = deserializer.parse()?;
+        let algorithm: AlgorithmIdentifier = deserializer.parse()?;
+        let _signature: der::BitString = deserializer.parse()?;
+
+        deserializer.expect_exhausted(Error::TrailingBytes)?;
+
+        if certificate.signature_algorithm != algorithm {
+            log::error!(
+                "The signature algorithm specified in the certificate {:?} does not match the algorithm used for the actual signature {:?}", 
+                certificate.signature_algorithm,
+                algorithm
+            );
+            return Err(Error::InvalidFormat);
+        }
+
+        let signed_certificate = Self {
+            certificate,
+            _signature_algorithm: algorithm,
+            _signature,
+        };
+
+        Ok(signed_certificate)
     }
 }
 
 impl SignedCertificate {
-    pub fn new(bytes: &[u8]) -> Result<Self, Error> {
-        // The root sequence always has the following structure:
-        // * data
-        // * Signature algorithm used
-        // * Signature
-
-        let (root_sequence, bytes_consumed) = der::Item::parse(bytes)?;
-        let mut root_sequence = expect_type!(root_sequence, Sequence)?;
-
-        if bytes_consumed != bytes.len() {
-            return Err(Error::TrailingBytes);
-        }
-
-        let certificate = X509Certificate::try_from_item(expect_next_item!(root_sequence)?)?;
-
-        let signature_algorithm =
-            AlgorithmIdentifier::try_from_item(expect_next_item!(root_sequence)?)?;
-
-        let _signature = expect_type!(expect_next_item!(root_sequence)?, BitString)?;
-
-        if root_sequence.next().is_some() {
-            return Err(Error::InvalidFormat);
-        }
-
-        if certificate.signature_algorithm != signature_algorithm {
-            log::error!("The signature algorithm specified in the certificate {:?} does not match the algorithm used for the actual signature {:?}", certificate.signature_algorithm, signature_algorithm);
-            return Err(Error::InvalidFormat);
-        }
-
-        Ok(Self {
-            certificate,
-            _signature_algorithm: signature_algorithm,
-            _signature,
-        })
-    }
-
     /// Validates the basic properties of a certificate
     ///
     /// Precisely, we check if the signature on a certificate is *correct* and if the certificate
@@ -156,7 +132,7 @@ impl SignedCertificate {
         let certificate_bytes =
             base64::b64decode(&base64_data).map_err(|_| PemParseError::MalformedPem)?;
 
-        let certificate = Self::new(&certificate_bytes)?;
+        let certificate = Self::from_bytes(&certificate_bytes, Error::TrailingBytes)?;
 
         Ok(certificate)
     }
@@ -168,47 +144,59 @@ impl From<der::Error> for Error {
     }
 }
 
-impl der::Parse for AlgorithmIdentifier {
+impl<'a> der::Deserialize<'a> for AlgorithmIdentifier {
     type Error = Error;
 
-    fn try_from_item(item: der::Item<'_>) -> Result<Self, Self::Error> {
-        let mut sequence = expect_type!(item, Sequence)?;
-        let identifier = expect_type!(expect_next_item!(sequence)?, ObjectIdentifier)?;
-        let _parameters = expect_next_item!(sequence)?;
+    fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
+        let sequence: der::Sequence = deserializer.parse()?;
+        let mut deserializer = sequence.deserializer();
 
-        if sequence.next().is_some() {
-            return Err(Error::TrailingBytes);
-        }
-        Ok(Self { identifier })
+        let identifier: der::ObjectIdentifier = deserializer.parse()?;
+        let _parameters: der::Sequence = deserializer.parse()?;
+
+        deserializer.expect_exhausted(Error::TrailingBytes)?;
+
+        let algorithm_identifier = Self { identifier };
+
+        Ok(algorithm_identifier)
     }
 }
 
-impl der::Parse for Validity {
+impl<'a> der::Deserialize<'a> for Validity {
     type Error = Error;
 
-    fn try_from_item(item: der::Item<'_>) -> Result<Self, Self::Error> {
-        let mut sequence = expect_type!(item, Sequence)?;
+    fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
+        let sequence: der::Sequence = deserializer.parse()?;
+        let mut deserializer = sequence.deserializer();
 
-        let not_before = expect_type!(expect_next_item!(sequence)?, UtcTime)?;
-        let not_after = expect_type!(expect_next_item!(sequence)?, UtcTime)?;
+        let not_before: der::UtcTime = deserializer.parse()?;
+        let not_after: der::UtcTime = deserializer.parse()?;
 
-        if sequence.next().is_some() {
-            return Err(Error::TrailingBytes);
-        }
+        deserializer.expect_exhausted(Error::TrailingBytes)?;
 
-        Ok(Validity {
-            not_before,
-            not_after,
-        })
+        let validity = Self {
+            not_before: not_before.into(),
+            not_after: not_after.into(),
+        };
+
+        Ok(validity)
     }
 }
 
-fn parse_certificate_version(item: der::Item<'_>) -> Result<usize, Error> {
-    let (version_item, _) = der::Item::parse(expect_type!(item, ContextSpecific)?)?;
+impl<'a> der::Deserialize<'a> for CertificateVersion {
+    type Error = Error;
 
-    expect_type!(version_item, Integer)?
-        .try_into()
-        .map_err(|_| Error::InvalidFormat)
+    fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
+        // let bytes = deserializer.expect_next_item_and_get_value(der::TypeTag::ContextSpecific)?;
+        // let mut deserializer = der::Deserializer::new(bytes);
+
+        let version_num: der::Integer = deserializer.parse()?;
+        // deserializer.expect_exhausted(Error::TrailingBytes)?;
+
+        let version = CertificateVersion(version_num.try_into().map_err(|_| Error::InvalidFormat)?);
+
+        Ok(version)
+    }
 }
 
 impl From<SignedCertificate> for X509Certificate {

@@ -42,10 +42,10 @@ impl Integer {
     }
 }
 
-impl Deserialize for Integer {
+impl<'a> Deserialize<'a> for Integer {
     type Error = Error;
 
-    fn deserialize(deserializer: &mut Deserializer<'_>) -> Result<Self, Self::Error> {
+    fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error> {
         let bytes = deserializer.expect_next_item_and_get_value(TypeTag::Integer)?;
 
         let integer = Self::from_be_bytes(bytes);

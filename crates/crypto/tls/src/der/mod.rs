@@ -1,16 +1,22 @@
 mod bit_string;
 mod integer;
-mod item;
-pub mod object_identifier;
+mod object_identifier;
+mod printable_string;
 mod reader;
 mod sequence;
+mod set;
+mod utc_time;
+mod utf8_string;
 
 pub use bit_string::{BitString, BitStringParseError};
 pub use integer::Integer;
-pub use item::Item;
 pub use object_identifier::ObjectIdentifier;
+pub use printable_string::PrintableString;
 pub use reader::{ClassTag, Deserialize, Deserializer, PrimitiveOrConstructed, TypeTag};
 pub use sequence::Sequence;
+pub use set::Set;
+pub use utc_time::UtcTime;
+pub use utf8_string::Utf8String;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Error {
@@ -28,18 +34,6 @@ pub enum Error {
     IllegalValue,
     UnknownObjectIdentifer,
     TrailingBytes,
-}
-
-pub trait Parse: Sized {
-    type Error: From<Error>;
-
-    fn try_from_item(item: Item<'_>) -> Result<Self, Self::Error>;
-
-    fn try_parse(bytes: &[u8]) -> Result<(Self, &[u8]), Self::Error> {
-        let (item, length) = Item::parse(bytes)?;
-        let parsed_value = Self::try_from_item(item)?;
-        Ok((parsed_value, &bytes[length..]))
-    }
 }
 
 impl From<object_identifier::UnknownObjectIdentifier> for Error {

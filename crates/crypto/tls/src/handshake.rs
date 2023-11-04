@@ -1,8 +1,9 @@
 use std::io::{self, Cursor, Read};
 
 use crate::{
-    certificate::{SignedCertificate, X509Certificate},
+    certificate::{self, SignedCertificate, X509Certificate},
     connection::{ProtocolVersion, TLSError, TLS_VERSION},
+    der::Deserialize,
     CipherSuite,
 };
 
@@ -303,8 +304,11 @@ impl HandshakeMessage {
                     reader.read_exact(&mut certificate_bytes)?;
 
                     // FIXME: propagate error
-                    let signed_cert = SignedCertificate::new(&certificate_bytes)
-                        .expect("certificate parsing failed");
+                    let signed_cert = SignedCertificate::from_bytes(
+                        &certificate_bytes,
+                        certificate::Error::TrailingBytes,
+                    )
+                    .expect("certificate parsing failed");
 
                     if !signed_cert.is_valid() {
                         log::warn!("Browser supplied invalid certificate");

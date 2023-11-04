@@ -1,5 +1,7 @@
 use std::fmt;
 
+use super::{Deserialize, Deserializer, Error, TypeTag};
+
 /// A arbitrary sequence of bits.
 ///
 /// For the encoding inside DER, see <https://learn.microsoft.com/en-us/windows/win32/seccertenroll/about-bit-string>
@@ -34,6 +36,16 @@ impl TryFrom<&[u8]> for BitString {
             bits: value[1..].to_vec(),
         };
 
+        Ok(bit_string)
+    }
+}
+
+impl<'a> Deserialize<'a> for BitString {
+    type Error = Error;
+
+    fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error> {
+        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::BitString)?;
+        let bit_string = Self::try_from(bytes)?;
         Ok(bit_string)
     }
 }
