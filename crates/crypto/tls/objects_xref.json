@@ -1,0 +1,102 @@
+[
+    {
+        "name": "md2WithRSAEncryption",
+        "digest": "md2",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "md5WithRSAEncryption",
+        "digest": "md5",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "shaWithRSAEncryption",
+        "digest": "sha",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "sha1WithRSAEncryption",
+        "digest": "sha1",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "md4WithRSAEncryption",
+        "digest": "md4",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "sha256WithRSAEncryption",
+        "digest": "sha256",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "sha384WithRSAEncryption",
+        "digest": "sha384",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "sha512WithRSAEncryption",
+        "digest": "sha512",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "sha224WithRSAEncryption",
+        "digest": "sha224",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "mdc2WithRSA",
+        "digest": "mdc2",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "ripemd160WithRSA",
+        "digest": "ripemd160",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "RSA_SHA3_224",
+        "digest": "sha3_224",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "RSA_SHA3_256",
+        "digest": "sha3_256",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "RSA_SHA3_384",
+        "digest": "sha3_384",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "RSA_SHA3_512",
+        "digest": "sha3_512",
+        "algorithm": "rsaEncryption"
+    },
+    {
+        "name": "rsassaPss",
+        "digest": "undefined",
+        "algorithm": "rsassaPss"
+    },
+    {
+        "name": "ED25519",
+        "digest": "undefined",
+        "algorithm": "ED25519"
+    },
+    {
+        "name": "ED448",
+        "digest": "undefined",
+        "algorithm": "ED448"
+    },
+    {
+        "name": "md5WithRSA",
+        "digest": "md5",
+        "algorithm": "rsa"
+    },
+    {
+        "name": "sha1WithRSA",
+        "digest": "sha1",
+        "algorithm": "rsa"
+    }
+]
