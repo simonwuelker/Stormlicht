@@ -34,8 +34,11 @@ impl<'a> der::Deserialize<'a> for Identity {
 
         let mut properties = HashSet::new();
         while !deserializer.is_exhausted() {
-            let key_value_set: der::Set = deserializer.parse()?;
-            let mut deserializer = key_value_set.deserializer();
+            let container_set: der::Set = deserializer.parse()?;
+            let mut deserializer = container_set.deserializer();
+
+            let key_value_sequence: der::Sequence = deserializer.parse()?;
+            let mut deserializer = key_value_sequence.deserializer();
 
             let key: der::ObjectIdentifier = deserializer.parse()?;
 
