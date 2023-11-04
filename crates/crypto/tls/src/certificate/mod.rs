@@ -14,6 +14,8 @@ pub struct X509Certificate {
     pub signature_algorithm: AlgorithmIdentifier,
     pub issuer: Identity,
     pub validity: Validity,
+    pub subject: Identity,
+    pub subject_public_key_info: SubjectPublicKeyInfo,
 }
 
 #[derive(Clone, Debug)]
@@ -24,7 +26,11 @@ pub struct SignedCertificate {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct CertificateVersion(usize);
+pub enum CertificateVersion {
+    V1,
+    V2,
+    V3,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AlgorithmIdentifier {
@@ -37,8 +43,15 @@ pub struct Validity {
     pub not_after: DateTime,
 }
 
+#[derive(Clone, Debug)]
+pub struct SubjectPublicKeyInfo {
+    pub algorithm: AlgorithmIdentifier,
+    pub subject_public_key: der::BitString,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum Error {
+    IllegalVersion,
     InvalidFormat,
     ParsingFailed(der::Error),
     TrailingBytes,
@@ -61,6 +74,8 @@ impl<'a> der::Deserialize<'a> for X509Certificate {
         let algorithm: AlgorithmIdentifier = deserializer.parse()?;
         let issuer: Identity = deserializer.parse()?;
         let validity: Validity = deserializer.parse()?;
+        let subject: Identity = deserializer.parse()?;
+        let subject_public_key_info: SubjectPublicKeyInfo = deserializer.parse()?;
 
         let certificate = Self {
             version,
@@ -68,6 +83,8 @@ impl<'a> der::Deserialize<'a> for X509Certificate {
             signature_algorithm: algorithm,
             issuer,
             validity,
+            subject,
+            subject_public_key_info,
         };
 
         Ok(certificate)
@@ -190,9 +207,36 @@ impl<'a> der::Deserialize<'a> for CertificateVersion {
         let version_num: der::Integer =
             deserializer.parse_with_explicit_tag(der::TypeTag::new(0))?;
 
-        let version = CertificateVersion(version_num.try_into().map_err(|_| Error::InvalidFormat)?);
+        let version_num: usize = version_num.try_into().map_err(|_| Error::IllegalVersion)?;
+
+        let version = match version_num {
+            0 => Self::V1,
+            1 => Self::V2,
+            2 => Self::V3,
+            _ => return Err(Error::IllegalVersion),
+        };
 
         Ok(version)
+    }
+}
+
+impl<'a> der::Deserialize<'a> for SubjectPublicKeyInfo {
+    type Error = Error;
+
+    fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
+        let sequence: der::Sequence = deserializer.parse()?;
+        let mut deserializer = sequence.deserializer();
+
+        let algorithm: AlgorithmIdentifier = deserializer.parse()?;
+        let subject_public_key: der::BitString = deserializer.parse()?;
+
+        deserializer.expect_exhausted(Error::TrailingBytes)?;
+
+        let subject_public_key_info = Self {
+            algorithm,
+            subject_public_key,
+        };
+        Ok(subject_public_key_info)
     }
 }
 
