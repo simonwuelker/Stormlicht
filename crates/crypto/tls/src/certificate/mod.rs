@@ -186,11 +186,8 @@ impl<'a> der::Deserialize<'a> for CertificateVersion {
     type Error = Error;
 
     fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
-        // let bytes = deserializer.expect_next_item_and_get_value(der::TypeTag::ContextSpecific)?;
-        // let mut deserializer = der::Deserializer::new(bytes);
-
-        let version_num: der::Integer = deserializer.parse()?;
-        // deserializer.expect_exhausted(Error::TrailingBytes)?;
+        let version_num: der::Integer =
+            deserializer.parse_with_explicit_tag(der::TypeTag::new(0))?;
 
         let version = CertificateVersion(version_num.try_into().map_err(|_| Error::InvalidFormat)?);
 
