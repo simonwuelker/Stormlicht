@@ -62,8 +62,6 @@ impl<'a> der::Deserialize<'a> for X509Certificate {
         let issuer: Identity = deserializer.parse()?;
         let validity: Validity = deserializer.parse()?;
 
-        deserializer.expect_exhausted(Error::TrailingBytes)?;
-
         let certificate = Self {
             version,
             serial_number: serial_number.into(),
