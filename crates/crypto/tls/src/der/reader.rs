@@ -14,6 +14,43 @@ pub trait Deserialize<'a>: Sized {
     }
 }
 
+pub trait Primitive<'a>: Sized {
+    type Error: From<Error>;
+
+    /// The tag that describes this particular primitive type
+    const TYPE_TAG: TypeTag;
+
+    fn from_value_bytes(bytes: &'a [u8]) -> Result<Self, Self::Error>;
+
+    fn deserialize_with_explicit_tag(
+        explicit_tag: TypeTag,
+        deserializer: &mut Deserializer<'a>,
+    ) -> Result<Self, Self::Error> {
+        let bytes = deserializer.expect_next_item_and_get_value(explicit_tag)?;
+        let mut deserializer = Deserializer::new(bytes);
+        deserializer.parse()
+    }
+
+    fn deserialize_with_implicit_tag(
+        implicit_tag: TypeTag,
+        deserializer: &mut Deserializer<'a>,
+    ) -> Result<Self, Self::Error> {
+        let bytes = deserializer.expect_next_item_and_get_value(implicit_tag)?;
+        Self::from_value_bytes(bytes)
+    }
+}
+
+impl<'a, T> Deserialize<'a> for T
+where
+    T: Primitive<'a>,
+{
+    type Error = T::Error;
+
+    fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error> {
+        Self::deserialize_with_implicit_tag(Self::TYPE_TAG, deserializer)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Deserializer<'a> {
     pub bytes: &'a [u8],
@@ -89,7 +126,7 @@ impl TypeTag {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct Item<'a> {
+pub struct Item<'a> {
     type_tag: TypeTag,
     bytes: &'a [u8],
 }
@@ -121,6 +158,20 @@ impl<'a> Deserializer<'a> {
         T::deserialize(self)
     }
 
+    pub fn parse_with_explicit_tag<T: Primitive<'a>>(
+        &mut self,
+        explicit_tag: TypeTag,
+    ) -> Result<T, T::Error> {
+        T::deserialize_with_explicit_tag(explicit_tag, self)
+    }
+
+    pub fn parse_with_implicit_tag<T: Primitive<'a>>(
+        &mut self,
+        implicit_tag: TypeTag,
+    ) -> Result<T, T::Error> {
+        T::deserialize_with_implicit_tag(implicit_tag, self)
+    }
+
     pub fn parse_complete<T: Deserialize<'a>>(&mut self, error: T::Error) -> Result<T, T::Error> {
         let value: T = self.parse()?;
         if !self.is_exhausted() {
@@ -148,7 +199,7 @@ impl<'a> Deserializer<'a> {
 
         if item.type_tag != expected_type {
             log::warn!("Expected {:?} but found {:?}", expected_type, item.type_tag);
-            return Err(Error::IllegalValue);
+            return Err(Error::UnexpectedTypeTag);
         }
 
         Ok(item.bytes)
@@ -181,7 +232,7 @@ impl<'a> Deserializer<'a> {
         Ok(type_tag)
     }
 
-    fn next_primitive_item(&mut self) -> Result<Item<'a>, Error> {
+    pub fn next_primitive_item(&mut self) -> Result<Item<'a>, Error> {
         let byte = self.next_byte()?;
 
         let _class_tag = match byte >> 6 {

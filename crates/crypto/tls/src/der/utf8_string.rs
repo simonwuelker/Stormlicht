@@ -1,4 +1,4 @@
-use super::{Deserialize, Deserializer, Error, TypeTag};
+use super::{Error, Primitive, TypeTag};
 
 #[derive(Clone, Debug)]
 pub struct Utf8String {
@@ -11,12 +11,12 @@ impl From<Utf8String> for String {
     }
 }
 
-impl<'a> Deserialize<'a> for Utf8String {
+impl<'a> Primitive<'a> for Utf8String {
     type Error = Error;
 
-    fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error> {
-        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::UTF8_STRING)?;
+    const TYPE_TAG: TypeTag = TypeTag::UTF8_STRING;
 
+    fn from_value_bytes(bytes: &'a [u8]) -> Result<Self, Self::Error> {
         let contents = String::from_utf8(bytes.to_vec()).map_err(|_| Error::IllegalValue)?;
         let utf8_string = Self { contents };
 

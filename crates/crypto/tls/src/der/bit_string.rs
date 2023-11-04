@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::{Deserialize, Deserializer, Error, TypeTag};
+use super::{Error, Primitive, TypeTag};
 
 /// A arbitrary sequence of bits.
 ///
@@ -40,11 +40,12 @@ impl TryFrom<&[u8]> for BitString {
     }
 }
 
-impl<'a> Deserialize<'a> for BitString {
+impl<'a> Primitive<'a> for BitString {
     type Error = Error;
 
-    fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error> {
-        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::BIT_STRING)?;
+    const TYPE_TAG: TypeTag = TypeTag::BIT_STRING;
+
+    fn from_value_bytes(bytes: &'a [u8]) -> Result<Self, Self::Error> {
         let bit_string = Self::try_from(bytes)?;
         Ok(bit_string)
     }

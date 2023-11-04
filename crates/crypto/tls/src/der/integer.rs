@@ -1,6 +1,6 @@
 use sl_std::big_num::BigNum;
 
-use super::{Deserialize, Deserializer, Error, TypeTag};
+use super::{Error, Primitive, TypeTag};
 
 #[derive(Clone, Debug)]
 pub enum Integer {
@@ -42,14 +42,13 @@ impl Integer {
     }
 }
 
-impl<'a> Deserialize<'a> for Integer {
+impl<'a> Primitive<'a> for Integer {
     type Error = Error;
 
-    fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error> {
-        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::INTEGER)?;
+    const TYPE_TAG: TypeTag = TypeTag::INTEGER;
 
+    fn from_value_bytes(bytes: &'a [u8]) -> Result<Self, Self::Error> {
         let integer = Self::from_be_bytes(bytes);
-
         Ok(integer)
     }
 }

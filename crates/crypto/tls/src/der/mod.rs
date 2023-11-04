@@ -12,7 +12,7 @@ pub use bit_string::{BitString, BitStringParseError};
 pub use integer::Integer;
 pub use object_identifier::ObjectIdentifier;
 pub use printable_string::PrintableString;
-pub use reader::{ClassTag, Deserialize, Deserializer, PrimitiveOrConstructed, TypeTag};
+pub use reader::{ClassTag, Deserialize, Deserializer, Primitive, PrimitiveOrConstructed, TypeTag};
 pub use sequence::Sequence;
 pub use set::Set;
 pub use utc_time::UtcTime;
@@ -20,6 +20,7 @@ pub use utf8_string::Utf8String;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Error {
+    UnexpectedTypeTag,
     ReservedTypeTag,
     UnknownTypeTag,
     /// A indefinite length was encountered

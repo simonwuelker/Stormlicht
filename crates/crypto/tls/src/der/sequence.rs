@@ -1,4 +1,4 @@
-use super::{Deserialize, Deserializer, Error, TypeTag};
+use super::{Deserializer, Error, Primitive, TypeTag};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Sequence<'a> {
@@ -11,12 +11,12 @@ impl<'a> Sequence<'a> {
     }
 }
 
-impl<'a> Deserialize<'a> for Sequence<'a> {
+impl<'a> Primitive<'a> for Sequence<'a> {
     type Error = Error;
 
-    fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error> {
-        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::SEQUENCE)?;
-        let sequence = Self { bytes };
-        Ok(sequence)
+    const TYPE_TAG: TypeTag = TypeTag::SEQUENCE;
+
+    fn from_value_bytes(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+        Ok(Self { bytes })
     }
 }

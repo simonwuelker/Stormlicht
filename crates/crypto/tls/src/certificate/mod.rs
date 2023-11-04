@@ -56,7 +56,6 @@ impl<'a> der::Deserialize<'a> for X509Certificate {
     fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
         let sequence: der::Sequence = deserializer.parse()?;
         let mut deserializer = sequence.deserializer();
-        println!("sequence: {:?}", deserializer.ptr);
         let version: CertificateVersion = deserializer.parse()?;
         let serial_number: der::Integer = deserializer.parse()?;
         let algorithm: AlgorithmIdentifier = deserializer.parse()?;
