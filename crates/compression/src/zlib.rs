@@ -2,8 +2,6 @@
 //!
 //! ZLIB is basically just a thin wrapper around DEFLATE.
 
-use hash::Adler32;
-
 use crate::deflate;
 
 #[derive(Clone, Copy, Debug)]
@@ -73,9 +71,7 @@ pub fn decompress(bytes: &[u8]) -> Result<Vec<u8>, Error> {
             let expected_checksum =
                 u32::from_be_bytes(bytes[2 + num_consumed_bytes..][..4].try_into().unwrap());
 
-            let mut hasher = Adler32::default();
-            hasher.write(&decompressed);
-            let computed_checksum = hasher.finish();
+            let computed_checksum = hash::adler32(&decompressed);
 
             if expected_checksum != computed_checksum {
                 log::warn!("Incorrect zlib checksum: expected {expected_checksum:0>8x}, found {computed_checksum:0>8x}");

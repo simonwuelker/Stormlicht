@@ -1,4 +1,4 @@
-//! MD5 [RFC 1321](https://datatracker.ietf.org/doc/html/rfc1321) implementation
+//! Md5 [RFC 1321](https://datatracker.ietf.org/doc/html/rfc1321) implementation
 
 const T: [u32; 64] = [
     0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
@@ -53,7 +53,7 @@ macro_rules! step {
     }};
 }
 
-pub struct MD5 {
+pub struct Md5Hasher {
     a: u32,
     b: u32,
     c: u32,
@@ -63,7 +63,7 @@ pub struct MD5 {
     num_bytes_consumed: u64,
 }
 
-impl Default for MD5 {
+impl Default for Md5Hasher {
     fn default() -> Self {
         Self {
             a: u32::from_le_bytes([0x01, 0x23, 0x45, 0x67]),
@@ -77,7 +77,7 @@ impl Default for MD5 {
     }
 }
 
-impl MD5 {
+impl Md5Hasher {
     pub fn update(&mut self, bytes: &[u8]) {
         let bytes_to_fill = 64 - self.buffer_ptr;
         if bytes.len() < bytes_to_fill {
@@ -249,9 +249,9 @@ impl MD5 {
 
 /// Calculate the MD5 Hash for the given bytes.
 ///
-/// This is a convenience function around creating a [MD5] instance.
+/// This is a convenience function around creating a [Md5Hasher] instance.
 pub fn md5(bytes: &[u8]) -> u128 {
-    let mut hasher = MD5::default();
+    let mut hasher = Md5Hasher::default();
     hasher.update(bytes);
     hasher.finish()
 }

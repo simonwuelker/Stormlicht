@@ -34,21 +34,21 @@ const CRC32_TABLE: [u32; 256] = [
 ];
 
 pub fn crc32(bytes: &[u8]) -> u32 {
-    let mut hasher = CRC32Hasher::default();
+    let mut hasher = Crc32Hasher::default();
     hasher.write(bytes);
     hasher.finish()
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct CRC32Hasher(u32);
+pub struct Crc32Hasher(u32);
 
-impl Default for CRC32Hasher {
+impl Default for Crc32Hasher {
     fn default() -> Self {
         Self(u32::MAX)
     }
 }
 
-impl CRC32Hasher {
+impl Crc32Hasher {
     cfg_match! {
         cfg(all(
             any(target_arch = "x86", target_arch = "x86_64"),
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn test_crc32() {
         let text = b"Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumx eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.";
-        let mut hasher = CRC32Hasher::default();
+        let mut hasher = Crc32Hasher::default();
         hasher.write(text);
         assert_eq!(hasher.finish(), 0xf5d5228);
     }

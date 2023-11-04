@@ -63,11 +63,11 @@ fn ssig1(x: u32) -> u32 {
 // a SHA-256 hasher.
 #[derive(Debug)]
 /// SHA-224 Hasher, as defined in [RFC 3874](https://www.rfc-editor.org/rfc/rfc3874)
-pub struct Sha224(Sha256);
+pub struct Sha224Hasher(Sha256Hasher);
 
-impl Default for Sha224 {
+impl Default for Sha224Hasher {
     fn default() -> Self {
-        Self(Sha256 {
+        Self(Sha256Hasher {
             state: SHA224_INITIAL,
             buffer: [0; 64],
             buffer_ptr: 0,
@@ -77,14 +77,14 @@ impl Default for Sha224 {
 }
 
 #[derive(Debug)]
-pub struct Sha256 {
+pub struct Sha256Hasher {
     state: [u32; 8],
     buffer: [u8; 64],
     buffer_ptr: usize,
     num_bytes_consumed: u64,
 }
 
-impl Default for Sha256 {
+impl Default for Sha256Hasher {
     fn default() -> Self {
         Self {
             state: SHA256_INITIAL,
@@ -95,7 +95,7 @@ impl Default for Sha256 {
     }
 }
 
-impl Sha224 {
+impl Sha224Hasher {
     pub fn update(&mut self, bytes: &[u8]) {
         self.0.update(bytes);
     }
@@ -106,7 +106,7 @@ impl Sha224 {
     }
 }
 
-impl Sha256 {
+impl Sha256Hasher {
     fn finish(&mut self) -> [u8; 32] {
         // Important to get the length (in bits) now *before* we consume any padding
         let length: u64 = (self.num_bytes_consumed + self.buffer_ptr as u64) * 8;
@@ -226,13 +226,13 @@ impl Sha256 {
 }
 
 pub fn sha224(bytes: &[u8]) -> [u8; 28] {
-    let mut hasher = Sha224::default();
+    let mut hasher = Sha224Hasher::default();
     hasher.update(bytes);
     hasher.finish()
 }
 
 pub fn sha256(bytes: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha256::default();
+    let mut hasher = Sha256Hasher::default();
     hasher.update(bytes);
     hasher.finish()
 }
