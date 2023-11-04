@@ -151,7 +151,10 @@ impl<'a> der::Deserialize<'a> for AlgorithmIdentifier {
         let mut deserializer = sequence.deserializer();
 
         let identifier: der::ObjectIdentifier = deserializer.parse()?;
-        let _parameters: der::Sequence = deserializer.parse()?;
+
+        // FIXME: The type of parameter depends on the algorithm used,
+        //        we can't parse this yet
+        let _parameters = deserializer.next_primitive_item()?;
 
         deserializer.expect_exhausted(Error::TrailingBytes)?;
 
