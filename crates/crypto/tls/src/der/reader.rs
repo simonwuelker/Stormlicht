@@ -35,45 +35,57 @@ pub enum ClassTag {
     Private,
 }
 
+/// Namespace for known universal type tags
+///
+/// Note that this can't be modeled as an enum, since
+/// type tags can have any value (even one's that are
+/// not defined anywhere), due to explicit/implicit tagging
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TypeTag {
-    EndOfContent,
-    Boolean,
-    Integer,
-    BitString,
-    OctetString,
-    Null,
-    ObjectIdentifier,
-    ObjectDescriptor,
-    External,
-    Real,
-    Enumerated,
-    EmbeddedPDV,
-    Utf8String,
-    RelativeOID,
-    Time,
-    Sequence,
-    Set,
-    NumericString,
-    PrintableString,
-    T61String,
-    VideotexString,
-    IA5String,
-    UtcTime,
-    GeneralizedTime,
-    GraphicString,
-    VisibleString,
-    GeneralString,
-    UniversalString,
-    CharacterString,
-    BMPString,
-    Date,
-    TimeOfDay,
-    DateTime,
-    Duration,
-    OidIri,
-    RelativeOidIri,
-    ContextSpecific,
+pub struct TypeTag(u32);
+
+impl TypeTag {
+    pub const END_OF_CONTENT: Self = Self(0);
+    pub const BOOLEAN: Self = Self(1);
+    pub const INTEGER: Self = Self(2);
+    pub const BIT_STRING: Self = Self(3);
+    pub const OCTET_STRING: Self = Self(4);
+    pub const NULL: Self = Self(5);
+    pub const OBJECT_IDENTIFIER: Self = Self(6);
+    pub const OBJECT_DESCRIPTOR: Self = Self(7);
+    pub const EXTERNAL: Self = Self(8);
+    pub const REAL: Self = Self(9);
+    pub const ENUMERATED: Self = Self(10);
+    pub const EMBEDDED_PDV: Self = Self(11);
+    pub const UTF8_STRING: Self = Self(12);
+    pub const RELATIVE_OID: Self = Self(13);
+    pub const TIME: Self = Self(14);
+    pub const RESERVED: Self = Self(15);
+    pub const SEQUENCE: Self = Self(16);
+    pub const SET: Self = Self(17);
+    pub const NUMERIC_STRING: Self = Self(18);
+    pub const PRINTABLE_STRING: Self = Self(19);
+    pub const T61_STRING: Self = Self(20);
+    pub const VIDEOTEX_STRING: Self = Self(21);
+    pub const IA5_STRING: Self = Self(22);
+    pub const UTC_TIME: Self = Self(23);
+    pub const GENERALIZED_TIME: Self = Self(24);
+    pub const GRAPHIC_STRING: Self = Self(25);
+    pub const VISIBLE_STRING: Self = Self(26);
+    pub const GENERAL_STRING: Self = Self(27);
+    pub const UNIVERSAL_STRING: Self = Self(28);
+    pub const CHARACTER_STRING: Self = Self(29);
+    pub const BMP_STRING: Self = Self(30);
+    pub const DATE: Self = Self(31);
+    pub const TIME_OF_DAY: Self = Self(32);
+    pub const DATETIME: Self = Self(33);
+    pub const DURATION: Self = Self(34);
+    pub const OID_IRI: Self = Self(35);
+    pub const RELATIVE_OID_IRI: Self = Self(36);
+    pub const CONTEXT_SPECIFIC: Self = Self(37);
+
+    pub fn new(n: u32) -> Self {
+        Self(n)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -165,7 +177,8 @@ impl<'a> Deserializer<'a> {
 
         self.ptr = old_position;
 
-        TypeTag::try_from(type_tag)
+        let type_tag = TypeTag::new(type_tag);
+        Ok(type_tag)
     }
 
     fn next_primitive_item(&mut self) -> Result<Item<'a>, Error> {
@@ -244,59 +257,10 @@ impl<'a> Deserializer<'a> {
         self.advance_by(length);
 
         let item = Item {
-            type_tag: TypeTag::try_from(type_tag)?,
+            type_tag: TypeTag::new(type_tag),
             bytes: value_bytes,
         };
 
         Ok(item)
-    }
-}
-
-impl TryFrom<u32> for TypeTag {
-    type Error = Error;
-
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        let type_tag = match value {
-            0 => TypeTag::EndOfContent,
-            1 => TypeTag::Boolean,
-            2 => TypeTag::Integer,
-            3 => TypeTag::BitString,
-            4 => TypeTag::OctetString,
-            5 => TypeTag::Null,
-            6 => TypeTag::ObjectIdentifier,
-            7 => TypeTag::ObjectDescriptor,
-            8 => TypeTag::External,
-            9 => TypeTag::Real,
-            10 => TypeTag::Enumerated,
-            11 => TypeTag::EmbeddedPDV,
-            12 => TypeTag::Utf8String,
-            13 => TypeTag::RelativeOID,
-            14 => TypeTag::Time,
-            15 => return Err(Error::ReservedTypeTag),
-            16 => TypeTag::Sequence,
-            17 => TypeTag::Set,
-            18 => TypeTag::NumericString,
-            19 => TypeTag::PrintableString,
-            20 => TypeTag::T61String,
-            21 => TypeTag::VideotexString,
-            22 => TypeTag::IA5String,
-            23 => TypeTag::UtcTime,
-            24 => TypeTag::GeneralizedTime,
-            25 => TypeTag::GraphicString,
-            26 => TypeTag::VisibleString,
-            27 => TypeTag::GeneralString,
-            28 => TypeTag::UniversalString,
-            29 => TypeTag::CharacterString,
-            30 => TypeTag::BMPString,
-            31 => TypeTag::Date,
-            32 => TypeTag::TimeOfDay,
-            33 => TypeTag::DateTime,
-            34 => TypeTag::Duration,
-            35 => TypeTag::OidIri,
-            36 => TypeTag::RelativeOidIri,
-            _ => return Err(Error::UnknownTypeTag),
-        };
-
-        Ok(type_tag)
     }
 }

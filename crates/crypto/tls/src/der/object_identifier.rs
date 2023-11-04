@@ -9,7 +9,7 @@ impl<'a> Deserialize<'a> for ObjectIdentifier {
     type Error = Error;
 
     fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error> {
-        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::ObjectIdentifier)?;
+        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::OBJECT_IDENTIFIER)?;
 
         if bytes.is_empty() {
             return Err(Self::Error::UnexpectedEOF);

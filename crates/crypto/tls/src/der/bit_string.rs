@@ -44,7 +44,7 @@ impl<'a> Deserialize<'a> for BitString {
     type Error = Error;
 
     fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error> {
-        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::BitString)?;
+        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::BIT_STRING)?;
         let bit_string = Self::try_from(bytes)?;
         Ok(bit_string)
     }

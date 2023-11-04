@@ -10,7 +10,7 @@ impl<'a> Deserialize<'a> for PrintableString {
     type Error = Error;
 
     fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error> {
-        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::PrintableString)?;
+        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::PRINTABLE_STRING)?;
 
         let contents = ascii::String::from_bytes(bytes.to_vec()).ok_or(Error::IllegalValue)?;
         if !contents

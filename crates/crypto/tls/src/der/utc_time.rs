@@ -11,7 +11,7 @@ impl<'a> Deserialize<'a> for UtcTime {
     type Error = Error;
 
     fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error> {
-        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::UtcTime)?;
+        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::UTC_TIME)?;
         // https://datatracker.ietf.org/doc/html/rfc5280#section-4.1.2.5.1
         // NOTE: this is not compliant with the der spec itself - but since we *only*
         //       use it to parse x509 certificates, we should adhere to the spec above instead

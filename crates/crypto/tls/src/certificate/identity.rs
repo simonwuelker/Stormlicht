@@ -82,11 +82,11 @@ impl<'a> der::Deserialize<'a> for Identity {
 
 fn parse_directory_string(deserializer: &mut der::Deserializer) -> Result<String, Error> {
     let string = match deserializer.peek_item_tag()? {
-        der::TypeTag::Utf8String => {
+        der::TypeTag::UTF8_STRING => {
             let utf8string: der::Utf8String = deserializer.parse()?;
             utf8string.into()
         },
-        der::TypeTag::PrintableString => {
+        der::TypeTag::PRINTABLE_STRING => {
             let printable_string: der::PrintableString = deserializer.parse()?;
             printable_string.into()
         },

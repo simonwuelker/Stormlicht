@@ -15,7 +15,7 @@ impl<'a> Deserialize<'a> for Utf8String {
     type Error = Error;
 
     fn deserialize(deserializer: &mut Deserializer<'a>) -> Result<Self, Self::Error> {
-        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::Utf8String)?;
+        let bytes = deserializer.expect_next_item_and_get_value(TypeTag::UTF8_STRING)?;
 
         let contents = String::from_utf8(bytes.to_vec()).map_err(|_| Error::IllegalValue)?;
         let utf8_string = Self { contents };
