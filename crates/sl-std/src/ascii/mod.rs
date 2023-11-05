@@ -10,7 +10,7 @@ pub use write::Write;
 
 pub use std::ascii::Char;
 
-trait AsciiCharExt {
+pub trait AsciiCharExt {
     /// <https://infra.spec.whatwg.org/#ascii-whitespace>
     fn is_whitespace(&self) -> bool;
     fn is_newline(&self) -> bool;
