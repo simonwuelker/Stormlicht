@@ -27,6 +27,11 @@ I strive for Correctness, Performance and Safety, in that order.
 
 This is also a "for fun" project, so I do try and implement as much of the functionality as possible without relying on third party crates. (currently, we only need [glazier](https://github.com/linebender/glazier) and [softbuffer](https://github.com/rust-windowing/softbuffer) for cross-platform window management, [log](https://github.com/rust-lang/log) and [env-logger](https://github.com/rust-cli/env_logger) for logging as well as [syn](https://github.com/dtolnay/syn)/[quote](https://github.com/dtolnay/quote)/[proc-macro2](https://github.com/dtolnay/proc-macro2) during compilation)
 
+| Rendering http://stormlicht.rs | 
+| --- |
+| ![image](https://github.com/Wuelle/Stormlicht/assets/58120269/897c831c-a621-4297-a567-71ba651dfcdb) |
+
+
 ## 1.2. Build Instructions
 Stormlicht uses the latest nightly compiler version.
 First, install the rust compiler[^1] , then switch to nightly using 
