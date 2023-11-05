@@ -70,6 +70,13 @@ impl Str {
         self.split(Char::is_newline)
     }
 
+    pub fn starts_with<'a, P>(&'a self, pattern: P) -> bool
+    where
+        P: super::Pattern<'a>,
+    {
+        pattern.is_prefix_of(self)
+    }
+
     pub fn trim(&self) -> &Self {
         self.trim_matches(Char::is_whitespace)
     }
