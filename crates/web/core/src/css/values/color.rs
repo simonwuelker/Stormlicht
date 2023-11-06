@@ -4,7 +4,7 @@ use string_interner::{static_interned, static_str};
 
 use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
 
-use super::Number;
+use super::{Number, PercentageOr};
 
 /// <https://drafts.csswg.org/css-color/#color-syntax>
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -712,10 +712,33 @@ impl Color {
         })
     }
 
-    fn parse_modern_rgb(_parser: &mut Parser) -> Result<Self, ParseError> {
+    /// Parse the function arguments of a CSS `rgb()` color with modern syntax
+    ///
+    /// This parses both [rgb](https://drafts.csswg.org/css-color/#typedef-modern-rgb-syntax) and [rgba](https://drafts.csswg.org/css-color/#typedef-modern-rgba-syntax)
+    /// syntax.
+    /// A valid function may look like this: `rgb(100% 0% 0% / 50%)`
+    fn parse_modern_rgb(parser: &mut Parser) -> Result<Self, ParseError> {
         // NOTE: The spec defines modern-rgb and modern-rgba
         //       But they are identical, so we do not differentiate between them
-        todo!()
+
+        // FIXME: Color values can be `none`
+        let red = PercentageOr::<Number>::parse(parser)?
+            .resolve_against(Number::Integer(u8::MAX as i32))
+            .round_to_int() as u8;
+        parser.skip_whitespace();
+
+        let green = PercentageOr::<Number>::parse(parser)?
+            .resolve_against(Number::Integer(u8::MAX as i32))
+            .round_to_int() as u8;
+
+        parser.skip_whitespace();
+        let blue = PercentageOr::<Number>::parse(parser)?
+            .resolve_against(Number::Integer(u8::MAX as i32))
+            .round_to_int() as u8;
+
+        parser.skip_whitespace();
+        // FIXME: Parse optional alpha value
+        Ok(Self::rgb(red, green, blue))
     }
 
     fn parse_rgb_function(parser: &mut Parser) -> Result<Self, ParseError> {
@@ -839,6 +862,27 @@ mod tests {
         assert_eq!(
             Color::parse_from_str("rgb(100%, 50.0%, 10%, 1%)"),
             Ok(Color::rgba(255, 128, 26, 3))
+        );
+    }
+
+    #[test]
+    fn parse_modern_rgb() {
+        // modern syntax without alpha value (no percentages)
+        assert_eq!(
+            Color::parse_from_str("rgb(255 0 10)"),
+            Ok(Color::rgb(255, 0, 10))
+        );
+
+        // modern syntax without alpha value (percentages)
+        assert_eq!(
+            Color::parse_from_str("rgb(100% 50.0% 0%)"),
+            Ok(Color::rgb(255, 128, 0))
+        );
+
+        // modern syntax without alpha value (mixed absolute values and percentages)
+        assert_eq!(
+            Color::parse_from_str("rgb(100% 50.0% 13)"),
+            Ok(Color::rgb(255, 128, 13))
         );
     }
 }
