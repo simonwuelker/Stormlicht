@@ -410,9 +410,6 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
     /// Reads the next character from the input strea,
     fn read_next(&mut self) -> Option<char> {
         self.source.next()
-        // let c = self.source.chars().nth(self.ptr);
-        // self.ptr += 1;
-        // c
     }
 
     pub fn step(&mut self) {
