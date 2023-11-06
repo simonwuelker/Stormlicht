@@ -1,7 +1,6 @@
 use dom_derive::inherit;
 
 use super::HtmlElement;
-use crate::display_tagname;
 
 /// <https://html.spec.whatwg.org/multipage/text-level-semantics.html#the-a-element>
 #[inherit(HtmlElement)]
@@ -14,5 +13,3 @@ impl HtmlAnchorElement {
         }
     }
 }
-
-display_tagname!(HtmlAnchorElement, "a");

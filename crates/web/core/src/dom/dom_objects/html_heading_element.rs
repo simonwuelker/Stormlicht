@@ -1,7 +1,6 @@
 use dom_derive::inherit;
 
 use super::HtmlElement;
-use crate::display_tagname;
 
 /// <https://html.spec.whatwg.org/multipage/sections.html#the-h1,-h2,-h3,-h4,-h5,-and-h6-elements>
 #[inherit(HtmlElement)]
@@ -14,5 +13,3 @@ impl HtmlHeadingElement {
         }
     }
 }
-
-display_tagname!(HtmlHeadingElement, "heading");

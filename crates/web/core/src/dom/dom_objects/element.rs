@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use dom_derive::inherit;
 use string_interner::{static_interned, static_str, InternedString};
 
-use crate::{display_string, dom::ElementCustomState, infra::Namespace};
+use crate::{dom::ElementCustomState, infra::Namespace};
 
 use super::Node;
 
@@ -20,8 +20,6 @@ pub struct Element {
 
     intrinsic_size: Option<math::Rectangle>,
 }
-
-display_string!(Element, "ELEMENT");
 
 impl Element {
     pub fn new(

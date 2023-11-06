@@ -1,5 +1,4 @@
 use super::HtmlElement;
-use crate::display_tagname;
 
 use dom_derive::inherit;
 
@@ -14,5 +13,3 @@ impl HtmlStyleElement {
         }
     }
 }
-
-display_tagname!(HtmlStyleElement, "style");

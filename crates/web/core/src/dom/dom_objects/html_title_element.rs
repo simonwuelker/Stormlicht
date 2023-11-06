@@ -1,5 +1,4 @@
 use super::HtmlElement;
-use crate::display_tagname;
 
 use dom_derive::inherit;
 
@@ -17,5 +16,3 @@ impl HtmlTitleElement {
         }
     }
 }
-
-display_tagname!(HtmlTitleElement, "title");

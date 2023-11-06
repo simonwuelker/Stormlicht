@@ -1,7 +1,6 @@
 use dom_derive::inherit;
 
 use super::HtmlElement;
-use crate::display_tagname;
 
 /// <https://html.spec.whatwg.org/multipage/grouping-content.html#the-div-element>
 #[inherit(HtmlElement)]
@@ -14,5 +13,3 @@ impl HtmlDivElement {
         }
     }
 }
-
-display_tagname!(HtmlDivElement, "div");

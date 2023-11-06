@@ -1,7 +1,6 @@
 use dom_derive::inherit;
 
 use super::HtmlElement;
-use crate::display_tagname;
 
 /// <https://html.spec.whatwg.org/multipage/forms.html#the-form-element>
 #[inherit(HtmlElement)]
@@ -14,5 +13,3 @@ impl HtmlFormElement {
         }
     }
 }
-
-display_tagname!(HtmlFormElement, "form");

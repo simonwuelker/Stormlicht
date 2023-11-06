@@ -3,7 +3,6 @@ use std::fmt;
 
 use super::{Comment, Document, Text};
 use crate::{
-    display_string,
     dom::{DOMPtr, DOMType, WeakDOMPtr},
     TreeDebug, TreeFormatter,
 };
@@ -15,8 +14,6 @@ pub struct Node {
     child_nodes: Vec<DOMPtr<Node>>,
     owning_document: Option<WeakDOMPtr<Document>>,
 }
-
-display_string!(Node, "NODE");
 
 impl Node {
     /// <https://dom.spec.whatwg.org/#concept-node-length>

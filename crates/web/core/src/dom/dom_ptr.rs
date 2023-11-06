@@ -1,10 +1,16 @@
 use std::{
     cell::RefCell,
+    fmt::Write,
     ops::Deref,
     rc::{Rc, Weak},
 };
 
-use super::codegen::{DOMType, DOMTyped};
+use crate::TreeDebug;
+
+use super::{
+    codegen::{DOMType, DOMTyped},
+    dom_objects,
+};
 
 /// Smartpointer used for inheritance-objects.
 /// Each [DOMPtr] contains a pointer to an object of type `T`.
@@ -131,5 +137,38 @@ impl<T: DOMTyped> Clone for WeakDOMPtr<T> {
             inner: self.inner.clone(),
             underlying_type: self.underlying_type,
         }
+    }
+}
+
+impl<T> TreeDebug for DOMPtr<T>
+where
+    T: DOMTyped,
+{
+    fn tree_fmt(&self, formatter: &mut crate::TreeFormatter<'_, '_>) -> std::fmt::Result {
+        if let Some(node) = self.try_into_type::<dom_objects::Node>() {
+            formatter.indent()?;
+
+            if let Some(text) = self.try_into_type::<dom_objects::Text>() {
+                formatter.write_text(text.borrow().content(), "\"", "\"")?;
+            } else if let Some(comment) = self.try_into_type::<dom_objects::Comment>() {
+                formatter.write_text(comment.borrow().comment_data(), "<!--", "-->")?;
+            } else if let Some(element) = self.try_into_type::<dom_objects::Element>() {
+                write!(formatter, "<{}>", element.borrow().local_name())?;
+            } else {
+                write!(formatter, "NODE")?;
+            }
+            writeln!(formatter)?;
+
+            let borrowed_node = node.borrow();
+            if !borrowed_node.children().is_empty() {
+                formatter.increase_indent();
+                for child in borrowed_node.children() {
+                    formatter.indent()?;
+                    child.tree_fmt(formatter)?;
+                }
+                formatter.decrease_indent();
+            }
+        }
+        Ok(())
     }
 }

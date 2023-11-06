@@ -2,13 +2,11 @@
 
 mod boundary_point;
 mod codegen;
-mod display;
 pub mod dom_objects;
 mod dom_ptr;
 
 pub use boundary_point::{BoundaryPoint, RelativePosition};
 pub use codegen::{DOMType, DOMTyped};
-pub use display::DOMDisplay;
 pub use dom_ptr::{DOMPtr, WeakDOMPtr};
 use string_interner::{static_interned, static_str, InternedString};
 

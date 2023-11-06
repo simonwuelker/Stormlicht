@@ -1,7 +1,6 @@
 use dom_derive::inherit;
 
 use super::HtmlElement;
-use crate::display_tagname;
 
 /// <https://html.spec.whatwg.org/multipage/grouping-content.html#the-li-element>
 #[inherit(HtmlElement)]
@@ -14,5 +13,3 @@ impl HtmlLiElement {
         }
     }
 }
-
-display_tagname!(HtmlLiElement, "li");

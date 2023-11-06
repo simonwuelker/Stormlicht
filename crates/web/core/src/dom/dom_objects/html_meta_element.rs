@@ -1,5 +1,4 @@
 use super::HtmlElement;
-use crate::display_tagname;
 
 use dom_derive::inherit;
 
@@ -23,5 +22,3 @@ impl HtmlMetaElement {
         }
     }
 }
-
-display_tagname!(HtmlMetaElement, "meta");

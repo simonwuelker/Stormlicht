@@ -509,7 +509,7 @@ impl TreeDebug for InlineLevelBox {
         match self {
             Self::TextRun(text_run) => {
                 formatter.indent()?;
-                formatter.write_text(text_run.text())?;
+                formatter.write_text(text_run.text(), "\"", "\"")?;
                 writeln!(formatter)?;
             },
             Self::InlineBox(inline_box) => {

@@ -1,5 +1,4 @@
 use super::Node;
-use crate::display_tagname;
 use dom_derive::inherit;
 use string_interner::InternedString;
 
@@ -10,8 +9,6 @@ pub struct DocumentType {
     public_id: InternedString,
     system_id: InternedString,
 }
-
-display_tagname!(DocumentType, "DOCTYPE");
 
 impl DocumentType {
     pub fn set_name(&mut self, name: InternedString) {
