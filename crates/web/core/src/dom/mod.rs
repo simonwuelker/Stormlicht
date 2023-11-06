@@ -14,13 +14,13 @@ use string_interner::{static_interned, static_str, InternedString};
 
 use crate::infra::Namespace;
 use dom_objects::{
-    Document, Element, HTMLAnchorElement, HTMLBodyElement, HTMLButtonElement, HTMLDdElement,
-    HTMLDivElement, HTMLElement, HTMLHeadElement, HTMLHtmlElement, HTMLLinkElement,
-    HTMLMetaElement, HTMLNoscriptElement, HTMLParagraphElement, HTMLScriptElement,
-    HTMLStyleElement, HTMLTemplateElement, HTMLTitleElement,
+    Document, Element, HtmlAnchorElement, HtmlBodyElement, HtmlButtonElement, HtmlDdElement,
+    HtmlDivElement, HtmlElement, HtmlHeadElement, HtmlHtmlElement, HtmlLinkElement,
+    HtmlMetaElement, HtmlNoscriptElement, HtmlParagraphElement, HtmlScriptElement,
+    HtmlStyleElement, HtmlTemplateElement, HtmlTitleElement,
 };
 
-use self::dom_objects::{HTMLFormElement, HTMLHeadingElement, HTMLLIElement};
+use self::dom_objects::{HtmlFormElement, HtmlHeadingElement, HtmlLiElement};
 
 /// <https://dom.spec.whatwg.org/#concept-element-custom-element-state>
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -130,56 +130,56 @@ fn create_element_for_interface(
 
     match local_name {
         static_interned!("a") => {
-            DOMPtr::new(HTMLAnchorElement::new(HTMLElement::new(element_data)))
+            DOMPtr::new(HtmlAnchorElement::new(HtmlElement::new(element_data)))
                 .into_type::<Element>()
         },
         static_interned!("body") => {
-            DOMPtr::new(HTMLBodyElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+            DOMPtr::new(HtmlBodyElement::new(HtmlElement::new(element_data))).into_type::<Element>()
         },
         static_interned!("button") => {
-            DOMPtr::new(HTMLButtonElement::new(HTMLElement::new(element_data)))
+            DOMPtr::new(HtmlButtonElement::new(HtmlElement::new(element_data)))
                 .into_type::<Element>()
         },
         static_interned!("dd") => {
-            DOMPtr::new(HTMLDdElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+            DOMPtr::new(HtmlDdElement::new(HtmlElement::new(element_data))).into_type::<Element>()
         },
         static_interned!("div") => {
-            DOMPtr::new(HTMLDivElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+            DOMPtr::new(HtmlDivElement::new(HtmlElement::new(element_data))).into_type::<Element>()
         },
         static_interned!("head") => {
-            DOMPtr::new(HTMLHeadElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+            DOMPtr::new(HtmlHeadElement::new(HtmlElement::new(element_data))).into_type::<Element>()
         },
         static_interned!("html") => {
-            DOMPtr::new(HTMLHtmlElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+            DOMPtr::new(HtmlHtmlElement::new(HtmlElement::new(element_data))).into_type::<Element>()
         },
         static_interned!("link") => {
-            DOMPtr::new(HTMLLinkElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+            DOMPtr::new(HtmlLinkElement::new(HtmlElement::new(element_data))).into_type::<Element>()
         },
         static_interned!("meta") => {
-            DOMPtr::new(HTMLMetaElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+            DOMPtr::new(HtmlMetaElement::new(HtmlElement::new(element_data))).into_type::<Element>()
         },
         static_interned!("noscript") => {
-            DOMPtr::new(HTMLNoscriptElement::new(HTMLElement::new(element_data)))
+            DOMPtr::new(HtmlNoscriptElement::new(HtmlElement::new(element_data)))
                 .into_type::<Element>()
         },
         static_interned!("p") => {
-            DOMPtr::new(HTMLParagraphElement::new(HTMLElement::new(element_data)))
+            DOMPtr::new(HtmlParagraphElement::new(HtmlElement::new(element_data)))
                 .into_type::<Element>()
         },
         static_interned!("script") => {
-            DOMPtr::new(HTMLScriptElement::new(HTMLElement::new(element_data)))
+            DOMPtr::new(HtmlScriptElement::new(HtmlElement::new(element_data)))
                 .into_type::<Element>()
         },
         static_interned!("style") => {
-            DOMPtr::new(HTMLStyleElement::new(HTMLElement::new(element_data)))
+            DOMPtr::new(HtmlStyleElement::new(HtmlElement::new(element_data)))
                 .into_type::<Element>()
         },
         static_interned!("template") => {
-            DOMPtr::new(HTMLTemplateElement::new(HTMLElement::new(element_data)))
+            DOMPtr::new(HtmlTemplateElement::new(HtmlElement::new(element_data)))
                 .into_type::<Element>()
         },
         static_interned!("title") => {
-            DOMPtr::new(HTMLTitleElement::new(HTMLElement::new(element_data)))
+            DOMPtr::new(HtmlTitleElement::new(HtmlElement::new(element_data)))
                 .into_type::<Element>()
         },
         static_interned!("h1")
@@ -188,14 +188,14 @@ fn create_element_for_interface(
         | static_interned!("h4")
         | static_interned!("h5")
         | static_interned!("h6") => {
-            DOMPtr::new(HTMLHeadingElement::new(HTMLElement::new(element_data)))
+            DOMPtr::new(HtmlHeadingElement::new(HtmlElement::new(element_data)))
                 .into_type::<Element>()
         },
         static_interned!("li") => {
-            DOMPtr::new(HTMLLIElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+            DOMPtr::new(HtmlLiElement::new(HtmlElement::new(element_data))).into_type::<Element>()
         },
         static_interned!("form") => {
-            DOMPtr::new(HTMLFormElement::new(HTMLElement::new(element_data))).into_type::<Element>()
+            DOMPtr::new(HtmlFormElement::new(HtmlElement::new(element_data))).into_type::<Element>()
         },
         _ => {
             log::warn!(

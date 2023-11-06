@@ -1,18 +1,18 @@
 use dom_derive::inherit;
 
-use super::HTMLElement;
+use super::HtmlElement;
 use crate::display_tagname;
 
 /// <https://html.spec.whatwg.org/multipage/grouping-content.html#the-p-element>
-#[inherit(HTMLElement)]
-pub struct HTMLParagraphElement {}
+#[inherit(HtmlElement)]
+pub struct HtmlParagraphElement {}
 
-impl HTMLParagraphElement {
-    pub fn new(html_element: HTMLElement) -> Self {
+impl HtmlParagraphElement {
+    pub fn new(html_element: HtmlElement) -> Self {
         Self {
             __parent: html_element,
         }
     }
 }
 
-display_tagname!(HTMLParagraphElement, "p");
+display_tagname!(HtmlParagraphElement, "p");

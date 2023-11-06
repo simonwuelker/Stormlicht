@@ -1,18 +1,18 @@
 use dom_derive::inherit;
 
-use super::HTMLElement;
+use super::HtmlElement;
 use crate::display_tagname;
 
 /// <https://html.spec.whatwg.org/multipage/grouping-content.html#the-dd-element>
-#[inherit(HTMLElement)]
-pub struct HTMLDdElement {}
+#[inherit(HtmlElement)]
+pub struct HtmlDdElement {}
 
-impl HTMLDdElement {
-    pub fn new(html_element: HTMLElement) -> Self {
+impl HtmlDdElement {
+    pub fn new(html_element: HtmlElement) -> Self {
         Self {
             __parent: html_element,
         }
     }
 }
 
-display_tagname!(HTMLDdElement, "dd");
+display_tagname!(HtmlDdElement, "dd");

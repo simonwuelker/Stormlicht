@@ -1,16 +1,16 @@
-use super::HTMLElement;
+use super::HtmlElement;
 use crate::display_tagname;
 
 use dom_derive::inherit;
 
 /// <https://html.spec.whatwg.org/multipage/semantics.html#the-title-element>
-#[inherit(HTMLElement)]
-pub struct HTMLTitleElement {
+#[inherit(HtmlElement)]
+pub struct HtmlTitleElement {
     text: String,
 }
 
-impl HTMLTitleElement {
-    pub fn new(html_element: HTMLElement) -> Self {
+impl HtmlTitleElement {
+    pub fn new(html_element: HtmlElement) -> Self {
         Self {
             __parent: html_element,
             text: String::new(),
@@ -18,4 +18,4 @@ impl HTMLTitleElement {
     }
 }
 
-display_tagname!(HTMLTitleElement, "title");
+display_tagname!(HtmlTitleElement, "title");

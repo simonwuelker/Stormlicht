@@ -1,19 +1,19 @@
-use super::HTMLElement;
+use super::HtmlElement;
 use crate::display_tagname;
 
 use dom_derive::inherit;
 
 /// <https://html.spec.whatwg.org/multipage/semantics.html#the-meta-element>
-#[inherit(HTMLElement)]
-pub struct HTMLMetaElement {
+#[inherit(HtmlElement)]
+pub struct HtmlMetaElement {
     name: String,
     http_equiv: String,
     content: String,
     media: String,
 }
 
-impl HTMLMetaElement {
-    pub fn new(html_element: HTMLElement) -> Self {
+impl HtmlMetaElement {
+    pub fn new(html_element: HtmlElement) -> Self {
         Self {
             __parent: html_element,
             name: String::new(),
@@ -24,4 +24,4 @@ impl HTMLMetaElement {
     }
 }
 
-display_tagname!(HTMLMetaElement, "meta");
+display_tagname!(HtmlMetaElement, "meta");

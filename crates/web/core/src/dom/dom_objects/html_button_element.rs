@@ -1,18 +1,18 @@
 use dom_derive::inherit;
 
-use super::HTMLElement;
+use super::HtmlElement;
 use crate::display_tagname;
 
 /// <https://html.spec.whatwg.org/multipage/form-elements.html#the-button-element>
-#[inherit(HTMLElement)]
-pub struct HTMLButtonElement {}
+#[inherit(HtmlElement)]
+pub struct HtmlButtonElement {}
 
-impl HTMLButtonElement {
-    pub fn new(html_element: HTMLElement) -> Self {
+impl HtmlButtonElement {
+    pub fn new(html_element: HtmlElement) -> Self {
         Self {
             __parent: html_element,
         }
     }
 }
 
-display_tagname!(HTMLButtonElement, "button");
+display_tagname!(HtmlButtonElement, "button");

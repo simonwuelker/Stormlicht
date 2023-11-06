@@ -1,18 +1,18 @@
 use dom_derive::inherit;
 
-use super::HTMLElement;
+use super::HtmlElement;
 use crate::display_tagname;
 
 /// <https://html.spec.whatwg.org/multipage/semantics.html#the-html-element>
-#[inherit(HTMLElement)]
-pub struct HTMLHtmlElement {}
+#[inherit(HtmlElement)]
+pub struct HtmlHtmlElement {}
 
-impl HTMLHtmlElement {
-    pub fn new(html_element: HTMLElement) -> Self {
+impl HtmlHtmlElement {
+    pub fn new(html_element: HtmlElement) -> Self {
         Self {
             __parent: html_element,
         }
     }
 }
 
-display_tagname!(HTMLHtmlElement, "html");
+display_tagname!(HtmlHtmlElement, "html");

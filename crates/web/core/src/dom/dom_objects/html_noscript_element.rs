@@ -1,18 +1,18 @@
 use dom_derive::inherit;
 
-use super::HTMLElement;
+use super::HtmlElement;
 use crate::display_tagname;
 
 /// <https://html.spec.whatwg.org/multipage/scripting.html#the-noscript-element>
-#[inherit(HTMLElement)]
-pub struct HTMLNoscriptElement {}
+#[inherit(HtmlElement)]
+pub struct HtmlNoscriptElement {}
 
-impl HTMLNoscriptElement {
-    pub fn new(html_element: HTMLElement) -> Self {
+impl HtmlNoscriptElement {
+    pub fn new(html_element: HtmlElement) -> Self {
         Self {
             __parent: html_element,
         }
     }
 }
 
-display_tagname!(HTMLNoscriptElement, "noscript");
+display_tagname!(HtmlNoscriptElement, "noscript");

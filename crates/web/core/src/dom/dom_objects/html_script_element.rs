@@ -1,18 +1,18 @@
 use dom_derive::inherit;
 
-use super::HTMLElement;
+use super::HtmlElement;
 use crate::display_tagname;
 
 /// <https://html.spec.whatwg.org/multipage/scripting.html#the-script-element>
-#[inherit(HTMLElement)]
-pub struct HTMLScriptElement {}
+#[inherit(HtmlElement)]
+pub struct HtmlScriptElement {}
 
-impl HTMLScriptElement {
-    pub fn new(html_element: HTMLElement) -> Self {
+impl HtmlScriptElement {
+    pub fn new(html_element: HtmlElement) -> Self {
         Self {
             __parent: html_element,
         }
     }
 }
 
-display_tagname!(HTMLScriptElement, "script");
+display_tagname!(HtmlScriptElement, "script");

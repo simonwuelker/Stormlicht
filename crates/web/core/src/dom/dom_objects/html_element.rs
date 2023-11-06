@@ -5,11 +5,11 @@ use crate::display_string;
 
 /// <https://html.spec.whatwg.org/multipage/dom.html#htmlelement>
 #[inherit(Element)]
-pub struct HTMLElement {}
+pub struct HtmlElement {}
 
-display_string!(HTMLElement, "HTML");
+display_string!(HtmlElement, "HTML");
 
-impl HTMLElement {
+impl HtmlElement {
     pub fn new(element: Element) -> Self {
         Self { __parent: element }
     }

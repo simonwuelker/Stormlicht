@@ -1,18 +1,18 @@
-use super::HTMLElement;
+use super::HtmlElement;
 use crate::display_tagname;
 
 use dom_derive::inherit;
 
 /// <https://html.spec.whatwg.org/multipage/semantics.html#the-style-element>
-#[inherit(HTMLElement)]
-pub struct HTMLStyleElement {}
+#[inherit(HtmlElement)]
+pub struct HtmlStyleElement {}
 
-impl HTMLStyleElement {
-    pub fn new(html_element: HTMLElement) -> Self {
+impl HtmlStyleElement {
+    pub fn new(html_element: HtmlElement) -> Self {
         Self {
             __parent: html_element,
         }
     }
 }
 
-display_tagname!(HTMLStyleElement, "style");
+display_tagname!(HtmlStyleElement, "style");
