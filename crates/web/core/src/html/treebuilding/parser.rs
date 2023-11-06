@@ -5,9 +5,10 @@ use crate::{
     dom::{
         self,
         dom_objects::{
-            Comment, Document, DocumentType, Element, HTMLBodyElement, HTMLDivElement, HTMLElement,
-            HTMLFormElement, HTMLHeadElement, HTMLHtmlElement, HTMLLIElement, HTMLParagraphElement,
-            HTMLScriptElement, HTMLTemplateElement, Node, Text,
+            Comment, Document, DocumentType, Element, HTMLBodyElement, HTMLDdElement,
+            HTMLDivElement, HTMLElement, HTMLFormElement, HTMLHeadElement, HTMLHtmlElement,
+            HTMLLIElement, HTMLParagraphElement, HTMLScriptElement, HTMLTemplateElement, Node,
+            Text,
         },
         DOMPtr, DOMType, DOMTyped,
     },
@@ -1806,7 +1807,42 @@ impl<P: ParseErrorHandler> Parser<P> {
                             && (tagdata.name == static_interned!("dd")
                                 || tagdata.name == static_interned!("dt")) =>
                     {
-                        todo!("handle dd/dt")
+                        // Run these steps:
+                        // 1. Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
+
+                        // 2. Initialize node to be the current node (the bottommost node of the stack).
+                        let node = self.current_node();
+
+                        // 3. Loop:
+                        // If node is a dd element, then run these substeps:
+                        if node.is_a::<HTMLDdElement>() {
+                            // 1. Generate implied end tags, except for dd elements.
+                            self.generate_implied_end_tags_excluding(Some(DOMType::HTMLDdElement));
+
+                            // 2. If the current node is not a dd element, then this is a parse error.
+
+                            // 3. Pop elements from the stack of open elements until a dd element has been popped from the stack.
+                            while self
+                                .pop_from_open_elements()
+                                .is_some_and(|e| !e.is_a::<HTMLDdElement>())
+                            {
+                            }
+
+                            // 4. Jump to the step labeled done below.
+                            // break;
+                        }
+                        // FIXME: 4. If node is a dt element, then run these substeps:
+                        // FIXME: 5. If node is in the special category, but is not an address, div, or p element, then jump to the step labeled done below.
+                        // FIXME: 6. Otherwise, set node to the previous entry in the stack of open elements and return to the step labeled loop.
+
+                        // 7. Done: If the stack of open elements has a p element in button scope, then close a p element.
+                        if self.is_element_in_scope(DOMType::HTMLParagraphElement) {
+                            self.close_p_element();
+                        }
+
+                        // 8. Finally, insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("plaintext") =>

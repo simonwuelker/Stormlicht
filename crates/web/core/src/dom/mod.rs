@@ -14,10 +14,10 @@ use string_interner::{static_interned, static_str, InternedString};
 
 use crate::infra::Namespace;
 use dom_objects::{
-    Document, Element, HTMLAnchorElement, HTMLBodyElement, HTMLButtonElement, HTMLDivElement,
-    HTMLElement, HTMLHeadElement, HTMLHtmlElement, HTMLLinkElement, HTMLMetaElement,
-    HTMLNoscriptElement, HTMLParagraphElement, HTMLScriptElement, HTMLStyleElement,
-    HTMLTemplateElement, HTMLTitleElement,
+    Document, Element, HTMLAnchorElement, HTMLBodyElement, HTMLButtonElement, HTMLDdElement,
+    HTMLDivElement, HTMLElement, HTMLHeadElement, HTMLHtmlElement, HTMLLinkElement,
+    HTMLMetaElement, HTMLNoscriptElement, HTMLParagraphElement, HTMLScriptElement,
+    HTMLStyleElement, HTMLTemplateElement, HTMLTitleElement,
 };
 
 use self::dom_objects::{HTMLFormElement, HTMLHeadingElement, HTMLLIElement};
@@ -139,6 +139,9 @@ fn create_element_for_interface(
         static_interned!("button") => {
             DOMPtr::new(HTMLButtonElement::new(HTMLElement::new(element_data)))
                 .into_type::<Element>()
+        },
+        static_interned!("dd") => {
+            DOMPtr::new(HTMLDdElement::new(HTMLElement::new(element_data))).into_type::<Element>()
         },
         static_interned!("div") => {
             DOMPtr::new(HTMLDivElement::new(HTMLElement::new(element_data))).into_type::<Element>()
