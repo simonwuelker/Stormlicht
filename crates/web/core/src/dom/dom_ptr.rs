@@ -9,7 +9,7 @@ use crate::TreeDebug;
 
 use super::{
     codegen::{DOMType, DOMTyped},
-    dom_objects,
+    dom_objects, IsA,
 };
 
 /// Smartpointer used for inheritance-objects.
@@ -72,14 +72,30 @@ impl<T: DOMTyped> DOMPtr<T> {
     /// This function panics if the types are incompatible
     pub fn into_type<O: DOMTyped>(self) -> DOMPtr<O> {
         assert!(self.is_a::<O>());
-        unsafe { std::mem::transmute(self) }
+        unsafe { self.cast_unchecked() }
+    }
+
+    /// Cast a object into an instance of one of its parent classes
+    pub fn upcast<O: DOMTyped>(self) -> DOMPtr<O>
+    where
+        T: IsA<O>,
+    {
+        debug_assert!(self.is_a::<O>());
+
+        // SAFETY: IsA is only implemented by the build script
+        unsafe { self.cast_unchecked() }
+    }
+
+    unsafe fn cast_unchecked<O: DOMTyped>(self) -> DOMPtr<O> {
+        std::mem::transmute(self)
     }
 
     /// Try to cast the object to another type and fail
     /// if the cast is invalid (ie the objects don't inherit from each other)
     pub fn try_into_type<O: DOMTyped>(&self) -> Option<DOMPtr<O>> {
         if self.is_a::<O>() {
-            Some(DOMPtr::clone(self).into_type())
+            let result = unsafe { self.clone().cast_unchecked() };
+            Some(result)
         } else {
             None
         }

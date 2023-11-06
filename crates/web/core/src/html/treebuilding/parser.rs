@@ -257,8 +257,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
         // 4. If there is a Text node immediately before the adjusted insertion location
         if let Some(last_child) = adjusted_insert_location.borrow().last_child() {
-            if last_child.is_a::<Text>() {
-                let text = last_child.into_type::<Text>();
+            if let Some(text) = last_child.try_into_type::<Text>() {
                 // then append data to that Text node's data.
                 text.borrow_mut().content_mut().push(c);
                 return;
@@ -278,7 +277,7 @@ impl<P: ParseErrorHandler> Parser<P> {
         new_text.set_owning_document(document);
 
         // and insert the newly created node at the adjusted insertion location.
-        let new_node = DOMPtr::new(new_text).into_type();
+        let new_node = DOMPtr::new(new_text).upcast();
         Node::append_child(adjusted_insert_location, new_node)
     }
 
@@ -329,7 +328,7 @@ impl<P: ParseErrorHandler> Parser<P> {
         new_comment.set_owning_document(document);
 
         // Insert the newly created node at the adjusted insertion location.
-        let new_node = DOMPtr::new(new_comment).into_type();
+        let new_node = DOMPtr::new(new_comment).upcast();
         Node::append_child(adjusted_insert_location, new_node);
     }
 
@@ -596,7 +595,7 @@ impl<P: ParseErrorHandler> Parser<P> {
         // with the form element pointed to by the form element pointer and set element's parser inserted flag.
 
         // Return element.
-        element.into_type()
+        element.upcast()
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-an-html-element>
@@ -697,7 +696,7 @@ impl<P: ParseErrorHandler> Parser<P> {
             // 9. Replace the entry for entry in the list with an entry for new element.
             self.active_formatting_elements.elements_mut()[entry_index] =
                 FormatEntry::Element(ActiveFormattingElement {
-                    element: new_element.into_type(),
+                    element: new_element.try_into_type().unwrap(),
                     tag,
                 });
 
@@ -792,7 +791,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                 .rev()
                 .filter_map(|(i, node)| Some((i, node.try_into_type::<Element>()?)))
                 .find(|(_, element)| is_element_in_special_category(element.borrow().local_name()))
-                .map(|(i, element)| (i, element.into_type::<Node>()));
+                .map(|(i, element)| (i, element.upcast()));
 
             match furthest_block {
                 None => {
@@ -957,8 +956,8 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                         // FIXME: Then, if the document is not an iframe srcdoc document, and the parser cannot change the mode flag is false,
                         // and the DOCTYPE token matches one of the conditions in the following list, then set the Document to quirks mode:
-                        let new_node = DOMPtr::new(doctype_node).into_type();
-                        Node::append_child(DOMPtr::clone(&self.document).into_type(), new_node);
+                        let new_node = DOMPtr::new(doctype_node).upcast();
+                        Node::append_child(DOMPtr::clone(&self.document).upcast(), new_node);
                     },
                     _ => {
                         // FIXME: If the document is not an iframe srcdoc document, then this is a parse error;
@@ -997,12 +996,12 @@ impl<P: ParseErrorHandler> Parser<P> {
                         let element = self.create_html_element_for_token(
                             tagdata,
                             Namespace::HTML,
-                            &DOMPtr::clone(&self.document).into_type::<Node>(),
+                            &DOMPtr::clone(&self.document).upcast(),
                         );
 
                         // Append it to the Document object.
                         Node::append_child(
-                            DOMPtr::clone(&self.document).into_type(),
+                            DOMPtr::clone(&self.document).upcast(),
                             DOMPtr::clone(&element),
                         );
 
@@ -1016,11 +1015,11 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Create an html element whose node document is the Document object.
                         let mut html_element = HtmlHtmlElement::default();
                         html_element.set_owning_document(DOMPtr::clone(&self.document).downgrade());
-                        let new_node = DOMPtr::new(html_element).into_type();
+                        let new_node = DOMPtr::new(html_element).upcast();
 
                         // Append it to the Document object.
                         Node::append_child(
-                            DOMPtr::clone(&self.document).into_type(),
+                            DOMPtr::clone(&self.document).upcast(),
                             DOMPtr::clone(&new_node),
                         );
 
@@ -1566,11 +1565,13 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // if the stack of open elements has only one node on it, or if there is a
                         // template element on the stack of open elements, then ignore the token.
                         // (fragment case)
-                        let previous_body = match self.open_elements.get(2) {
+                        let previous_body: DOMPtr<Element> = match self.open_elements.get(2) {
                             Some(node) => {
-                                if node.is_a::<HtmlBodyElement>() {
+                                if let Some(html_body_element) =
+                                    node.try_into_type::<HtmlBodyElement>()
+                                {
                                     // FIXME: Check if there's a template element on the stack of open elements
-                                    node.clone().into_type::<Element>()
+                                    html_body_element.clone().upcast()
                                 } else {
                                     return;
                                 }
@@ -1749,7 +1750,8 @@ impl<P: ParseErrorHandler> Parser<P> {
                             // stack of open elements, set the form element pointer to point to the element created.
                             let new_element = self
                                 .insert_html_element_for_token(&tagdata)
-                                .into_type::<HtmlFormElement>();
+                                .try_into_type::<HtmlFormElement>()
+                                .unwrap();
                             if !is_template_on_open_elements {
                                 self.form = Some(new_element);
                             }
@@ -1777,8 +1779,12 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                             // 4. If node is in the special category, but is not an address, div, or p element,
                             //    then jump to the step labeled done below.
-                            let local_name =
-                                node.clone().into_type::<Element>().borrow().local_name();
+                            let local_name = node
+                                .clone()
+                                .try_into_type::<Element>()
+                                .unwrap()
+                                .borrow()
+                                .local_name();
 
                             // FIXME: Check if node is an address element
                             if is_element_in_special_category(local_name)
@@ -2054,7 +2060,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Push onto the list of active formatting elements that element.
                         // NOTE: the cast is safe because "insert_html_element_for_token" alwas produces an HTMLElement
                         self.active_formatting_elements
-                            .push(element.into_type::<Element>(), tagdata);
+                            .push(element.try_into_type::<Element>().unwrap(), tagdata);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
@@ -2077,7 +2083,8 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Insert an HTML element for the token
                         let element = self
                             .insert_html_element_for_token(&tagdata)
-                            .into_type::<Element>();
+                            .try_into_type::<Element>()
+                            .unwrap();
 
                         // Push onto the list of active formatting elements that element.
                         self.active_formatting_elements.push(element, tagdata);
@@ -2095,7 +2102,8 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Insert an HTML element for the token
                         let element = self
                             .insert_html_element_for_token(&tagdata)
-                            .into_type::<Element>();
+                            .try_into_type::<Element>()
+                            .unwrap();
 
                         // Push onto the list of active formatting elements that element.
                         self.active_formatting_elements.push(element, tagdata);
@@ -2510,7 +2518,9 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                         // Let script be the current node (which will be a script element).
                         let script = self.current_node();
-                        script.into_type::<HtmlScriptElement>();
+                        script
+                            .try_into_type::<HtmlScriptElement>()
+                            .expect("current node must be a script element");
 
                         // Pop the current node off the stack of open elements.
                         self.pop_from_open_elements();
