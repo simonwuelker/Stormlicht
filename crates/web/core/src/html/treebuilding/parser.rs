@@ -173,6 +173,14 @@ impl<P: ParseErrorHandler> Parser<P> {
             .map(|(i, _)| i)
     }
 
+    /// Pop elements from the stack of open elements until a element matching a predicate has been popped
+    fn pop_from_open_elements_until<F: Fn(DOMPtr<Node>) -> bool>(&mut self, predicate: F) {
+        while self
+            .pop_from_open_elements()
+            .is_some_and(|element| !predicate(element))
+        {}
+    }
+
     fn remove_from_open_elements<T: DOMTyped>(&mut self, to_remove: &DOMPtr<T>) {
         self.open_elements
             .retain_mut(|element| !DOMPtr::ptr_eq(to_remove, element))
@@ -406,15 +414,7 @@ impl<P: ParseErrorHandler> Parser<P> {
         }
 
         // 3. Pop elements from the stack of open elements until a p element has been popped from the stack.
-        loop {
-            if self
-                .open_elements
-                .pop()
-                .is_some_and(|node| node.is_a::<HtmlParagraphElement>())
-            {
-                break;
-            }
-        }
+        self.pop_from_open_elements_until(|node| node.is_a::<HtmlParagraphElement>());
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#closing-elements-that-have-implied-end-tags>
@@ -1284,14 +1284,9 @@ impl<P: ParseErrorHandler> Parser<P> {
                             // 3. Pop elements from the stack of open
                             //    elements until a template element has
                             //    been popped from the stack.
-                            loop {
-                                let popped_node = self.pop_from_open_elements();
-                                if !popped_node
-                                    .is_some_and(|node| !node.is_a::<HtmlTemplateElement>())
-                                {
-                                    break;
-                                }
-                            }
+                            self.pop_from_open_elements_until(|node| {
+                                node.is_a::<HtmlTemplateElement>()
+                            });
 
                             // 4. Clear the list of active
                             //    formatting elements up to the last marker.
@@ -1829,11 +1824,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                             // 2. If the current node is not a dd element, then this is a parse error.
 
                             // 3. Pop elements from the stack of open elements until a dd element has been popped from the stack.
-                            while self
-                                .pop_from_open_elements()
-                                .is_some_and(|e| !e.is_a::<HtmlDdElement>())
-                            {
-                            }
+                            self.pop_from_open_elements_until(|node| node.is_a::<HtmlDdElement>());
 
                             // 4. Jump to the step labeled done below.
                             // break;
@@ -1931,13 +1922,9 @@ impl<P: ParseErrorHandler> Parser<P> {
                             // 3. If the current node is not a form element, then this is a parse error.
 
                             // 4. Pop elements from the stack of open elements until a form element has been popped from the stack.
-                            loop {
-                                let popped_node = self.pop_from_open_elements();
-                                if !popped_node.is_some_and(|node| !node.is_a::<HtmlFormElement>())
-                                {
-                                    break;
-                                }
-                            }
+                            self.pop_from_open_elements_until(|node| {
+                                node.is_a::<HtmlFormElement>()
+                            });
                         }
                     },
                     Token::Tag(ref tagdata)
@@ -1973,11 +1960,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // 2. If the current node is not an li element, then this is a parse error.
 
                         // 3. Pop elements from the stack of open elements until an li element has been popped from the stack.
-                        while let Some(element) = self.open_elements.pop() {
-                            if element.is_a::<HtmlLiElement>() {
-                                break;
-                            }
-                        }
+                        self.pop_from_open_elements_until(|node| node.is_a::<HtmlLiElement>());
                     },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening
@@ -2009,10 +1992,10 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                         // 3. Pop elements from the stack of open elements until an HTML element whose tag name is one of
                         //    "h1", "h2", "h3", "h4", "h5", or "h6" has been popped from the stack.
-                        while let Some(popped_element) = self.pop_from_open_elements() {
-                            if let Some(element) = popped_element.try_into_type::<Element>() {
+                        self.pop_from_open_elements_until(|node| {
+                            if let Some(element) = node.try_into_type::<Element>() {
                                 let tag_name = element.borrow().local_name();
-                                if matches!(
+                                matches!(
                                     tag_name,
                                     static_interned!("h1")
                                         | static_interned!("h2")
@@ -2020,11 +2003,11 @@ impl<P: ParseErrorHandler> Parser<P> {
                                         | static_interned!("h4")
                                         | static_interned!("h5")
                                         | static_interned!("h6")
-                                ) {
-                                    break;
-                                }
+                                )
+                            } else {
+                                false
                             }
-                        }
+                        });
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("a") =>
