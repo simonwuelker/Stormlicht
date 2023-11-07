@@ -85,14 +85,14 @@ fn ferment(word: &mut [u8], pos: usize) -> usize {
     }
 }
 
-/// [ferment] the first letter in a byte string
+/// ferment the first letter in a byte string
 pub fn ferment_first(word: &mut [u8]) {
     if !word.is_empty() {
         ferment(word, 0);
     }
 }
 
-/// [ferment] all letters in a byte string, in logical order.
+/// ferment all letters in a byte string, in logical order.
 pub fn ferment_all(word: &mut [u8]) {
     for i in 0..word.len() {
         ferment(word, i);

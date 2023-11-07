@@ -1,4 +1,4 @@
-/// Wraps a [Read] instance to allow reading individual bits
+/// Wraps a byte buffer to allow reading individual bits
 #[derive(Debug)]
 pub struct BitReader<'a> {
     bytes: &'a [u8],
