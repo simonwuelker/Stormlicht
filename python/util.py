@@ -44,12 +44,14 @@ class Command:
         self.args += args
         return self
     
-    def run(self, **kwargs):
+    def run(self, ignore_failure=False, **kwargs):
         cmd = [self.binary] + self.args
 
         if len(self.forwarded_args) != 0:
             cmd += ["--"] + self.forwarded_args
-        
+
         result = subprocess.run(cmd, **kwargs)
-        if result.returncode != 0:
+        if result.returncode != 0 and not ignore_failure:
             log.error(f"Failed to run {cmd}: Process exited with exit code {result.returncode}")
+        
+        return result

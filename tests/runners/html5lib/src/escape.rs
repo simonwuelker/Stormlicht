@@ -1,4 +1,4 @@
-use std::str::Chars;
+use std::{fmt::Write, str::Chars};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnescapeStringError {
@@ -9,39 +9,40 @@ pub enum UnescapeStringError {
 
 struct Unescaper<'a>(Chars<'a>);
 
+impl<'a> Unescaper<'a> {
+    fn read_charref(&mut self, length: usize) -> Result<char, UnescapeStringError> {
+        let mut char_code = 0;
+        for _ in 0..length {
+            let c = self
+                .0
+                .next()
+                .ok_or(UnescapeStringError::InvalidEscapeCode)?
+                .to_digit(16)
+                .ok_or(UnescapeStringError::InvalidEscapeCode)?;
+            char_code *= 16;
+            char_code += c;
+        }
+
+        let c = char::from_u32(char_code).ok_or(UnescapeStringError::InvalidEscapeCode)?;
+        Ok(c)
+    }
+}
+
 impl<'a> Iterator for Unescaper<'a> {
     type Item = Result<char, UnescapeStringError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|c| match c {
             '\\' => match self.0.next() {
-                Some('u') => {
-                    let code = [
-                        self.0
-                            .next()
-                            .ok_or(UnescapeStringError::InvalidEscapeCode)?
-                            .to_digit(16)
-                            .ok_or(UnescapeStringError::InvalidEscapeCode)?,
-                        self.0
-                            .next()
-                            .ok_or(UnescapeStringError::InvalidEscapeCode)?
-                            .to_digit(16)
-                            .ok_or(UnescapeStringError::InvalidEscapeCode)?,
-                        self.0
-                            .next()
-                            .ok_or(UnescapeStringError::InvalidEscapeCode)?
-                            .to_digit(16)
-                            .ok_or(UnescapeStringError::InvalidEscapeCode)?,
-                        self.0
-                            .next()
-                            .ok_or(UnescapeStringError::InvalidEscapeCode)?
-                            .to_digit(16)
-                            .ok_or(UnescapeStringError::InvalidEscapeCode)?,
-                    ]
-                    .iter()
-                    .fold(0, |acc, x| acc * 16 + x);
-                    char::from_u32(code).ok_or(UnescapeStringError::InvalidEscapeCode)
-                },
+                Some('u') => self.read_charref(4),
+                Some('U') => self.read_charref(8),
+                Some('x') => self.read_charref(2),
+                Some('r') => Ok('\r'),
+                Some('n') => Ok('\n'),
+                Some('t') => Ok('\t'),
+                Some('\\') => Ok('\\'),
+                Some('"') => Ok('"'),
+                Some('\'') => Ok('\''),
                 Some(c) => Err(UnescapeStringError::InvalidEscapedChar(c)),
                 None => Err(UnescapeStringError::EscapeAtEndOfString),
             },
@@ -68,7 +69,7 @@ pub fn unicode_escape(text: &str) -> String {
             '\x20'..='\x7e' => result.push(c),
             ..='\u{FFFF}' => {
                 let code = c as u32;
-                result.push_str(&format!("\\u{:04X}", code));
+                let _ = write!(result, "\\u{code:0>4X}");
             },
             _ => result.push(c),
         }

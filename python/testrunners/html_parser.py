@@ -1,23 +1,19 @@
-from .. import util
+from .. import util, log
 import os
 import json
 import subprocess
 
 def test_html_parser(args, unknown_args):
     def verbose_print(initial_state, testdata, out, stderr):
-        print("Initial state:", initial_state)
-        print(
-            "Input:         '{}'".format(
-                testdata["input"].encode("unicode_escape").decode("utf-8")
-            )
-        )
-        print("Expected:       {}".format(testdata["output"]))
-        print("Got:            {}".format(out))
-        print(f"stderr:         {stderr}")
+        print(log.bold("Initial State") + ":", initial_state)
+        print(log.bold("Input") + ":        ", testdata["input"].encode("unicode_escape").decode("utf-8"))
+        print(log.bold("Expected") + ":     ", testdata["output"])
+        print(log.bold("Got") + ":          ", out)
+        print(log.bold("stderr") + ":       ", stderr)
         print()
 
     # Build the testrunner
-    util.run_cmd(["cargo", "build", "--bin=html5lib-testrunner"])
+    util.Command.create("cargo").with_arguments(["build", "--bin=html5lib-testrunner"]).run()
 
     total_tests = 0
     tests_failed = 0
@@ -49,47 +45,52 @@ def test_html_parser(args, unknown_args):
                             end="",
                         )
 
-                    try:
-                        runner_args = [
-                            "./target/debug/html5lib-testrunner",
-                            '--state="{}"'.format(initial_state),
-                            '--input="{}"'.format(test["input"]),
-                        ]
+                    runner_args = [
+                        '--state="{}"'.format(initial_state),
+                        '--input="{}"'.format(test["input"].encode("unicode_escape").decode("utf-8")),
+                    ]
 
-                        if "lastStartTag" in test:
-                            runner_args.append(
-                                '--last-start-tag="{}"'.format(test["lastStartTag"])
-                            )
-
-                        p = util.run_cmd(
-                            runner_args,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            timeout=3,
+                    if "lastStartTag" in test:
+                        runner_args.append(
+                            '--last-start-tag="{}"'.format(test["lastStartTag"])
                         )
 
-                        out_text = p.stdout.decode("utf-8")
-                        if "doubleEscaped" in test and test["doubleEscaped"]:
-                            out_text = out_text.encode("unicode_escape").decode("utf-8")
+                    p = util.Command.create("./target/debug/html5lib-testrunner").with_arguments(runner_args).run(
+                        ignore_failure=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        timeout=3
+                    )
 
+                    try:
+                        out_text = p.stdout.decode("utf-8")
                         out = json.loads(out_text)
+
+                        # if "doubleEscaped" is set, then the output was unicode-escaped twice and
+                        # we need to unescape it once more  
+                        if "doubleEscaped" in test and test["doubleEscaped"]:
+                            for token_index in range(len(test["output"])):
+                                for element_index in range(len(test["output"][token_index])):
+                                    test["output"][token_index][element_index] = test["output"][token_index][element_index].encode("ascii").decode("unicode_escape")
+
                     except subprocess.TimeoutExpired:
-                        print("Timed out")
+                        print(log.colored("Timed out", log.RED))
                         tests_failed += 1
                         if args.verbose:
                             verbose_print(initial_state, test, "", "")
                         continue
-                    except:
-                        print("Fail")
+                    except Exception as e:
+                        print(log.colored("Fail (Exception)", log.RED))
                         tests_failed += 1
 
                         if args.verbose:
                             verbose_print(initial_state, test, p.stdout, p.stderr)
                         continue
+
                     if out == test["output"]:
-                        print("Success")
+                        print(log.colored("Success", log.GREEN))
                     else:
-                        print("Fail")
+                        print(log.colored("Fail", log.RED))
                         tests_failed += 1
 
                         if args.verbose:
