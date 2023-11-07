@@ -7,7 +7,7 @@ use super::{
     HtmlParseError, ParseErrorHandler, TagData, Token,
 };
 use crate::infra;
-use std::{collections::VecDeque, marker::PhantomData};
+use std::{collections::VecDeque, marker::PhantomData, mem};
 
 // Characters that are hard to read
 const UNICODE_REPLACEMENT: char = '\u{FFFD}';
@@ -362,14 +362,14 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#flush-code-points-consumed-as-a-character-reference>
     fn flush_code_points_consumed_as_character_reference(&mut self) {
-        if let Some(temporary_buffer) = &self.buffer {
-            if self.is_inside_attribute() {
+        let is_inside_attribute = self.is_inside_attribute();
+        if let Some(temporary_buffer) = &mut self.buffer {
+            if is_inside_attribute {
                 temporary_buffer
                     .chars()
                     .for_each(|c| self.current_token.append_to_attribute_value(c));
             } else {
-                temporary_buffer
-                    .clone() // Not actually necessary but rust doesn't allow the second borrow
+                mem::take(temporary_buffer)
                     .chars()
                     .for_each(|c| self.emit(Token::Character(c)));
             }
