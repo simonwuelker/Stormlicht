@@ -1967,7 +1967,25 @@ impl<P: ParseErrorHandler> Parser<P> {
                             && (tagdata.name == static_interned!("dd")
                                 || tagdata.name == static_interned!("dt")) =>
                     {
-                        todo!("handle dd/dt closing tag")
+                        // FIXME: If the stack of open elements does not have an element in scope that is an HTML element with the same tag name as that of the token,
+                        // then this is a parse error; ignore the token.
+
+                        // Otherwise, run these steps:
+                        // 1. Generate implied end tags, except for HTML elements with the same tag name as the token.
+                        if tagdata.name == static_interned!("dd") {
+                            self.generate_implied_end_tags_excluding(Some(DOMType::HtmlDdElement));
+                        } else {
+                            self.generate_implied_end_tags_excluding(Some(DOMType::HtmlDtElement));
+                        }
+
+                        // 2. If the current node is not an HTML element with the same tag name as that of the token, then this is a parse error.
+
+                        // 3. Pop elements from the stack of open elements until an HTML element with the same tag name as the token has been popped from the stack.
+                        self.pop_from_open_elements_until(|node| {
+                            node.try_into_type::<Element>().is_some_and(|element| {
+                                element.borrow().local_name() == tagdata.name
+                            })
+                        });
                     },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening

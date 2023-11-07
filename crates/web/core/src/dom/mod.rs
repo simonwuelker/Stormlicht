@@ -18,7 +18,7 @@ use dom_objects::{
     HtmlStyleElement, HtmlTemplateElement, HtmlTitleElement,
 };
 
-use self::dom_objects::{HtmlFormElement, HtmlHeadingElement, HtmlLiElement};
+use self::dom_objects::{HtmlDtElement, HtmlFormElement, HtmlHeadingElement, HtmlLiElement};
 
 /// <https://dom.spec.whatwg.org/#concept-element-custom-element-state>
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -141,6 +141,9 @@ fn create_element_for_interface(
         },
         static_interned!("div") => {
             DOMPtr::new(HtmlDivElement::new(HtmlElement::new(element_data))).upcast()
+        },
+        static_interned!("dt") => {
+            DOMPtr::new(HtmlDtElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("head") => {
             DOMPtr::new(HtmlHeadElement::new(HtmlElement::new(element_data))).upcast()
