@@ -1,6 +1,6 @@
 //! Random Number Generation
 
-/// Implements https://en.wikipedia.org/wiki/Xorshift
+/// Implements the [XOR-Shift Algorithm](https://en.wikipedia.org/wiki/Xorshift)
 pub struct RNG {
     state: u64,
 }

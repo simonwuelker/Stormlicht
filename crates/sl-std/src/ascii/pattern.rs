@@ -33,7 +33,7 @@ pub enum SearchStep {
 /// occurrences of the pattern in a string.
 ///
 /// Depending on the type of the pattern, the behaviour of methods like
-/// [`ascii::Str::find`](super::Str::find) and [`str::contains`](super::Str::contains) can change.
+/// [`ascii::Str::find`](super::Str::find) and [`str::split`](super::Str::split) can change.
 /// The table below describes some of those behaviours.
 ///
 /// | Pattern type             | Match condition                           |
