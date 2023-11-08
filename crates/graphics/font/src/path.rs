@@ -22,7 +22,7 @@ impl<I: Iterator<Item = GlyphPoint>> PathReader<I> {
             inner,
             previous_point: None,
             first_point_of_contour: None,
-            state: PathReaderState::BeforeEndOfContour,
+            state: PathReaderState::Within,
             last_on_curve_point: None,
         }
     }
@@ -31,12 +31,14 @@ impl<I: Iterator<Item = GlyphPoint>> PathReader<I> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PathReaderState {
     /// Regular operation
-    BeforeEndOfContour,
+    Within,
+
     /// Indicates that after the path reader is done processing the current point,
     /// it should insert an extra curve back to the first point
-    AtEndOfContour,
+    AtEnd,
+
     /// Indicates that we previously closed a contour and should now start a new contour.
-    AfterEndOfContour,
+    AfterEnd,
 }
 
 impl<I: Iterator<Item = GlyphPoint>> Iterator for PathReader<I> {
@@ -46,15 +48,15 @@ impl<I: Iterator<Item = GlyphPoint>> Iterator for PathReader<I> {
         loop {
             // If we previously connected the end points of two contours together,
             // then this is a new contour and we should discard the previous point
-            if self.state == PathReaderState::AfterEndOfContour {
-                self.state = PathReaderState::BeforeEndOfContour;
+            if self.state == PathReaderState::AfterEnd {
+                self.state = PathReaderState::Within;
                 self.previous_point = None;
             }
 
             // If we're at the end of a contour we don't consume a new point, instead
             // we connect the previous point with the first one in the contour
-            let glyph_point = if self.state == PathReaderState::AtEndOfContour {
-                self.state = PathReaderState::AfterEndOfContour;
+            let glyph_point = if self.state == PathReaderState::AtEnd {
+                self.state = PathReaderState::AfterEnd;
                 self.first_point_of_contour.unwrap()
             } else {
                 let next_point = self.inner.next()?;
@@ -66,7 +68,7 @@ impl<I: Iterator<Item = GlyphPoint>> Iterator for PathReader<I> {
 
                     // Ignore contours that only contain a single point
                     if self.first_point_of_contour.is_some() {
-                        self.state = PathReaderState::AtEndOfContour;
+                        self.state = PathReaderState::AtEnd;
                     }
                 }
                 next_point

@@ -27,7 +27,7 @@ impl GlyphOutlineTable {
     pub fn new(data: &[u8], offset: usize, length: usize, loca_table: LocaTable) -> Self {
         Self {
             data: data[offset..][..length].to_vec(),
-            loca_table: loca_table,
+            loca_table,
         }
     }
 
@@ -252,7 +252,7 @@ impl<'a> Iterator for CompoundGlyph<'a> {
         // TODO: Transformations
 
         Some(CompoundGlyphComponent {
-            component_flag: component_flag,
+            component_flag,
             glyph_id: referenced_glyph_id,
             x_offset,
             y_offset,
@@ -378,7 +378,7 @@ impl<'a> GlyphPointIterator<'a> {
             previous_point: Vec2D::default(),
             points_emitted: 0,
             contours_emitted: 0,
-            num_points: num_points,
+            num_points,
         }
     }
 }

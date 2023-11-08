@@ -121,10 +121,7 @@ impl NameTable {
             }
 
             let value = String::from_utf16_lossy(&native_u16s);
-            name_records.push(NameRecord {
-                name_id: name_id,
-                value: value,
-            });
+            name_records.push(NameRecord { name_id, value });
         }
 
         Ok(Self { name_records })

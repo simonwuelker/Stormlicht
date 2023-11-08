@@ -8,10 +8,7 @@ pub struct Stream<'a> {
 
 impl<'a> Stream<'a> {
     pub fn new(bytes: &'a [u8]) -> Self {
-        Self {
-            bytes: bytes,
-            ptr: 0,
-        }
+        Self { bytes, ptr: 0 }
     }
 
     pub fn read<T: Readable>(&mut self) -> Result<T, TTFParseError> {
