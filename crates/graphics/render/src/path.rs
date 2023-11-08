@@ -2,9 +2,9 @@ use math::Vec2D;
 
 #[derive(Clone, Copy, Debug)]
 pub enum PathCommand {
-    MoveTo(Vec2D),
-    LineTo(Vec2D),
-    QuadTo(Vec2D, Vec2D),
+    Move(Vec2D),
+    Line(Vec2D),
+    Quad(Vec2D, Vec2D),
 }
 
 #[derive(Clone, Debug)]
@@ -28,10 +28,10 @@ impl Path {
         Self {
             start: top_left,
             commands: vec![
-                PathCommand::LineTo(Vec2D::new(bottom_right.x, top_left.y)),
-                PathCommand::LineTo(bottom_right),
-                PathCommand::LineTo(Vec2D::new(top_left.x, bottom_right.y)),
-                PathCommand::LineTo(top_left),
+                PathCommand::Line(Vec2D::new(bottom_right.x, top_left.y)),
+                PathCommand::Line(bottom_right),
+                PathCommand::Line(Vec2D::new(top_left.x, bottom_right.y)),
+                PathCommand::Line(top_left),
             ],
         }
     }
@@ -47,7 +47,7 @@ impl Path {
     // Close the current contour
     pub fn close_contour(mut self) -> Self {
         if !self.commands.is_empty() {
-            self.commands.push(PathCommand::LineTo(self.start));
+            self.commands.push(PathCommand::Line(self.start));
         }
         self
     }
@@ -55,10 +55,10 @@ impl Path {
     /// Move the write head to a new point without connecting the two.
     pub fn move_to(mut self, to: Vec2D) -> Self {
         match self.commands.last_mut() {
-            Some(PathCommand::MoveTo(point)) => {
+            Some(PathCommand::Move(point)) => {
                 *point = to;
             },
-            Some(_) => self.commands.push(PathCommand::MoveTo(to)),
+            Some(_) => self.commands.push(PathCommand::Move(to)),
             None => self.start = to,
         }
 
@@ -67,12 +67,12 @@ impl Path {
 
     /// Create a straight Line from the current position to the point.
     pub fn line_to(mut self, point: Vec2D) -> Self {
-        self.commands.push(PathCommand::LineTo(point));
+        self.commands.push(PathCommand::Line(point));
         self
     }
 
     pub fn quad_bez_to(mut self, p1: Vec2D, p2: Vec2D) -> Self {
-        self.commands.push(PathCommand::QuadTo(p1, p2));
+        self.commands.push(PathCommand::Quad(p1, p2));
         self
     }
 
@@ -135,15 +135,15 @@ impl Path {
 
         for &command in &self.commands {
             match command {
-                PathCommand::MoveTo(point) => {
+                PathCommand::Move(point) => {
                     flattened_path.push(FlattenedPathPoint::new(point, false));
                     current_point = point;
                 },
-                PathCommand::LineTo(point) => {
+                PathCommand::Line(point) => {
                     flattened_path.push(FlattenedPathPoint::new(point, true));
                     current_point = point;
                 },
-                PathCommand::QuadTo(p1, p2) => {
+                PathCommand::Quad(p1, p2) => {
                     let curve = QuadraticBezier {
                         p0: current_point,
                         p1,
@@ -277,14 +277,14 @@ impl FlattenedPathPoint {
 
 impl font::path::PathConsumer for Path {
     fn line_to(&mut self, p: Vec2D) {
-        self.commands.push(PathCommand::LineTo(p));
+        self.commands.push(PathCommand::Line(p));
     }
 
     fn move_to(&mut self, p: Vec2D) {
-        self.commands.push(PathCommand::MoveTo(p));
+        self.commands.push(PathCommand::Move(p));
     }
 
     fn quad_bez_to(&mut self, p1: Vec2D, p2: Vec2D) {
-        self.commands.push(PathCommand::QuadTo(p1, p2));
+        self.commands.push(PathCommand::Quad(p1, p2));
     }
 }

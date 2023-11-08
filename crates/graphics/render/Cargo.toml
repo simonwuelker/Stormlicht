@@ -12,3 +12,6 @@ license.workspace = true
 log = { workspace = true }
 math = { workspace = true }
 font = { workspace = true }
+
+[lints]
+workspace = true
