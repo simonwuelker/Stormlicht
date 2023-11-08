@@ -2158,7 +2158,20 @@ impl<P: ParseErrorHandler> Parser<P> {
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("table") =>
                     {
-                        todo!();
+                        // If the Document is not set to quirks mode, and the stack of open elements has a p element in button scope, then close a p element.
+                        // FIXME: respect quirks mode
+                        if self.is_element_in_scope(DOMType::HtmlParagraphElement) {
+                            self.close_p_element();
+                        }
+
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+
+                        // Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
+
+                        // Switch the insertion mode to "in table".
+                        self.insertion_mode = InsertionMode::InTable;
                     },
                     Token::Tag(mut tagdata)
                         if !tagdata.opening && tagdata.name == static_interned!("br") =>
