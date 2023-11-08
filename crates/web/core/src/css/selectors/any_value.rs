@@ -18,7 +18,7 @@ impl<'a> CSSParse<'a> for AnyValue {
             state_before_ending_token = parser.state();
 
             match parser.next_token() {
-                None | Some(Token::BadString(_)) | Some(Token::BadURI(_)) => break,
+                None | Some(Token::BadString(_)) | Some(Token::BadUri(_)) => break,
                 Some(Token::ParenthesisOpen) => parenthesis_balance += 1,
                 Some(Token::BracketOpen) => bracket_balance += 1,
                 Some(Token::CurlyBraceOpen) => curly_brace_balance += 1,

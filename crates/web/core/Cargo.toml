@@ -24,3 +24,6 @@ sl-std = { workspace = true }
 syn = "1"                          # FIXME: Update to syn 2
 proc-macro2 = { workspace = true }
 serialize = { workspace = true }
+
+[lints]
+workspace = true

@@ -473,7 +473,7 @@ impl Color {
         }
     }
 
-    pub fn parse_from_name(parser: &mut Parser) -> Result<Self, ParseError> {
+    pub fn parse_from_name(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
         if let Some(Token::Ident(name)) = parser.next_token() {
             let color = match name {
                 static_interned!("aliceblue") => Self::ALICE_BLUE,
@@ -632,7 +632,7 @@ impl Color {
         }
     }
 
-    fn parse_as_hex_color(parser: &mut Parser) -> Result<Self, ParseError> {
+    fn parse_as_hex_color(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
         // TODO: should we care about the hash flag here?
         if let Some(Token::Hash(ident, _)) = parser.next_token() {
             let ident = ident.to_string();
@@ -676,7 +676,7 @@ impl Color {
         }
     }
 
-    fn parse_legacy_rgb(parser: &mut Parser) -> Result<Self, ParseError> {
+    fn parse_legacy_rgb(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
         // NOTE: The spec defines legacy-rgb and legacy-rgba
         //       But they are identical, so we do not differentiate between them
         let red = resolve_percentage(parser.expect_percentage()?);
@@ -717,7 +717,7 @@ impl Color {
     /// This parses both [rgb](https://drafts.csswg.org/css-color/#typedef-modern-rgb-syntax) and [rgba](https://drafts.csswg.org/css-color/#typedef-modern-rgba-syntax)
     /// syntax.
     /// A valid function may look like this: `rgb(100% 0% 0% / 50%)`
-    fn parse_modern_rgb(parser: &mut Parser) -> Result<Self, ParseError> {
+    fn parse_modern_rgb(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
         // NOTE: The spec defines modern-rgb and modern-rgba
         //       But they are identical, so we do not differentiate between them
 
@@ -741,7 +741,7 @@ impl Color {
         Ok(Self::rgb(red, green, blue))
     }
 
-    fn parse_rgb_function(parser: &mut Parser) -> Result<Self, ParseError> {
+    fn parse_rgb_function(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
         if let Some(Token::Function(function_identifier)) = parser.next_token() {
             if function_identifier != static_interned!("rgb")
                 && function_identifier != static_interned!("rgba")
@@ -780,7 +780,7 @@ impl<'a> CSSParse<'a> for Color {
     }
 }
 
-fn parse_alpha_value(parser: &mut Parser) -> Result<u8, ParseError> {
+fn parse_alpha_value(parser: &mut Parser<'_>) -> Result<u8, ParseError> {
     let alpha = match parser.next_token() {
         Some(Token::Number(n)) => n.round_to_int().clamp(0, 255) as u8,
         Some(Token::Percentage(p)) => resolve_percentage(p),

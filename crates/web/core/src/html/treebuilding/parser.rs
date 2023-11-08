@@ -47,7 +47,7 @@ const ITEM_SCOPE: &[DOMType] = &[
 
 #[derive(Clone, Copy, Debug)]
 enum GenericParsingAlgorithm {
-    RCDATA,
+    RcData,
     RawText,
 }
 
@@ -133,7 +133,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
         Self {
             tokenizer: Tokenizer::new(source),
-            document: document,
+            document,
             original_insertion_mode: None,
             template_insertion_modes: vec![],
             insertion_mode: InsertionMode::Initial,
@@ -356,7 +356,7 @@ impl<P: ParseErrorHandler> Parser<P> {
         // switch the tokenizer to the RCDATA state.
         match algorithm {
             GenericParsingAlgorithm::RawText => self.tokenizer.switch_to(TokenizerState::RAWTEXT),
-            GenericParsingAlgorithm::RCDATA => self.tokenizer.switch_to(TokenizerState::RCDATA),
+            GenericParsingAlgorithm::RcData => self.tokenizer.switch_to(TokenizerState::RCDATA),
         }
 
         // Let the original insertion mode be the current insertion mode.
@@ -1162,7 +1162,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         if tagdata.opening && tagdata.name == static_interned!("title") =>
                     {
                         // Follow the generic RCDATA element parsing algorithm.
-                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RCDATA);
+                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RcData);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening

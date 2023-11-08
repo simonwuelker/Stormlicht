@@ -291,15 +291,15 @@ impl URL {
         let password_token_seen = false;
 
         let state_machine = URLParser {
-            url: url,
-            state: state,
-            buffer: buffer,
-            base: base,
+            url,
+            state,
+            buffer,
+            base,
             input: ReversibleCharIterator::new(&filtered_input),
-            state_override: state_override,
-            at_sign_seen: at_sign_seen,
-            inside_brackets: inside_brackets,
-            password_token_seen: password_token_seen,
+            state_override,
+            at_sign_seen,
+            inside_brackets,
+            password_token_seen,
             error_handler: IgnoreValidationErrors,
         };
 

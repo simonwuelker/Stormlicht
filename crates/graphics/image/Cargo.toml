@@ -13,3 +13,6 @@ log = { workspace = true }
 compression = { workspace = true }
 hash = { workspace = true }
 math = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,7 +1,5 @@
 #![feature(proc_macro_diagnostic)]
 
-extern crate proc_macro;
-
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Lit, Meta, NestedMeta};
 
 #[derive(Debug, Clone)]

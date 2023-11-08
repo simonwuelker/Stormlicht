@@ -27,7 +27,7 @@ pub fn inherit(attr: TokenStream, item: TokenStream) -> TokenStream {
     let injected_named_fields: syn::FieldsNamed = syn::parse_quote!(
         {__parent: #parent_type_ident}
     );
-    let injected_field = injected_named_fields.named.into_iter().nth(0).unwrap();
+    let injected_field = injected_named_fields.named.into_iter().next().unwrap();
 
     match &mut struct_declaration.fields {
         syn::Fields::Named(ref mut named_fields) => named_fields.named.insert(0, injected_field),

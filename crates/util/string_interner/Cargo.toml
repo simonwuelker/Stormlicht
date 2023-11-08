@@ -10,3 +10,7 @@ license.workspace = true
 
 [dependencies]
 perfect_hash = { workspace = true }
+
+
+[lints]
+workspace = true

@@ -20,3 +20,7 @@ harness = false
 [[bench]]
 name = "adler32"
 harness = false
+
+
+[lints]
+workspace = true

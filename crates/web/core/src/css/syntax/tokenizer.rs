@@ -34,12 +34,12 @@ pub enum Token {
     AtKeyword(InternedString),
     String(InternedString),
     BadString(InternedString),
-    BadURI(InternedString),
+    BadUri(InternedString),
     Hash(InternedString, HashFlag),
     Number(Number),
     Percentage(Number),
     Dimension(Number, InternedString),
-    URI(InternedString),
+    Uri(InternedString),
     CommentDeclarationOpen,
     CommentDeclarationClose,
     Colon,
@@ -446,14 +446,14 @@ impl<'a> Tokenizer<'a> {
             match self.next_codepoint() {
                 Some(')') => {
                     // Return the <url-token>.
-                    return Token::URI(InternedString::new(value));
+                    return Token::Uri(InternedString::new(value));
                 },
                 None => {
                     // This is a parse error.
                     log::warn!(target: "css", "Parse Error: EOF in URL token");
 
                     // Return the <url-token>.
-                    return Token::URI(InternedString::new(value));
+                    return Token::Uri(InternedString::new(value));
                 },
                 Some(c) if is_whitespace(c) => {
                     // Consume as much whitespace as possible
@@ -469,7 +469,7 @@ impl<'a> Tokenizer<'a> {
                         if self.peek_codepoint(0).is_none() {
                             log::warn!(target: "css", "Parse Error: EOF in URL token");
                         }
-                        return Token::URI(InternedString::new(value));
+                        return Token::Uri(InternedString::new(value));
                     }
                     // otherwise,
                     else {
@@ -477,7 +477,7 @@ impl<'a> Tokenizer<'a> {
                         self.consume_remnants_of_a_bad_url();
 
                         // create a <bad-url-token>, and return it.
-                        return Token::BadURI(InternedString::new(value));
+                        return Token::BadUri(InternedString::new(value));
                     }
                 },
                 Some(
@@ -496,7 +496,7 @@ impl<'a> Tokenizer<'a> {
                     self.consume_remnants_of_a_bad_url();
 
                     // create a <bad-url-token>, and return it.
-                    return Token::BadURI(InternedString::new(value));
+                    return Token::BadUri(InternedString::new(value));
                 },
                 Some(BACKSLASH) => {
                     // If the stream starts with a valid escape
@@ -516,7 +516,7 @@ impl<'a> Tokenizer<'a> {
                         self.consume_remnants_of_a_bad_url();
 
                         // create a <bad-url-token>, and return it.
-                        return Token::BadURI(InternedString::new(value));
+                        return Token::BadUri(InternedString::new(value));
                     }
                 },
                 Some(c) => {

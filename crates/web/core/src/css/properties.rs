@@ -79,7 +79,7 @@ pub struct StylePropertyDeclaration {
 
 impl StyleProperty {
     pub fn parse_value(
-        parser: &mut Parser,
+        parser: &mut Parser<'_>,
         property_name: InternedString,
     ) -> Result<Self, ParseError> {
         let property = match property_name {

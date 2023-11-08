@@ -61,7 +61,7 @@ impl TextRun {
         &self.style
     }
 
-    fn layout_into_line_items(&self, state: &mut InlineFormattingContextState) {
+    fn layout_into_line_items(&self, state: &mut InlineFormattingContextState<'_>) {
         // FIXME: use the inherited font size here, not the default one
         let ctx = font_size::ResolutionContext {
             inherited_font_size: DEFAULT_FONT_SIZE,
@@ -301,7 +301,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
             containing_block,
             finished_fragments: Vec::new(),
             has_seen_relevant_content: false,
-            position: position,
+            position,
             y_cursor: position.y,
             at_beginning_of_line: true,
             viewport,

@@ -17,7 +17,7 @@ pub struct CurrentToken {
 
 #[derive(Debug, Clone)]
 pub enum TokenBuilder {
-    DOCTYPE(DocTypeBuilder),
+    Doctype(DocTypeBuilder),
     Tag(TagBuilder),
     Comment(String),
 }
@@ -57,11 +57,11 @@ impl CurrentToken {
     }
 
     pub fn create_doctype(&mut self) {
-        self.current_token = Some(TokenBuilder::DOCTYPE(DocTypeBuilder::default()))
+        self.current_token = Some(TokenBuilder::Doctype(DocTypeBuilder::default()))
     }
 
     pub fn set_force_quirks(&mut self) {
-        if let Some(TokenBuilder::DOCTYPE(DocTypeBuilder {
+        if let Some(TokenBuilder::Doctype(DocTypeBuilder {
             ref mut force_quirks,
             ..
         })) = self.current_token
@@ -72,11 +72,11 @@ impl CurrentToken {
 
     pub fn append_to_doctype_name(&mut self, c: char) {
         match self.current_token {
-            Some(TokenBuilder::DOCTYPE(DocTypeBuilder {
+            Some(TokenBuilder::Doctype(DocTypeBuilder {
                 name: Some(ref mut name_str),
                 ..
             })) => name_str.push(c),
-            Some(TokenBuilder::DOCTYPE(DocTypeBuilder { ref mut name, .. })) => {
+            Some(TokenBuilder::Doctype(DocTypeBuilder { ref mut name, .. })) => {
                 *name = Some(c.to_string())
             },
             _ => {},
@@ -84,7 +84,7 @@ impl CurrentToken {
     }
 
     pub fn append_to_doctype_public_ident(&mut self, c: char) {
-        if let Some(TokenBuilder::DOCTYPE(DocTypeBuilder {
+        if let Some(TokenBuilder::Doctype(DocTypeBuilder {
             public_ident: Some(ref mut public_ident_str),
             ..
         })) = self.current_token
@@ -94,7 +94,7 @@ impl CurrentToken {
     }
 
     pub fn init_doctype_public_ident(&mut self) {
-        if let Some(TokenBuilder::DOCTYPE(DocTypeBuilder {
+        if let Some(TokenBuilder::Doctype(DocTypeBuilder {
             ref mut public_ident,
             ..
         })) = self.current_token
@@ -105,11 +105,11 @@ impl CurrentToken {
 
     pub fn append_to_doctype_system_ident(&mut self, c: char) {
         match self.current_token {
-            Some(TokenBuilder::DOCTYPE(DocTypeBuilder {
+            Some(TokenBuilder::Doctype(DocTypeBuilder {
                 system_ident: Some(ref mut system_ident_str),
                 ..
             })) => system_ident_str.push(c),
-            Some(TokenBuilder::DOCTYPE(DocTypeBuilder {
+            Some(TokenBuilder::Doctype(DocTypeBuilder {
                 ref mut system_ident,
                 ..
             })) => *system_ident = Some(c.to_string()),
@@ -118,7 +118,7 @@ impl CurrentToken {
     }
 
     pub fn init_doctype_system_ident(&mut self) {
-        if let Some(TokenBuilder::DOCTYPE(DocTypeBuilder {
+        if let Some(TokenBuilder::Doctype(DocTypeBuilder {
             ref mut system_ident,
             ..
         })) = self.current_token
@@ -188,7 +188,7 @@ impl CurrentToken {
 
     pub fn build(&mut self) -> Token {
         match self.current_token.take() {
-            Some(TokenBuilder::DOCTYPE(d)) => Token::DOCTYPE(d.build()),
+            Some(TokenBuilder::Doctype(d)) => Token::DOCTYPE(d.build()),
             Some(TokenBuilder::Comment(c)) => Token::Comment(c),
             Some(TokenBuilder::Tag(t)) => Token::Tag(t.build()),
             None => {

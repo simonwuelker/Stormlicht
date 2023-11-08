@@ -12,3 +12,6 @@ sl-std = { path = "../../../sl-std" }
 [features]
 default = ["derive"]
 derive = ["serialize-derive"]
+
+[lints]
+workspace = true

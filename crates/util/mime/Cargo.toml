@@ -13,3 +13,6 @@ url = { workspace = true }
 http = { workspace = true }
 sl-std = { workspace = true }
 log = { workspace = true }
+
+[lints]
+workspace = true

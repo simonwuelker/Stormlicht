@@ -23,7 +23,7 @@ impl<'a> LineBreakIterator<'a> {
     #[must_use]
     pub fn new(text: &'a str, font_metrics: FontMetrics, available_width: CSSPixels) -> Self {
         Self {
-            text: text,
+            text,
             font_metrics,
             available_width,
             is_done: text.is_empty(),

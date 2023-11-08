@@ -20,7 +20,7 @@ struct InputData {
 }
 
 impl Parse for InputData {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let content;
         Ok(InputData {
             _const_token: input.parse()?,

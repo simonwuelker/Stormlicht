@@ -14,3 +14,6 @@ derive = ["dep:perfect_hash_derive"]
 
 [dependencies]
 perfect_hash_derive = { path = "../perfect_hash_derive", optional = true }
+
+[lints]
+workspace = true
