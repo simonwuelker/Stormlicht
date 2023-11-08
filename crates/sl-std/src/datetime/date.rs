@@ -276,9 +276,9 @@ mod tests {
             (337, 365),
         ];
 
-        for i in 0..consts::MONTHS_PER_YEAR {
-            assert_eq!(month_from_day_of_year(MONTHS[i].0) as usize, i);
-            assert_eq!(month_from_day_of_year(MONTHS[i].1) as usize, i);
+        for (i, (start, end)) in MONTHS.iter().enumerate() {
+            assert_eq!(month_from_day_of_year(*start) as usize, i);
+            assert_eq!(month_from_day_of_year(*end) as usize, i);
         }
     }
 }

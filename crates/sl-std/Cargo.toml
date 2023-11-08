@@ -16,3 +16,6 @@ criterion = { workspace = true }
 [[bench]]
 name = "date_from_days_since_unix"
 harness = false
+
+[lints]
+workspace = true
