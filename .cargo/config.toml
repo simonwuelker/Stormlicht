@@ -1,17 +1,5 @@
 [build]
-rustflags = [
-    "-Ctarget-cpu=native",
-
-    # Clippy config
-    "-Dclippy::correctness",
-    "-Dclippy::perf",
-    "-Aclippy::needless_range_loop",   # this lint produces a lot of false positives
-    "-Aclippy::redundant_field_names", # the field names are usually required so for consistency they should always be included
-    "-Aclippy::neg_multiply",          # "-1 * x" is just more readable than "-x", especially in complex expressions
-    "-Aclippy::upper_case_acronyms",
-    "-Aclippy::iter_nth_zero",         # using "nth(0) .. nth(1) .. nth(2)" is clearly more readable than "next() .. nth(1) .. nth(2)"
-    "-Aclippy::enum_variant_names",
-]
+rustflags = ["-Ctarget-cpu=native"]
 
 [env]
 DOWNLOAD_DIR = { value = "downloads", relative = true }
