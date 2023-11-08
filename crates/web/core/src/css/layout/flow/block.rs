@@ -183,7 +183,13 @@ impl BlockLevelBox {
 
         // If there is exactly one value specified as auto, its used value follows from the equality.
         let (width, margin_left, margin_right) = match (width, margin_left, margin_right) {
-            (AutoOr::Auto, _, _) => (containing_block.width(), CSSPixels::ZERO, CSSPixels::ZERO),
+            (AutoOr::Auto, margin_left, margin_right) => {
+                // If width is set to auto, any other auto values become 0 and width follows from the resulting equality.
+                let margin_left: CSSPixels = margin_left.unwrap_or(CSSPixels::ZERO);
+                let margin_right = margin_right.unwrap_or(CSSPixels::ZERO);
+                let width = containing_block.width() - margin_left - margin_right;
+                (width, margin_left, margin_right)
+            },
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::Auto) => {
                 let margin_width =
                     (containing_block.width() - padding_left - width - padding_right) / 2.;
