@@ -29,15 +29,15 @@ impl<'a> der::Deserialize<'a> for Identity {
     type Error = Error;
 
     fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
-        let sequence: der::Sequence = deserializer.parse()?;
+        let sequence: der::Sequence<'_> = deserializer.parse()?;
         let mut deserializer = sequence.deserializer();
 
         let mut properties = HashSet::new();
         while !deserializer.is_exhausted() {
-            let container_set: der::Set = deserializer.parse()?;
+            let container_set: der::Set<'_> = deserializer.parse()?;
             let mut deserializer = container_set.deserializer();
 
-            let key_value_sequence: der::Sequence = deserializer.parse()?;
+            let key_value_sequence: der::Sequence<'_> = deserializer.parse()?;
             let mut deserializer = key_value_sequence.deserializer();
 
             let key: der::ObjectIdentifier = deserializer.parse()?;
@@ -83,7 +83,7 @@ impl<'a> der::Deserialize<'a> for Identity {
     }
 }
 
-fn parse_directory_string(deserializer: &mut der::Deserializer) -> Result<String, Error> {
+fn parse_directory_string(deserializer: &mut der::Deserializer<'_>) -> Result<String, Error> {
     let string = match deserializer.peek_item_tag()? {
         der::TypeTag::UTF8_STRING => {
             let utf8string: der::Utf8String = deserializer.parse()?;

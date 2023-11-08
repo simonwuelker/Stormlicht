@@ -16,3 +16,6 @@ sl-std = { workspace = true }
 
 [build-dependencies]
 serialize = { workspace = true }
+
+[lints]
+workspace = true

@@ -152,7 +152,7 @@ impl ServerHello {
 impl ClientHello {
     pub fn new(client_random: [u8; 32]) -> Self {
         Self {
-            client_random: client_random,
+            client_random,
             extensions: vec![
                 Extension::StatusRequest,
                 Extension::RenegotiationInfo,
@@ -278,10 +278,10 @@ impl HandshakeMessage {
 
                 let server_hello = Self::ServerHello(ServerHello {
                     version: server_version,
-                    server_random: server_random,
-                    session_id: session_id,
+                    server_random,
+                    session_id,
                     selected_cipher_suite: cipher_suite,
-                    selected_compression_method: selected_compression_method,
+                    selected_compression_method,
                     extensions: vec![],
                 });
                 Ok(server_hello)

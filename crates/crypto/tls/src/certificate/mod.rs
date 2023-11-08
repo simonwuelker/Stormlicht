@@ -67,7 +67,7 @@ impl<'a> der::Deserialize<'a> for X509Certificate {
     type Error = Error;
 
     fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
-        let sequence: der::Sequence = deserializer.parse()?;
+        let sequence: der::Sequence<'_> = deserializer.parse()?;
         let mut deserializer = sequence.deserializer();
         let version: CertificateVersion = deserializer.parse()?;
         let serial_number: der::Integer = deserializer.parse()?;
@@ -95,7 +95,7 @@ impl<'a> der::Deserialize<'a> for SignedCertificate {
     type Error = Error;
 
     fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
-        let sequence: der::Sequence = deserializer.parse()?;
+        let sequence: der::Sequence<'_> = deserializer.parse()?;
         let mut deserializer = sequence.deserializer();
 
         let certificate: X509Certificate = deserializer.parse()?;
@@ -162,7 +162,7 @@ impl<'a> der::Deserialize<'a> for AlgorithmIdentifier {
     type Error = Error;
 
     fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
-        let sequence: der::Sequence = deserializer.parse()?;
+        let sequence: der::Sequence<'_> = deserializer.parse()?;
         let mut deserializer = sequence.deserializer();
 
         let identifier: der::ObjectIdentifier = deserializer.parse()?;
@@ -183,7 +183,7 @@ impl<'a> der::Deserialize<'a> for Validity {
     type Error = Error;
 
     fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
-        let sequence: der::Sequence = deserializer.parse()?;
+        let sequence: der::Sequence<'_> = deserializer.parse()?;
         let mut deserializer = sequence.deserializer();
 
         let not_before: der::UtcTime = deserializer.parse()?;
@@ -224,7 +224,7 @@ impl<'a> der::Deserialize<'a> for SubjectPublicKeyInfo {
     type Error = Error;
 
     fn deserialize(deserializer: &mut der::Deserializer<'a>) -> Result<Self, Self::Error> {
-        let sequence: der::Sequence = deserializer.parse()?;
+        let sequence: der::Sequence<'_> = deserializer.parse()?;
         let mut deserializer = sequence.deserializer();
 
         let algorithm: AlgorithmIdentifier = deserializer.parse()?;
