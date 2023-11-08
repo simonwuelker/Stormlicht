@@ -90,7 +90,7 @@ impl Header {
         Self {
             id: RNG::default().next_u16(),
             flags: Flags::default(),
-            num_questions: num_questions,
+            num_questions,
             num_answers: 0x0000,
             num_authorities: 0x0000,
             num_additional: 0x000,
@@ -106,7 +106,7 @@ impl Header {
         bytes[10..12].copy_from_slice(&self.num_additional.to_be_bytes());
     }
 
-    pub fn read_from(reader: &mut Reader) -> Result<Self, DNSError> {
+    pub fn read_from(reader: &mut Reader<'_>) -> Result<Self, DNSError> {
         // FIXME: propagate errors
         let id = reader.read_be_u16()?;
         let flags = Flags::new(reader.read_be_u16()?);
@@ -130,7 +130,7 @@ impl Question {
     #[must_use]
     pub fn new(domain: Domain) -> Self {
         Self {
-            domain: domain,
+            domain,
             _query_type: QueryType::Standard,
             _query_class: (),
         }
@@ -155,7 +155,7 @@ impl Question {
         ptr
     }
 
-    pub fn read_from(reader: &mut Reader) -> Result<Self, DNSError> {
+    pub fn read_from(reader: &mut Reader<'_>) -> Result<Self, DNSError> {
         let domain = Domain::read_from(reader)?;
 
         // FIXME: properly parse the type/class
@@ -163,7 +163,7 @@ impl Question {
         let _query_class = reader.read_be_u16()?;
 
         Ok(Self {
-            domain: domain,
+            domain,
             _query_type: QueryType::Standard,
             _query_class: (),
         })
@@ -243,7 +243,7 @@ impl Message {
         None
     }
 
-    pub fn read_from(reader: &mut Reader) -> Result<Self, DNSError> {
+    pub fn read_from(reader: &mut Reader<'_>) -> Result<Self, DNSError> {
         let header = Header::read_from(reader)?;
 
         let mut questions = Vec::with_capacity(header.num_questions as usize);
@@ -272,7 +272,7 @@ impl Message {
         }
 
         Ok(Self {
-            header: header,
+            header,
             question: questions,
             answer: answers,
             authority: authorities,
@@ -282,7 +282,7 @@ impl Message {
 }
 
 impl Resource {
-    pub fn read_from(reader: &mut Reader) -> Result<Self, DNSError> {
+    pub fn read_from(reader: &mut Reader<'_>) -> Result<Self, DNSError> {
         let domain = Domain::read_from(reader)?;
 
         let rtype = reader.read_be_u16()?;
@@ -298,7 +298,7 @@ impl Resource {
         reader.set_position(position + length);
 
         Ok(Self {
-            domain: domain,
+            domain,
             class,
             time_to_live: ttl,
             record,

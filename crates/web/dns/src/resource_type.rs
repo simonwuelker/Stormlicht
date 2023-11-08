@@ -6,6 +6,7 @@ use crate::{domain::Domain, reader::Reader, DNSError};
 
 /// See <https://en.wikipedia.org/wiki/List_of_DNS_record_types>
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum ResourceRecord {
     A { ipv4: net::Ipv4Addr },
     AAAA { ipv6: net::Ipv6Addr },
@@ -58,7 +59,7 @@ pub enum ResourceRecord {
 }
 
 impl ResourceRecord {
-    pub fn read_from(reader: &mut Reader, rtype: u16) -> Result<Self, DNSError> {
+    pub fn read_from(reader: &mut Reader<'_>, rtype: u16) -> Result<Self, DNSError> {
         let record = match rtype {
             1 => {
                 let mut buffer = [0; 4];
@@ -155,7 +156,7 @@ pub enum ResourceRecordClass {
     CH,
     /// Hesiod [Dyer 87]
     HS,
-    UNKNOWN,
+    Unknown,
 }
 
 impl From<u16> for ResourceRecordClass {
@@ -165,7 +166,7 @@ impl From<u16> for ResourceRecordClass {
             2 => Self::CS,
             3 => Self::CH,
             4 => Self::HS,
-            _ => Self::UNKNOWN,
+            _ => Self::Unknown,
         }
     }
 }

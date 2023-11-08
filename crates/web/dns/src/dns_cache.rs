@@ -96,8 +96,8 @@ impl LockedCache {
         items.sort_by(|a, b| a.1.last_accessed.cmp(&b.1.last_accessed));
 
         // remove the first n elements from the cache
-        for i in 0..n {
-            self.0.remove(&items[i].0);
+        for item in items.iter().take(n) {
+            self.0.remove(&item.0);
         }
     }
 
@@ -114,7 +114,7 @@ impl LockedCache {
             CacheEntry {
                 expires_at: Instant::now() + Duration::from_secs(ttl as u64),
                 last_accessed: Instant::now(),
-                ip: ip,
+                ip,
             },
         );
     }

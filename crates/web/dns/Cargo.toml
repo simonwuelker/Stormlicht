@@ -11,3 +11,6 @@ license.workspace = true
 [dependencies]
 sl-std = { workspace = true }
 log = { workspace = true }
+
+[lints]
+workspace = true

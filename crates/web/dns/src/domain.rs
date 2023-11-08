@@ -87,7 +87,7 @@ impl Domain {
     /// # Panics
     /// This function panics if the given byte buffer is not a valid encoded domain name,
     /// for example `\x03www\x07example\x04com`.
-    pub fn read_from(reader: &mut Reader) -> Result<Self, DNSError> {
+    pub fn read_from(reader: &mut Reader<'_>) -> Result<Self, DNSError> {
         let mut result: Vec<String> = vec![];
 
         let mut num_segments = 0;
