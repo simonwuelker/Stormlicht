@@ -186,7 +186,7 @@ pub fn run(url: Option<&str>) -> ExitCode {
         repaint_required: RepaintRequired::Yes,
         composition: render::Composition::default(),
         window_handle: glazier::WindowHandle::default(),
-        browsing_context: browsing_context,
+        browsing_context,
     };
 
     let app = match glazier::Application::new() {

@@ -33,3 +33,6 @@ chrome-glazier = ["glazier", "softbuffer"]
 
 [build-dependencies]
 glib-build-tools = "0.18.0"
+
+[lints]
+workspace = true
