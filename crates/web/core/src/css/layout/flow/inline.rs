@@ -5,9 +5,10 @@ use math::{Rectangle, Vec2D};
 
 use crate::{
     css::{
-        self, font_metrics,
+        font_metrics::{self, DEFAULT_FONT_SIZE},
         fragment_tree::{BoxFragment, Fragment, TextFragment},
-        layout::{CSSPixels, ContainingBlock, Sides},
+        layout::{CSSPixels, ContainingBlock, Sides, Size},
+        values::{font_size, length},
         ComputedStyle, LineBreakIterator,
     },
     dom::{dom_objects, DOMPtr},
@@ -62,10 +63,14 @@ impl TextRun {
 
     fn layout_into_line_items(&self, state: &mut InlineFormattingContextState) {
         // FIXME: use the inherited font size here, not the default one
-        let font_size = self
-            .style()
-            .font_size()
-            .to_pixels(css::font_metrics::DEFAULT_FONT_SIZE);
+        let ctx = font_size::ResolutionContext {
+            inherited_font_size: DEFAULT_FONT_SIZE,
+            length_context: length::ResolutionContext {
+                viewport: state.viewport,
+            },
+        };
+
+        let font_size = self.style().font_size().to_pixels(ctx);
 
         let font_metrics = FontMetrics::new(font_size);
         let height = font_metrics.size;
@@ -139,8 +144,9 @@ impl InlineFormattingContext {
         &self,
         position: Vec2D<CSSPixels>,
         containing_block: ContainingBlock,
+        viewport: Size<CSSPixels>,
     ) -> (Vec<Fragment>, CSSPixels) {
-        let mut state = InlineFormattingContextState::new(position, containing_block);
+        let mut state = InlineFormattingContextState::new(position, containing_block, viewport);
 
         state.traverse(self.elements());
 
@@ -194,6 +200,8 @@ struct InlineFormattingContextState<'box_tree> {
     ///
     /// This is necessary because whitespace at the beginning of a line is removed
     at_beginning_of_line: bool,
+
+    viewport: Size<CSSPixels>,
 }
 
 #[derive(Clone, Debug)]
@@ -281,7 +289,11 @@ impl InlineBoxItem {
 }
 
 impl<'box_tree> InlineFormattingContextState<'box_tree> {
-    fn new(position: Vec2D<CSSPixels>, containing_block: ContainingBlock) -> Self {
+    fn new(
+        position: Vec2D<CSSPixels>,
+        containing_block: ContainingBlock,
+        viewport: Size<CSSPixels>,
+    ) -> Self {
         Self {
             line_box_under_construction: LineBoxUnderConstruction::default(),
             root_nesting_level_state: NestingLevelState::default(),
@@ -292,6 +304,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
             position: position,
             y_cursor: position.y,
             at_beginning_of_line: true,
+            viewport,
         }
     }
 

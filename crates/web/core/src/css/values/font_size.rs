@@ -7,6 +7,8 @@ use crate::css::{
 
 use string_interner::{static_interned, static_str};
 
+use super::length;
+
 /// The default font size.
 pub const FONT_MEDIUM_PX: CSSPixels = CSSPixels(16.0);
 
@@ -55,6 +57,13 @@ pub enum FontSize {
     LengthPercentage(PercentageOr<Length>),
 }
 
+/// Contains all values that the absolute value of a [FontSize] may depend on
+#[derive(Clone, Copy, Debug)]
+pub struct ResolutionContext {
+    pub inherited_font_size: CSSPixels,
+    pub length_context: length::ResolutionContext,
+}
+
 impl Default for FontSize {
     fn default() -> Self {
         Self::Absolute(AbsoluteSize::Medium)
@@ -86,14 +95,14 @@ impl RelativeSize {
 }
 
 impl FontSize {
-    pub fn to_pixels(self, inherited_font_size: CSSPixels) -> CSSPixels {
+    pub fn to_pixels(self, ctx: ResolutionContext) -> CSSPixels {
         match self {
             Self::Absolute(absolute_size) => absolute_size.to_pixels(),
-            Self::Relative(relative_size) => relative_size.to_pixels(inherited_font_size),
+            Self::Relative(relative_size) => relative_size.to_pixels(ctx.inherited_font_size),
             Self::LengthPercentage(percentage_or_length) => {
                 let length =
-                    percentage_or_length.resolve_against(Length::pixels(inherited_font_size));
-                length.absolutize()
+                    percentage_or_length.resolve_against(Length::pixels(ctx.inherited_font_size));
+                length.absolutize(ctx.length_context)
             },
         }
     }

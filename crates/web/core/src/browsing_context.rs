@@ -7,7 +7,7 @@ use crate::{
     css::{
         display_list::Painter,
         fragment_tree::FragmentTree,
-        layout::{flow::BlockFormattingContext, CSSPixels},
+        layout::{flow::BlockFormattingContext, CSSPixels, Size},
         StyleComputer, Stylesheet,
     },
     dom::{dom_objects, DOMPtr},
@@ -73,6 +73,10 @@ impl BrowsingContext {
         let box_tree = BlockFormattingContext::root(self.document.clone(), style_computer);
 
         // Build a fragment tree by fragmenting the boxes
+        let viewport_size = Size {
+            width: CSSPixels(viewport_size.0 as f32),
+            height: CSSPixels(viewport_size.1 as f32),
+        };
         self.fragment_tree = box_tree.fragment(viewport_size);
 
         let layout_end = time::Instant::now();

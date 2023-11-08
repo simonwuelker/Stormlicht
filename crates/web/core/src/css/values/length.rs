@@ -1,7 +1,10 @@
 use string_interner::{static_interned, static_str, InternedString};
 
 use crate::css::{
-    layout::CSSPixels, syntax::Token, values::Percentage, CSSParse, ParseError, Parser,
+    layout::{CSSPixels, Size},
+    syntax::Token,
+    values::Percentage,
+    CSSParse, ParseError, Parser,
 };
 
 use std::ops::Mul;
@@ -108,6 +111,12 @@ enum Unit {
     Px,
 }
 
+/// Contains all values that relative [Lengths](Length) can depend on
+#[derive(Clone, Copy, Debug)]
+pub struct ResolutionContext {
+    pub viewport: Size<CSSPixels>,
+}
+
 impl Length {
     pub const ZERO: Self = Self {
         value: 0.,
@@ -116,18 +125,49 @@ impl Length {
 
     /// Return the length in pixels
     #[must_use]
-    pub fn absolutize(&self) -> CSSPixels {
-        let absolute_value = match self.unit {
-            Unit::Cm => self.value * 96. / 2.54,
-            Unit::Mm => self.value * 96. / 2.54 / 10.,
-            Unit::Q => self.value * 96. / 2.54 / 40.,
-            Unit::In => self.value * 96.,
-            Unit::Pc => self.value * 96. / 6.,
-            Unit::Pt => self.value * 96. / 72.,
-            Unit::Px => self.value,
-            _ => todo!("absolutize non-absolute length"),
-        };
-        CSSPixels(absolute_value)
+    pub fn absolutize(&self, ctx: ResolutionContext) -> CSSPixels {
+        match self.unit {
+            Unit::Cm => CSSPixels(self.value * 96. / 2.54),
+            Unit::Mm => CSSPixels(self.value * 96. / 2.54 / 10.),
+            Unit::Q => CSSPixels(self.value * 96. / 2.54 / 40.),
+            Unit::In => CSSPixels(self.value * 96.),
+            Unit::Pc => CSSPixels(self.value * 96. / 6.),
+            Unit::Pt => CSSPixels(self.value * 96. / 72.),
+            Unit::Px => CSSPixels(self.value),
+
+            // Viewport-relative units
+            Unit::Vw
+            | Unit::Svw
+            | Unit::Lvw
+            | Unit::Dvw
+            | Unit::Vi
+            | Unit::Svi
+            | Unit::Lvi
+            | Unit::Dvi => ctx.viewport.width / 100. * self.value,
+            Unit::Vh
+            | Unit::Svh
+            | Unit::Lvh
+            | Unit::Dvh
+            | Unit::Vb
+            | Unit::Svb
+            | Unit::Lvb
+            | Unit::Dvb => ctx.viewport.height / 100. * self.value,
+            Unit::Vmin | Unit::Svmin | Unit::Lvmin | Unit::Dvmin => {
+                if ctx.viewport.width < ctx.viewport.height {
+                    ctx.viewport.width / 100.
+                } else {
+                    ctx.viewport.height / 100.
+                }
+            },
+            Unit::Vmax | Unit::Svmax | Unit::Lvmax | Unit::Dvmax => {
+                if ctx.viewport.width < ctx.viewport.height {
+                    ctx.viewport.height / 100.
+                } else {
+                    ctx.viewport.width / 100.
+                }
+            },
+            _ => todo!("absolutize font-relative length: {self:?}"),
+        }
     }
 
     #[must_use]
