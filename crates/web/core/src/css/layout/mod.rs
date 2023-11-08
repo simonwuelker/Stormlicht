@@ -47,6 +47,12 @@ impl<T: Copy> Sides<T> {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct Size<T> {
+    pub width: T,
+    pub height: T,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct ContainingBlock {
     width: CSSPixels,
     /// The height of the containing block
