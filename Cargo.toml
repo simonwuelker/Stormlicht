@@ -64,5 +64,15 @@ edition = "2021"
 repository = "https://github.com/wuelle/stormlicht"
 license = "MIT"
 
+[workspace.lints.rust]
+rust_2018_idioms = { level = "warn" }
+
+[workspace.lints.clippy]
+correctness = { level = "deny" }
+perf = { level = "deny" }
+
+# "-1 * x" can be more readable than "-x", especially in complex expressions
+neg_multiply = { level = "allow" }
+
 [profile.bench]
 debug = true
