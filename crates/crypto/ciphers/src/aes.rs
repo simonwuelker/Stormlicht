@@ -126,13 +126,13 @@ macro_rules! galois_multiply {
 /// The second generic parameter defines the number of round keys and
 /// should not be set by the user.
 #[derive(Clone, Copy, Debug)]
-pub struct AES<const S: usize, const R: usize> {
+pub struct AesCipher<const S: usize, const R: usize> {
     round_keys: [[u8; 16]; R],
     /// The state is implemented in column-major layout, so `self.state = [column1, column2, column3, column4]`.
     state: [[u8; 4]; 4],
 }
 
-pub type AES128 = AES<128, 11>;
+pub type Aes128Cipher = AesCipher<128, 11>;
 
 #[inline]
 fn rot_word(word_bytes: [u8; 4]) -> [u8; 4] {
@@ -192,7 +192,7 @@ fn key_expand<const A: usize, const B: usize>(master_key: [u8; A]) -> [[u8; A]; 
     round_keys
 }
 
-impl<const A: usize, const B: usize> AES<A, B> {
+impl<const A: usize, const B: usize> AesCipher<A, B> {
     pub fn encrypt_block(&mut self, input: [u8; 16]) -> [u8; 16] {
         self.set_state(input);
         self.add_round_key(0);
@@ -404,7 +404,7 @@ impl<const A: usize, const B: usize> AES<A, B> {
     }
 }
 
-impl BlockCipher for AES<128, 11> {
+impl BlockCipher for AesCipher<128, 11> {
     type Block = [u8; 16];
     type Key = [u8; 16];
 
@@ -445,7 +445,7 @@ mod tests {
 
     #[test]
     fn test_sub_bytes() {
-        let mut aes = AES::new(*b"1234567890ABCDEF");
+        let mut aes = AesCipher::new(*b"1234567890ABCDEF");
         let state = aes.state;
         aes.sub_bytes();
         aes.inverse_sub_bytes();
@@ -454,7 +454,7 @@ mod tests {
 
     #[test]
     fn test_expand_key() {
-        let aes = AES::new(MASTER_KEY);
+        let aes = AesCipher::new(MASTER_KEY);
         let expected_round_keys = [
             [
                 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf,
@@ -516,7 +516,7 @@ mod tests {
             0x0b, 0x32,
         ];
 
-        let mut cipher = AES::new(MASTER_KEY);
+        let mut cipher = AesCipher::new(MASTER_KEY);
         let ciphertext = cipher.encrypt_block(plaintext_block);
         assert_eq!(ciphertext, expected_ciphertext);
     }
@@ -532,14 +532,14 @@ mod tests {
             0x0b, 0x32,
         ];
 
-        let mut cipher = AES::new(MASTER_KEY);
+        let mut cipher = AesCipher::new(MASTER_KEY);
         let plaintext = cipher.decrypt_block(ciphertext);
         assert_eq!(plaintext, expected_plaintext);
     }
 
     #[test]
     fn test_inverse_sub_bytes() {
-        let mut cipher = AES::new(MASTER_KEY);
+        let mut cipher = AesCipher::new(MASTER_KEY);
         cipher.set_state(MASTER_KEY); // Just some bogus data to init the state
         let state = cipher.state;
 
@@ -551,7 +551,7 @@ mod tests {
 
     #[test]
     fn test_inverse_mix_columns() {
-        let mut cipher = AES::new(MASTER_KEY);
+        let mut cipher = AesCipher::new(MASTER_KEY);
         cipher.set_state(MASTER_KEY); // Just some bogus data to init the state
         let state = cipher.state;
 
@@ -564,7 +564,7 @@ mod tests {
 
     #[test]
     fn test_shift_rows() {
-        let mut cipher = AES::new(MASTER_KEY);
+        let mut cipher = AesCipher::new(MASTER_KEY);
         cipher.set_state(MASTER_KEY); // Just some bogus data to init the state
         let state = cipher.state;
 

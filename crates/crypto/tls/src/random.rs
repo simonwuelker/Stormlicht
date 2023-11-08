@@ -1,4 +1,4 @@
-use ciphers::{BlockCipher, AES128};
+use ciphers::{Aes128Cipher, BlockCipher};
 
 /// Similar to AES-CTR mode.
 /// I think this is more or less equivalent to AES_CTR_DRBG but
@@ -6,7 +6,7 @@ use ciphers::{BlockCipher, AES128};
 /// It's `AES128(counter)`, seeded from `/dev/urandom`.
 pub struct CryptographicRand {
     state: u128,
-    key: AES128,
+    key: Aes128Cipher,
 }
 
 impl CryptographicRand {
@@ -25,7 +25,7 @@ impl CryptographicRand {
 
         Ok(Self {
             state: u128::from_ne_bytes(inital_state),
-            key: AES128::new(key),
+            key: Aes128Cipher::new(key),
         })
     }
 

@@ -26,7 +26,7 @@ pub struct ChaCha20 {
 
 impl ChaCha20 {
     pub fn from_state(state: [u32; 16]) -> Self {
-        Self { state: state }
+        Self { state }
     }
 
     fn quarter_round(&mut self, a: usize, b: usize, c: usize, d: usize) {
@@ -70,9 +70,9 @@ impl ChaCha20 {
             chacha20.quarter_round(3, 4, 9, 14);
         }
 
-        for i in 0..16 {
+        for (i, &input_word) in initial_state.iter().enumerate() {
             // Add the input words to the output words
-            chacha20.state[i] = chacha20.state[i].wrapping_add(initial_state[i]);
+            chacha20.state[i] = chacha20.state[i].wrapping_add(input_word);
         }
 
         let mut result = [0; 64];

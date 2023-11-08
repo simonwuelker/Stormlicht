@@ -1,7 +1,7 @@
 mod aes;
 mod chacha20;
 
-pub use aes::AES128;
+pub use aes::Aes128Cipher;
 pub use chacha20::ChaCha20;
 
 pub trait BlockCipher {
