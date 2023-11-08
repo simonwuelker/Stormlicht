@@ -90,7 +90,7 @@ impl<T: PartialOrd + PartialEq + Clone> HuffmanTree<T> {
 
     pub fn lookup_incrementally(
         &self,
-        reader: &mut BitReader,
+        reader: &mut BitReader<'_>,
     ) -> Result<Option<&T>, BitReaderError> {
         // Special case: if the tree only consists of a single symbol, we don't
         // consume any input bits

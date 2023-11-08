@@ -19,3 +19,6 @@ sl-std = { workspace = true }
 [[bench]]
 name = "brotli"
 harness = false
+
+[lints]
+workspace = true

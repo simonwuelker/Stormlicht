@@ -8,10 +8,7 @@ pub struct RingBuffer<T, const N: usize> {
 
 impl<T, const N: usize> RingBuffer<T, N> {
     pub fn new(elements: [T; N]) -> Self {
-        Self {
-            elements: elements,
-            ptr: 0,
-        }
+        Self { elements, ptr: 0 }
     }
 
     #[inline]

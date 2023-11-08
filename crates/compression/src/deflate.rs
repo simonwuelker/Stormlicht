@@ -98,7 +98,7 @@ pub fn decompress(source: &[u8]) -> Result<(Vec<u8>, usize), Error> {
 fn decompress_block(
     literal_tree: &HuffmanTree<usize>,
     distance_tree: &HuffmanTree<usize>,
-    reader: &mut BitReader,
+    reader: &mut BitReader<'_>,
     output_stream: &mut Vec<u8>,
 ) -> Result<(), Error> {
     'decompress_block: loop {
@@ -144,7 +144,7 @@ fn read_literal_and_distance_tree(
     hlit: usize,
     hdist: usize,
     hclen: usize,
-    reader: &mut BitReader,
+    reader: &mut BitReader<'_>,
 ) -> Result<(HuffmanTree<usize>, HuffmanTree<usize>), Error> {
     let mut code_lengths = vec![0; 19];
 
@@ -206,7 +206,7 @@ fn read_literal_and_distance_tree(
     Ok((literal_tree, dist_tree))
 }
 
-fn decode_distance(code: usize, reader: &mut BitReader) -> Result<usize, Error> {
+fn decode_distance(code: usize, reader: &mut BitReader<'_>) -> Result<usize, Error> {
     let (base, num_extra_bits) = match code {
         0 => (1, 0),
         1 => (2, 0),
@@ -246,7 +246,7 @@ fn decode_distance(code: usize, reader: &mut BitReader) -> Result<usize, Error> 
     Ok(base + extra_bits)
 }
 
-fn decode_run_length(code: usize, reader: &mut BitReader) -> Result<usize, Error> {
+fn decode_run_length(code: usize, reader: &mut BitReader<'_>) -> Result<usize, Error> {
     let (base, num_extra_bits) = match code {
         257 => (3, 0),
         258 => (4, 0),

@@ -403,7 +403,7 @@ pub fn decompress(source: &[u8]) -> Result<Vec<u8>, Error> {
 }
 
 fn read_prefix_code(
-    reader: &mut BitReader,
+    reader: &mut BitReader<'_>,
     alphabet_size: usize,
 ) -> Result<HuffmanTree<Bits<usize>>, Error> {
     let alphabet_width = 16 - (alphabet_size as u16 - 1).leading_zeros() as u8;
@@ -634,7 +634,7 @@ fn read_prefix_code(
     Ok(huffmantree)
 }
 
-fn decode_blocknum(reader: &mut BitReader) -> Result<u8, Error> {
+fn decode_blocknum(reader: &mut BitReader<'_>) -> Result<u8, Error> {
     if reader.read_single_bit().map_err(Error::BitReader)? {
         let num_extrabits = reader.read_bits::<u8>(3).map_err(Error::BitReader)?;
 
@@ -653,7 +653,7 @@ fn decode_blocknum(reader: &mut BitReader) -> Result<u8, Error> {
 
 /// https://www.rfc-editor.org/rfc/rfc7932#section-7.3
 fn decode_context_map(
-    reader: &mut BitReader,
+    reader: &mut BitReader<'_>,
     num_trees: u8,
     size: usize,
 ) -> Result<Vec<u8>, Error> {
@@ -733,7 +733,7 @@ fn inverse_move_to_front_transform(data: &mut [u8]) {
     }
 }
 
-fn read_block_count_code(reader: &mut BitReader, code: usize) -> Result<usize, Error> {
+fn read_block_count_code(reader: &mut BitReader<'_>, code: usize) -> Result<usize, Error> {
     let (base, num_extra_bits) = match code {
         0 => (1, 2),
         1 => (5, 2),
@@ -769,7 +769,7 @@ fn read_block_count_code(reader: &mut BitReader, code: usize) -> Result<usize, E
 
     Ok(base + extra_bits)
 }
-fn read_insert_length_code(reader: &mut BitReader, code: usize) -> Result<usize, Error> {
+fn read_insert_length_code(reader: &mut BitReader<'_>, code: usize) -> Result<usize, Error> {
     let (base, num_extra_bits) = match code {
         0 => (0, 0),
         1 => (1, 0),
@@ -805,7 +805,7 @@ fn read_insert_length_code(reader: &mut BitReader, code: usize) -> Result<usize,
     Ok(base + extra_bits)
 }
 
-fn read_copy_length_code(reader: &mut BitReader, code: usize) -> Result<usize, Error> {
+fn read_copy_length_code(reader: &mut BitReader<'_>, code: usize) -> Result<usize, Error> {
     let (base, num_extra_bits) = match code {
         0 => (2, 0),
         1 => (3, 0),
@@ -843,7 +843,7 @@ fn read_copy_length_code(reader: &mut BitReader, code: usize) -> Result<usize, E
 
 /// Read the block type metadata from the meta header
 fn decode_blockdata(
-    reader: &mut BitReader,
+    reader: &mut BitReader<'_>,
 ) -> Result<(usize, Option<HuffmanBitTree>, Option<HuffmanBitTree>, usize), Error> {
     let num_blocks = decode_blocknum(reader)? as usize;
 
@@ -908,7 +908,7 @@ fn distance_short_code_substitution(
     past_distances: &RingBuffer<usize, 4>,
     npostfix: usize,
     ndirect: usize,
-    reader: &mut BitReader,
+    reader: &mut BitReader<'_>,
 ) -> Result<usize, Error> {
     let postfix_mask = (1 << npostfix) - 1;
 
