@@ -3,7 +3,7 @@
 pub mod dictionary;
 
 use crate::{
-    bit_reader::{BitReader, BitReaderError},
+    bitreader::{self, BitReader},
     huffman::{Bits, HuffmanBitTree, HuffmanTree},
     ringbuffer::RingBuffer,
 };
@@ -38,9 +38,7 @@ macro_rules! update_block_type_and_count {
             .val();
 
         let (base, num_extra_bits) = decode_blocklen(blen_code);
-        let extra_bits = $reader
-            .read_bits::<usize>(num_extra_bits as u8)
-            .map_err(Error::BitReader)?;
+        let extra_bits = $reader.read_bits::<usize>(num_extra_bits as u8)?;
         $blen = base + extra_bits;
     };
 }
@@ -115,7 +113,13 @@ pub enum Error {
     SymbolNotFound,
     InvalidDictionaryReferenceLength,
     InvalidTransformID,
-    BitReader(BitReaderError),
+    BitReader(bitreader::Error),
+}
+
+impl From<bitreader::Error> for Error {
+    fn from(value: bitreader::Error) -> Self {
+        Self::BitReader(value)
+    }
 }
 
 // https://www.rfc-editor.org/rfc/rfc7932#section-10
@@ -128,12 +132,12 @@ pub fn decompress(source: &[u8]) -> Result<Vec<u8>, Error> {
 
     // Read the Stream Header (which only contains the sliding window size)
     // https://www.rfc-editor.org/rfc/rfc7932#section-9.1
-    let wbits = if reader.read_bits::<u8>(1).map_err(Error::BitReader)? == 0b0 {
+    let wbits = if reader.read_bits::<u8>(1)? == 0b0 {
         16
     } else {
-        let n2 = reader.read_bits::<u8>(3).map_err(Error::BitReader)?;
+        let n2 = reader.read_bits::<u8>(3)?;
         if n2 == 0b000 {
-            let n3 = reader.read_bits::<u8>(3).map_err(Error::BitReader)?;
+            let n3 = reader.read_bits::<u8>(3)?;
             if n3 == 0b000 {
                 17
             } else {
@@ -151,17 +155,17 @@ pub fn decompress(source: &[u8]) -> Result<Vec<u8>, Error> {
     while !is_last {
         // read meta block header
         // read ISLAST bit
-        is_last = reader.read_single_bit().map_err(Error::BitReader)?;
+        is_last = reader.read_single_bit()?;
 
         if is_last {
             // read ISLASTEMPTY bit
-            if reader.read_single_bit().map_err(Error::BitReader)? {
+            if reader.read_single_bit()? {
                 break;
             }
         }
 
         // read MNIBBLES
-        let mnibbles = match reader.read_bits::<u8>(2).map_err(Error::BitReader)? {
+        let mnibbles = match reader.read_bits::<u8>(2)? {
             0b11 => 0,
             0b00 => 4,
             0b01 => 5,
@@ -171,7 +175,7 @@ pub fn decompress(source: &[u8]) -> Result<Vec<u8>, Error> {
 
         let mlen = if mnibbles == 0 {
             // verify reserved bit is zero
-            if reader.read_single_bit().map_err(Error::BitReader)? {
+            if reader.read_single_bit()? {
                 return Err(Error::InvalidFormat);
             }
 
@@ -180,20 +184,17 @@ pub fn decompress(source: &[u8]) -> Result<Vec<u8>, Error> {
         // skip any bits up to the next byte boundary
         } else {
             // read MLEN
-            reader
-                .read_bits::<u32>(4 * mnibbles)
-                .map_err(Error::BitReader)? as usize
-                + 1
+            reader.read_bits::<u32>(4 * mnibbles)? as usize + 1
         };
 
         if !is_last {
-            let is_uncompressed = reader.read_single_bit().map_err(Error::BitReader)?;
+            let is_uncompressed = reader.read_single_bit()?;
 
             if is_uncompressed {
                 reader.align_to_byte_boundary();
 
                 let mut buffer = vec![0; mlen];
-                reader.read_bytes(&mut buffer).map_err(Error::BitReader)?;
+                reader.read_bytes(&mut buffer)?;
                 output_stream.extend(buffer);
                 continue;
             }
@@ -206,12 +207,12 @@ pub fn decompress(source: &[u8]) -> Result<Vec<u8>, Error> {
         let (nbl_types_d, htree_btype_d, htree_blen_d, mut blen_d) = decode_blockdata(&mut reader)?;
 
         // read NPOSTFIX and NDIRECT
-        let npostfix = reader.read_bits::<usize>(2).map_err(Error::BitReader)?;
-        let ndirect = reader.read_bits::<usize>(4).map_err(Error::BitReader)? << npostfix;
+        let npostfix = reader.read_bits::<usize>(2)?;
+        let ndirect = reader.read_bits::<usize>(4)? << npostfix;
 
         let mut context_modes_for_literal_block_types = Vec::with_capacity(nbl_types_l);
         for _ in 0..nbl_types_l {
-            let context_mode = reader.read_bits::<u8>(2).map_err(Error::BitReader)?;
+            let context_mode = reader.read_bits::<u8>(2)?;
             context_modes_for_literal_block_types.push(context_mode);
         }
 
@@ -408,18 +409,16 @@ fn read_prefix_code(
 ) -> Result<HuffmanTree<Bits<usize>>, Error> {
     let alphabet_width = 16 - (alphabet_size as u16 - 1).leading_zeros() as u8;
 
-    let ident = reader.read_bits::<u8>(2).map_err(Error::BitReader)?;
+    let ident = reader.read_bits::<u8>(2)?;
     let mut symbols_raw = vec![];
 
     let huffmantree = if ident == 1 {
         // Simple prefix code
-        let nsym = reader.read_bits::<u8>(2).map_err(Error::BitReader)? + 1;
+        let nsym = reader.read_bits::<u8>(2)? + 1;
 
         // read nsym symbols
         for _ in 0..nsym {
-            let symbol_raw = reader
-                .read_bits::<usize>(alphabet_width)
-                .map_err(Error::BitReader)?;
+            let symbol_raw = reader.read_bits::<usize>(alphabet_width)?;
 
             // Reject symbol if its not within the alphabet
             if symbol_raw >= alphabet_size {
@@ -441,7 +440,7 @@ fn read_prefix_code(
                 vec![1, 2, 2]
             },
             4 => {
-                if reader.read_single_bit().map_err(Error::BitReader)? {
+                if reader.read_single_bit()? {
                     symbols_raw[2..].sort();
                     vec![1, 2, 3, 3]
                 } else {
@@ -479,13 +478,13 @@ fn read_prefix_code(
             // 3          10
             // 4          01
             // 5        1111
-            *code_length = match reader.read_bits::<u8>(2).map_err(Error::BitReader)? {
+            *code_length = match reader.read_bits::<u8>(2)? {
                 0b00 => 0,
                 0b10 => 3,
                 0b01 => 4,
                 0b11 => {
-                    if reader.read_single_bit().map_err(Error::BitReader)? {
-                        if reader.read_single_bit().map_err(Error::BitReader)? {
+                    if reader.read_single_bit()? {
+                        if reader.read_single_bit()? {
                             5
                         } else {
                             1
@@ -550,7 +549,7 @@ fn read_prefix_code(
                     previous_repeat_count = None;
                 },
                 16 => {
-                    let extra_bits = reader.read_bits::<usize>(2).map_err(Error::BitReader)?;
+                    let extra_bits = reader.read_bits::<usize>(2)?;
 
                     let repeat_for = match previous_repeat_count {
                         Some((16, previous_repetitions)) => {
@@ -586,7 +585,7 @@ fn read_prefix_code(
                     }
                 },
                 17 => {
-                    let extra_bits = reader.read_bits::<usize>(3).map_err(Error::BitReader)?;
+                    let extra_bits = reader.read_bits::<usize>(3)?;
 
                     let (repeat_for, total_repetitions) = match previous_repeat_count {
                         Some((17, previous_repetitions)) => {
@@ -635,16 +634,14 @@ fn read_prefix_code(
 }
 
 fn decode_blocknum(reader: &mut BitReader<'_>) -> Result<u8, Error> {
-    if reader.read_single_bit().map_err(Error::BitReader)? {
-        let num_extrabits = reader.read_bits::<u8>(3).map_err(Error::BitReader)?;
+    if reader.read_single_bit()? {
+        let num_extrabits = reader.read_bits::<u8>(3)?;
 
         if num_extrabits > 7 {
             return Err(Error::InvalidFormat);
         }
 
-        let extra = reader
-            .read_bits::<u8>(num_extrabits)
-            .map_err(Error::BitReader)?;
+        let extra = reader.read_bits::<u8>(num_extrabits)?;
         Ok((1 << num_extrabits) + 1 + extra)
     } else {
         Ok(1)
@@ -657,9 +654,9 @@ fn decode_context_map(
     num_trees: u8,
     size: usize,
 ) -> Result<Vec<u8>, Error> {
-    let rle_max = match reader.read_single_bit().map_err(Error::BitReader)? {
+    let rle_max = match reader.read_single_bit()? {
         false => 0,
-        true => reader.read_bits::<u8>(4).map_err(Error::BitReader)? + 1,
+        true => reader.read_bits::<u8>(4)? + 1,
     };
 
     let prefix_code = read_prefix_code(reader, (num_trees + rle_max) as usize)?;
@@ -689,9 +686,7 @@ fn decode_context_map(
             // This is a run-length encoded value
 
             // Casting to u8 here is safe because rle_max can never exceed 255
-            let extra_bits = reader
-                .read_bits::<u32>(symbol as u8)
-                .map_err(Error::BitReader)?;
+            let extra_bits = reader.read_bits::<u32>(symbol as u8)?;
             let repeat_for = (1 << symbol) + extra_bits as usize;
 
             if context_map.len() + repeat_for > size {
@@ -705,7 +700,7 @@ fn decode_context_map(
     }
 
     // Check whether we need to do an inverse move-to-front transform
-    if reader.read_single_bit().map_err(Error::BitReader)? {
+    if reader.read_single_bit()? {
         inverse_move_to_front_transform(&mut context_map);
     }
 
@@ -763,9 +758,7 @@ fn read_block_count_code(reader: &mut BitReader<'_>, code: usize) -> Result<usiz
         25 => (16625, 24),
         _ => unreachable!("Invalid block count code: {code}"),
     };
-    let extra_bits = reader
-        .read_bits::<usize>(num_extra_bits)
-        .map_err(Error::BitReader)?;
+    let extra_bits = reader.read_bits::<usize>(num_extra_bits)?;
 
     Ok(base + extra_bits)
 }
@@ -798,9 +791,7 @@ fn read_insert_length_code(reader: &mut BitReader<'_>, code: usize) -> Result<us
         _ => unreachable!("Invalid insert length code: {code}"),
     };
 
-    let extra_bits = reader
-        .read_bits::<usize>(num_extra_bits)
-        .map_err(Error::BitReader)?;
+    let extra_bits = reader.read_bits::<usize>(num_extra_bits)?;
 
     Ok(base + extra_bits)
 }
@@ -834,9 +825,7 @@ fn read_copy_length_code(reader: &mut BitReader<'_>, code: usize) -> Result<usiz
         _ => unreachable!("Invalid copy length code: {code}"),
     };
 
-    let extra_bits = reader
-        .read_bits::<usize>(num_extra_bits)
-        .map_err(Error::BitReader)?;
+    let extra_bits = reader.read_bits::<usize>(num_extra_bits)?;
 
     Ok(base + extra_bits)
 }
@@ -934,9 +923,7 @@ fn distance_short_code_substitution(
                 d - 15
             } else {
                 let num_extra_bits = 1 + ((d - ndirect - 16) >> (npostfix + 1));
-                let extra_bits = reader
-                    .read_bits::<usize>(num_extra_bits as u8)
-                    .map_err(Error::BitReader)?;
+                let extra_bits = reader.read_bits::<usize>(num_extra_bits as u8)?;
 
                 let hcode = (d - ndirect - 16) >> npostfix;
                 let lcode = (d - ndirect - 16) & postfix_mask;

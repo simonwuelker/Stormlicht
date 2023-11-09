@@ -8,7 +8,7 @@ pub struct BitReader<'a> {
 
 // this enum might grow once we add streaming (ie the reader wraps a Read instance)
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum BitReaderError {
+pub enum Error {
     UnexpectedEOF,
     TooLargeRead,
     UnalignedRead,
@@ -45,11 +45,11 @@ impl<'a> BitReader<'a> {
         }
     }
 
-    pub fn read_bytes(&mut self, buffer: &mut [u8]) -> Result<(), BitReaderError> {
+    pub fn read_bytes(&mut self, buffer: &mut [u8]) -> Result<(), Error> {
         if !self.bit_ptr == 0 {
-            return Err(BitReaderError::UnalignedRead);
+            return Err(Error::UnalignedRead);
         } else if self.byte_ptr + buffer.len() > self.bytes.len() {
-            return Err(BitReaderError::UnexpectedEOF);
+            return Err(Error::UnexpectedEOF);
         }
 
         buffer.copy_from_slice(&self.bytes[self.byte_ptr..self.byte_ptr + buffer.len()]);
@@ -66,19 +66,19 @@ impl<'a> BitReader<'a> {
         }
     }
 
-    pub fn read_single_bit(&mut self) -> Result<bool, BitReaderError> {
+    pub fn read_single_bit(&mut self) -> Result<bool, Error> {
         self.read_bits::<u8>(1).map(|val| val == 1)
     }
 
     pub fn read_bits<T: From<u8> + std::ops::BitOrAssign<T> + std::ops::Shl<u8, Output = T>>(
         &mut self,
         mut bits_to_read: u8,
-    ) -> Result<T, BitReaderError>
+    ) -> Result<T, Error>
     where
         u8: Into<T>,
     {
         if std::mem::size_of::<T>() * 8 < bits_to_read as usize {
-            return Err(BitReaderError::TooLargeRead);
+            return Err(Error::TooLargeRead);
         }
 
         let mut bits_available_from_current_byte = 8 - self.bit_ptr;

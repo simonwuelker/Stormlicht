@@ -6,7 +6,7 @@ pub mod brotli;
 pub mod deflate;
 pub mod zlib;
 
-pub mod bit_reader;
+pub mod bitreader;
 pub mod gzip;
 pub mod huffman;
 pub mod ringbuffer;
