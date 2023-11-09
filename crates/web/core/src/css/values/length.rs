@@ -114,6 +114,19 @@ enum Unit {
 /// Contains all values that relative [Lengths](Length) can depend on
 #[derive(Clone, Copy, Debug)]
 pub struct ResolutionContext {
+    /// The computed value of the `font-size` property on the current element
+    ///
+    /// Font-relative units like `em` depend on this
+    pub font_size: CSSPixels,
+
+    /// The computed value of the `font-size` property on the root element
+    ///
+    /// Font-relative units like `rem` depend on this
+    pub root_font_size: CSSPixels,
+
+    /// The size of the viewport
+    ///
+    /// Viewport-relative units like `vw` depend on this
     pub viewport: Size<CSSPixels>,
 }
 
@@ -166,6 +179,10 @@ impl Length {
                     ctx.viewport.width / 100.
                 }
             },
+
+            // Font-relative units
+            Unit::Em => (ctx.font_size / 100.) * self.value,
+            Unit::Rem => (ctx.root_font_size / 100.) * self.value,
             _ => todo!("absolutize font-relative length: {self:?}"),
         }
     }

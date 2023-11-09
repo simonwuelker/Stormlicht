@@ -65,20 +65,16 @@ pub struct ContainingBlock {
 impl ContainingBlock {
     #[inline]
     #[must_use]
-    pub fn new(width: CSSPixels, height: CSSPixels) -> Self {
-        Self {
-            width,
-            height: Some(height),
-        }
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn new_with_variable_height(width: CSSPixels) -> Self {
+    pub fn new(width: CSSPixels) -> Self {
         Self {
             width,
             height: None,
         }
+    }
+
+    pub fn with_height(mut self, height: CSSPixels) -> Self {
+        self.height = Some(height);
+        self
     }
 
     #[inline]

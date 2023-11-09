@@ -4,6 +4,7 @@ use math::{Rectangle, Vec2D};
 
 use crate::{
     css::{
+        font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::{BoxFragment, Fragment, FragmentTree},
         layout::{CSSPixels, ContainingBlock, Sides, Size},
         values::{length, AutoOr, Length, PercentageOr},
@@ -67,17 +68,24 @@ impl BlockFormattingContext {
         vec![root].into()
     }
 
-    pub fn fragment(&self, viewport_size: Size<CSSPixels>) -> FragmentTree {
+    pub fn fragment(&self, viewport: Size<CSSPixels>) -> FragmentTree {
         let position = Vec2D {
             x: CSSPixels::ZERO,
             y: CSSPixels::ZERO,
         };
+        let length_resolution_context = length::ResolutionContext {
+            font_size: DEFAULT_FONT_SIZE,
+            root_font_size: DEFAULT_FONT_SIZE,
+            viewport,
+        };
+
         let mut cursor_position = position;
 
         let mut root_fragments = vec![];
-        let containing_block = ContainingBlock::new(viewport_size.width, viewport_size.height);
+        let containing_block = ContainingBlock::new(viewport.width).with_height(viewport.height);
         for element in &self.contents {
-            let box_fragment = element.fragment(cursor_position, containing_block, viewport_size);
+            let box_fragment =
+                element.fragment(cursor_position, containing_block, length_resolution_context);
             cursor_position.y += box_fragment.outer_area().height();
             root_fragments.push(Fragment::Box(box_fragment));
         }
@@ -125,10 +133,9 @@ impl BlockLevelBox {
         &self,
         position: Vec2D<CSSPixels>,
         containing_block: ContainingBlock,
-        viewport: Size<CSSPixels>,
+        length_resolution_context: length::ResolutionContext,
     ) -> BoxFragment {
         // FIXME: replaced elements
-        let length_ctx = length::ResolutionContext { viewport };
 
         // See https://drafts.csswg.org/css2/#blockwidth for a description of how the width is computed
 
@@ -139,33 +146,33 @@ impl BlockLevelBox {
             .width()
             .map(|p| p.resolve_against(available_length))
             .as_ref()
-            .map(|length| length.absolutize(length_ctx));
+            .map(|length| length.absolutize(length_resolution_context));
 
         let mut margin_left = self
             .style()
             .margin_left()
             .map(|p| p.resolve_against(available_length))
             .as_ref()
-            .map(|length| length.absolutize(length_ctx));
+            .map(|length| length.absolutize(length_resolution_context));
 
         let mut margin_right = self
             .style()
             .margin_right()
             .map(|p| p.resolve_against(available_length))
             .as_ref()
-            .map(|length| length.absolutize(length_ctx));
+            .map(|length| length.absolutize(length_resolution_context));
 
         let padding_left = self
             .style()
             .padding_left()
             .resolve_against(available_length)
-            .absolutize(length_ctx);
+            .absolutize(length_resolution_context);
 
         let padding_right = self
             .style()
             .padding_right()
             .resolve_against(available_length)
-            .absolutize(length_ctx);
+            .absolutize(length_resolution_context);
 
         // Margins are treated as zero if the total width exceeds the available width
         let total_width_is_more_than_available = |width: &CSSPixels| {
@@ -220,7 +227,7 @@ impl BlockLevelBox {
             .margin_top()
             .map(|p| p.resolve_against(available_length))
             .as_ref()
-            .map(|length| length.absolutize(length_ctx))
+            .map(|length| length.absolutize(length_resolution_context))
             .unwrap_or_default();
 
         let margin_bottom = self
@@ -228,20 +235,20 @@ impl BlockLevelBox {
             .margin_bottom()
             .map(|p| p.resolve_against(available_length))
             .as_ref()
-            .map(|length| length.absolutize(length_ctx))
+            .map(|length| length.absolutize(length_resolution_context))
             .unwrap_or_default();
 
         let padding_top = self
             .style()
             .padding_top()
             .resolve_against(available_length)
-            .absolutize(length_ctx);
+            .absolutize(length_resolution_context);
 
         let padding_bottom = self
             .style()
             .padding_bottom()
             .resolve_against(available_length)
-            .absolutize(length_ctx);
+            .absolutize(length_resolution_context);
 
         // FIXME:
         // * Consider height: auto
@@ -260,7 +267,7 @@ impl BlockLevelBox {
                     }
                 },
                 PercentageOr::NotPercentage(length) => {
-                    AutoOr::NotAuto(length.absolutize(length_ctx))
+                    AutoOr::NotAuto(length.absolutize(length_resolution_context))
                 },
             }
         });
@@ -271,12 +278,12 @@ impl BlockLevelBox {
         let containing_block = match height {
             AutoOr::Auto => {
                 // The height of this element depends on its contents
-                ContainingBlock::new_with_variable_height(content_width)
+                ContainingBlock::new(content_width)
             },
             AutoOr::NotAuto(height) => {
                 // The height of this element is fixed, children may overflow
                 let content_height = height - padding_top - padding_bottom;
-                ContainingBlock::new(content_width, content_height)
+                ContainingBlock::new(content_width).with_height(content_height)
             },
         };
 
@@ -291,13 +298,24 @@ impl BlockLevelBox {
             bottom_right: top_left,
         };
 
+        // FIXME: Don't use the default font size here, it should be the font size
+        // of this element instead
+        let font_size = DEFAULT_FONT_SIZE;
+
+        let length_resolution_context = length::ResolutionContext {
+            font_size,
+            root_font_size: length_resolution_context.root_font_size,
+            viewport: length_resolution_context.viewport,
+        };
+
         let content_height = match &self.contents {
             BlockContainer::BlockLevelBoxes(block_level_boxes) => {
                 let mut cursor = top_left;
 
                 cursor.y += padding_top;
                 for block_box in block_level_boxes {
-                    let box_fragment = block_box.fragment(cursor, containing_block, viewport);
+                    let box_fragment =
+                        block_box.fragment(cursor, containing_block, length_resolution_context);
                     content_area_including_overflow
                         .grow_to_contain(box_fragment.content_area_including_overflow());
                     cursor.y += box_fragment.outer_area().height();
@@ -315,8 +333,11 @@ impl BlockLevelBox {
                         y: padding_top,
                     };
 
-                let (fragments, content_height) =
-                    inline_formatting_context.layout(content_top_left, containing_block, viewport);
+                let (fragments, content_height) = inline_formatting_context.layout(
+                    content_top_left,
+                    containing_block,
+                    length_resolution_context,
+                );
                 for fragment in &fragments {
                     content_area_including_overflow
                         .grow_to_contain(fragment.content_area_including_overflow());

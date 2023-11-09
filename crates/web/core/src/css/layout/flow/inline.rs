@@ -7,7 +7,7 @@ use crate::{
     css::{
         font_metrics::{self, DEFAULT_FONT_SIZE},
         fragment_tree::{BoxFragment, Fragment, TextFragment},
-        layout::{CSSPixels, ContainingBlock, Sides, Size},
+        layout::{CSSPixels, ContainingBlock, Sides},
         values::{font_size, length},
         ComputedStyle, LineBreakIterator,
     },
@@ -65,9 +65,7 @@ impl TextRun {
         // FIXME: use the inherited font size here, not the default one
         let ctx = font_size::ResolutionContext {
             inherited_font_size: DEFAULT_FONT_SIZE,
-            length_context: length::ResolutionContext {
-                viewport: state.viewport,
-            },
+            length_context: state.length_resolution_context,
         };
 
         let font_size = self.style().font_size().to_pixels(ctx);
@@ -144,9 +142,13 @@ impl InlineFormattingContext {
         &self,
         position: Vec2D<CSSPixels>,
         containing_block: ContainingBlock,
-        viewport: Size<CSSPixels>,
+        length_resolution_context: length::ResolutionContext,
     ) -> (Vec<Fragment>, CSSPixels) {
-        let mut state = InlineFormattingContextState::new(position, containing_block, viewport);
+        let mut state = InlineFormattingContextState::new(
+            position,
+            containing_block,
+            length_resolution_context,
+        );
 
         state.traverse(self.elements());
 
@@ -201,7 +203,7 @@ struct InlineFormattingContextState<'box_tree> {
     /// This is necessary because whitespace at the beginning of a line is removed
     at_beginning_of_line: bool,
 
-    viewport: Size<CSSPixels>,
+    length_resolution_context: length::ResolutionContext,
 }
 
 #[derive(Clone, Debug)]
@@ -292,7 +294,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
     fn new(
         position: Vec2D<CSSPixels>,
         containing_block: ContainingBlock,
-        viewport: Size<CSSPixels>,
+        length_resolution_context: length::ResolutionContext,
     ) -> Self {
         Self {
             line_box_under_construction: LineBoxUnderConstruction::default(),
@@ -304,7 +306,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
             position,
             y_cursor: position.y,
             at_beginning_of_line: true,
-            viewport,
+            length_resolution_context,
         }
     }
 
