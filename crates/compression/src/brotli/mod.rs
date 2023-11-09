@@ -945,7 +945,6 @@ fn distance_short_code_substitution(
                 ((offset + extra_bits) << npostfix) + lcode + ndirect + 1
             }
         },
-        _ => unreachable!(), // Literally unreachable, we checked for all the values above. Rust isn't able to infer the usize value range yet.
     };
 
     Ok(distance)
