@@ -352,12 +352,16 @@ impl<'a> Parser<'a> {
     }
 
     /// <https://drafts.csswg.org/css-syntax-3/#consume-the-remnants-of-a-bad-declaration>
+    ///
+    /// This returns the parser from anywhere within a rule that we can't parse to the beginning
+    /// of the next rule
     fn consume_remnants_of_bad_declaration(&mut self, nested: bool) {
         _ = nested;
         // NOTE: This is not what the spec does.
         // But for now, it should be more or less equivalent (we don't respect "}")
         // Process input:
         while !matches!(self.next_token(), Some(Token::Semicolon) | None) {}
+        self.skip_whitespace()
     }
 
     pub fn parse_stylesheet(&mut self, index: usize) -> Result<Stylesheet, ParseError> {
