@@ -167,16 +167,16 @@ impl Length {
             | Unit::Dvb => ctx.viewport.height / 100. * self.value,
             Unit::Vmin | Unit::Svmin | Unit::Lvmin | Unit::Dvmin => {
                 if ctx.viewport.width < ctx.viewport.height {
-                    ctx.viewport.width / 100.
+                    (ctx.viewport.width / 100.) * self.value
                 } else {
-                    ctx.viewport.height / 100.
+                    (ctx.viewport.height / 100.) * self.value
                 }
             },
             Unit::Vmax | Unit::Svmax | Unit::Lvmax | Unit::Dvmax => {
                 if ctx.viewport.width < ctx.viewport.height {
-                    ctx.viewport.height / 100.
+                    (ctx.viewport.height / 100.) * self.value
                 } else {
-                    ctx.viewport.width / 100.
+                    (ctx.viewport.width / 100.) * self.value
                 }
             },
 
