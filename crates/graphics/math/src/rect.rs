@@ -23,7 +23,7 @@ impl Rectangle<f32> {
     /// but is guaranteed to contain `self` in its entirety.
     pub fn snap_to_grid(&self) -> Rectangle<usize> {
         Rectangle {
-            top_left: self.top_left.map(|value| value.ceil() as usize),
+            top_left: self.top_left.map(|value| value.floor() as usize),
             bottom_right: self.bottom_right.map(|value| value.ceil() as usize),
         }
     }
