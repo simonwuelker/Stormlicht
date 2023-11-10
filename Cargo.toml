@@ -9,6 +9,7 @@ members = [
     "crates/graphics/font",
     "crates/graphics/math",
     "crates/compression",
+    "crates/util/buildutils",
     "crates/util/cli",
     "crates/util/cli-derive",
     "crates/util/mime",
@@ -25,10 +26,12 @@ members = [
     "stormlicht",
     "tests/runners/text-rendering",
     "tests/runners/html5lib",
+    "crates/util/buildutils",
 ]
 resolver = "2"
 
 [workspace.dependencies]
+buildutils = { path = "crates/util/buildutils" }
 core = { path = "crates/web/core" }
 http = { path = "crates/web/http" }
 url = { path = "crates/web/url" }
