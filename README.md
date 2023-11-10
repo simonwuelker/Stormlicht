@@ -14,8 +14,6 @@ If you want to follow the development, you can visit [chat.stormlicht.rs](https:
 - [1. Stormlicht](#1-stormlicht)
   - [1.1. Design goals](#11-design-goals)
   - [1.2. Build Instructions](#12-build-instructions)
-    - [1.2.1. Debian/Ubuntu](#121-debianubuntu)
-    - [1.2.2 Fedora](#122-fedora)
   - [1.3. Development](#13-development)
     - [1.3.1. Logging](#131-logging)
     - [1.3.2 Backtraces](#132-backtraces)
@@ -45,25 +43,13 @@ rustup component add rustc-codegen-cranelift-preview --toolchain nightly
 ```
 If you do not wish to use `cranelift` or your target machine is not supported, you can disable it inside `.cargo/config.toml`.
 
-### 1.2.1. Debian/Ubuntu
+After installing rust, run the following commands to start the python build script
 ```console
-# Install required dependencies
-sudo apt install git python3
-
-# Download required files (fonts etc..)
-python3 setup.py
+pip install -r requirements.txt
 
 ./stormlicht.py run
 ```
 
-### 1.2.2 Fedora
-```console
-sudo dnf install gtk4-devel libxkbcommon-x11-devel
-
-python3 setup.py
-
-./stormlicht.py run
-```
 
 ## 1.3. Development
 ### 1.3.1 Logging
