@@ -1,0 +1,9 @@
+/// Returns a tuple of `(resolved_reference, matched_str)`
+pub fn lookup_character_reference(html: &str) -> Option<(&'static str, &'static str)> {
+    {% for string, referenced_character in named_entities.items() %}
+        if html.starts_with(r#"{{ string[1:] }}"#) {
+            return Some((r#"{{ string[1:] }}"#, r#"{{ referenced_character['characters'] }}"#));
+        }
+    {% endfor %}
+    None
+}
