@@ -1,0 +1,11 @@
+use perfect_hash::perfect_set;
+
+perfect_set!(
+    const STATIC_SET = [
+        {% for identifier in identifiers %}
+            r#"{{ identifier }}"#,
+        {% endfor %}
+    ];
+);
+
+pub(crate) use static_str;  

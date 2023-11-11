@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
 use dom_derive::inherit;
-use string_interner::{static_interned, static_str, InternedString};
 
-use crate::{dom::ElementCustomState, infra::Namespace};
+use crate::{dom::ElementCustomState, infra::Namespace, static_interned, InternedString};
 
 use super::Node;
 

@@ -1,8 +1,9 @@
 //! <https://drafts.csswg.org/css-color>
 
-use string_interner::{static_interned, static_str};
-
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use crate::{
+    css::{syntax::Token, CSSParse, ParseError, Parser},
+    static_interned,
+};
 
 use super::{Number, PercentageOr};
 

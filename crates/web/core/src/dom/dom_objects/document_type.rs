@@ -1,6 +1,6 @@
 use super::Node;
+use crate::InternedString;
 use dom_derive::inherit;
-use string_interner::InternedString;
 
 /// <https://dom.spec.whatwg.org/#interface-documenttype>
 #[inherit(Node)]

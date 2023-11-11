@@ -71,6 +71,7 @@ impl BrowsingContext {
 
         // Build a box tree for the parsed document
         let box_tree = BlockFormattingContext::root(self.document.clone(), style_computer);
+        log::info!("\n{:?}", box_tree);
 
         // Build a fragment tree by fragmenting the boxes
         let viewport_size = Size {

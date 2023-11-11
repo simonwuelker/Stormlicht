@@ -1,7 +1,5 @@
 use std::fmt;
 
-use string_interner::{static_interned, static_str};
-
 use crate::{
     css::{
         selectors::{CSSValidateSelector, Selector, Specificity},
@@ -9,6 +7,7 @@ use crate::{
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
     dom::{dom_objects::Element, DOMPtr},
+    static_interned,
 };
 
 /// <https://drafts.csswg.org/selectors/#typedef-legacy-pseudo-element-selector>

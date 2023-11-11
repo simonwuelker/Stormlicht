@@ -1,4 +1,4 @@
-use string_interner::InternedString;
+use crate::InternedString;
 
 #[derive(Debug, Clone)]
 pub enum Token {

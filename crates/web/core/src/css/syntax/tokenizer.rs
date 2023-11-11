@@ -1,9 +1,8 @@
 use std::num;
 
 use sl_std::chars::ReversibleCharIterator;
-use string_interner::InternedString;
 
-use crate::css::values::Number;
+use crate::{css::values::Number, InternedString};
 
 // characters are sort of unreadable and should
 // be referenced via their name instead

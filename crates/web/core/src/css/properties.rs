@@ -1,12 +1,13 @@
-use super::{
-    values::{
-        AutoOr, BackgroundColor, Color, Display, FontFamily, FontSize, Length, PercentageOr,
-        Position,
+use crate::{
+    css::{
+        values::{
+            AutoOr, BackgroundColor, Color, Display, FontFamily, FontSize, Length, PercentageOr,
+            Position,
+        },
+        CSSParse, ParseError, Parser,
     },
-    CSSParse, ParseError, Parser,
+    static_interned, InternedString,
 };
-
-use string_interner::{static_interned, static_str, InternedString};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Important {

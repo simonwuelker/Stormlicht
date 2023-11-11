@@ -17,9 +17,8 @@ use crate::{
         treebuilding::ActiveFormattingElements,
     },
     infra::Namespace,
+    static_interned, InternedString,
 };
-
-use string_interner::{static_interned, static_str, InternedString};
 
 use super::active_formatting_elements::{ActiveFormattingElement, FormatEntry};
 
@@ -2697,6 +2696,5 @@ fn is_element_in_special_category(tagname: InternedString) -> bool {
             | static_interned!("annotation-xml")
             | static_interned!("foreignObject")
             | static_interned!("desc")
-            | static_interned!("title")
     )
 }

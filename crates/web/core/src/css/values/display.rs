@@ -1,6 +1,7 @@
-use string_interner::{static_interned, static_str, InternedString};
-
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use crate::{
+    css::{syntax::Token, CSSParse, ParseError, Parser},
+    static_interned, InternedString,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ListItemFlag {

@@ -1,6 +1,7 @@
-use string_interner::{static_interned, static_str, InternedString};
-
-use crate::css::{self, syntax::Token, CSSParse};
+use crate::{
+    css::{self, syntax::Token, CSSParse},
+    static_interned, InternedString,
+};
 
 /// <https://drafts.csswg.org/css-fonts/#font-family-prop>
 #[derive(Clone, Debug)]

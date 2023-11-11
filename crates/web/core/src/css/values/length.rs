@@ -1,10 +1,11 @@
-use string_interner::{static_interned, static_str, InternedString};
-
-use crate::css::{
-    layout::{CSSPixels, Size},
-    syntax::Token,
-    values::Percentage,
-    CSSParse, ParseError, Parser,
+use crate::{
+    css::{
+        layout::{CSSPixels, Size},
+        syntax::Token,
+        values::Percentage,
+        CSSParse, ParseError, Parser,
+    },
+    static_interned, InternedString,
 };
 
 use std::ops::Mul;

@@ -1,6 +1,7 @@
-use string_interner::{static_interned, static_str};
-
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use crate::{
+    css::{syntax::Token, CSSParse, ParseError, Parser},
+    static_interned,
+};
 
 /// Represents a value that can either be `Auto` or something else
 ///

@@ -1,5 +1,7 @@
-use crate::css::{syntax::Token, values::color::Color, CSSParse, ParseError, Parser};
-use string_interner::{static_interned, static_str};
+use crate::{
+    css::{syntax::Token, values::color::Color, CSSParse, ParseError, Parser},
+    static_interned,
+};
 
 /// <https://drafts.csswg.org/css2/#background-properties>
 #[derive(Clone, Copy, Debug, Default)]

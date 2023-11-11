@@ -1,6 +1,7 @@
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
-
-use string_interner::{static_interned, static_str};
+use crate::{
+    css::{syntax::Token, CSSParse, ParseError, Parser},
+    static_interned,
+};
 
 /// <https://drafts.csswg.org/css-position/#position-property>
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

@@ -14,16 +14,17 @@
 //! The term "whitespace" includes comments.
 //! Any parsing function should consume any trailing whitespace *after* it's input but not *before it*.
 
-use string_interner::{static_interned, static_str};
-
 use super::{
     rule_parser::RuleParser,
     tokenizer::{Token, Tokenizer},
 };
 
-use crate::css::{
-    properties::Important, values::Number, Origin, StyleProperty, StylePropertyDeclaration,
-    StyleRule, Stylesheet,
+use crate::{
+    css::{
+        properties::Important, values::Number, Origin, StyleProperty, StylePropertyDeclaration,
+        StyleRule, Stylesheet,
+    },
+    static_interned,
 };
 use std::fmt::Debug;
 

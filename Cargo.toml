@@ -15,7 +15,6 @@ members = [
     "crates/util/mime",
     "crates/util/serialization/serialize",
     "crates/util/serialization/serialize-derive",
-    "crates/util/string_interner",
     "crates/util/perfect_hash",
     "crates/util/perfect_hash_derive",
     "crates/sl-std",
@@ -46,7 +45,6 @@ cli-derive = { path = "crates/util/cli-derive" }
 mime = { path = "crates/util/mime" }
 serialize = { path = "crates/util/serialization/serialize" }
 serialize-derive = { path = "crates/util/serialization/serialize-derive" }
-string_interner = { path = "crates/util/string_interner" }
 perfect_hash = { path = "crates/util/perfect_hash" }
 perfect_hash_derive = { path = "crates/util/perfect_hash_derive" }
 sl-std = { path = "crates/sl-std" }

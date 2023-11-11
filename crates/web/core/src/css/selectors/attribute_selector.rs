@@ -1,7 +1,5 @@
 use std::fmt;
 
-use string_interner::InternedString;
-
 use crate::{
     css::{
         selectors::{
@@ -11,6 +9,7 @@ use crate::{
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
     dom::{dom_objects::Element, DOMPtr},
+    InternedString,
 };
 
 /// <https://drafts.csswg.org/selectors-4/#attribute-selectors>

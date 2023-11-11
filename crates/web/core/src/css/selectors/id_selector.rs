@@ -1,7 +1,5 @@
 use std::fmt;
 
-use string_interner::InternedString;
-
 use crate::{
     css::{
         selectors::{CSSValidateSelector, Selector, Specificity},
@@ -9,6 +7,7 @@ use crate::{
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
     dom::{dom_objects::Element, DOMPtr},
+    static_interned, InternedString,
 };
 
 /// <https://drafts.csswg.org/selectors-4/#id-selectors>

@@ -1,7 +1,8 @@
-use string_interner::{static_interned, static_str};
-
 use super::CSSValidateSelector;
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use crate::{
+    css::{syntax::Token, CSSParse, ParseError, Parser},
+    static_interned,
+};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-attr-modifier>
 ///

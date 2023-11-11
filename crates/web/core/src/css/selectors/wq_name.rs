@@ -1,11 +1,12 @@
 use std::fmt;
 
-use string_interner::InternedString;
-
-use crate::css::{
-    selectors::{CSSValidateSelector, NSPrefix},
-    syntax::Token,
-    CSSParse, ParseError, Parser, Serialize, Serializer,
+use crate::{
+    css::{
+        selectors::{CSSValidateSelector, NSPrefix},
+        syntax::Token,
+        CSSParse, ParseError, Parser, Serialize, Serializer,
+    },
+    InternedString,
 };
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-wq-name>

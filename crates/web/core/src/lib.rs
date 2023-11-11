@@ -9,6 +9,7 @@
 
 mod browsing_context;
 mod font_cache;
+mod interned_string;
 mod selection;
 mod tree_debug;
 
@@ -20,5 +21,6 @@ pub mod infra;
 
 pub use browsing_context::BrowsingContext;
 pub use font_cache::{FontCache, FONT_CACHE};
+pub use interned_string::InternedString;
 pub use selection::Selection;
 pub use tree_debug::{TreeDebug, TreeFormatter};

@@ -1,11 +1,12 @@
-use crate::css::{
-    layout::CSSPixels,
-    syntax::Token,
-    values::{Length, PercentageOr},
-    CSSParse, ParseError, Parser,
+use crate::{
+    css::{
+        layout::CSSPixels,
+        syntax::Token,
+        values::{Length, PercentageOr},
+        CSSParse, ParseError, Parser,
+    },
+    static_interned,
 };
-
-use string_interner::{static_interned, static_str};
 
 use super::length;
 

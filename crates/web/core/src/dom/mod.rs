@@ -7,18 +7,16 @@ mod dom_ptr;
 
 pub use boundary_point::{BoundaryPoint, RelativePosition};
 pub use codegen::{DOMType, DOMTyped, IsA};
-pub use dom_ptr::{DOMPtr, WeakDOMPtr};
-use string_interner::{static_interned, static_str, InternedString};
-
-use crate::infra::Namespace;
 use dom_objects::{
     Document, Element, HtmlAnchorElement, HtmlBodyElement, HtmlButtonElement, HtmlDdElement,
-    HtmlDivElement, HtmlElement, HtmlHeadElement, HtmlHtmlElement, HtmlLinkElement,
-    HtmlMetaElement, HtmlNoscriptElement, HtmlParagraphElement, HtmlScriptElement,
-    HtmlStyleElement, HtmlTemplateElement, HtmlTitleElement,
+    HtmlDivElement, HtmlDtElement, HtmlElement, HtmlFormElement, HtmlHeadElement,
+    HtmlHeadingElement, HtmlHtmlElement, HtmlLiElement, HtmlLinkElement, HtmlMetaElement,
+    HtmlNoscriptElement, HtmlParagraphElement, HtmlScriptElement, HtmlStyleElement,
+    HtmlTemplateElement, HtmlTitleElement,
 };
+pub use dom_ptr::{DOMPtr, WeakDOMPtr};
 
-use self::dom_objects::{HtmlDtElement, HtmlFormElement, HtmlHeadingElement, HtmlLiElement};
+use crate::{infra::Namespace, static_interned, InternedString};
 
 /// <https://dom.spec.whatwg.org/#concept-element-custom-element-state>
 #[derive(Clone, Copy, Debug, PartialEq, Default)]

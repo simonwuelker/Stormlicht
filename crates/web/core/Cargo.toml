@@ -13,12 +13,12 @@ license.workspace = true
 dom-derive = { workspace = true }
 log = { workspace = true }
 mime = { workspace = true }
-string_interner = { workspace = true }
 math = { workspace = true }
 font = { workspace = true }
 render = { workspace = true }
 url = { workspace = true }
 sl-std = { workspace = true }
+perfect_hash = { workspace = true }
 
 [build-dependencies]
 buildutils = { workspace = true }

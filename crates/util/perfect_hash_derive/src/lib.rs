@@ -137,7 +137,7 @@ pub fn perfect_set(input: TokenStream) -> TokenStream {
 
     let ident = input_data.ident;
     quote!(
-        const #ident: ::perfect_hash::PerfectHashTable<#size> = ::perfect_hash::PerfectHashTable::new(
+        pub const #ident: ::perfect_hash::PerfectHashTable<#size> = ::perfect_hash::PerfectHashTable::new(
             [#(#secondary_hash_functions,)*],
            [#(::perfect_hash::Entry::new(#entries),)*],
         );
