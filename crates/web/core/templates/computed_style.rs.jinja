@@ -112,6 +112,15 @@ impl ComputedStyle {
                             {% set side_name = property["name"] + "_" + side %}
                             {{ assign_property(side_name, side_name) }}
                         {% endfor %}
+
+                        StyleProperty::{{to_camel_case(property["name"])}}(sides) => {
+                            {# Expand the shorthand property to all four (longhand) properties #}
+                            {% for side in SIDES %}
+                                {% set side_name = property["name"] + "_" + side %}
+                                let value_on_this_side = sides.{{ side }};
+                                self.set_{{ to_snake_case(property["name"] )}}_{{ side }}(value_on_this_side);
+                            {% endfor %}
+                        },
                     {% endif%}
                 {% else %}
                     {{ assign_property(property["name"], property["name"]) }}

@@ -1,5 +1,6 @@
 use crate::{
     css::{
+        layout::Sides,
         values::{
             AutoOr, BackgroundColor, Color, Display, FontFamily, FontSize, Length, PercentageOr,
             Position,
@@ -26,10 +27,11 @@ pub enum StyleProperty {
 
     {% for property in properties %}
         {% if "longhands" in property %}
-            {# The value is a shorthand #}
+            {# This value is a shorthand, add all its longhands as well #}
             {% set longhands = property["longhands"] %}
 
             {% if longhands["type"] == "4-sides" %}
+                {# Add a variant for each of the longhands #}
                 {% for side in SIDES %}
                     {{  
                         make_property(
@@ -38,16 +40,24 @@ pub enum StyleProperty {
                             longhands["specification"] + side) 
                     }}
                 {% endfor %}
+
+                {# Add a variant for the longhand itself #}
+                {{
+                    make_property(
+                    to_camel_case(property["name"]),
+                    "Sides<" + longhands["value"] + ">",
+                    property["specification"]) 
+                }}
             {% endif%}
         {% else %}
-            {# The value is not a shorthand #}
             {{ 
                 make_property(
                     to_camel_case(property["name"]),
                     property["value"],
                     property["specification"]) 
-                }}
+            }}
         {% endif %}
+
 
     {% endfor %}
 }
@@ -73,16 +83,21 @@ impl StyleProperty {
             {% endmacro %}
 
             {% for property in properties %}
+                {% set property_name = to_camel_case(property["name"]) %}
                 {% if "longhands" in property %}
                     {# The value is a shorthand #}
                     {% set longhands = property["longhands"] %}
 
                     {% if longhands["type"] == "4-sides" %}
+                        {# Handle each longhand #}
                         {% for side in SIDES %}
                             {{  
                                 property_arm(property["name"] + "-" + side)
                             }}
                         {% endfor %}
+
+                        {# Handle the shorthand itself #}
+                        static_interned!("{{ property["name"] }}") => Self::{{ property_name }}(parser.parse_four_sided_property()?),
                     {% endif%}
                 {% else %}
                     {# The value is not a shorthand #}
