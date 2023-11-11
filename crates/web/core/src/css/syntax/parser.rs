@@ -21,11 +21,12 @@ use super::{
 
 use crate::{
     css::{
-        properties::Important, values::Number, Origin, StyleProperty, StylePropertyDeclaration,
-        StyleRule, Stylesheet,
+        layout::Sides, properties::Important, values::Number, Origin, StyleProperty,
+        StylePropertyDeclaration, StyleRule, Stylesheet,
     },
     static_interned,
 };
+
 use std::fmt::Debug;
 
 const MAX_ITERATIONS: usize = 128;
@@ -502,7 +503,7 @@ impl<'a> Parser<'a> {
     ///
     /// # Specification
     /// <https://w3c.github.io/csswg-drafts/css-values-4/#mult-opt>
-    pub fn parse_optional_value<T: Debug, F>(&mut self, closure: F) -> Option<T>
+    pub fn parse_optional_value<T, F>(&mut self, closure: F) -> Option<T>
     where
         F: Fn(&mut Self) -> Result<T, ParseError>,
     {
@@ -565,6 +566,50 @@ impl<'a> Parser<'a> {
         } else {
             Err(ParseError)
         }
+    }
+
+    pub fn parse<T: CSSParse<'a>>(&mut self) -> Result<T, ParseError> {
+        T::parse(self)
+    }
+
+    pub fn parse_four_sided_property<T: CSSParse<'a> + Copy>(
+        &mut self,
+    ) -> Result<Sides<T>, ParseError> {
+        let first: T = self.parse()?;
+
+        let Some(second) = self.parse_optional_value(T::parse) else {
+            // If only one value is supplied, it is used for all four sides
+            return Ok(Sides::all(first));
+        };
+
+        let Some(third) = self.parse_optional_value(T::parse) else {
+            // If two values are supplied then the first one is used for the
+            // top/bottom and the second one is used for left/right
+            return Ok(Sides {
+                top: first,
+                right: second,
+                bottom: first,
+                left: second,
+            });
+        };
+
+        let Some(fourth) = self.parse_optional_value(T::parse) else {
+            // If three values are supplied then the first one is used for the
+            // top, the second is used for left/right and the third is used for the bottom
+            return Ok(Sides {
+                top: first,
+                right: second,
+                bottom: third,
+                left: second,
+            });
+        };
+
+        Ok(Sides {
+            top: first,
+            right: second,
+            bottom: third,
+            left: fourth,
+        })
     }
 }
 
