@@ -1,13 +1,5 @@
 /* From https://www.w3.org/TR/CSS21/sample.html */
 
-/* Observed in firefox (https://searchfox.org/mozilla-central/source/layout/style/res/html.css) */
-body {
-    margin-top: 8px;
-    margin-right: 8px;
-    margin-bottom: 8px;
-    margin-left: 8px;
-}
-
 html,
 address,
 blockquote,
