@@ -1,0 +1,99 @@
+use crate::{
+    css::{
+        values::{
+            AutoOr, BackgroundColor, Color, Display, FontFamily, FontSize, Length, PercentageOr,
+            Position,
+        },
+        CSSParse, ParseError, Parser,
+    },
+    static_interned, InternedString,
+};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Important {
+    Yes,
+    #[default]
+    No,
+}
+
+/// Enumerates the CSS properties supported by the user agent
+#[derive(Clone, Debug)]
+pub enum StyleProperty {
+    {% macro make_property(name, value, specification) -%}
+    /// <{{ specification }}>
+    {{ name}}({{ value }}),
+    {%- endmacro %}
+
+    {% for property in properties %}
+        {% if "longhands" in property %}
+            {# The value is a shorthand #}
+            {% set longhands = property["longhands"] %}
+
+            {% if longhands["type"] == "4-sides" %}
+                {% for side in SIDES %}
+                    {{  
+                        make_property(
+                            to_camelcase(property["name"] + "-" + side),
+                            longhands["value"],
+                            longhands["specification"] + side) 
+                    }}
+                {% endfor %}
+            {% endif%}
+        {% else %}
+            {# The value is not a shorthand #}
+            {{ 
+                make_property(
+                    to_camelcase(property["name"]),
+                    property["value"],
+                    property["specification"]) 
+                }}
+        {% endif %}
+
+    {% endfor %}
+}
+
+#[derive(Clone, Debug)]
+pub struct StylePropertyDeclaration {
+    pub value: StyleProperty,
+
+    /// Whether or not the property was declared with `!important`.
+    ///
+    /// For example: `color: red!important;`
+    pub important: Important,
+}
+
+impl StyleProperty {
+    pub fn parse_value(
+        parser: &mut Parser<'_>,
+        property_name: InternedString,
+    ) -> Result<Self, ParseError> {
+        let property = match property_name {
+            {% macro property_arm(name) -%}
+            static_interned!("{{ name }}") => Self::{{ to_camelcase(name) }}(CSSParse::parse(parser)?),
+            {%- endmacro %}
+
+            {% for property in properties %}
+                {% if "longhands" in property %}
+                    {# The value is a shorthand #}
+                    {% set longhands = property["longhands"] %}
+
+                    {% if longhands["type"] == "4-sides" %}
+                        {% for side in SIDES %}
+                            {{  
+                                property_arm(property["name"] + "-" + side)
+                            }}
+                        {% endfor %}
+                    {% endif%}
+                {% else %}
+                    {# The value is not a shorthand #}
+                    {{ property_arm(property["name"]) }}
+                {% endif %}
+            {% endfor %}
+            _ => {
+                log::warn!("Unknown CSS property name: {:?}", property_name.to_string());
+                return Err(ParseError);
+            },
+        };
+        Ok(property)
+    }
+}

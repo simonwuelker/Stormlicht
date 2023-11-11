@@ -1,0 +1,70 @@
+[
+    {
+        "name": "background-color",
+        "specification": "https://drafts.csswg.org/css2/#background-properties",
+        "inherited": false,
+        "value": "BackgroundColor"
+    },
+    {
+        "name": "color",
+        "specification": "https://drafts.csswg.org/css2/#colors",
+        "inherited": true,
+        "value": "Color"
+    },
+    {
+        "name": "display",
+        "specification": "https://drafts.csswg.org/css-display/#the-display-properties",
+        "inherited": false,
+        "value": "Display"
+    },
+    {
+        "name": "font-family",
+        "specification": "https://drafts.csswg.org/css-fonts/#font-family-prop",
+        "inherited": true,
+        "value": "FontFamily"
+    },
+    {
+        "name": "font-size",
+        "specification": "https://drafts.csswg.org/css2/#font-size-props",
+        "inherited": true,
+        "value": "FontSize"
+    },
+    {
+        "name": "height",
+        "specification": "https://drafts.csswg.org/css2/#propdef-height",
+        "inherited": false,
+        "value": "AutoOr<PercentageOr<Length>>"
+    },
+    {
+        "name": "margin",
+        "specification": "https://drafts.csswg.org/css-box-3/#margin-shorthand",
+        "inherited": false,
+        "longhands": {
+            "type": "4-sides",
+            "specification": "https://drafts.csswg.org/css-box-3/#propdef-margin-",
+            "value": "AutoOr<PercentageOr<Length>>"
+        }
+    },
+    {
+        "name": "padding",
+        "specification": "https://drafts.csswg.org/css2/#propdef-padding",
+        "inherited": false,
+        "longhands": {
+            "type": "4-sides",
+            "specification": "https://drafts.csswg.org/css2/#propdef-padding-",
+            "value": "PercentageOr<Length>"
+        }
+    },
+    {
+        "name": "position",
+        "specification": "https://drafts.csswg.org/css-position/#position-property",
+        "inherited": false,
+        "value": "Position"
+    },
+    {
+        "name": "width",
+        "specification": "https://drafts.csswg.org/css2/#propdef-width",
+        "inherited": false,
+        "value": "AutoOr<PercentageOr<Length>>"
+    }
+]
