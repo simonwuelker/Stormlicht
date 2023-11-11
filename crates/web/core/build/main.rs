@@ -17,6 +17,8 @@ pub fn main() {
             .join("html_named_entities.json")
             .display()
     );
+    println!("cargo:rerun-if-changed=identifiers.json");
+    println!("cargo:rerun-if-changed=properties.json");
 
     Command::new(PYTHON.as_str())
         .args(&["build.py".into(), out_dir, download_dir])

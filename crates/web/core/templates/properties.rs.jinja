@@ -19,10 +19,10 @@ pub enum Important {
 /// Enumerates the CSS properties supported by the user agent
 #[derive(Clone, Debug)]
 pub enum StyleProperty {
-    {% macro make_property(name, value, specification) -%}
+    {% macro make_property(name, value, specification) %}
     /// <{{ specification }}>
     {{ name}}({{ value }}),
-    {%- endmacro %}
+    {% endmacro %}
 
     {% for property in properties %}
         {% if "longhands" in property %}
@@ -68,9 +68,9 @@ impl StyleProperty {
         property_name: InternedString,
     ) -> Result<Self, ParseError> {
         let property = match property_name {
-            {% macro property_arm(name) -%}
+            {% macro property_arm(name) %}
             static_interned!("{{ name }}") => Self::{{ to_camelcase(name) }}(CSSParse::parse(parser)?),
-            {%- endmacro %}
+            {% endmacro %}
 
             {% for property in properties %}
                 {% if "longhands" in property %}

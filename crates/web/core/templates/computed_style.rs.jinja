@@ -1,0 +1,126 @@
+{% macro make_property(name, type, specification) %}
+/// <{{ specification }}>
+{{ name }}: {{ type }},
+{% endmacro %}
+
+use std::rc::Rc;
+
+use super::{
+    values::{
+        AutoOr, BackgroundColor, Color, Display, FontFamily, FontSize, Length, PercentageOr,
+        Position,
+    },
+};
+{% macro create_style_struct(property_set) %}
+    {% for property in property_set %}
+        {% set property_name = to_snake_case(property["name"]) %}
+        {% if "longhands" in property %}
+            {% set longhands = property["longhands"] %}
+
+            {% if longhands["type"] == "4-sides" %}
+                {% for side in SIDES %}
+                    {% set side_name = property_name + "_" + side %}
+                    {% set specification = longhands["specification"] + "_" + side %}
+
+                    {{ make_property(side_name, longhands["value"], specification)}}
+                {% endfor %}
+            {% endif%}
+        {% else %}
+            {{ make_property(property_name, property["value"], property["specification"])}}
+        {% endif %}
+    {% endfor %}
+{% endmacro %}
+
+#[derive(Clone, Debug)]
+struct InheritedData {
+    {{ create_style_struct(inherited_properties) }}
+}
+
+#[derive(Clone, Debug)]
+struct NonInheritedData {
+    {{ create_style_struct(non_inherited_properties) }}
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ComputedStyle {
+    inherited_data: Rc<InheritedData>,
+    non_inherited_data: Rc<NonInheritedData>,
+}
+
+impl ComputedStyle {
+    pub fn get_inherited(&self) -> Self {
+        Self {
+            inherited_data: self.inherited_data.clone(),
+            non_inherited_data: Default::default()
+        }
+    }
+
+    {% macro create_getter_and_setter(name, type, group) %}
+        #[allow(dead_code)]
+        pub fn {{ name }}(&self) -> &{{ type }} {
+            &self.{{ group }}.{{ name }}
+        }
+
+        #[allow(dead_code)]
+        pub fn set_{{ name }}(&mut self, value: {{ type }}) {
+            Rc::make_mut(&mut self.{{ group }}).{{ name }} = value
+        }
+    {% endmacro %}
+
+
+    {% macro access_functions(property_set, group) %}
+        {% for property in property_set %}
+            {% set property_name = to_snake_case(property["name"]) %}
+
+            {% if "longhands" in property %}
+                {% set longhands = property["longhands"] %}
+
+                {% if longhands["type"] == "4-sides" %}
+                    {% for side in SIDES %}
+                        {{ 
+                            create_getter_and_setter(property_name + "_" + side, longhands["value"], group)
+                        }}
+                    {% endfor %}
+                {% endif%}
+            {% else %}
+                {{ create_getter_and_setter(property_name, property["value"], group )}}
+            {% endif %}
+        {% endfor %}
+    {% endmacro %}
+
+    {{ access_functions(inherited_properties, "inherited_data") }}
+    {{ access_functions(non_inherited_properties, "non_inherited_data") }}
+}
+
+{% macro default_style_group(property_set) %}
+    {% for property in property_set %}
+        {% set property_name = to_snake_case(property["name"]) %}
+        {% if "longhands" in property %}
+            {% set longhands = property["longhands"] %}
+
+            {% if longhands["type"] == "4-sides" %}
+                {% for side in SIDES %}
+                    {{ property_name }}_{{side}}: {{ longhands["initial"] }},
+                {% endfor %}
+            {% endif%}
+        {% else %}
+            {{ property_name }}: {{ property["initial"] }}, 
+        {% endif %}
+    {% endfor %}
+{% endmacro %}
+impl Default for InheritedData {
+    fn default() -> Self {
+        Self {
+            {{ default_style_group(inherited_properties) }}
+        }
+    }
+}
+
+impl Default for NonInheritedData {
+    fn default() -> Self {
+        Self {
+            {{ default_style_group(non_inherited_properties) }}
+        }
+    }
+}
+
