@@ -2,8 +2,8 @@ use crate::{
     css::{
         layout::Sides,
         values::{
-            AutoOr, BackgroundColor, Color, Display, FontFamily, FontSize, Length, PercentageOr,
-            Position,
+            AutoOr, BackgroundColor, Color, Display, FontFamily, FontSize, Length, LineStyle,
+            PercentageOr, Position,
         },
         CSSParse, ParseError, Parser,
     },
@@ -33,11 +33,13 @@ pub enum StyleProperty {
             {% if longhands["type"] == "4-sides" %}
                 {# Add a variant for each of the longhands #}
                 {% for side in SIDES %}
+                    {% set specification = longhands["specification"].replace("SIDE", side) %}
+                    {% set name = to_camel_case(longhands["name"].replace("SIDE", side)) %}
                     {{  
                         make_property(
-                            to_camel_case(property["name"] + "-" + side),
+                            name,
                             longhands["value"],
-                            longhands["specification"] + side) 
+                            specification) 
                     }}
                 {% endfor %}
 
@@ -91,8 +93,10 @@ impl StyleProperty {
                     {% if longhands["type"] == "4-sides" %}
                         {# Handle each longhand #}
                         {% for side in SIDES %}
+                            {% set name = longhands["name"].replace("SIDE", side) %}
+
                             {{  
-                                property_arm(property["name"] + "-" + side)
+                                property_arm(name)
                             }}
                         {% endfor %}
 

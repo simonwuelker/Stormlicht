@@ -7,6 +7,18 @@
         "initial": "BackgroundColor::default()"
     },
     {
+        "name": "border-style",
+        "specification": "https://drafts.csswg.org/css-backgrounds/#propdef-border-style",
+        "inherited": false,
+        "longhands": {
+            "type": "4-sides",
+            "name": "border-SIDE-style",
+            "specification": "https://drafts.csswg.org/css-backgrounds/#propdef-border-SIDE-style",
+            "value": "LineStyle",
+            "initial": "LineStyle::None"
+        }
+    },
+    {
         "name": "color",
         "specification": "https://drafts.csswg.org/css2/#colors",
         "inherited": true,
@@ -47,7 +59,8 @@
         "inherited": false,
         "longhands": {
             "type": "4-sides",
-            "specification": "https://drafts.csswg.org/css-box-3/#propdef-margin-",
+            "name": "margin-SIDE",
+            "specification": "https://drafts.csswg.org/css-box-3/#propdef-margin-SIDE",
             "value": "AutoOr<PercentageOr<Length>>",
             "initial": "AutoOr::NotAuto(PercentageOr::NotPercentage(Length::ZERO))"
         }
@@ -58,7 +71,8 @@
         "inherited": false,
         "longhands": {
             "type": "4-sides",
-            "specification": "https://drafts.csswg.org/css2/#propdef-padding-",
+            "name": "padding-SIDE",
+            "specification": "https://drafts.csswg.org/css2/#propdef-padding-SIDE",
             "value": "PercentageOr<Length>",
             "initial": "PercentageOr::NotPercentage(Length::ZERO)"
         }
