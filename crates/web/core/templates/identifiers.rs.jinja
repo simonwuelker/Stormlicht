@@ -8,4 +8,6 @@ perfect_set!(
     ];
 );
 
+// NOTE: clippy is wrong, macro resolution fails without this import
+#[allow(clippy::single_component_path_imports)]
 pub(crate) use static_str;  
