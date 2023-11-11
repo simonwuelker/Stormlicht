@@ -6,11 +6,13 @@
 use std::rc::Rc;
 
 use super::{
+    StyleProperty,
     values::{
         AutoOr, BackgroundColor, Color, Display, FontFamily, FontSize, Length, PercentageOr,
         Position,
     },
 };
+
 {% macro create_style_struct(property_set) %}
     {% for property in property_set %}
         {% set property_name = to_snake_case(property["name"]) %}
@@ -22,7 +24,7 @@ use super::{
                     {% set side_name = property_name + "_" + side %}
                     {% set specification = longhands["specification"] + "_" + side %}
 
-                    {{ make_property(side_name, longhands["value"], specification)}}
+                    {{ make_property(side_name, longhands["value"], specification) }}
                 {% endfor %}
             {% endif%}
         {% else %}
@@ -90,6 +92,33 @@ impl ComputedStyle {
 
     {{ access_functions(inherited_properties, "inherited_data") }}
     {{ access_functions(non_inherited_properties, "non_inherited_data") }}
+
+    /// Assign a specific value to a property
+    ///
+    /// This expands shorthand properties like `margin`.
+    pub fn set_property(&mut self, property: StyleProperty) {
+        match property {
+            {% macro assign_property(name, assign_to) %}
+            StyleProperty::{{ to_camel_case(name)}}(value) 
+                    => self.set_{{ to_snake_case(assign_to) }}(value),
+            {% endmacro %}
+
+            {% for property in inherited_properties + non_inherited_properties %}
+                {% if "longhands" in property %}
+                    {% set longhands = property["longhands"] %}
+
+                    {% if longhands["type"] == "4-sides" %}
+                        {% for side in SIDES %}
+                            {% set side_name = property["name"] + "_" + side %}
+                            {{ assign_property(side_name, side_name) }}
+                        {% endfor %}
+                    {% endif%}
+                {% else %}
+                    {{ assign_property(property["name"], property["name"]) }}
+                {% endif %}
+            {% endfor %}
+        }
+    }
 }
 
 {% macro default_style_group(property_set) %}
@@ -108,6 +137,7 @@ impl ComputedStyle {
         {% endif %}
     {% endfor %}
 {% endmacro %}
+
 impl Default for InheritedData {
     fn default() -> Self {
         Self {

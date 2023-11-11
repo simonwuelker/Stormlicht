@@ -106,16 +106,6 @@ impl<'a> MatchingProperty<'a> {
     }
 }
 
-macro_rules! stylerule_to_fields {
-    ($property: ident, $computed_style: ident, $(($variant: ident, $set_fn: ident)),*$(,)?) => {
-        match $property {
-            $(
-                StyleProperty::$variant(value) => $computed_style.$set_fn(value),
-            )*
-        }
-    };
-}
-
 impl<'a> StyleComputer<'a> {
     pub fn new(stylesheets: &'a [Stylesheet]) -> Self {
         // Sort the list in cascade order:
@@ -167,26 +157,7 @@ impl<'a> StyleComputer<'a> {
             let property = matched_property.into_property();
 
             if properties_added.insert(mem::discriminant(&property)) {
-                stylerule_to_fields!(
-                    property,
-                    computed_style,
-                    (BackgroundColor, set_background_color),
-                    (Color, set_color),
-                    (Display, set_display),
-                    (FontFamily, set_font_family),
-                    (FontSize, set_font_size),
-                    (Height, set_height),
-                    (MarginBottom, set_margin_bottom),
-                    (MarginLeft, set_margin_left),
-                    (MarginRight, set_margin_right),
-                    (MarginTop, set_margin_top),
-                    (PaddingBottom, set_padding_bottom),
-                    (PaddingLeft, set_padding_left),
-                    (PaddingRight, set_padding_right),
-                    (PaddingTop, set_padding_top),
-                    (Width, set_width),
-                    (Position, set_position)
-                );
+                computed_style.set_property(property);
             }
         }
 

@@ -33,7 +33,7 @@ pub enum StyleProperty {
                 {% for side in SIDES %}
                     {{  
                         make_property(
-                            to_camelcase(property["name"] + "-" + side),
+                            to_camel_case(property["name"] + "-" + side),
                             longhands["value"],
                             longhands["specification"] + side) 
                     }}
@@ -43,7 +43,7 @@ pub enum StyleProperty {
             {# The value is not a shorthand #}
             {{ 
                 make_property(
-                    to_camelcase(property["name"]),
+                    to_camel_case(property["name"]),
                     property["value"],
                     property["specification"]) 
                 }}
@@ -69,7 +69,7 @@ impl StyleProperty {
     ) -> Result<Self, ParseError> {
         let property = match property_name {
             {% macro property_arm(name) %}
-            static_interned!("{{ name }}") => Self::{{ to_camelcase(name) }}(CSSParse::parse(parser)?),
+            static_interned!("{{ name }}") => Self::{{ to_camel_case(name) }}(CSSParse::parse(parser)?),
             {% endmacro %}
 
             {% for property in properties %}
