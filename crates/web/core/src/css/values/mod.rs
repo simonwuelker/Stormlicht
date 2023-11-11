@@ -1,5 +1,6 @@
 mod auto;
 mod background_color;
+mod border;
 mod color;
 mod display;
 mod font_family;
@@ -11,6 +12,7 @@ mod position;
 
 pub use auto::AutoOr;
 pub use background_color::BackgroundColor;
+pub use border::LineStyle;
 pub use color::Color;
 pub use display::Display;
 pub use font_family::FontFamily;
