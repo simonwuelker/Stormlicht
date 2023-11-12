@@ -1,12 +1,44 @@
 use super::Vec2D;
 
+use std::ops;
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Rectangle<T = f32> {
     pub top_left: Vec2D<T>,
     pub bottom_right: Vec2D<T>,
 }
 
-impl<T: std::ops::Sub<Output = T> + Copy> Rectangle<T> {
+impl<T> Rectangle<T>
+where
+    T: Copy,
+{
+    pub const fn top_left(&self) -> Vec2D<T> {
+        self.top_left
+    }
+
+    pub const fn top_right(&self) -> Vec2D<T> {
+        Vec2D {
+            x: self.bottom_right.x,
+            y: self.top_left.y,
+        }
+    }
+
+    pub const fn bottom_left(&self) -> Vec2D<T> {
+        Vec2D {
+            x: self.top_left.x,
+            y: self.bottom_right.y,
+        }
+    }
+
+    pub const fn bottom_right(&self) -> Vec2D<T> {
+        self.bottom_right
+    }
+}
+
+impl<T> Rectangle<T>
+where
+    T: ops::Sub<Output = T> + Copy,
+{
     pub fn width(&self) -> T {
         self.bottom_right.x - self.top_left.x
     }
