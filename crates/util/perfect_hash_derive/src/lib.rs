@@ -153,6 +153,9 @@ pub fn perfect_set(input: TokenStream) -> TokenStream {
             #(
                 (#entries) => {#indices};
             )*
+            ($value: literal) => {
+                compile_error!(concat!("value is not in static set: \"", $value, "\"")) 
+            };
         );
     )
     .into()
