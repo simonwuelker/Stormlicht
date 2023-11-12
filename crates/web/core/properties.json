@@ -7,6 +7,18 @@
         "initial": "BackgroundColor::default()"
     },
     {
+        "name": "border-color",
+        "specification": "https://drafts.csswg.org/css-backgrounds/#border-color",
+        "inherited": false,
+        "longhands": {
+            "type": "4-sides",
+            "name": "border-SIDE-color",
+            "specification": "https://drafts.csswg.org/css-backgrounds/#propdef-border-SIDE-color",
+            "value": "Color",
+            "initial": "Color::BLACK"
+        }
+    },
+    {
         "name": "border-style",
         "specification": "https://drafts.csswg.org/css-backgrounds/#propdef-border-style",
         "inherited": false,
