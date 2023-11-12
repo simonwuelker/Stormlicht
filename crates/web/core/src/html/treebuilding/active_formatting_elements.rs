@@ -26,7 +26,7 @@ pub struct ActiveFormattingElement {
 impl FormatEntry {
     #[inline]
     #[must_use]
-    pub fn is_marker(&self) -> bool {
+    pub const fn is_marker(&self) -> bool {
         matches!(self, Self::Marker)
     }
 

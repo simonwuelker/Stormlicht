@@ -102,7 +102,7 @@ impl From<Vec<BlockLevelBox>> for BlockFormattingContext {
 
 impl BlockLevelBox {
     #[must_use]
-    pub fn new(
+    pub const fn new(
         style: ComputedStyle,
         node: Option<DOMPtr<dom_objects::Node>>,
         contents: BlockContainer,
@@ -116,7 +116,7 @@ impl BlockLevelBox {
 
     #[inline]
     #[must_use]
-    pub fn style(&self) -> &ComputedStyle {
+    pub const fn style(&self) -> &ComputedStyle {
         &self.style
     }
 

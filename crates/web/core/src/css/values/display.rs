@@ -121,7 +121,7 @@ impl TryFrom<InternedString> for Short {
 
 impl Display {
     #[must_use]
-    pub fn is_inline(&self) -> bool {
+    pub const fn is_inline(&self) -> bool {
         matches!(
             self,
             Display::InsideOutside(DisplayInsideOutside {
@@ -132,7 +132,7 @@ impl Display {
     }
 
     #[must_use]
-    pub fn is_block(&self) -> bool {
+    pub const fn is_block(&self) -> bool {
         matches!(
             self,
             Display::InsideOutside(DisplayInsideOutside {
@@ -144,14 +144,14 @@ impl Display {
 
     #[inline]
     #[must_use]
-    pub fn is_none(&self) -> bool {
-        self.eq(&Self::Box(DisplayBox::None))
+    pub const fn is_none(&self) -> bool {
+        matches!(self, Self::Box(DisplayBox::None))
     }
 
     #[inline]
     #[must_use]
-    pub fn is_contents(&self) -> bool {
-        self.eq(&Self::Box(DisplayBox::Contents))
+    pub const fn is_contents(&self) -> bool {
+        matches!(self, Self::Box(DisplayBox::Contents))
     }
 }
 

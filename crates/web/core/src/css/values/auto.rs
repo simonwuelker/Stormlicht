@@ -16,7 +16,7 @@ pub enum AutoOr<T> {
 impl<T> AutoOr<T> {
     #[inline]
     #[must_use]
-    pub fn is_auto(&self) -> bool {
+    pub const fn is_auto(&self) -> bool {
         matches!(self, Self::Auto)
     }
 

@@ -47,7 +47,7 @@ impl Fragment {
         }
     }
 
-    pub fn content_area_including_overflow(&self) -> Rectangle<CSSPixels> {
+    pub const fn content_area_including_overflow(&self) -> Rectangle<CSSPixels> {
         match self {
             Self::Box(box_fragment) => box_fragment.content_area_including_overflow,
             Self::Text(text_fragment) => text_fragment.area,

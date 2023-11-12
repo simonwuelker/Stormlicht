@@ -21,7 +21,7 @@ pub struct TextLine<'a> {
 impl<'a> LineBreakIterator<'a> {
     #[inline]
     #[must_use]
-    pub fn new(text: &'a str, font_metrics: FontMetrics, available_width: CSSPixels) -> Self {
+    pub const fn new(text: &'a str, font_metrics: FontMetrics, available_width: CSSPixels) -> Self {
         Self {
             text,
             font_metrics,
@@ -34,7 +34,7 @@ impl<'a> LineBreakIterator<'a> {
         self.available_width = available_width;
     }
 
-    pub fn is_done(&self) -> bool {
+    pub const fn is_done(&self) -> bool {
         self.is_done
     }
 }

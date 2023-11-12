@@ -24,13 +24,13 @@ impl Percentage {
 
     #[inline]
     #[must_use]
-    pub fn from_fraction(fraction: f32) -> Self {
+    pub const fn from_fraction(fraction: f32) -> Self {
         Self(fraction)
     }
 
     #[inline]
     #[must_use]
-    pub fn as_fraction(&self) -> f32 {
+    pub const fn as_fraction(&self) -> f32 {
         self.0
     }
 }

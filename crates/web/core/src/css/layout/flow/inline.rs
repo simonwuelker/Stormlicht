@@ -45,7 +45,7 @@ pub struct InlineFormattingContext {
 impl TextRun {
     #[inline]
     #[must_use]
-    pub fn new(text: String, style: ComputedStyle) -> Self {
+    pub const fn new(text: String, style: ComputedStyle) -> Self {
         Self { text, style }
     }
 

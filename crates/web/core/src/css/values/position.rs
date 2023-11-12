@@ -24,8 +24,8 @@ pub enum Position {
 }
 
 impl Position {
-    pub fn is_absolute(&self) -> bool {
-        *self == Self::Absolute
+    pub const fn is_absolute(&self) -> bool {
+        matches!(self, Self::Absolute)
     }
 }
 

@@ -23,7 +23,7 @@ impl FontMetrics {
     pub fn new(size: CSSPixels) -> Self {
         Self {
             size,
-            ..Default::default()
+            font_face: Box::default(),
         }
     }
 }

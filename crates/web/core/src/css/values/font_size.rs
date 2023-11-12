@@ -73,7 +73,7 @@ impl Default for FontSize {
 
 impl AbsoluteSize {
     #[inline]
-    fn html_size(&self) -> u8 {
+    const fn html_size(&self) -> u8 {
         *self as u8
     }
 

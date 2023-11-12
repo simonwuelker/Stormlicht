@@ -36,7 +36,7 @@ impl<T> Sides<T> {
 }
 
 impl<T: Copy> Sides<T> {
-    pub fn all(value: T) -> Self {
+    pub const fn all(value: T) -> Self {
         Self {
             top: value,
             right: value,
@@ -65,27 +65,27 @@ pub struct ContainingBlock {
 impl ContainingBlock {
     #[inline]
     #[must_use]
-    pub fn new(width: CSSPixels) -> Self {
+    pub const fn new(width: CSSPixels) -> Self {
         Self {
             width,
             height: None,
         }
     }
 
-    pub fn with_height(mut self, height: CSSPixels) -> Self {
+    pub const fn with_height(mut self, height: CSSPixels) -> Self {
         self.height = Some(height);
         self
     }
 
     #[inline]
     #[must_use]
-    pub fn width(&self) -> CSSPixels {
+    pub const fn width(&self) -> CSSPixels {
         self.width
     }
 
     #[inline]
     #[must_use]
-    pub fn height(&self) -> Option<CSSPixels> {
+    pub const fn height(&self) -> Option<CSSPixels> {
         self.height
     }
 }
