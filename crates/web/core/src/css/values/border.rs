@@ -1,7 +1,9 @@
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{layout::CSSPixels, syntax::Token, CSSParse, ParseError, Parser},
     static_interned,
 };
+
+use super::Length;
 
 /// <https://drafts.csswg.org/css-backgrounds/#typedef-line-style>
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -54,5 +56,38 @@ impl<'a> CSSParse<'a> for LineStyle {
         };
 
         Ok(line_style)
+    }
+}
+
+/// <https://drafts.csswg.org/css-backgrounds/#typedef-line-width>
+#[derive(Clone, Copy, Debug)]
+pub struct LineWidth(Length);
+
+impl LineWidth {
+    pub const THIN: Self = Self(Length::pixels(CSSPixels(1.)));
+    pub const MEDIUM: Self = Self(Length::pixels(CSSPixels(3.)));
+    pub const THICK: Self = Self(Length::pixels(CSSPixels(5.)));
+}
+
+impl<'a> CSSParse<'a> for LineWidth {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        match parser.peek_token() {
+            Some(Token::Ident(static_interned!("thin"))) => {
+                parser.next_token();
+                Ok(Self::THIN)
+            },
+            Some(Token::Ident(static_interned!("medium"))) => {
+                parser.next_token();
+                Ok(Self::MEDIUM)
+            },
+            Some(Token::Ident(static_interned!("thick"))) => {
+                parser.next_token();
+                Ok(Self::THICK)
+            },
+            _ => {
+                let length: Length = parser.parse()?;
+                Ok(Self(length))
+            },
+        }
     }
 }

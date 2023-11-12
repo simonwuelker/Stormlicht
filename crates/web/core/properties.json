@@ -19,6 +19,18 @@
         }
     },
     {
+        "name": "border-width",
+        "specification": "https://drafts.csswg.org/css-backgrounds/#border-width",
+        "inherited": false,
+        "longhands": {
+            "type": "4-sides",
+            "name": "border-SIDE-width",
+            "specification": "https://drafts.csswg.org/css-backgrounds/#propdef-border-SIDE-width",
+            "value": "LineWidth",
+            "initial": "LineWidth::MEDIUM"
+        }
+    },
+    {
         "name": "color",
         "specification": "https://drafts.csswg.org/css2/#colors",
         "inherited": true,

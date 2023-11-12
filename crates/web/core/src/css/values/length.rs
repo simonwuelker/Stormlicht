@@ -189,7 +189,7 @@ impl Length {
     }
 
     #[must_use]
-    pub fn pixels(pixels: CSSPixels) -> Self {
+    pub const fn pixels(pixels: CSSPixels) -> Self {
         Self {
             value: pixels.0,
             unit: Unit::Px,

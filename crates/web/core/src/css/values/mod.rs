@@ -12,7 +12,7 @@ mod position;
 
 pub use auto::AutoOr;
 pub use background_color::BackgroundColor;
-pub use border::LineStyle;
+pub use border::{LineStyle, LineWidth};
 pub use color::Color;
 pub use display::Display;
 pub use font_family::FontFamily;
