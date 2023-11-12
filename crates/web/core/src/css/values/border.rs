@@ -39,6 +39,12 @@ pub enum LineStyle {
     Outset,
 }
 
+impl LineStyle {
+    pub const fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+}
+
 impl<'a> CSSParse<'a> for LineStyle {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let line_style = match parser.next_token() {
@@ -67,6 +73,10 @@ impl LineWidth {
     pub const THIN: Self = Self(Length::pixels(CSSPixels(1.)));
     pub const MEDIUM: Self = Self(Length::pixels(CSSPixels(3.)));
     pub const THICK: Self = Self(Length::pixels(CSSPixels(5.)));
+
+    pub const fn length(&self) -> Length {
+        self.0
+    }
 }
 
 impl<'a> CSSParse<'a> for LineWidth {

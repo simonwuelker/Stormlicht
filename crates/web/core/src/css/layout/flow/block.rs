@@ -86,7 +86,7 @@ impl BlockFormattingContext {
         for element in &self.contents {
             let box_fragment =
                 element.fragment(cursor_position, containing_block, length_resolution_context);
-            cursor_position.y += box_fragment.outer_area().height();
+            cursor_position.y += box_fragment.margin_area().height();
             root_fragments.push(Fragment::Box(box_fragment));
         }
 
@@ -174,12 +174,32 @@ impl BlockLevelBox {
             .resolve_against(available_length)
             .absolutize(length_resolution_context);
 
+        let border_left = if self.style().border_left_style().is_none() {
+            CSSPixels::ZERO
+        } else {
+            self.style()
+                .border_left_width()
+                .length()
+                .absolutize(length_resolution_context)
+        };
+
+        let border_right = if self.style().border_right_style().is_none() {
+            CSSPixels::ZERO
+        } else {
+            self.style()
+                .border_right_width()
+                .length()
+                .absolutize(length_resolution_context)
+        };
+
         // Margins are treated as zero if the total width exceeds the available width
         let total_width_is_more_than_available = |width: &CSSPixels| {
             let total_width = margin_left.unwrap_or_default()
+                + border_left
                 + padding_left
                 + *width
                 + padding_right
+                + border_right
                 + margin_right.unwrap_or_default();
             total_width > containing_block.width()
         };
@@ -198,25 +218,45 @@ impl BlockLevelBox {
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::Auto) => {
-                let margin_width =
-                    (containing_block.width() - padding_left - width - padding_right) / 2.;
+                let margin_width = (containing_block.width()
+                    - border_left
+                    - padding_left
+                    - width
+                    - padding_right
+                    - border_right)
+                    / 2.;
                 (width, margin_width, margin_width)
             },
             (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::Auto) => {
-                let margin_right =
-                    containing_block.width() - margin_left - padding_left - width - padding_right;
+                let margin_right = containing_block.width()
+                    - margin_left
+                    - border_left
+                    - padding_left
+                    - width
+                    - padding_right
+                    - border_right;
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::NotAuto(margin_right)) => {
-                let margin_left =
-                    containing_block.width() - padding_left - width - padding_right - margin_right;
+                let margin_left = containing_block.width()
+                    - border_left
+                    - padding_left
+                    - width
+                    - padding_right
+                    - border_right
+                    - margin_right;
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::NotAuto(_)) => {
                 // The values are overconstrained
                 // FIXME: If the "direction" property is "rtl", we should ignore the margin left instead
-                let margin_right =
-                    containing_block.width() - margin_left - padding_left - width - padding_right;
+                let margin_right = containing_block.width()
+                    - margin_left
+                    - border_left
+                    - padding_left
+                    - width
+                    - padding_right
+                    - border_right;
                 (width, margin_left, margin_right)
             },
         };
@@ -250,9 +290,24 @@ impl BlockLevelBox {
             .resolve_against(available_length)
             .absolutize(length_resolution_context);
 
-        // FIXME:
-        // * Consider height: auto
-        // * Resolve percentages against height (what is it?), not widht
+        let border_top = if self.style().border_top_style().is_none() {
+            CSSPixels::ZERO
+        } else {
+            self.style()
+                .border_top_width()
+                .length()
+                .absolutize(length_resolution_context)
+        };
+
+        let border_bottom = if self.style().border_bottom_style().is_none() {
+            CSSPixels::ZERO
+        } else {
+            self.style()
+                .border_bottom_width()
+                .length()
+                .absolutize(length_resolution_context)
+        };
+
         // If the height is a percentage it is
         let height = self.style().height().flat_map(|percentage_or_length| {
             match percentage_or_length {
@@ -289,8 +344,8 @@ impl BlockLevelBox {
 
         let top_left = position
             + Vec2D {
-                x: margin_left,
-                y: margin_top,
+                x: margin_left + border_left,
+                y: margin_top + border_top,
             };
 
         let mut content_area_including_overflow = Rectangle {
@@ -314,11 +369,14 @@ impl BlockLevelBox {
 
                 cursor.y += padding_top;
                 for block_box in block_level_boxes {
+                    // Every block box creates exactly one box fragment
                     let box_fragment =
                         block_box.fragment(cursor, containing_block, length_resolution_context);
+
                     content_area_including_overflow
                         .grow_to_contain(box_fragment.content_area_including_overflow());
-                    cursor.y += box_fragment.outer_area().height();
+
+                    cursor.y += box_fragment.margin_area().height();
 
                     children.push(Fragment::Box(box_fragment));
                 }
@@ -370,10 +428,20 @@ impl BlockLevelBox {
             left: margin_left,
         };
 
+        // FIXME: This is ugly, refactor the way we tell our parent
+        //        about the height of the box fragment
+        let border = Sides {
+            top: border_top,
+            right: border_right,
+            bottom: border_bottom,
+            left: border_left,
+        };
+
         BoxFragment::new(
             self.node.clone(),
             self.style().clone(),
             margin,
+            border,
             content_area,
             content_area_including_overflow,
             children,

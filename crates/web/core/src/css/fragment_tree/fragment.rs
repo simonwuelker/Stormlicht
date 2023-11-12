@@ -17,6 +17,7 @@ pub struct BoxFragment {
 
     style: ComputedStyle,
     margin: Sides<CSSPixels>,
+    borders: Sides<CSSPixels>,
 
     /// Content area including padding
     content_area: Rectangle<CSSPixels>,
@@ -120,6 +121,7 @@ impl BoxFragment {
         dom_node: Option<DOMPtr<dom_objects::Node>>,
         style: ComputedStyle,
         margin: Sides<CSSPixels>,
+        borders: Sides<CSSPixels>,
         content_area: Rectangle<CSSPixels>,
         content_area_including_overflow: Rectangle<CSSPixels>,
         children: Vec<Fragment>,
@@ -128,6 +130,7 @@ impl BoxFragment {
             dom_node,
             style,
             margin,
+            borders,
             content_area,
             content_area_including_overflow,
             children,
@@ -147,8 +150,12 @@ impl BoxFragment {
     /// Compute the total space occupied by this fragment, including margins
     #[inline]
     #[must_use]
-    pub fn outer_area(&self) -> Rectangle<CSSPixels> {
-        self.margin.surround(self.content_area)
+    pub fn margin_area(&self) -> Rectangle<CSSPixels> {
+        self.margin.surround(self.border_area())
+    }
+
+    pub fn border_area(&self) -> Rectangle<CSSPixels> {
+        self.borders.surround(self.content_area)
     }
 
     #[inline]
@@ -165,6 +172,66 @@ impl BoxFragment {
             BackgroundColor::Color(color) => {
                 painter.rect(self.content_area, color.into());
             },
+        }
+
+        // Draw borders
+        // FIXME: different border styles (other than "solid")
+        let border_area = self.border_area();
+
+        // Top border
+        if !self.style().border_top_style().is_none() {
+            let area = Rectangle {
+                top_left: border_area.top_left(),
+                bottom_right: border_area.top_right()
+                    + math::Vec2D {
+                        x: CSSPixels::ZERO,
+                        y: self.borders.top,
+                    },
+            };
+            let color = *self.style().border_top_color();
+            painter.rect(area, color.into());
+        }
+
+        // Right border
+        if !self.style().border_right_style().is_none() {
+            let area = Rectangle {
+                top_left: border_area.top_right()
+                    - math::Vec2D {
+                        x: self.borders.right,
+                        y: CSSPixels::ZERO,
+                    },
+                bottom_right: border_area.bottom_right(),
+            };
+            let color = *self.style().border_right_color();
+            painter.rect(area, color.into());
+        }
+
+        // Bottom border
+        if !self.style().border_bottom_style().is_none() {
+            let area = Rectangle {
+                top_left: border_area.bottom_left()
+                    - math::Vec2D {
+                        x: CSSPixels::ZERO,
+                        y: self.borders.bottom,
+                    },
+                bottom_right: border_area.bottom_right(),
+            };
+            let color = *self.style().border_bottom_color();
+            painter.rect(area, color.into());
+        }
+
+        // Left border
+        if !self.style().border_left_style().is_none() {
+            let area = Rectangle {
+                top_left: border_area.top_left(),
+                bottom_right: border_area.bottom_left()
+                    + math::Vec2D {
+                        x: self.borders.left,
+                        y: CSSPixels::ZERO,
+                    },
+            };
+            let color = *self.style().border_left_color();
+            painter.rect(area, color.into());
         }
 
         // Paint all children
