@@ -182,8 +182,8 @@ impl Length {
             },
 
             // Font-relative units
-            Unit::Em => (ctx.font_size / 100.) * self.value,
-            Unit::Rem => (ctx.root_font_size / 100.) * self.value,
+            Unit::Em => ctx.font_size * self.value,
+            Unit::Rem => ctx.root_font_size * self.value,
             _ => todo!("absolutize font-relative length: {self:?}"),
         }
     }
