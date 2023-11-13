@@ -572,6 +572,10 @@ impl<'a> Parser<'a> {
         T::parse(self)
     }
 
+    pub fn parse_optional<T: CSSParse<'a>>(&mut self) -> Option<T> {
+        self.parse_optional_value(T::parse)
+    }
+
     pub fn parse_four_sided_property<T: CSSParse<'a> + Copy>(
         &mut self,
     ) -> Result<Sides<T>, ParseError> {
