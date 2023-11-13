@@ -2,10 +2,10 @@ use crate::{
     css::{
         layout::Sides,
         values::{
-            AutoOr, BackgroundColor, Color, Display, FontFamily, FontSize, Length, LineStyle,
-            LineWidth, PercentageOr, Position,
+            AutoOr, BackgroundColor, Border, Color, Display, FontFamily, FontSize, Length, 
+            LineStyle, LineWidth, PercentageOr, Position,
         },
-        CSSParse, ParseError, Parser,
+        ParseError, Parser,
     },
     static_interned, InternedString,
 };
@@ -59,9 +59,25 @@ pub enum StyleProperty {
                     property["specification"]) 
             }}
         {% endif %}
-
-
     {% endfor %}
+
+    // Hand-written code for properties with special behaviour
+
+    // 1. "border": a shorthand for "border-$SIDE" which is itself a shorthand
+    /// <https://drafts.csswg.org/css-backgrounds/#propdef-border>
+    Border(Border),
+
+    /// <https://drafts.csswg.org/css-backgrounds/#propdef-border-top>
+    BorderTop(Border),
+
+    /// <https://drafts.csswg.org/css-backgrounds/#propdef-border-right>
+    BorderRight(Border),
+
+    /// <https://drafts.csswg.org/css-backgrounds/#propdef-border-bottom>
+    BorderBottom(Border),
+
+    /// <https://drafts.csswg.org/css-backgrounds/#propdef-border-left>
+    BorderLeft(Border),
 }
 
 #[derive(Clone, Debug)]
@@ -81,7 +97,7 @@ impl StyleProperty {
     ) -> Result<Self, ParseError> {
         let property = match property_name {
             {% macro property_arm(name) %}
-            static_interned!("{{ name }}") => Self::{{ to_camel_case(name) }}(CSSParse::parse(parser)?),
+            static_interned!("{{ name }}") => Self::{{ to_camel_case(name) }}(parser.parse()?),
             {% endmacro %}
 
             {% for property in properties %}
@@ -108,6 +124,14 @@ impl StyleProperty {
                     {{ property_arm(property["name"]) }}
                 {% endif %}
             {% endfor %}
+
+            // Hand-written code for properties with special behaviour
+            static_interned!("border") => Self::Border(parser.parse()?),
+            static_interned!("border-top") => Self::BorderTop(parser.parse()?),
+            static_interned!("border-right") => Self::BorderRight(parser.parse()?),
+            static_interned!("border-bottom") => Self::BorderBottom(parser.parse()?),
+            static_interned!("border-left") => Self::BorderLeft(parser.parse()?),
+
             _ => {
                 log::warn!("Unknown CSS property name: {:?}", property_name.to_string());
                 return Err(ParseError);

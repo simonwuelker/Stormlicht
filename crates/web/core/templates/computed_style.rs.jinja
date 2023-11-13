@@ -128,6 +128,31 @@ impl ComputedStyle {
                     {{ assign_property(property["name"], property["name"]) }}
                 {% endif %}
             {% endfor %}
+
+            // Hand-written code for properties with special behaviour
+            {% macro set_border(side) %}
+                self.set_border_{{ side }}_color(border.color);
+                self.set_border_{{ side }}_style(border.style);
+                self.set_border_{{ side }}_width(border.width);
+            {% endmacro %}
+            StyleProperty::Border(border) => {
+                {{ set_border("top") }}
+                {{ set_border("right") }}
+                {{ set_border("bottom") }}
+                {{ set_border("left") }}
+            },
+            StyleProperty::BorderTop(border) => {
+                {{ set_border("top") }}
+            },
+            StyleProperty::BorderRight(border) => {
+                {{ set_border("right") }}
+            },
+            StyleProperty::BorderBottom(border) => {
+                {{ set_border("bottom") }}
+            },
+            StyleProperty::BorderLeft(border) => {
+                {{ set_border("left") }}
+            },
         }
     }
 }
