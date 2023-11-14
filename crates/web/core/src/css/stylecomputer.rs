@@ -18,11 +18,11 @@ pub struct StyleComputer<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct MatchingProperty {
+pub struct MatchingProperty<'a> {
     /// The property that should be applied
     // FIXME: This could (and should) be a reference - but in the case of "style" attributes,
     //        there exists no stylesheet that could be referenced :/
-    property: StylePropertyDeclaration,
+    property: &'a StylePropertyDeclaration,
 
     /// The specificity of the selector of this rule that matched the element
     specificity: Specificity,
@@ -37,9 +37,9 @@ pub struct MatchingProperty {
     origin: Origin,
 }
 
-impl MatchingProperty {
+impl<'a> MatchingProperty<'a> {
     pub fn new(
-        property: StylePropertyDeclaration,
+        property: &'a StylePropertyDeclaration,
         specificity: Specificity,
         rule_index: usize,
         stylesheet_index: usize,
@@ -113,7 +113,7 @@ impl<'a> StyleComputer<'a> {
     }
 
     // Find all the [StyleRules](super::StyleRule) that apply to an [Element]
-    fn collect_matched_properties(&self, element: DOMPtr<Element>) -> Vec<MatchingProperty> {
+    fn collect_matched_properties(&self, element: DOMPtr<Element>) -> Vec<MatchingProperty<'_>> {
         let mut matched_properties = vec![];
 
         for stylesheet in self.stylesheets {
@@ -129,7 +129,7 @@ impl<'a> StyleComputer<'a> {
                         let specificity = rule.selectors().iter().map(Selector::specificity).sum();
 
                         MatchingProperty::new(
-                            prop.clone(),
+                            prop,
                             specificity,
                             rule_index,
                             stylesheet.index(),
@@ -141,33 +141,6 @@ impl<'a> StyleComputer<'a> {
             }
         }
 
-        // Add the inline style (from the "style" attribute), if any
-        // FIXME: Can we cache this somehow?
-        if let Some(inline_style) = element
-            .borrow()
-            .attributes()
-            .get(&static_interned!("style"))
-        {
-            // https://html.spec.whatwg.org/multipage/dom.html#the-style-attribute
-            // https://drafts.csswg.org/css-style-attr/#style-attribute
-
-            let css_source = inline_style.to_string();
-            let mut rule_parser = RuleParser;
-
-            // Properties from "style" attributes have
-            // * Author origin
-            // * A higher specificity than any other element
-            if let Ok(properties) = rule_parser
-                .parse_qualified_rule_block(&mut Parser::new(&css_source, Origin::Author))
-            {
-                // NOTE: The rule and stylesheet index don't matter
-                //       because the specificy is already MAX
-                let inline_properties = properties.into_iter().map(|property| {
-                    MatchingProperty::new(property, Specificity::MAX, 0, 0, Origin::Author)
-                });
-                matched_properties.extend(inline_properties);
-            }
-        }
         matched_properties
     }
 
@@ -178,7 +151,18 @@ impl<'a> StyleComputer<'a> {
         element: DOMPtr<Element>,
         parent_style: &ComputedStyle,
     ) -> ComputedStyle {
+        // If the element has a "style" attribute, create a short-lived stylesheet
+        // FIXME: Can we cache this somehow?
+        let attribute_style = attribute_style_for_element(element.clone());
+
+        // NOTE: The rule and stylesheet index don't matter
+        //       because the specificy is already MAX
+        let attribute_style = attribute_style.iter().map(|property| {
+            MatchingProperty::new(property, Specificity::MAX, 0, 0, Origin::Author)
+        });
+
         let mut matched_properties = self.collect_matched_properties(element);
+        matched_properties.extend(attribute_style);
 
         // Sort matching rules in cascade order, see
         // https://drafts.csswg.org/css-cascade-4/#cascade-sort for more info
@@ -198,4 +182,28 @@ impl<'a> StyleComputer<'a> {
 
         computed_style
     }
+}
+
+// Don't want to put this on `Element` since the DOM doesn't really know about CSS
+fn attribute_style_for_element(element: DOMPtr<Element>) -> Vec<StylePropertyDeclaration> {
+    element
+        .borrow()
+        .attributes()
+        .get(&static_interned!("style"))
+        .and_then(|inline_style_string| {
+            // https://html.spec.whatwg.org/multipage/dom.html#the-style-attribute
+            // https://drafts.csswg.org/css-style-attr/#style-attribute
+
+            let css_source = inline_style_string.to_string();
+            let mut rule_parser = RuleParser;
+
+            // Properties from "style" attributes have
+            // * Author origin
+            // * A higher specificity than any other element
+            // A parse error is simply ignored (treated as if no "style" attribute was present)
+            rule_parser
+                .parse_qualified_rule_block(&mut Parser::new(&css_source, Origin::Author))
+                .ok()
+        })
+        .unwrap_or_default()
 }
