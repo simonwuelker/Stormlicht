@@ -210,18 +210,16 @@ impl URL {
         let cwd = std::env::current_dir()?;
         let mut path = vec![];
         for part in cwd.iter().skip(1) {
-            // FIXME: Simplify this, we currently first convert
-            // to unicode, then to ascii
-            let unicode_str = part.to_str().ok_or_else(|| {
-                io::Error::other(format!(
-                    "Path to cwd ({}) contains non-unicode data",
+            let bytes = part.as_encoded_bytes();
+            let Some(ascii_str) = ascii::Str::from_bytes(bytes) else {
+                let error = io::Error::other(format!(
+                    "Path to cwd ({}) contains non-ascii data",
                     cwd.display()
-                ))
-            })?;
+                ));
+                return Err(error);
+            };
 
-            // FIXME: propagate error
-            let ascii_str: ascii::String = unicode_str.try_into().unwrap();
-            path.push(ascii_str);
+            path.push(ascii_str.to_owned());
         }
 
         // Since we are referring to a directory (which ends with a slash)
