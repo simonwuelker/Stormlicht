@@ -268,8 +268,6 @@ impl URL {
         // If input contains any ASCII tab or newline, validation error.
 
         // Remove all ASCII tab or newline from input.
-        // TODO https://doc.rust-lang.org/std/string/struct.String.html#method.remove_matches
-        // would be nice here, but it's not stabilized yet
         let filtered_input: String = input
             .chars()
             .filter(|c| !util::is_ascii_tab_or_newline(*c))
