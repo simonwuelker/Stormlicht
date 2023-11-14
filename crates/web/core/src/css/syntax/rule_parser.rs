@@ -1,4 +1,6 @@
-use crate::css::{selectors::SelectorList, syntax::Token, CSSParse, ParseError, Parser, StyleRule};
+use crate::css::{
+    selectors::SelectorList, syntax::Token, CSSParse, ParseError, Parser, StylePropertyDeclaration,
+};
 
 /// Used to track state across an CSS Stylesheet.
 ///
@@ -19,8 +21,7 @@ impl RuleParser {
     pub fn parse_qualified_rule_block(
         &mut self,
         parser: &mut Parser<'_>,
-        selectors: SelectorList,
-    ) -> Result<StyleRule, ParseError> {
+    ) -> Result<Vec<StylePropertyDeclaration>, ParseError> {
         let mut properties = vec![];
         while !parser.is_exhausted() {
             if let Some(declaration) = parser.consume_declaration() {
@@ -37,6 +38,6 @@ impl RuleParser {
             }
         }
 
-        Ok(StyleRule::new(selectors, properties))
+        Ok(properties)
     }
 }

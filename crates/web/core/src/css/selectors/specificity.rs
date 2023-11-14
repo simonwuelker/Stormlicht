@@ -20,6 +20,9 @@ impl Specificity {
     /// The specificity if no selector is present
     pub const ZERO: Self = Self::new(0, 0, 0);
 
+    // The highst possible [Specificity]
+    pub const MAX: Self = Self::new(u8::MAX, u8::MAX, u8::MAX);
+
     #[must_use]
     pub const fn new(a: u8, b: u8, c: u8) -> Self {
         Self { a, b, c }

@@ -270,8 +270,8 @@ impl<'a> Parser<'a> {
 
         // Create a delimited parser that consumes the rule's block
         let mut block_parser = self.create_limited(ParserDelimiter::CURLY_BRACE_CLOSE);
-        let qualified_rule =
-            rule_parser.parse_qualified_rule_block(&mut block_parser, selectors)?;
+        let properties = rule_parser.parse_qualified_rule_block(&mut block_parser)?;
+        let qualified_rule = StyleRule::new(selectors, properties);
         block_parser.expect_exhausted()?;
 
         self.set_state(block_parser.state());

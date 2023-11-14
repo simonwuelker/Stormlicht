@@ -1,12 +1,15 @@
 use std::{cmp, collections::HashSet, mem};
 
-use crate::dom::{dom_objects::Element, DOMPtr};
-
-use super::{
-    computed_style::ComputedStyle,
-    properties::Important,
-    selectors::{Selector, Specificity},
-    Origin, StyleProperty, StylePropertyDeclaration, StyleRule, Stylesheet,
+use crate::{
+    css::{
+        computed_style::ComputedStyle,
+        properties::Important,
+        selectors::{Selector, Specificity},
+        syntax::RuleParser,
+        Origin, Parser, StyleProperty, StylePropertyDeclaration, Stylesheet,
+    },
+    dom::{dom_objects::Element, DOMPtr},
+    static_interned,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -14,33 +17,40 @@ pub struct StyleComputer<'a> {
     stylesheets: &'a [Stylesheet],
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct MatchingProperty<'stylesheets> {
+#[derive(Clone, Debug)]
+pub struct MatchingProperty {
     /// The property that should be applied
-    property: &'stylesheets StylePropertyDeclaration,
+    // FIXME: This could (and should) be a reference - but in the case of "style" attributes,
+    //        there exists no stylesheet that could be referenced :/
+    property: StylePropertyDeclaration,
 
-    /// The rule that this property originated from
-    rule: &'stylesheets StyleRule,
+    /// The specificity of the selector of this rule that matched the element
+    specificity: Specificity,
 
     /// The index of the matched rule within its parent [Stylesheet]
     rule_index: usize,
 
     /// The stylesheet that this property originated from
-    stylesheet: &'stylesheets Stylesheet,
+    stylesheet_index: usize,
+
+    // The stylesheet origin
+    origin: Origin,
 }
 
-impl<'a> MatchingProperty<'a> {
+impl MatchingProperty {
     pub fn new(
-        property: &'a StylePropertyDeclaration,
-        rule: &'a StyleRule,
+        property: StylePropertyDeclaration,
+        specificity: Specificity,
         rule_index: usize,
-        stylesheet: &'a Stylesheet,
+        stylesheet_index: usize,
+        origin: Origin,
     ) -> Self {
         Self {
             property,
-            rule,
+            specificity,
             rule_index,
-            stylesheet,
+            stylesheet_index,
+            origin,
         }
     }
 
@@ -49,7 +59,7 @@ impl<'a> MatchingProperty<'a> {
     }
 
     fn origin_and_importance_group(&self) -> u8 {
-        match (self.property.important, self.stylesheet.origin()) {
+        match (self.property.important, self.origin) {
             // 1. FIXME: Transition declarations [css-transitions-1]
 
             // 2. Important user agent declarations
@@ -85,23 +95,11 @@ impl<'a> MatchingProperty<'a> {
         // FIXME: Context (https://drafts.csswg.org/css-cascade-4/#cascade-context)
 
         // Specificity (https://drafts.csswg.org/css-cascade-4/#cascade-specificity)
-        let my_specificity: Specificity = self
-            .rule
-            .selectors()
-            .iter()
-            .map(|sel| sel.specificity())
-            .sum();
-        let other_specificity = other
-            .rule
-            .selectors()
-            .iter()
-            .map(|sel| sel.specificity())
-            .sum();
-        let ordering = ordering.then(my_specificity.cmp(&other_specificity));
+        let ordering = ordering.then(self.specificity.cmp(&other.specificity));
 
         // Order of appearance (https://drafts.csswg.org/css-cascade-4/#cascade-order)
         ordering
-            .then(self.stylesheet.index().cmp(&other.stylesheet.index()))
+            .then(self.stylesheet_index.cmp(&other.stylesheet_index))
             .then(self.rule_index.cmp(&other.rule_index))
     }
 }
@@ -115,7 +113,7 @@ impl<'a> StyleComputer<'a> {
     }
 
     // Find all the [StyleRules](super::StyleRule) that apply to an [Element]
-    fn collect_matched_properties(&self, element: DOMPtr<Element>) -> Vec<MatchingProperty<'_>> {
+    fn collect_matched_properties(&self, element: DOMPtr<Element>) -> Vec<MatchingProperty> {
         let mut matched_properties = vec![];
 
         for stylesheet in self.stylesheets {
@@ -125,12 +123,49 @@ impl<'a> StyleComputer<'a> {
                     .iter()
                     .any(|selector| selector.matches(&element))
                 {
-                    let new_properties = rule
-                        .properties()
-                        .iter()
-                        .map(|prop| MatchingProperty::new(prop, rule, rule_index, stylesheet));
+                    let new_properties = rule.properties().iter().map(|prop| {
+                        // FIXME: This should be the specificity of the most-specific matching selector,
+                        //        not the sum
+                        let specificity = rule.selectors().iter().map(Selector::specificity).sum();
+
+                        MatchingProperty::new(
+                            prop.clone(),
+                            specificity,
+                            rule_index,
+                            stylesheet.index(),
+                            stylesheet.origin(),
+                        )
+                    });
                     matched_properties.extend(new_properties);
                 }
+            }
+        }
+
+        // Add the inline style (from the "style" attribute), if any
+        // FIXME: Can we cache this somehow?
+        if let Some(inline_style) = element
+            .borrow()
+            .attributes()
+            .get(&static_interned!("style"))
+        {
+            // https://html.spec.whatwg.org/multipage/dom.html#the-style-attribute
+            // https://drafts.csswg.org/css-style-attr/#style-attribute
+
+            let css_source = inline_style.to_string();
+            let mut rule_parser = RuleParser;
+
+            // Properties from "style" attributes have
+            // * Author origin
+            // * A higher specificity than any other element
+            if let Ok(properties) = rule_parser
+                .parse_qualified_rule_block(&mut Parser::new(&css_source, Origin::Author))
+            {
+                // NOTE: The rule and stylesheet index don't matter
+                //       because the specificy is already MAX
+                let inline_properties = properties.into_iter().map(|property| {
+                    MatchingProperty::new(property, Specificity::MAX, 0, 0, Origin::Author)
+                });
+                matched_properties.extend(inline_properties);
             }
         }
         matched_properties
@@ -153,7 +188,7 @@ impl<'a> StyleComputer<'a> {
         // Add properties in reverse order (most important first)
         let mut properties_added = HashSet::new();
 
-        for matched_property in matched_properties.iter().rev() {
+        for matched_property in matched_properties.into_iter().rev() {
             let property = matched_property.into_property();
 
             if properties_added.insert(mem::discriminant(&property)) {
