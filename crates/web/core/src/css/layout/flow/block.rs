@@ -456,7 +456,6 @@ impl BlockLevelBox {
             margin_area,
             borders,
             padding_area,
-            content_area,
             content_area_including_overflow,
             children,
         )

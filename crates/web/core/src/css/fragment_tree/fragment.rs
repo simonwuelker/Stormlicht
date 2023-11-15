@@ -19,10 +19,6 @@ pub struct BoxFragment {
     margin_area: Rectangle<CSSPixels>,
     borders: Sides<CSSPixels>,
     padding_area: Rectangle<CSSPixels>,
-
-    /// Content area including padding
-    content_area: Rectangle<CSSPixels>,
-
     content_area_including_overflow: Rectangle<CSSPixels>,
     children: Vec<Fragment>,
 }
@@ -118,14 +114,12 @@ impl TextFragment {
 
 impl BoxFragment {
     #[must_use]
-    #[allow(clippy::too_many_arguments)] // Will be refactored soon anyways
     pub fn new(
         dom_node: Option<DOMPtr<dom_objects::Node>>,
         style: ComputedStyle,
         margin_area: Rectangle<CSSPixels>,
         borders: Sides<CSSPixels>,
         padding_area: Rectangle<CSSPixels>,
-        content_area: Rectangle<CSSPixels>,
         content_area_including_overflow: Rectangle<CSSPixels>,
         children: Vec<Fragment>,
     ) -> Self {
@@ -135,7 +129,6 @@ impl BoxFragment {
             margin_area,
             borders,
             padding_area,
-            content_area,
             content_area_including_overflow,
             children,
         }
@@ -174,7 +167,7 @@ impl BoxFragment {
                 // Skip drawing the background entirely
             },
             BackgroundColor::Color(color) => {
-                painter.rect(self.content_area, color.into());
+                painter.rect(self.padding_area, color.into());
             },
         }
 

@@ -286,7 +286,6 @@ impl InlineBoxItem {
             borders,
             padding_area,
             content_area,
-            content_area,
             child_fragments,
         );
 
