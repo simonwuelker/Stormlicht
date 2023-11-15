@@ -568,6 +568,14 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn expect_number(&mut self) -> Result<Number, ParseError> {
+        if let Some(Token::Number(n)) = self.next_token() {
+            Ok(n)
+        } else {
+            Err(ParseError)
+        }
+    }
+
     pub fn parse<T: CSSParse<'a>>(&mut self) -> Result<T, ParseError> {
         T::parse(self)
     }
