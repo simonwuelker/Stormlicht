@@ -129,6 +129,10 @@ impl BlockLevelBox {
         }
     }
 
+    /// Compute layout for this block box, turning it into a fragment
+    ///
+    /// The `position` parameter describes the top-left corner of the parents
+    /// content rect.
     fn fragment(
         &self,
         position: Vec2D<CSSPixels>,
@@ -333,23 +337,22 @@ impl BlockLevelBox {
 
         let mut children = vec![];
 
-        let content_width = width - padding_left - padding_right;
         let containing_block = match height {
             AutoOr::Auto => {
                 // The height of this element depends on its contents
-                ContainingBlock::new(content_width)
+                ContainingBlock::new(width)
             },
             AutoOr::NotAuto(height) => {
                 // The height of this element is fixed, children may overflow
-                let content_height = height - padding_top - padding_bottom;
-                ContainingBlock::new(content_width).with_height(content_height)
+                ContainingBlock::new(width).with_height(height)
             },
         };
 
+        // The top-left corner of the content-rect
         let top_left = position
             + Vec2D {
-                x: margin_left + border_left,
-                y: margin_top + border_top,
+                x: margin_left + border_left + padding_left,
+                y: margin_top + border_top + padding_top,
             };
 
         let mut content_area_including_overflow = Rectangle {
@@ -371,7 +374,6 @@ impl BlockLevelBox {
             BlockContainer::BlockLevelBoxes(block_level_boxes) => {
                 let mut cursor = top_left;
 
-                cursor.y += padding_top;
                 for block_box in block_level_boxes {
                     // Every block box creates exactly one box fragment
                     let box_fragment =
@@ -389,14 +391,8 @@ impl BlockLevelBox {
                 cursor.y - top_left.y
             },
             BlockContainer::InlineFormattingContext(inline_formatting_context) => {
-                let content_top_left = top_left
-                    + Vec2D {
-                        x: padding_left,
-                        y: padding_top,
-                    };
-
                 let (fragments, content_height) = inline_formatting_context.layout(
-                    content_top_left,
+                    top_left,
                     containing_block,
                     length_resolution_context,
                 );
