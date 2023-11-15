@@ -412,6 +412,7 @@ impl BlockLevelBox {
         // if it wasn't defined previously
         let height = height.unwrap_or(content_height);
 
+        // The bottom right corner of the content area
         let bottom_right = top_left
             + Vec2D {
                 x: width,
@@ -430,20 +431,31 @@ impl BlockLevelBox {
             left: margin_left,
         };
 
+        let padding = Sides {
+            top: padding_top,
+            right: padding_right,
+            bottom: padding_bottom,
+            left: padding_left,
+        };
+
         // FIXME: This is ugly, refactor the way we tell our parent
         //        about the height of the box fragment
-        let border = Sides {
+        let borders = Sides {
             top: border_top,
             right: border_right,
             bottom: border_bottom,
             left: border_left,
         };
 
+        let padding_area = padding.surround(content_area);
+        let margin_area = margin.surround(borders.surround(padding_area));
+
         BoxFragment::new(
             self.node.clone(),
             self.style().clone(),
-            margin,
-            border,
+            margin_area,
+            borders,
+            padding_area,
             content_area,
             content_area_including_overflow,
             children,

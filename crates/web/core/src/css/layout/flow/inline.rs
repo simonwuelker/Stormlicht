@@ -276,13 +276,15 @@ impl InlineBoxItem {
 
         // FIXME: respect margins/borders for inline boxes
         let borders = Sides::all(CSSPixels::ZERO);
-        let margin = Sides::all(CSSPixels::ZERO);
+        let margin_area = content_area;
+        let padding_area = content_area;
 
         let box_fragment = BoxFragment::new(
             None,
             self.style,
-            margin,
+            margin_area,
             borders,
+            padding_area,
             content_area,
             content_area,
             child_fragments,

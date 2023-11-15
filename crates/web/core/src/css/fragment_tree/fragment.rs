@@ -16,8 +16,9 @@ pub struct BoxFragment {
     dom_node: Option<DOMPtr<dom_objects::Node>>,
 
     style: ComputedStyle,
-    margin: Sides<CSSPixels>,
+    margin_area: Rectangle<CSSPixels>,
     borders: Sides<CSSPixels>,
+    padding_area: Rectangle<CSSPixels>,
 
     /// Content area including padding
     content_area: Rectangle<CSSPixels>,
@@ -117,11 +118,13 @@ impl TextFragment {
 
 impl BoxFragment {
     #[must_use]
+    #[allow(clippy::too_many_arguments)] // Will be refactored soon anyways
     pub fn new(
         dom_node: Option<DOMPtr<dom_objects::Node>>,
         style: ComputedStyle,
-        margin: Sides<CSSPixels>,
+        margin_area: Rectangle<CSSPixels>,
         borders: Sides<CSSPixels>,
+        padding_area: Rectangle<CSSPixels>,
         content_area: Rectangle<CSSPixels>,
         content_area_including_overflow: Rectangle<CSSPixels>,
         children: Vec<Fragment>,
@@ -129,8 +132,9 @@ impl BoxFragment {
         Self {
             dom_node,
             style,
-            margin,
+            margin_area,
             borders,
+            padding_area,
             content_area,
             content_area_including_overflow,
             children,
@@ -151,11 +155,11 @@ impl BoxFragment {
     #[inline]
     #[must_use]
     pub fn margin_area(&self) -> Rectangle<CSSPixels> {
-        self.margin.surround(self.border_area())
+        self.margin_area
     }
 
     pub fn border_area(&self) -> Rectangle<CSSPixels> {
-        self.borders.surround(self.content_area)
+        self.borders.surround(self.padding_area)
     }
 
     #[inline]
