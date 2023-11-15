@@ -57,6 +57,13 @@
         "initial": "Display::default()"
     },
     {
+        "name": "float",
+        "specification": "https://drafts.csswg.org/css2/#propdef-float",
+        "inherited": false,
+        "value": "Float",
+        "initial": "Float::None"
+    },
+    {
         "name": "font-family",
         "specification": "https://drafts.csswg.org/css-fonts/#font-family-prop",
         "inherited": true,

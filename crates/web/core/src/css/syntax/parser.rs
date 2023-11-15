@@ -24,7 +24,7 @@ use crate::{
         layout::Sides, properties::Important, values::Number, Origin, StyleProperty,
         StylePropertyDeclaration, StyleRule, Stylesheet,
     },
-    static_interned,
+    static_interned, InternedString,
 };
 
 use std::fmt::Debug;
@@ -563,6 +563,14 @@ impl<'a> Parser<'a> {
     pub fn expect_percentage(&mut self) -> Result<Number, ParseError> {
         if let Some(Token::Percentage(percentage)) = self.next_token() {
             Ok(percentage)
+        } else {
+            Err(ParseError)
+        }
+    }
+
+    pub fn expect_identifier(&mut self) -> Result<InternedString, ParseError> {
+        if let Some(Token::Ident(identifier)) = self.next_token() {
+            Ok(identifier)
         } else {
             Err(ParseError)
         }
