@@ -220,8 +220,10 @@ impl BlockLevelBox {
                 let margin_right = margin_right.unwrap_or(CSSPixels::ZERO);
                 let width = containing_block.width()
                     - margin_left
+                    - border_left
                     - padding_left
                     - padding_right
+                    - border_right
                     - margin_right;
                 (width, margin_left, margin_right)
             },
