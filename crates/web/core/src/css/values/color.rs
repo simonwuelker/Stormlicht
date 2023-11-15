@@ -680,19 +680,36 @@ impl Color {
     fn parse_legacy_rgb(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
         // NOTE: The spec defines legacy-rgb and legacy-rgba
         //       But they are identical, so we do not differentiate between them
-        let red = resolve_percentage(parser.expect_percentage()?);
+
+        let clamp_number = |n: Number| n.round_to_int().try_into().map_err(|_| ParseError);
+
+        // Legacy rgb color arguments can either be three numbers or three percentages,
+        // but not a mix of both
+        let (red, uses_percentages) = match parser.next_token() {
+            Some(Token::Percentage(percentage)) => (resolve_percentage(percentage), true),
+            Some(Token::Number(n)) => (clamp_number(n)?, false),
+            _ => return Err(ParseError),
+        };
 
         parser.skip_whitespace();
         parser.expect_token(Token::Comma)?;
         parser.skip_whitespace();
 
-        let green = resolve_percentage(parser.expect_percentage()?);
+        let green = if uses_percentages {
+            resolve_percentage(parser.expect_percentage()?)
+        } else {
+            clamp_number(parser.expect_number()?)?
+        };
 
         parser.skip_whitespace();
         parser.expect_token(Token::Comma)?;
         parser.skip_whitespace();
 
-        let blue = resolve_percentage(parser.expect_percentage()?);
+        let blue = if uses_percentages {
+            resolve_percentage(parser.expect_percentage()?)
+        } else {
+            clamp_number(parser.expect_number()?)?
+        };
 
         parser.skip_whitespace();
 
@@ -864,6 +881,15 @@ mod tests {
             Color::parse_from_str("rgb(100%, 50.0%, 10%, 1%)"),
             Ok(Color::rgba(255, 128, 26, 3))
         );
+
+        // only numbers
+        assert_eq!(
+            Color::parse_from_str("rgb(10, 20, 30)"),
+            Ok(Color::rgb(10, 20, 30))
+        );
+
+        // mixed numbers and percentages - should not parse
+        assert!(Color::parse_from_str("rgb(50, 10, 10%)").is_err());
     }
 
     #[test]
