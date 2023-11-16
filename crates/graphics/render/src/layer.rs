@@ -118,26 +118,35 @@ impl Layer {
     }
 
     fn apply_transform(&mut self) -> Option<Rectangle> {
-        let mut extents: Option<Rectangle> = None;
-        for p in &mut self.flattened_outline {
-            p.coordinates = self.transform.apply_to(p.coordinates);
+        // Transform the outline
+        self.flattened_outline
+            .iter_mut()
+            .for_each(|p| p.coordinates = self.transform.apply_to(p.coordinates));
 
-            match extents {
-                Some(ref mut rectangle) => {
-                    rectangle.top_left.x = rectangle.top_left.x.min(p.coordinates.x);
-                    rectangle.top_left.y = rectangle.top_left.y.min(p.coordinates.y);
-                    rectangle.bottom_right.x = rectangle.bottom_right.x.max(p.coordinates.x);
-                    rectangle.bottom_right.y = rectangle.bottom_right.y.max(p.coordinates.y);
-                },
-                None => {
-                    extents = Some(Rectangle {
-                        top_left: p.coordinates,
-                        bottom_right: p.coordinates,
+        // Compute extents of the transformed outline
+
+        self.flattened_outline
+            .iter()
+            .map(|p| p.coordinates)
+            .fold(None, |extent, point| {
+                extent
+                    .map(|extent| {
+                        let top_left = extent.top_left();
+                        let bottom_right = extent.bottom_right();
+
+                        Rectangle::from_corners(
+                            Vec2D::new(
+                                f32::min(top_left.x, point.x),
+                                f32::min(top_left.y, point.y),
+                            ),
+                            Vec2D::new(
+                                f32::max(bottom_right.x, point.x),
+                                f32::max(bottom_right.y, point.y),
+                            ),
+                        )
                     })
-                },
-            }
-        }
-        extents
+                    .or(Some(Rectangle::from_corners(point, point)))
+            })
     }
 
     pub(crate) fn render_to(&mut self, bitmap: &mut Bitmap<u32>) {
@@ -147,14 +156,14 @@ impl Layer {
             // Compute a mask for the layer.
             // This mask determines which pixels in the bitmap should be
             // colored and which should not be.
-            let outline_offset = outline_extent.top_left;
+            let outline_offset = outline_extent.top_left();
             let outline_extent = outline_extent.snap_to_grid();
             let mut rasterizer = Rasterizer::new(outline_extent, outline_offset);
             rasterizer.fill(&self.flattened_outline);
             let mask = rasterizer.into_mask();
 
             // Compose the mask onto the buffer
-            compose(bitmap, mask, self.source, outline_extent.top_left);
+            compose(bitmap, mask, self.source, outline_extent.top_left());
         }
     }
 }

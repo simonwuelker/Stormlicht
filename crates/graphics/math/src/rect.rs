@@ -1,11 +1,20 @@
 use super::Vec2D;
 
-use std::ops;
+use std::{cmp, ops};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Rectangle<T = f32> {
-    pub top_left: Vec2D<T>,
-    pub bottom_right: Vec2D<T>,
+    top_left: Vec2D<T>,
+    bottom_right: Vec2D<T>,
+}
+
+impl<T> Rectangle<T> {
+    pub fn from_corners(top_left: Vec2D<T>, bottom_right: Vec2D<T>) -> Self {
+        Self {
+            top_left,
+            bottom_right,
+        }
+    }
 }
 
 impl<T> Rectangle<T>
@@ -37,8 +46,20 @@ where
 
 impl<T> Rectangle<T>
 where
-    T: ops::Sub<Output = T> + Copy,
+    T: ops::Add<Output = T> + ops::Sub<Output = T> + Copy,
 {
+    pub fn from_position_and_size(top_left: Vec2D<T>, width: T, height: T) -> Self {
+        let bottom_right = Vec2D {
+            x: top_left.x + width,
+            y: top_left.y + height,
+        };
+
+        Self {
+            top_left,
+            bottom_right,
+        }
+    }
+
     pub fn width(&self) -> T {
         self.bottom_right.x - self.top_left.x
     }
@@ -61,13 +82,19 @@ impl Rectangle<f32> {
     }
 }
 
-impl<T: PartialEq> PartialEq for Rectangle<T> {
+impl<T> PartialEq for Rectangle<T>
+where
+    T: PartialEq,
+{
     fn eq(&self, other: &Self) -> bool {
         self.top_left == other.top_left && self.bottom_right == other.bottom_right
     }
 }
 
-impl<T: PartialOrd + Copy> Rectangle<T> {
+impl<T> Rectangle<T>
+where
+    T: Ord + Copy,
+{
     #[inline]
     #[must_use]
     pub fn contains(&self, other: Self) -> bool {
@@ -85,24 +112,16 @@ impl<T: PartialOrd + Copy> Rectangle<T> {
     pub fn grow_to_contain(&mut self, other: Self) {
         // Like Ord::min/Ord::max except they only require T to implement
         // PartialOrd, not Ord
+        self.top_left.x = cmp::min(self.top_left.x, other.top_left.x);
+        self.top_left.y = cmp::min(self.top_left.y, other.top_left.y);
+        self.bottom_right.x = cmp::max(self.bottom_right.x, other.bottom_right.x);
+        self.bottom_right.y = cmp::max(self.bottom_right.y, other.bottom_right.y);
+    }
 
-        let min = |a, b| {
-            if a < b {
-                a
-            } else {
-                b
-            }
-        };
-        let max = |a, b| {
-            if a < b {
-                b
-            } else {
-                a
-            }
-        };
-        self.top_left.x = min(self.top_left.x, other.top_left.x);
-        self.top_left.y = min(self.top_left.y, other.top_left.y);
-        self.bottom_right.x = max(self.bottom_right.x, other.bottom_right.x);
-        self.bottom_right.y = max(self.bottom_right.y, other.bottom_right.y);
+    pub fn grow_to_contain_point(&mut self, point: Vec2D<T>) {
+        self.top_left.x = cmp::min(self.top_left.x, point.x);
+        self.top_left.y = cmp::min(self.top_left.y, point.y);
+        self.bottom_right.x = cmp::max(self.bottom_right.x, point.x);
+        self.bottom_right.y = cmp::max(self.bottom_right.y, point.y);
     }
 }
