@@ -3,7 +3,7 @@ use math::Rectangle;
 use crate::{
     css::{
         display_list::Painter,
-        layout::{CSSPixels, Sides},
+        layout::{Pixels, Sides},
         values::{BackgroundColor, Color},
         ComputedStyle, FontMetrics,
     },
@@ -16,17 +16,17 @@ pub struct BoxFragment {
     dom_node: Option<DOMPtr<dom_objects::Node>>,
 
     style: ComputedStyle,
-    margin_area: Rectangle<CSSPixels>,
-    borders: Sides<CSSPixels>,
-    padding_area: Rectangle<CSSPixels>,
-    content_area_including_overflow: Rectangle<CSSPixels>,
+    margin_area: Rectangle<Pixels>,
+    borders: Sides<Pixels>,
+    padding_area: Rectangle<Pixels>,
+    content_area_including_overflow: Rectangle<Pixels>,
     children: Vec<Fragment>,
 }
 
 #[derive(Clone, Debug)]
 pub struct TextFragment {
     text: String,
-    area: Rectangle<CSSPixels>,
+    area: Rectangle<Pixels>,
     color: Color,
     font_metrics: FontMetrics,
 }
@@ -45,14 +45,14 @@ impl Fragment {
         }
     }
 
-    pub const fn content_area_including_overflow(&self) -> Rectangle<CSSPixels> {
+    pub const fn content_area_including_overflow(&self) -> Rectangle<Pixels> {
         match self {
             Self::Box(box_fragment) => box_fragment.content_area_including_overflow,
             Self::Text(text_fragment) => text_fragment.area,
         }
     }
 
-    pub fn hit_test(&self, point: math::Vec2D<CSSPixels>) -> Option<dom::BoundaryPoint> {
+    pub fn hit_test(&self, point: math::Vec2D<Pixels>) -> Option<dom::BoundaryPoint> {
         match self {
             Self::Box(box_fragment) => {
                 let first_hit_child = box_fragment.children().iter().find(|child| {
@@ -81,7 +81,7 @@ impl TextFragment {
     #[must_use]
     pub fn new(
         text: String,
-        area: Rectangle<CSSPixels>,
+        area: Rectangle<Pixels>,
         color: Color,
         font_metrics: FontMetrics,
     ) -> Self {
@@ -117,10 +117,10 @@ impl BoxFragment {
     pub fn new(
         dom_node: Option<DOMPtr<dom_objects::Node>>,
         style: ComputedStyle,
-        margin_area: Rectangle<CSSPixels>,
-        borders: Sides<CSSPixels>,
-        padding_area: Rectangle<CSSPixels>,
-        content_area_including_overflow: Rectangle<CSSPixels>,
+        margin_area: Rectangle<Pixels>,
+        borders: Sides<Pixels>,
+        padding_area: Rectangle<Pixels>,
+        content_area_including_overflow: Rectangle<Pixels>,
         children: Vec<Fragment>,
     ) -> Self {
         Self {
@@ -147,17 +147,17 @@ impl BoxFragment {
     /// Compute the total space occupied by this fragment, including margins
     #[inline]
     #[must_use]
-    pub fn margin_area(&self) -> Rectangle<CSSPixels> {
+    pub fn margin_area(&self) -> Rectangle<Pixels> {
         self.margin_area
     }
 
-    pub fn border_area(&self) -> Rectangle<CSSPixels> {
+    pub fn border_area(&self) -> Rectangle<Pixels> {
         self.borders.surround(self.padding_area)
     }
 
     #[inline]
     #[must_use]
-    pub fn content_area_including_overflow(&self) -> Rectangle<CSSPixels> {
+    pub fn content_area_including_overflow(&self) -> Rectangle<Pixels> {
         self.content_area_including_overflow
     }
 
@@ -181,7 +181,7 @@ impl BoxFragment {
                 top_left: border_area.top_left(),
                 bottom_right: border_area.top_right()
                     + math::Vec2D {
-                        x: CSSPixels::ZERO,
+                        x: Pixels::ZERO,
                         y: self.borders.top,
                     },
             };
@@ -195,7 +195,7 @@ impl BoxFragment {
                 top_left: border_area.top_right()
                     - math::Vec2D {
                         x: self.borders.right,
-                        y: CSSPixels::ZERO,
+                        y: Pixels::ZERO,
                     },
                 bottom_right: border_area.bottom_right(),
             };
@@ -208,7 +208,7 @@ impl BoxFragment {
             let area = Rectangle {
                 top_left: border_area.bottom_left()
                     - math::Vec2D {
-                        x: CSSPixels::ZERO,
+                        x: Pixels::ZERO,
                         y: self.borders.bottom,
                     },
                 bottom_right: border_area.bottom_right(),
@@ -224,7 +224,7 @@ impl BoxFragment {
                 bottom_right: border_area.bottom_left()
                     + math::Vec2D {
                         x: self.borders.left,
-                        y: CSSPixels::ZERO,
+                        y: Pixels::ZERO,
                     },
             };
             let color = *self.style().border_left_color();

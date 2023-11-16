@@ -6,7 +6,7 @@ use crate::css::{
         command::{RectCommand, TextCommand},
         Command,
     },
-    layout::CSSPixels,
+    layout::Pixels,
     FontMetrics,
 };
 
@@ -16,7 +16,7 @@ pub struct Painter {
 }
 
 impl Painter {
-    pub fn rect(&mut self, area: math::Rectangle<CSSPixels>, color: math::Color) {
+    pub fn rect(&mut self, area: math::Rectangle<Pixels>, color: math::Color) {
         self.commands
             .push(Command::Rect(RectCommand { area, color }))
     }
@@ -24,7 +24,7 @@ impl Painter {
     pub fn text(
         &mut self,
         text: String,
-        position: Vec2D<CSSPixels>,
+        position: Vec2D<Pixels>,
         color: math::Color,
         font_metrics: FontMetrics,
     ) {

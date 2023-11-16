@@ -1,4 +1,4 @@
-use super::{layout::CSSPixels, FontMetrics};
+use super::{layout::Pixels, FontMetrics};
 
 /// Breaks Paragraphs into lines based on their width
 pub struct LineBreakIterator<'a> {
@@ -6,7 +6,7 @@ pub struct LineBreakIterator<'a> {
     ///
     /// Note that this is just a guideline, line boxes may overflow
     /// if they cannot be broken up.
-    available_width: CSSPixels,
+    available_width: Pixels,
     font_metrics: FontMetrics,
     text: &'a str,
     is_done: bool,
@@ -15,13 +15,13 @@ pub struct LineBreakIterator<'a> {
 #[derive(Clone, Copy, Debug)]
 pub struct TextLine<'a> {
     pub text: &'a str,
-    pub width: CSSPixels,
+    pub width: Pixels,
 }
 
 impl<'a> LineBreakIterator<'a> {
     #[inline]
     #[must_use]
-    pub const fn new(text: &'a str, font_metrics: FontMetrics, available_width: CSSPixels) -> Self {
+    pub const fn new(text: &'a str, font_metrics: FontMetrics, available_width: Pixels) -> Self {
         Self {
             text,
             font_metrics,
@@ -30,7 +30,7 @@ impl<'a> LineBreakIterator<'a> {
         }
     }
 
-    pub fn adjust_available_width(&mut self, available_width: CSSPixels) {
+    pub fn adjust_available_width(&mut self, available_width: Pixels) {
         self.available_width = available_width;
     }
 
@@ -60,7 +60,7 @@ impl<'a> Iterator for LineBreakIterator<'a> {
                 continue;
             }
 
-            let width = CSSPixels(
+            let width = Pixels(
                 self.font_metrics
                     .font_face
                     .compute_rendered_width(line, self.font_metrics.size.into()),
@@ -89,7 +89,7 @@ impl<'a> Iterator for LineBreakIterator<'a> {
         }
 
         // There are no further opportunities to split this text
-        let width = CSSPixels(
+        let width = Pixels(
             self.font_metrics
                 .font_face
                 .compute_rendered_width(self.text, self.font_metrics.size.into()),
@@ -117,13 +117,13 @@ impl<'a> Iterator for LineBreakIterator<'a> {
 #[cfg(test)]
 mod tests {
     use super::LineBreakIterator;
-    use crate::css::{layout::CSSPixels, FontMetrics};
+    use crate::css::{layout::Pixels, FontMetrics};
 
     #[test]
     fn do_not_break_empty_text() {
         // When iterating over line breaks of empty text, we should produce no lines at all
         // (as opposed to one empty line)
-        let mut lines = LineBreakIterator::new("", FontMetrics::default(), CSSPixels::ZERO);
+        let mut lines = LineBreakIterator::new("", FontMetrics::default(), Pixels::ZERO);
         assert!(lines.next().is_none());
     }
 }

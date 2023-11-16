@@ -2,7 +2,7 @@ pub mod flow;
 mod pixels;
 
 use math::{Rectangle, Vec2D};
-pub use pixels::CSSPixels;
+pub use pixels::Pixels;
 
 use std::ops;
 
@@ -54,38 +54,38 @@ pub struct Size<T> {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ContainingBlock {
-    width: CSSPixels,
+    width: Pixels,
     /// The height of the containing block
     ///
     /// `Some` if the height is defined (for example, using the CSS "height" property)
     /// or `None` if the height depends on the content.
-    height: Option<CSSPixels>,
+    height: Option<Pixels>,
 }
 
 impl ContainingBlock {
     #[inline]
     #[must_use]
-    pub const fn new(width: CSSPixels) -> Self {
+    pub const fn new(width: Pixels) -> Self {
         Self {
             width,
             height: None,
         }
     }
 
-    pub const fn with_height(mut self, height: CSSPixels) -> Self {
+    pub const fn with_height(mut self, height: Pixels) -> Self {
         self.height = Some(height);
         self
     }
 
     #[inline]
     #[must_use]
-    pub const fn width(&self) -> CSSPixels {
+    pub const fn width(&self) -> Pixels {
         self.width
     }
 
     #[inline]
     #[must_use]
-    pub const fn height(&self) -> Option<CSSPixels> {
+    pub const fn height(&self) -> Option<Pixels> {
         self.height
     }
 }

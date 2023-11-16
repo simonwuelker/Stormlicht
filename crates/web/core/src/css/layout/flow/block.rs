@@ -6,7 +6,7 @@ use crate::{
     css::{
         font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::{BoxFragment, Fragment, FragmentTree},
-        layout::{CSSPixels, ContainingBlock, Sides, Size},
+        layout::{ContainingBlock, Pixels, Sides, Size},
         values::{self, length, AutoOr, Length, PercentageOr},
         ComputedStyle, StyleComputer,
     },
@@ -68,10 +68,10 @@ impl BlockFormattingContext {
         vec![root].into()
     }
 
-    pub fn fragment(&self, viewport: Size<CSSPixels>) -> FragmentTree {
+    pub fn fragment(&self, viewport: Size<Pixels>) -> FragmentTree {
         let position = Vec2D {
-            x: CSSPixels::ZERO,
-            y: CSSPixels::ZERO,
+            x: Pixels::ZERO,
+            y: Pixels::ZERO,
         };
         let length_resolution_context = length::ResolutionContext {
             font_size: DEFAULT_FONT_SIZE,
@@ -135,7 +135,7 @@ impl BlockLevelBox {
     /// content rect.
     fn fragment(
         &self,
-        position: Vec2D<CSSPixels>,
+        position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
         length_resolution_context: length::ResolutionContext,
     ) -> BoxFragment {
@@ -175,19 +175,19 @@ impl BlockLevelBox {
         let padding_right = resolve_padding(self.style().padding_right());
 
         let border_left = if self.style().border_left_style().is_none() {
-            CSSPixels::ZERO
+            Pixels::ZERO
         } else {
             resolve_border_width(self.style().border_left_width())
         };
 
         let border_right = if self.style().border_right_style().is_none() {
-            CSSPixels::ZERO
+            Pixels::ZERO
         } else {
             resolve_border_width(self.style().border_right_width())
         };
 
         // Margins are treated as zero if the total width exceeds the available width
-        let total_width_is_more_than_available = |width: &CSSPixels| {
+        let total_width_is_more_than_available = |width: &Pixels| {
             let total_width = margin_left.unwrap_or_default()
                 + border_left
                 + padding_left
@@ -198,16 +198,16 @@ impl BlockLevelBox {
             total_width > containing_block.width()
         };
         if width.is_not_auto_and(total_width_is_more_than_available) {
-            margin_left = margin_left.or(AutoOr::NotAuto(CSSPixels::ZERO));
-            margin_right = margin_right.or(AutoOr::NotAuto(CSSPixels::ZERO));
+            margin_left = margin_left.or(AutoOr::NotAuto(Pixels::ZERO));
+            margin_right = margin_right.or(AutoOr::NotAuto(Pixels::ZERO));
         }
 
         // If there is exactly one value specified as auto, its used value follows from the equality.
         let (width, margin_left, margin_right) = match (width, margin_left, margin_right) {
             (AutoOr::Auto, margin_left, margin_right) => {
                 // If width is set to auto, any other auto values become 0 and width follows from the resulting equality.
-                let margin_left: CSSPixels = margin_left.unwrap_or(CSSPixels::ZERO);
-                let margin_right = margin_right.unwrap_or(CSSPixels::ZERO);
+                let margin_left: Pixels = margin_left.unwrap_or(Pixels::ZERO);
+                let margin_right = margin_right.unwrap_or(Pixels::ZERO);
                 let width = containing_block.width()
                     - margin_left
                     - border_left
@@ -269,13 +269,13 @@ impl BlockLevelBox {
         let padding_bottom = resolve_padding(self.style().padding_bottom());
 
         let border_top = if self.style().border_top_style().is_none() {
-            CSSPixels::ZERO
+            Pixels::ZERO
         } else {
             resolve_border_width(self.style().border_top_width())
         };
 
         let border_bottom = if self.style().border_bottom_style().is_none() {
-            CSSPixels::ZERO
+            Pixels::ZERO
         } else {
             resolve_border_width(self.style().border_bottom_width())
         };
@@ -465,17 +465,17 @@ impl TreeDebug for BlockLevelBox {
 
 #[derive(Clone, Debug)]
 struct BlockFormattingContextState {
-    cursor: Vec2D<CSSPixels>,
+    cursor: Vec2D<Pixels>,
     fragments_so_far: Vec<Fragment>,
     containing_block: ContainingBlock,
-    content_area_including_overflow: Rectangle<CSSPixels>,
+    content_area_including_overflow: Rectangle<Pixels>,
     ctx: length::ResolutionContext,
-    height: CSSPixels,
+    height: Pixels,
 }
 
 impl BlockFormattingContextState {
     fn new(
-        position: Vec2D<CSSPixels>,
+        position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
         ctx: length::ResolutionContext,
     ) -> Self {
@@ -488,7 +488,7 @@ impl BlockFormattingContextState {
                 bottom_right: position,
             },
             ctx,
-            height: CSSPixels::ZERO,
+            height: Pixels::ZERO,
         }
     }
 
@@ -506,7 +506,7 @@ impl BlockFormattingContextState {
         self.fragments_so_far.push(Fragment::Box(box_fragment));
     }
 
-    fn finish(self) -> (CSSPixels, Vec<Fragment>) {
+    fn finish(self) -> (Pixels, Vec<Fragment>) {
         (self.height, self.fragments_so_far)
     }
 }

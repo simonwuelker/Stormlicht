@@ -7,7 +7,7 @@ use crate::{
     css::{
         display_list::Painter,
         fragment_tree::FragmentTree,
-        layout::{flow::BlockFormattingContext, CSSPixels, Size},
+        layout::{flow::BlockFormattingContext, Pixels, Size},
         StyleComputer, Stylesheet,
     },
     dom::{dom_objects, DOMPtr},
@@ -75,8 +75,8 @@ impl BrowsingContext {
 
         // Build a fragment tree by fragmenting the boxes
         let viewport_size = Size {
-            width: CSSPixels(viewport_size.0 as f32),
-            height: CSSPixels(viewport_size.1 as f32),
+            width: Pixels(viewport_size.0 as f32),
+            height: Pixels(viewport_size.1 as f32),
         };
         self.fragment_tree = box_tree.fragment(viewport_size);
 
@@ -96,7 +96,7 @@ impl BrowsingContext {
     pub fn handle_event(&mut self, event: event::Event) -> bool {
         match event {
             event::Event::Mouse(mouse_event) => {
-                let position = mouse_event.position.map(|x| CSSPixels::from(x as f32));
+                let position = mouse_event.position.map(|x| Pixels::from(x as f32));
 
                 match mouse_event.kind {
                     event::MouseEventKind::Down(event::MouseButton::Left) => {

@@ -1,6 +1,6 @@
 use crate::{
     css::{
-        layout::CSSPixels,
+        layout::Pixels,
         syntax::Token,
         values::{Length, PercentageOr},
         CSSParse, ParseError, Parser,
@@ -11,7 +11,7 @@ use crate::{
 use super::length;
 
 /// The default font size.
-pub const FONT_MEDIUM_PX: CSSPixels = CSSPixels(16.0);
+pub const FONT_MEDIUM_PX: Pixels = Pixels(16.0);
 
 /// Ratio applied for font-size: larger/smaller
 ///
@@ -61,7 +61,7 @@ pub enum FontSize {
 /// Contains all values that the absolute value of a [FontSize] may depend on
 #[derive(Clone, Copy, Debug)]
 pub struct ResolutionContext {
-    pub inherited_font_size: CSSPixels,
+    pub inherited_font_size: Pixels,
     pub length_context: length::ResolutionContext,
 }
 
@@ -77,7 +77,7 @@ impl AbsoluteSize {
         *self as u8
     }
 
-    fn to_pixels(self) -> CSSPixels {
+    fn to_pixels(self) -> Pixels {
         /// Mapping from html size to scale factor, copied from
         /// https://github.com/servo/servo/blob/fd31da9102497cfaf5265bbab17df4424a8a1078/components/style/values/specified/font.rs#L869
         const FONT_SIZE_FACTORS: [f32; 8] = [0.6, 0.75, 0.89, 1.00, 1.20, 1.50, 2.00, 3.00];
@@ -87,7 +87,7 @@ impl AbsoluteSize {
 }
 
 impl RelativeSize {
-    fn to_pixels(self, inherited_font_size: CSSPixels) -> CSSPixels {
+    fn to_pixels(self, inherited_font_size: Pixels) -> Pixels {
         match self {
             Self::Smaller => inherited_font_size / LARGER_FONT_SIZE_RATIO,
             Self::Larger => inherited_font_size * LARGER_FONT_SIZE_RATIO,
@@ -96,7 +96,7 @@ impl RelativeSize {
 }
 
 impl FontSize {
-    pub fn to_pixels(self, ctx: ResolutionContext) -> CSSPixels {
+    pub fn to_pixels(self, ctx: ResolutionContext) -> Pixels {
         match self {
             Self::Absolute(absolute_size) => absolute_size.to_pixels(),
             Self::Relative(relative_size) => relative_size.to_pixels(ctx.inherited_font_size),

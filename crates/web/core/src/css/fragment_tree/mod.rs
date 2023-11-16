@@ -9,7 +9,7 @@ pub use fragment::{BoxFragment, Fragment, TextFragment};
 
 use crate::dom;
 
-use super::{display_list::Painter, layout::CSSPixels};
+use super::{display_list::Painter, layout::Pixels};
 
 #[derive(Clone, Debug, Default)]
 pub struct FragmentTree {
@@ -27,7 +27,7 @@ impl FragmentTree {
         }
     }
 
-    pub fn hit_test(&self, point: math::Vec2D<CSSPixels>) -> Option<dom::BoundaryPoint> {
+    pub fn hit_test(&self, point: math::Vec2D<Pixels>) -> Option<dom::BoundaryPoint> {
         for fragment in &self.root_fragments {
             if fragment
                 .content_area_including_overflow()

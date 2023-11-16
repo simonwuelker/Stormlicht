@@ -1,5 +1,5 @@
 use crate::{
-    css::{layout::CSSPixels, syntax::Token, CSSParse, ParseError, Parser},
+    css::{layout::Pixels, syntax::Token, CSSParse, ParseError, Parser},
     static_interned,
 };
 
@@ -77,9 +77,9 @@ impl Default for LineWidth {
 }
 
 impl LineWidth {
-    pub const THIN: Self = Self(Length::pixels(CSSPixels(1.)));
-    pub const MEDIUM: Self = Self(Length::pixels(CSSPixels(3.)));
-    pub const THICK: Self = Self(Length::pixels(CSSPixels(5.)));
+    pub const THIN: Self = Self(Length::pixels(Pixels(1.)));
+    pub const MEDIUM: Self = Self(Length::pixels(Pixels(3.)));
+    pub const THICK: Self = Self(Length::pixels(Pixels(5.)));
 
     pub const fn length(&self) -> Length {
         self.0

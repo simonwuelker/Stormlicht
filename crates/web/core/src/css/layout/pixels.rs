@@ -5,25 +5,25 @@ use std::ops;
 /// Note that a CSS pixel is not necessarily equivalent to a
 /// physical pixel on a screen. A CSS Pixel is always equal to `1/96in`.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
-pub struct CSSPixels(pub f32);
+pub struct Pixels(pub f32);
 
-impl CSSPixels {
+impl Pixels {
     pub const ZERO: Self = Self(0.);
 }
 
-impl From<f32> for CSSPixels {
+impl From<f32> for Pixels {
     fn from(value: f32) -> Self {
         Self(value)
     }
 }
 
-impl From<CSSPixels> for f32 {
-    fn from(value: CSSPixels) -> Self {
+impl From<Pixels> for f32 {
+    fn from(value: Pixels) -> Self {
         value.0
     }
 }
 
-impl ops::Mul<f32> for CSSPixels {
+impl ops::Mul<f32> for Pixels {
     type Output = Self;
 
     fn mul(self, rhs: f32) -> Self::Output {
@@ -31,7 +31,7 @@ impl ops::Mul<f32> for CSSPixels {
     }
 }
 
-impl ops::Div<f32> for CSSPixels {
+impl ops::Div<f32> for Pixels {
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self::Output {
@@ -39,7 +39,7 @@ impl ops::Div<f32> for CSSPixels {
     }
 }
 
-impl ops::Add for CSSPixels {
+impl ops::Add for Pixels {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -47,13 +47,13 @@ impl ops::Add for CSSPixels {
     }
 }
 
-impl ops::AddAssign for CSSPixels {
+impl ops::AddAssign for Pixels {
     fn add_assign(&mut self, rhs: Self) {
         self.0 += rhs.0
     }
 }
 
-impl ops::Sub for CSSPixels {
+impl ops::Sub for Pixels {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -61,13 +61,13 @@ impl ops::Sub for CSSPixels {
     }
 }
 
-impl ops::SubAssign for CSSPixels {
+impl ops::SubAssign for Pixels {
     fn sub_assign(&mut self, rhs: Self) {
         self.0 -= rhs.0
     }
 }
 
-impl Default for CSSPixels {
+impl Default for Pixels {
     fn default() -> Self {
         Self::ZERO
     }

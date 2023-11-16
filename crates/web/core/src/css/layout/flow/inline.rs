@@ -7,7 +7,7 @@ use crate::{
     css::{
         font_metrics::{self, DEFAULT_FONT_SIZE},
         fragment_tree::{BoxFragment, Fragment, TextFragment},
-        layout::{CSSPixels, ContainingBlock, Sides},
+        layout::{ContainingBlock, Pixels, Sides},
         values::{font_size, length},
         ComputedStyle, LineBreakIterator,
     },
@@ -140,10 +140,10 @@ impl InlineFormattingContext {
 
     pub fn layout(
         &self,
-        position: Vec2D<CSSPixels>,
+        position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
         length_resolution_context: length::ResolutionContext,
-    ) -> (Vec<Fragment>, CSSPixels) {
+    ) -> (Vec<Fragment>, Pixels) {
         let mut state = InlineFormattingContextState::new(
             position,
             containing_block,
@@ -157,15 +157,15 @@ impl InlineFormattingContext {
         if state.has_seen_relevant_content {
             (state.finished_fragments, state.y_cursor - position.y)
         } else {
-            (vec![], CSSPixels::ZERO)
+            (vec![], Pixels::ZERO)
         }
     }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
 struct LineBoxUnderConstruction {
-    height: CSSPixels,
-    width: CSSPixels,
+    height: Pixels,
+    width: Pixels,
 }
 
 /// State of an IFC for the current nesting level
@@ -195,8 +195,8 @@ struct InlineFormattingContextState<'box_tree> {
     has_seen_relevant_content: bool,
 
     /// The top left corner of the first line box
-    position: Vec2D<CSSPixels>,
-    y_cursor: CSSPixels,
+    position: Vec2D<Pixels>,
+    y_cursor: Pixels,
 
     /// `true` if the current line is empty
     ///
@@ -217,7 +217,7 @@ enum LineItem {
 struct TextRunItem {
     metrics: FontMetrics,
     text: String,
-    width: CSSPixels,
+    width: Pixels,
     style: ComputedStyle,
 }
 
@@ -230,17 +230,17 @@ struct InlineBoxItem {
 /// State used during conversion from [LineItems](LineItem) to [Fragments](Fragment)
 #[derive(Clone, Copy, Debug)]
 struct LineItemLayoutState {
-    top_left: Vec2D<CSSPixels>,
-    width: CSSPixels,
-    height: CSSPixels,
+    top_left: Vec2D<Pixels>,
+    width: Pixels,
+    height: Pixels,
 }
 
 impl LineItemLayoutState {
-    fn new(top_left: Vec2D<CSSPixels>) -> Self {
+    fn new(top_left: Vec2D<Pixels>) -> Self {
         Self {
             top_left,
-            width: CSSPixels::ZERO,
-            height: CSSPixels::ZERO,
+            width: Pixels::ZERO,
+            height: Pixels::ZERO,
         }
     }
 }
@@ -275,7 +275,7 @@ impl InlineBoxItem {
         };
 
         // FIXME: respect margins/borders for inline boxes
-        let borders = Sides::all(CSSPixels::ZERO);
+        let borders = Sides::all(Pixels::ZERO);
         let margin_area = content_area;
         let padding_area = content_area;
 
@@ -295,7 +295,7 @@ impl InlineBoxItem {
 
 impl<'box_tree> InlineFormattingContextState<'box_tree> {
     fn new(
-        position: Vec2D<CSSPixels>,
+        position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
         length_resolution_context: length::ResolutionContext,
     ) -> Self {
@@ -313,7 +313,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
         }
     }
 
-    fn push_line_item(&mut self, line_item: LineItem, width: CSSPixels, height: CSSPixels) {
+    fn push_line_item(&mut self, line_item: LineItem, width: Pixels, height: Pixels) {
         self.line_box_under_construction.width += width;
         self.has_seen_relevant_content = true;
         self.at_beginning_of_line = false;
@@ -325,7 +325,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
         self.current_insertion_point().line_items.push(line_item);
     }
 
-    fn remaining_width_for_line_box(&self) -> CSSPixels {
+    fn remaining_width_for_line_box(&self) -> Pixels {
         self.containing_block.width() - self.line_box_under_construction.width
     }
 
@@ -372,8 +372,8 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
 
         // Prepare for a new line
         self.line_box_under_construction = LineBoxUnderConstruction {
-            width: CSSPixels::ZERO,
-            height: CSSPixels::ZERO,
+            width: Pixels::ZERO,
+            height: Pixels::ZERO,
         };
 
         self.at_beginning_of_line = true;

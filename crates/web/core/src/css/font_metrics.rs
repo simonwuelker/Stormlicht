@@ -1,13 +1,13 @@
 use font::Font;
 
-use super::layout::CSSPixels;
+use super::layout::Pixels;
 
-pub const DEFAULT_FONT_SIZE: CSSPixels = CSSPixels(16.0);
+pub const DEFAULT_FONT_SIZE: Pixels = Pixels(16.0);
 
 #[derive(Clone, Debug)]
 pub struct FontMetrics {
     pub font_face: Box<Font>,
-    pub size: CSSPixels,
+    pub size: Pixels,
 }
 
 impl Default for FontMetrics {
@@ -20,7 +20,7 @@ impl Default for FontMetrics {
 }
 
 impl FontMetrics {
-    pub fn new(size: CSSPixels) -> Self {
+    pub fn new(size: Pixels) -> Self {
         Self {
             size,
             font_face: Box::default(),

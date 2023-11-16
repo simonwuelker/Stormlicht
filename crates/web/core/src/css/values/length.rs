@@ -1,6 +1,6 @@
 use crate::{
     css::{
-        layout::{CSSPixels, Size},
+        layout::{Pixels, Size},
         syntax::Token,
         values::Percentage,
         CSSParse, ParseError, Parser,
@@ -118,17 +118,17 @@ pub struct ResolutionContext {
     /// The computed value of the `font-size` property on the current element
     ///
     /// Font-relative units like `em` depend on this
-    pub font_size: CSSPixels,
+    pub font_size: Pixels,
 
     /// The computed value of the `font-size` property on the root element
     ///
     /// Font-relative units like `rem` depend on this
-    pub root_font_size: CSSPixels,
+    pub root_font_size: Pixels,
 
     /// The size of the viewport
     ///
     /// Viewport-relative units like `vw` depend on this
-    pub viewport: Size<CSSPixels>,
+    pub viewport: Size<Pixels>,
 }
 
 impl Length {
@@ -139,15 +139,15 @@ impl Length {
 
     /// Return the length in pixels
     #[must_use]
-    pub fn absolutize(&self, ctx: ResolutionContext) -> CSSPixels {
+    pub fn absolutize(&self, ctx: ResolutionContext) -> Pixels {
         match self.unit {
-            Unit::Cm => CSSPixels(self.value * 96. / 2.54),
-            Unit::Mm => CSSPixels(self.value * 96. / 2.54 / 10.),
-            Unit::Q => CSSPixels(self.value * 96. / 2.54 / 40.),
-            Unit::In => CSSPixels(self.value * 96.),
-            Unit::Pc => CSSPixels(self.value * 96. / 6.),
-            Unit::Pt => CSSPixels(self.value * 96. / 72.),
-            Unit::Px => CSSPixels(self.value),
+            Unit::Cm => Pixels(self.value * 96. / 2.54),
+            Unit::Mm => Pixels(self.value * 96. / 2.54 / 10.),
+            Unit::Q => Pixels(self.value * 96. / 2.54 / 40.),
+            Unit::In => Pixels(self.value * 96.),
+            Unit::Pc => Pixels(self.value * 96. / 6.),
+            Unit::Pt => Pixels(self.value * 96. / 72.),
+            Unit::Px => Pixels(self.value),
 
             // Viewport-relative units
             Unit::Vw
@@ -189,7 +189,7 @@ impl Length {
     }
 
     #[must_use]
-    pub const fn pixels(pixels: CSSPixels) -> Self {
+    pub const fn pixels(pixels: Pixels) -> Self {
         Self {
             value: pixels.0,
             unit: Unit::Px,
@@ -197,8 +197,8 @@ impl Length {
     }
 }
 
-impl From<CSSPixels> for Length {
-    fn from(value: CSSPixels) -> Self {
+impl From<Pixels> for Length {
+    fn from(value: Pixels) -> Self {
         Self {
             value: value.0,
             unit: Unit::Px,
