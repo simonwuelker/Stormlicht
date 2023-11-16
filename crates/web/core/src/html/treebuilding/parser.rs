@@ -374,9 +374,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-the-specific-scope>
     fn is_element_in_specific_scope(&self, target_node_type: DomType, scope: &[DomType]) -> bool {
         // 1. Initialize node to be the current node (the bottommost node of the stack).
-        let mut node = self.current_node();
-
-        loop {
+        for node in self.open_elements.iter().rev() {
             // 2. If node is the target node, terminate in a match state.
             if node.underlying_type() == target_node_type {
                 return true;
@@ -387,14 +385,10 @@ impl<P: ParseErrorHandler> Parser<P> {
             }
 
             // Otherwise, set node to the previous entry in the stack of open elements and return to step 2.
-            let next_node = node
-                .borrow()
-                .parent_node()
-                .expect("Algorithm should terminate before top of the stack is reached");
-            node = next_node;
             // (This will never fail, since the loop will always terminate in the previous step if the
             // top of the stack — an html element — is reached.)
         }
+        unreachable!()
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#close-a-p-element>
