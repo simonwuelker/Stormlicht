@@ -11,7 +11,7 @@ use crate::{
         values::{font_size, length},
         ComputedStyle, LineBreakIterator,
     },
-    dom::{dom_objects, DOMPtr},
+    dom::{dom_objects, DomPtr},
     TreeDebug, TreeFormatter,
 };
 
@@ -31,7 +31,7 @@ pub struct TextRun {
 /// <https://drafts.csswg.org/css2/#inline-box>
 #[derive(Clone, Debug)]
 pub struct InlineBox {
-    node: DOMPtr<dom_objects::Node>,
+    node: DomPtr<dom_objects::Node>,
     style: ComputedStyle,
     contents: Vec<InlineLevelBox>,
 }
@@ -461,7 +461,7 @@ impl From<Vec<InlineLevelBox>> for InlineFormattingContext {
 
 impl InlineBox {
     #[inline]
-    pub fn new(node: DOMPtr<dom_objects::Node>, style: ComputedStyle) -> Self {
+    pub fn new(node: DomPtr<dom_objects::Node>, style: ComputedStyle) -> Self {
         Self {
             node,
             style,

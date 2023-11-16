@@ -8,30 +8,30 @@ use std::{
 use crate::TreeDebug;
 
 use super::{
-    codegen::{DOMType, DOMTyped},
+    codegen::{DomType, DomTyped},
     dom_objects, IsA,
 };
 
 /// Smartpointer used for inheritance-objects.
-/// Each [DOMPtr] contains a pointer to an object of type `T`.
+/// Each [DomPtr] contains a pointer to an object of type `T`.
 /// `T` is either the actual type stored at the address or any
 /// of its supertypes.
 /// The internal objects are reference counted and inside a `RefCell`.
-pub struct DOMPtr<T: DOMTyped> {
+pub struct DomPtr<T: DomTyped> {
     inner: Rc<RefCell<T>>,
 
     /// The actual type pointed to by inner.
-    underlying_type: DOMType,
+    underlying_type: DomType,
 }
 
-pub struct WeakDOMPtr<T: DOMTyped> {
+pub struct WeakDomPtr<T: DomTyped> {
     inner: Weak<RefCell<T>>,
 
     /// The actual type pointed to by inner.
-    underlying_type: DOMType,
+    underlying_type: DomType,
 }
 
-impl<T: DOMTyped> Deref for DOMPtr<T> {
+impl<T: DomTyped> Deref for DomPtr<T> {
     type Target = Rc<RefCell<T>>;
 
     fn deref(&self) -> &Self::Target {
@@ -39,7 +39,7 @@ impl<T: DOMTyped> Deref for DOMPtr<T> {
     }
 }
 
-impl<T: DOMTyped> Deref for WeakDOMPtr<T> {
+impl<T: DomTyped> Deref for WeakDomPtr<T> {
     type Target = Weak<RefCell<T>>;
 
     fn deref(&self) -> &Self::Target {
@@ -47,7 +47,7 @@ impl<T: DOMTyped> Deref for WeakDOMPtr<T> {
     }
 }
 
-impl<T: DOMTyped> DOMPtr<T> {
+impl<T: DomTyped> DomPtr<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner: Rc::new(RefCell::new(inner)),
@@ -55,13 +55,13 @@ impl<T: DOMTyped> DOMPtr<T> {
         }
     }
 
-    /// Get the actual type pointed to by the [DOMPtr]
-    pub fn underlying_type(&self) -> DOMType {
+    /// Get the actual type pointed to by the [DomPtr]
+    pub fn underlying_type(&self) -> DomType {
         self.underlying_type
     }
 
-    /// Return true if the DOMPtr stores `O` or any of its subclasses
-    pub fn is_a<O: DOMTyped>(&self) -> bool {
+    /// Return true if the [DomPtr] stores `O` or any of its subclasses
+    pub fn is_a<O: DomTyped>(&self) -> bool {
         self.underlying_type.is_a(O::as_type())
     }
 
@@ -70,13 +70,13 @@ impl<T: DOMTyped> DOMPtr<T> {
     ///
     /// # Panics
     /// This function panics if the types are incompatible
-    pub fn into_type<O: DOMTyped>(self) -> DOMPtr<O> {
+    pub fn into_type<O: DomTyped>(self) -> DomPtr<O> {
         assert!(self.is_a::<O>());
         unsafe { self.cast_unchecked() }
     }
 
     /// Cast a object into an instance of one of its parent classes
-    pub fn upcast<O: DOMTyped>(self) -> DOMPtr<O>
+    pub fn upcast<O: DomTyped>(self) -> DomPtr<O>
     where
         T: IsA<O>,
     {
@@ -86,13 +86,13 @@ impl<T: DOMTyped> DOMPtr<T> {
         unsafe { self.cast_unchecked() }
     }
 
-    unsafe fn cast_unchecked<O: DOMTyped>(self) -> DOMPtr<O> {
+    unsafe fn cast_unchecked<O: DomTyped>(self) -> DomPtr<O> {
         std::mem::transmute(self)
     }
 
     /// Try to cast the object to another type and fail
     /// if the cast is invalid (ie the objects don't inherit from each other)
-    pub fn try_into_type<O: DOMTyped>(&self) -> Option<DOMPtr<O>> {
+    pub fn try_into_type<O: DomTyped>(&self) -> Option<DomPtr<O>> {
         if self.is_a::<O>() {
             let result = unsafe { self.clone().cast_unchecked() };
             Some(result)
@@ -101,44 +101,44 @@ impl<T: DOMTyped> DOMPtr<T> {
         }
     }
 
-    /// Check if two [DOMPtr]'s point to the same object.
+    /// Check if two [DomPtr]'s point to the same object.
     /// This is the equivalent `ptr_eq` on [Rc](std::rc::Rc).
     /// Note that due to the constraints on [Rc], the two dom
     /// pointers must point to the same type.
-    pub fn ptr_eq<U: DOMTyped>(&self, other: &DOMPtr<U>) -> bool {
+    pub fn ptr_eq<U: DomTyped>(&self, other: &DomPtr<U>) -> bool {
         // We don't care about the type information,
         // only if the two DOMPtrs point to the same underlying object
         self.inner.as_ptr().cast::<U>() == other.as_ptr()
     }
 
-    pub fn downgrade(&self) -> WeakDOMPtr<T> {
-        WeakDOMPtr {
+    pub fn downgrade(&self) -> WeakDomPtr<T> {
+        WeakDomPtr {
             inner: Rc::downgrade(&self.inner),
             underlying_type: self.underlying_type,
         }
     }
 }
 
-impl<T: DOMTyped> WeakDOMPtr<T> {
-    /// Get the actual type pointed to by the [DOMPtr]
-    pub fn underlying_type(&self) -> DOMType {
+impl<T: DomTyped> WeakDomPtr<T> {
+    /// Get the actual type pointed to by the [DomPtr]
+    pub fn underlying_type(&self) -> DomType {
         self.underlying_type
     }
 
-    /// Return true if the DOMPtr stores `O` or any of its subclasses
-    pub fn is_a<O: DOMTyped>(&self) -> bool {
+    /// Return true if the [DomPtr] stores `O` or any of its subclasses
+    pub fn is_a<O: DomTyped>(&self) -> bool {
         self.underlying_type.is_a(O::as_type())
     }
 
-    pub fn upgrade(&self) -> Option<DOMPtr<T>> {
-        self.inner.upgrade().map(|upgraded_ptr| DOMPtr {
+    pub fn upgrade(&self) -> Option<DomPtr<T>> {
+        self.inner.upgrade().map(|upgraded_ptr| DomPtr {
             inner: upgraded_ptr,
             underlying_type: self.underlying_type,
         })
     }
 }
 
-impl<T: DOMTyped> Clone for DOMPtr<T> {
+impl<T: DomTyped> Clone for DomPtr<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -147,7 +147,7 @@ impl<T: DOMTyped> Clone for DOMPtr<T> {
     }
 }
 
-impl<T: DOMTyped> Clone for WeakDOMPtr<T> {
+impl<T: DomTyped> Clone for WeakDomPtr<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -156,9 +156,9 @@ impl<T: DOMTyped> Clone for WeakDOMPtr<T> {
     }
 }
 
-impl<T> TreeDebug for DOMPtr<T>
+impl<T> TreeDebug for DomPtr<T>
 where
-    T: DOMTyped,
+    T: DomTyped,
 {
     fn tree_fmt(&self, formatter: &mut crate::TreeFormatter<'_, '_>) -> std::fmt::Result {
         if let Some(node) = self.try_into_type::<dom_objects::Node>() {

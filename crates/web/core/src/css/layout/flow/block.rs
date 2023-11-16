@@ -10,7 +10,7 @@ use crate::{
         values::{self, length, AutoOr, Length, PercentageOr},
         ComputedStyle, StyleComputer,
     },
-    dom::{dom_objects, DOMPtr},
+    dom::{dom_objects, DomPtr},
     TreeDebug, TreeFormatter,
 };
 
@@ -31,7 +31,7 @@ pub struct BlockLevelBox {
     /// The DOM element that produced this box.
     /// Some boxes might not correspond to a DOM node,
     /// for example anonymous block boxes
-    node: Option<DOMPtr<dom_objects::Node>>,
+    node: Option<DomPtr<dom_objects::Node>>,
 
     /// Boxes contained by this box
     contents: BlockContainer,
@@ -54,7 +54,7 @@ impl Default for BlockContainer {
 
 impl BlockFormattingContext {
     pub fn root(
-        document: DOMPtr<dom_objects::Document>,
+        document: DomPtr<dom_objects::Document>,
         style_computer: StyleComputer<'_>,
     ) -> Self {
         let html = document
@@ -66,10 +66,10 @@ impl BlockFormattingContext {
             .expect("expected root element to be html element");
 
         let document_style = style_computer
-            .get_computed_style(DOMPtr::clone(&html).upcast(), &ComputedStyle::default());
+            .get_computed_style(DomPtr::clone(&html).upcast(), &ComputedStyle::default());
 
         let contents = BoxTreeBuilder::build(
-            DOMPtr::clone(&html).upcast(),
+            DomPtr::clone(&html).upcast(),
             style_computer,
             &document_style,
         );
@@ -116,7 +116,7 @@ impl BlockLevelBox {
     #[must_use]
     pub const fn new(
         style: ComputedStyle,
-        node: Option<DOMPtr<dom_objects::Node>>,
+        node: Option<DomPtr<dom_objects::Node>>,
         contents: BlockContainer,
     ) -> Self {
         Self {

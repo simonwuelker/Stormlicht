@@ -10,7 +10,7 @@ use crate::{
         layout::{flow::BlockFormattingContext, Pixels, Size},
         StyleComputer, Stylesheet,
     },
-    dom::{dom_objects, DOMPtr},
+    dom::{dom_objects, DomPtr},
     event,
     html::{self, tokenization::IgnoreParseErrors},
     Selection,
@@ -18,7 +18,7 @@ use crate::{
 
 /// The Browsing Context takes care of coordinating loads, layout calculations and paints
 pub struct BrowsingContext {
-    document: DOMPtr<dom_objects::Document>,
+    document: DomPtr<dom_objects::Document>,
     fragment_tree: FragmentTree,
     stylesheets: Vec<Stylesheet>,
     selection: Option<Selection>,

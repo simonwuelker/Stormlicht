@@ -1,5 +1,5 @@
 use crate::{
-    dom::{dom_objects::Element, DOMPtr, DOMTyped},
+    dom::{dom_objects::Element, DomPtr, DomTyped},
     html::tokenization::TagData,
 };
 
@@ -17,7 +17,7 @@ pub enum FormatEntry {
 
 #[derive(Clone)]
 pub struct ActiveFormattingElement {
-    pub element: DOMPtr<Element>,
+    pub element: DomPtr<Element>,
 
     /// The tag that created this element
     pub tag: TagData,
@@ -42,7 +42,7 @@ impl FormatEntry {
 
 impl ActiveFormattingElements {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#push-onto-the-list-of-active-formatting-elements>
-    pub fn push(&mut self, element: DOMPtr<Element>, tag: TagData) {
+    pub fn push(&mut self, element: DomPtr<Element>, tag: TagData) {
         // 1. If there are already three elements in the list of active formatting elements after the last marker,
         //    if any, or anywhere in the list if there are no markers, that have the same tag name, namespace, and attributes as element,
         //    then remove the earliest such element from the list of active formatting elements.
@@ -138,28 +138,28 @@ impl ActiveFormattingElements {
     }
 
     #[inline]
-    pub fn remove<T: DOMTyped>(&mut self, to_remove: &DOMPtr<T>) {
+    pub fn remove<T: DomTyped>(&mut self, to_remove: &DomPtr<T>) {
         self.elements
             .retain(|element_or_marker| match element_or_marker {
                 FormatEntry::Element(formatting_element) => {
-                    !DOMPtr::ptr_eq(to_remove, &formatting_element.element)
+                    !DomPtr::ptr_eq(to_remove, &formatting_element.element)
                 },
                 FormatEntry::Marker => true,
             })
     }
 
     #[must_use]
-    pub fn find<T: DOMTyped>(&self, needle: &DOMPtr<T>) -> Option<usize> {
+    pub fn find<T: DomTyped>(&self, needle: &DomPtr<T>) -> Option<usize> {
         self.elements
             .iter()
             .enumerate()
             .filter_map(|(i, entry)| Some((i, entry.as_element()?)))
-            .find(|(_, element)| DOMPtr::ptr_eq(&element.element, needle))
+            .find(|(_, element)| DomPtr::ptr_eq(&element.element, needle))
             .map(|(i, _)| i)
     }
 
     #[inline]
-    pub fn contains<T: DOMTyped>(&self, needle: &DOMPtr<T>) -> bool {
+    pub fn contains<T: DomTyped>(&self, needle: &DomPtr<T>) -> bool {
         self.find(needle).is_some()
     }
 

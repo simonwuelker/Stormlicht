@@ -8,7 +8,7 @@ use crate::{
         syntax::RuleParser,
         Origin, Parser, StyleProperty, StylePropertyDeclaration, Stylesheet,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
     static_interned,
 };
 
@@ -113,7 +113,7 @@ impl<'a> StyleComputer<'a> {
     }
 
     // Find all the [StyleRules](super::StyleRule) that apply to an [Element]
-    fn collect_matched_properties(&self, element: DOMPtr<Element>) -> Vec<MatchingProperty<'_>> {
+    fn collect_matched_properties(&self, element: DomPtr<Element>) -> Vec<MatchingProperty<'_>> {
         let mut matched_properties = vec![];
 
         for stylesheet in self.stylesheets {
@@ -148,7 +148,7 @@ impl<'a> StyleComputer<'a> {
     /// This includes cascading values.
     pub fn get_computed_style(
         &self,
-        element: DOMPtr<Element>,
+        element: DomPtr<Element>,
         parent_style: &ComputedStyle,
     ) -> ComputedStyle {
         // If the element has a "style" attribute, create a short-lived stylesheet
@@ -185,7 +185,7 @@ impl<'a> StyleComputer<'a> {
 }
 
 // Don't want to put this on `Element` since the DOM doesn't really know about CSS
-fn attribute_style_for_element(element: DOMPtr<Element>) -> Vec<StylePropertyDeclaration> {
+fn attribute_style_for_element(element: DomPtr<Element>) -> Vec<StylePropertyDeclaration> {
     element
         .borrow()
         .attributes()

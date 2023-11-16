@@ -6,7 +6,7 @@ use crate::{
         syntax::{HashFlag, Token},
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
     static_interned, InternedString,
 };
 
@@ -34,7 +34,7 @@ impl CSSValidateSelector for IDSelector {
 }
 
 impl Selector for IDSelector {
-    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DomPtr<Element>) -> bool {
         element.borrow().id().is_some_and(|id| id == self.ident)
     }
 

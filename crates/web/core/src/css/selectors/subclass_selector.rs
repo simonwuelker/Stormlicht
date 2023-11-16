@@ -8,7 +8,7 @@ use crate::{
         },
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
 };
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-subclass-selector>
@@ -59,7 +59,7 @@ impl CSSValidateSelector for SubClassSelector {
 }
 
 impl Selector for SubClassSelector {
-    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DomPtr<Element>) -> bool {
         match self {
             Self::ID(id_selector) => id_selector.matches(element),
             Self::Class(class_selector) => class_selector.matches(element),

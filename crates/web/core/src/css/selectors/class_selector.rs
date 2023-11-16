@@ -6,7 +6,7 @@ use crate::{
         syntax::Token,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
     InternedString,
 };
 
@@ -35,7 +35,7 @@ impl CSSValidateSelector for ClassSelector {
 }
 
 impl Selector for ClassSelector {
-    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, _element: &DomPtr<Element>) -> bool {
         false
     }
 

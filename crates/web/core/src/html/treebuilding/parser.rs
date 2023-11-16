@@ -10,7 +10,7 @@ use crate::{
             HtmlLiElement, HtmlParagraphElement, HtmlScriptElement, HtmlTemplateElement, Node,
             Text,
         },
-        DOMPtr, DOMType, DOMTyped,
+        DomPtr, DomType, DomTyped,
     },
     html::{
         tokenization::{ParseErrorHandler, TagData, Token, Tokenizer, TokenizerState},
@@ -27,19 +27,19 @@ const LINE_FEED: char = '\u{000A}';
 const FORM_FEED: char = '\u{000C}';
 const WHITESPACE: char = '\u{0020}';
 
-const DEFAULT_SCOPE: &[DOMType] = &[DOMType::HtmlHtmlElement, DOMType::HtmlTemplateElement];
+const DEFAULT_SCOPE: &[DomType] = &[DomType::HtmlHtmlElement, DomType::HtmlTemplateElement];
 
 /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-button-scope>
-const BUTTON_SCOPE: &[DOMType] = &[
-    DOMType::HtmlHtmlElement,
-    DOMType::HtmlTemplateElement,
-    DOMType::HtmlButtonElement,
+const BUTTON_SCOPE: &[DomType] = &[
+    DomType::HtmlHtmlElement,
+    DomType::HtmlTemplateElement,
+    DomType::HtmlButtonElement,
 ];
 
 /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-list-item-scope>
-const ITEM_SCOPE: &[DOMType] = &[
-    DOMType::HtmlHtmlElement,
-    DOMType::HtmlTemplateElement,
+const ITEM_SCOPE: &[DomType] = &[
+    DomType::HtmlHtmlElement,
+    DomType::HtmlTemplateElement,
     // <ol>
     // <ul>
 ];
@@ -87,7 +87,7 @@ pub enum FramesetOkFlag {
 
 pub struct Parser<P: ParseErrorHandler> {
     tokenizer: Tokenizer<P>,
-    document: DOMPtr<Document>,
+    document: DomPtr<Document>,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#original-insertion-mode>
     original_insertion_mode: Option<InsertionMode>,
@@ -99,16 +99,16 @@ pub struct Parser<P: ParseErrorHandler> {
     insertion_mode: InsertionMode,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#stack-of-open-elements>
-    open_elements: Vec<DOMPtr<Element>>,
+    open_elements: Vec<DomPtr<Element>>,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#head-element-pointer>
-    head: Option<DOMPtr<HtmlHeadElement>>,
+    head: Option<DomPtr<HtmlHeadElement>>,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#frameset-ok-flag>
     frameset_ok: FramesetOkFlag,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#form-element-pointer>
-    form: Option<DOMPtr<HtmlFormElement>>,
+    form: Option<DomPtr<HtmlFormElement>>,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#list-of-active-formatting-elements>
     active_formatting_elements: ActiveFormattingElements,
@@ -123,12 +123,12 @@ pub struct Parser<P: ParseErrorHandler> {
 
 impl<P: ParseErrorHandler> Parser<P> {
     pub fn new(source: &str) -> Self {
-        let document = DOMPtr::new(Document::default());
+        let document = DomPtr::new(Document::default());
         // TODO: judging from the spec behaviour, it appears that document's document's
         // point to themselves. We should find a note for that somewhere in a spec.
         document
             .borrow_mut()
-            .set_owning_document(DOMPtr::clone(&document).downgrade());
+            .set_owning_document(DomPtr::clone(&document).downgrade());
 
         Self {
             tokenizer: Tokenizer::new(source),
@@ -148,7 +148,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     #[must_use]
-    fn open_elements_bottommost_node(&self) -> Option<DOMPtr<Element>> {
+    fn open_elements_bottommost_node(&self) -> Option<DomPtr<Element>> {
         self.open_elements.last().cloned()
     }
 
@@ -159,7 +159,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     #[must_use]
-    fn find_in_open_elements<T: DOMTyped>(&self, needle: &DOMPtr<T>) -> Option<usize> {
+    fn find_in_open_elements<T: DomTyped>(&self, needle: &DomPtr<T>) -> Option<usize> {
         self.open_elements
             .iter()
             .enumerate()
@@ -168,7 +168,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     /// Pop elements from the stack of open elements until a element matching a predicate has been popped
-    fn pop_from_open_elements_until<F: Fn(DOMPtr<Element>) -> bool>(&mut self, predicate: F) {
+    fn pop_from_open_elements_until<F: Fn(DomPtr<Element>) -> bool>(&mut self, predicate: F) {
         loop {
             if predicate(self.pop_from_open_elements()) {
                 break;
@@ -176,19 +176,19 @@ impl<P: ParseErrorHandler> Parser<P> {
         }
     }
 
-    fn remove_from_open_elements<T: DOMTyped>(&mut self, to_remove: &DOMPtr<T>) {
+    fn remove_from_open_elements<T: DomTyped>(&mut self, to_remove: &DomPtr<T>) {
         self.open_elements
-            .retain_mut(|element| !DOMPtr::ptr_eq(to_remove, element))
+            .retain_mut(|element| !DomPtr::ptr_eq(to_remove, element))
     }
 
-    fn pop_from_open_elements(&mut self) -> DOMPtr<Element> {
+    fn pop_from_open_elements(&mut self) -> DomPtr<Element> {
         let element = self
             .open_elements
             .pop()
             .expect("there are no open elements to pop");
 
         // Check if we just popped a <style> element, if so, register a new stylesheet
-        if element.underlying_type() == DOMType::HtmlStyleElement {
+        if element.underlying_type() == DomType::HtmlStyleElement {
             if let Some(first_child) = element.borrow().children().first() {
                 if let Some(text_node) = first_child.try_into_type::<Text>() {
                     if let Ok(stylesheet) =
@@ -208,7 +208,7 @@ impl<P: ParseErrorHandler> Parser<P> {
         element
     }
 
-    pub fn parse(mut self) -> (DOMPtr<Document>, Vec<Stylesheet>) {
+    pub fn parse(mut self) -> (DomPtr<Document>, Vec<Stylesheet>) {
         while let Some(token) = self.tokenizer.next() {
             self.consume(token);
 
@@ -221,7 +221,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#current-node>
-    fn current_node(&self) -> DOMPtr<Node> {
+    fn current_node(&self) -> DomPtr<Node> {
         // The current node is the bottommost node in this stack of open elements.
         self.open_elements_bottommost_node()
             .expect("Stack of open elements is empty")
@@ -279,20 +279,20 @@ impl<P: ParseErrorHandler> Parser<P> {
         new_text.set_owning_document(document);
 
         // and insert the newly created node at the adjusted insertion location.
-        let new_node = DOMPtr::new(new_text).upcast();
+        let new_node = DomPtr::new(new_text).upcast();
         Node::append_child(adjusted_insert_location, new_node)
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#appropriate-place-for-inserting-a-node>
-    fn appropriate_place_for_inserting_node(&self) -> DOMPtr<Node> {
+    fn appropriate_place_for_inserting_node(&self) -> DomPtr<Node> {
         self.appropriate_place_for_inserting_node_with_override(None)
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#appropriate-place-for-inserting-a-node>
     fn appropriate_place_for_inserting_node_with_override(
         &self,
-        override_target: Option<DOMPtr<Node>>,
-    ) -> DOMPtr<Node> {
+        override_target: Option<DomPtr<Node>>,
+    ) -> DomPtr<Node> {
         // If there was an override target specified, then let target be the override target.
         // Otherwise, let target be the current node.
         override_target.unwrap_or_else(|| self.current_node())
@@ -309,7 +309,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment>
-    fn insert_comment_at(&mut self, data: String, position: Option<DOMPtr<Node>>) {
+    fn insert_comment_at(&mut self, data: String, position: Option<DomPtr<Node>>) {
         // Let data be the data given in the comment token being processed.
 
         // If position was specified, then let the adjusted insertion location be position.
@@ -330,7 +330,7 @@ impl<P: ParseErrorHandler> Parser<P> {
         new_comment.set_owning_document(document);
 
         // Insert the newly created node at the adjusted insertion location.
-        let new_node = DOMPtr::new(new_comment).upcast();
+        let new_node = DomPtr::new(new_comment).upcast();
         Node::append_child(adjusted_insert_location, new_node);
     }
 
@@ -361,18 +361,18 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-scope>
-    fn is_element_in_scope(&self, target_node_type: DOMType) -> bool {
+    fn is_element_in_scope(&self, target_node_type: DomType) -> bool {
         // FIXME: this default scope should contain more types but they dont exist yet
         self.is_element_in_specific_scope(target_node_type, DEFAULT_SCOPE)
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-button-scope>
-    fn is_element_in_button_scope(&self, target_node_type: DOMType) -> bool {
+    fn is_element_in_button_scope(&self, target_node_type: DomType) -> bool {
         self.is_element_in_specific_scope(target_node_type, BUTTON_SCOPE)
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-the-specific-scope>
-    fn is_element_in_specific_scope(&self, target_node_type: DOMType, scope: &[DOMType]) -> bool {
+    fn is_element_in_specific_scope(&self, target_node_type: DomType, scope: &[DomType]) -> bool {
         // 1. Initialize node to be the current node (the bottommost node of the stack).
         let mut node = self.current_node();
 
@@ -400,7 +400,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#close-a-p-element>
     fn close_p_element(&mut self) {
         // 1. Generate implied end tags, except for p elements.
-        self.generate_implied_end_tags_excluding(Some(DOMType::HtmlParagraphElement));
+        self.generate_implied_end_tags_excluding(Some(DomType::HtmlParagraphElement));
 
         // 2. If the current node is not a p element,
         if !self.current_node().is_a::<HtmlParagraphElement>() {
@@ -418,14 +418,14 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#closing-elements-that-have-implied-end-tags>
-    fn generate_implied_end_tags_excluding(&mut self, exclude: Option<DOMType>) {
+    fn generate_implied_end_tags_excluding(&mut self, exclude: Option<DomType>) {
         loop {
             let node_type = self.current_node().underlying_type();
             if exclude.is_some_and(|to_exclude| to_exclude == node_type) {
                 return;
             }
             // FIXME: There are more elements here that aren't yet implemented
-            if node_type != DOMType::HtmlParagraphElement {
+            if node_type != DomType::HtmlParagraphElement {
                 return;
             }
             self.pop_from_open_elements();
@@ -548,8 +548,8 @@ impl<P: ParseErrorHandler> Parser<P> {
         &self,
         tagdata: &TagData,
         namespace: Namespace,
-        intended_parent: &DOMPtr<Node>,
-    ) -> DOMPtr<Element> {
+        intended_parent: &DomPtr<Node>,
+    ) -> DomPtr<Element> {
         // FIXME: If the active speculative HTML parser is not null, then return the result of creating a speculative mock element
         // given given namespace, the tag name of the given token, and the attributes of the given token.
 
@@ -613,7 +613,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-an-html-element>
-    fn insert_html_element_for_token(&mut self, tagdata: &TagData) -> DOMPtr<Element> {
+    fn insert_html_element_for_token(&mut self, tagdata: &TagData) -> DomPtr<Element> {
         self.insert_foreign_element(tagdata, Namespace::HTML)
     }
 
@@ -622,7 +622,7 @@ impl<P: ParseErrorHandler> Parser<P> {
         &mut self,
         tagdata: &TagData,
         namespace: Namespace,
-    ) -> DOMPtr<Element> {
+    ) -> DomPtr<Element> {
         // Let the adjusted insertion location be the appropriate place for inserting a node.
         let adjusted_insertion_location = self.appropriate_place_for_inserting_node();
 
@@ -655,7 +655,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                 if !self
                     .open_elements
                     .iter()
-                    .any(|e| DOMPtr::ptr_eq(e, &format_element.element)) =>
+                    .any(|e| DomPtr::ptr_eq(e, &format_element.element)) =>
             {
                 false
             },
@@ -739,7 +739,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     .active_formatting_elements
                     .list()
                     .any(|formatting_element| {
-                        DOMPtr::ptr_eq(&formatting_element.element, &current_node)
+                        DomPtr::ptr_eq(&formatting_element.element, &current_node)
                     })
             {
                 self.pop_from_open_elements();
@@ -855,7 +855,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         node = self.open_elements[node_index].clone();
 
                         // 3. If node is formatting element, then break.
-                        if DOMPtr::ptr_eq(&node, &formatting_element.element) {
+                        if DomPtr::ptr_eq(&node, &formatting_element.element) {
                             break;
                         }
 
@@ -942,7 +942,7 @@ impl<P: ParseErrorHandler> Parser<P> {
             "Consuming {token:?} in {mode:?}.\nThe current token is a {:?}",
             self.open_elements_bottommost_node()
                 .as_ref()
-                .map(DOMPtr::underlying_type)
+                .map(DomPtr::underlying_type)
         );
         match mode {
             // https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode
@@ -970,8 +970,8 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                         // FIXME: Then, if the document is not an iframe srcdoc document, and the parser cannot change the mode flag is false,
                         // and the DOCTYPE token matches one of the conditions in the following list, then set the Document to quirks mode:
-                        let new_node = DOMPtr::new(doctype_node).upcast();
-                        Node::append_child(DOMPtr::clone(&self.document).upcast(), new_node);
+                        let new_node = DomPtr::new(doctype_node).upcast();
+                        Node::append_child(DomPtr::clone(&self.document).upcast(), new_node);
                     },
                     _ => {
                         // FIXME: If the document is not an iframe srcdoc document, then this is a parse error;
@@ -1010,13 +1010,13 @@ impl<P: ParseErrorHandler> Parser<P> {
                         let element = self.create_element_for_token(
                             tagdata,
                             Namespace::HTML,
-                            &DOMPtr::clone(&self.document).upcast(),
+                            &DomPtr::clone(&self.document).upcast(),
                         );
 
                         // Append it to the Document object.
                         Node::append_child(
-                            DOMPtr::clone(&self.document).upcast(),
-                            DOMPtr::clone(&element).upcast(),
+                            DomPtr::clone(&self.document).upcast(),
+                            DomPtr::clone(&element).upcast(),
                         );
 
                         // Put this element in the stack of open elements.
@@ -1028,13 +1028,13 @@ impl<P: ParseErrorHandler> Parser<P> {
                     other => {
                         // Create an html element whose node document is the Document object.
                         let mut html_element = HtmlHtmlElement::default();
-                        html_element.set_owning_document(DOMPtr::clone(&self.document).downgrade());
-                        let new_element: DOMPtr<Element> = DOMPtr::new(html_element).upcast();
+                        html_element.set_owning_document(DomPtr::clone(&self.document).downgrade());
+                        let new_element: DomPtr<Element> = DomPtr::new(html_element).upcast();
 
                         // Append it to the Document object.
                         Node::append_child(
-                            DOMPtr::clone(&self.document).upcast(),
-                            DOMPtr::clone(&new_element).upcast(),
+                            DomPtr::clone(&self.document).upcast(),
+                            DomPtr::clone(&new_element).upcast(),
                         );
 
                         // Put this element in the stack of open elements.
@@ -1252,7 +1252,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     {
                         // Pop the current node (which will be the head element) off the stack of open elements.
                         let current_node = self.pop_from_open_elements();
-                        assert_eq!(current_node.underlying_type(), DOMType::HtmlHeadElement,);
+                        assert_eq!(current_node.underlying_type(), DomType::HtmlHeadElement,);
 
                         // Switch the insertion mode to "after head".
                         self.insertion_mode = InsertionMode::AfterHead;
@@ -1331,7 +1331,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     other => {
                         // Pop the current node (which will be the head element) off the stack of open elements.
                         let popped_node = self.pop_from_open_elements();
-                        debug_assert_eq!(popped_node.underlying_type(), DOMType::HtmlHeadElement);
+                        debug_assert_eq!(popped_node.underlying_type(), DomType::HtmlHeadElement);
 
                         // Switch the insertion mode to "after head".
                         self.insertion_mode = InsertionMode::AfterHead;
@@ -1361,11 +1361,11 @@ impl<P: ParseErrorHandler> Parser<P> {
                         let popped_node = self.pop_from_open_elements();
                         debug_assert_eq!(
                             popped_node.underlying_type(),
-                            DOMType::HtmlNoscriptElement
+                            DomType::HtmlNoscriptElement
                         );
                         debug_assert_eq!(
                             self.current_node().underlying_type(),
-                            DOMType::HtmlHeadElement
+                            DomType::HtmlHeadElement
                         );
 
                         // Switch the insertion mode to "in head".
@@ -1402,11 +1402,11 @@ impl<P: ParseErrorHandler> Parser<P> {
                         let popped_node = self.pop_from_open_elements();
                         debug_assert_eq!(
                             popped_node.underlying_type(),
-                            DOMType::HtmlNoscriptElement
+                            DomType::HtmlNoscriptElement
                         );
                         debug_assert_eq!(
                             self.current_node().underlying_type(),
-                            DOMType::HtmlHeadElement
+                            DomType::HtmlHeadElement
                         );
 
                         // Switch the insertion mode to "in head".
@@ -1471,12 +1471,12 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Parse error.
 
                         // Push the node pointed to by the head element pointer onto the stack of open elements.
-                        let head = DOMPtr::clone(
+                        let head = DomPtr::clone(
                             self.head
                                 .as_ref()
                                 .expect("Spec: self.head cannot be none at this point"),
                         );
-                        self.open_elements.push(DOMPtr::clone(&head).upcast());
+                        self.open_elements.push(DomPtr::clone(&head).upcast());
 
                         // Process the token using the rules for the "in head" insertion mode.
                         self.consume_in_mode(InsertionMode::InHead, token);
@@ -1540,7 +1540,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                         // If there is a template element on the stack of open elements, then ignore
                         // the token.
-                        if self.current_node().underlying_type() != DOMType::HtmlTemplateElement {
+                        if self.current_node().underlying_type() != DomType::HtmlTemplateElement {
                             // Otherwise, for each attribute on the token, check to see if the attribute is
                             // already present on the top element of the stack of open elements. If it is
                             // not, add the attribute and its corresponding value to that element.
@@ -1574,7 +1574,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // if the stack of open elements has only one node on it, or if there is a
                         // template element on the stack of open elements, then ignore the token.
                         // (fragment case)
-                        let previous_body: DOMPtr<Element> = match self.open_elements.get(2) {
+                        let previous_body: DomPtr<Element> = match self.open_elements.get(2) {
                             Some(node) => {
                                 if let Some(html_body_element) =
                                     node.try_into_type::<HtmlBodyElement>()
@@ -1628,7 +1628,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         if !tagdata.opening && tagdata.name == static_interned!("body") =>
                     {
                         // If the stack of open elements does not have a body element in scope, this is a parse error; ignore the token.
-                        if !self.is_element_in_scope(DOMType::HtmlBodyElement) {
+                        if !self.is_element_in_scope(DomType::HtmlBodyElement) {
                             return;
                         }
 
@@ -1646,7 +1646,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         if !tagdata.opening && tagdata.name == static_interned!("html") =>
                     {
                         // If the stack of open elements does not have a body element in scope, this is a parse error; ignore the token.
-                        if self.is_element_in_scope(DOMType::HtmlBodyElement) {
+                        if self.is_element_in_scope(DomType::HtmlBodyElement) {
                             return;
                         }
 
@@ -1689,7 +1689,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                                 || tagdata.name == static_interned!("ul")) =>
                     {
                         // If the stack of open elements has a p element in button scope, then close a p element.
-                        if self.is_element_in_button_scope(DOMType::HtmlParagraphElement) {
+                        if self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
                             self.close_p_element();
                         }
 
@@ -1706,7 +1706,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                                 || tagdata.name == static_interned!("h6")) =>
                     {
                         // If the stack of open elements has a p element in button scope, then close a p element.
-                        if self.is_element_in_button_scope(DOMType::HtmlParagraphElement) {
+                        if self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
                             self.close_p_element();
                         }
 
@@ -1751,7 +1751,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Otherwise:
                         else {
                             // If the stack of open elements has a p element in button scope, then close a p element.
-                            if self.is_element_in_button_scope(DOMType::HtmlParagraphElement) {
+                            if self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
                                 self.close_p_element();
                             }
 
@@ -1810,7 +1810,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         }
 
                         // 6. Done: If the stack of open elements has a p element in button scope, then close a p element.
-                        if self.is_element_in_button_scope(DOMType::HtmlParagraphElement) {
+                        if self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
                             self.close_p_element();
                         }
 
@@ -1833,7 +1833,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // If node is a dd element, then run these substeps:
                         if node.is_a::<HtmlDdElement>() {
                             // 1. Generate implied end tags, except for dd elements.
-                            self.generate_implied_end_tags_excluding(Some(DOMType::HtmlDdElement));
+                            self.generate_implied_end_tags_excluding(Some(DomType::HtmlDdElement));
 
                             // 2. If the current node is not a dd element, then this is a parse error.
 
@@ -1848,7 +1848,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // FIXME: 6. Otherwise, set node to the previous entry in the stack of open elements and return to the step labeled loop.
 
                         // 7. Done: If the stack of open elements has a p element in button scope, then close a p element.
-                        if self.is_element_in_scope(DOMType::HtmlParagraphElement) {
+                        if self.is_element_in_scope(DomType::HtmlParagraphElement) {
                             self.close_p_element();
                         }
 
@@ -1926,7 +1926,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // If there is a template element on the stack of open elements, then run these substeps instead:
                         else {
                             // 1. If the stack of open elements does not have a form element in scope, then this is a parse error; return and ignore the token.
-                            if !self.is_element_in_scope(DOMType::HtmlFormElement) {
+                            if !self.is_element_in_scope(DomType::HtmlFormElement) {
                                 return;
                             }
 
@@ -1946,7 +1946,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     {
                         // If the stack of open elements does not have a p element in button scope, then this is a parse error;
                         // insert an HTML element for a "p" start tag token with no attributes.
-                        if !self.is_element_in_button_scope(DOMType::HtmlParagraphElement) {
+                        if !self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
                             self.insert_html_element_for_token(&TagData {
                                 opening: true,
                                 name: static_interned!("p"),
@@ -1963,13 +1963,13 @@ impl<P: ParseErrorHandler> Parser<P> {
                     {
                         // If the stack of open elements does not have an li element in list item scope,
                         // then this is a parse error; ignore the token.
-                        if !self.is_element_in_specific_scope(DOMType::HtmlLiElement, ITEM_SCOPE) {
+                        if !self.is_element_in_specific_scope(DomType::HtmlLiElement, ITEM_SCOPE) {
                             return;
                         }
 
                         // Otherwise, run these steps:
                         // 1. Generate implied end tags, except for li elements.
-                        self.generate_implied_end_tags_excluding(Some(DOMType::HtmlLiElement));
+                        self.generate_implied_end_tags_excluding(Some(DomType::HtmlLiElement));
 
                         // 2. If the current node is not an li element, then this is a parse error.
 
@@ -1987,9 +1987,9 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Otherwise, run these steps:
                         // 1. Generate implied end tags, except for HTML elements with the same tag name as the token.
                         if tagdata.name == static_interned!("dd") {
-                            self.generate_implied_end_tags_excluding(Some(DOMType::HtmlDdElement));
+                            self.generate_implied_end_tags_excluding(Some(DomType::HtmlDdElement));
                         } else {
-                            self.generate_implied_end_tags_excluding(Some(DOMType::HtmlDtElement));
+                            self.generate_implied_end_tags_excluding(Some(DomType::HtmlDtElement));
                         }
 
                         // 2. If the current node is not an HTML element with the same tag name as that of the token, then this is a parse error.
@@ -2051,7 +2051,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                             .elements_since_last_marker()
                             .map(|formatting_element| formatting_element.element)
                             .find(|element| {
-                                element.underlying_type() == DOMType::HtmlAnchorElement
+                                element.underlying_type() == DomType::HtmlAnchorElement
                             });
                         if let Some(element) = a_element {
                             // then this is a parse error;
@@ -2174,7 +2174,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     {
                         // If the Document is not set to quirks mode, and the stack of open elements has a p element in button scope, then close a p element.
                         // FIXME: respect quirks mode
-                        if self.is_element_in_scope(DOMType::HtmlParagraphElement) {
+                        if self.is_element_in_scope(DomType::HtmlParagraphElement) {
                             self.close_p_element();
                         }
 
@@ -2277,7 +2277,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         if tagdata.opening && tagdata.name == static_interned!("hr") =>
                     {
                         // If the stack of open elements has a p element in button scope, then close a p element.
-                        if self.is_element_in_button_scope(DOMType::HtmlParagraphElement) {
+                        if self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
                             self.close_p_element();
                         }
 
@@ -2328,7 +2328,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         if tagdata.opening && tagdata.name == static_interned!("xmp") =>
                     {
                         // If the stack of open elements has a p element in button scope, then close a p element.
-                        if self.is_element_in_button_scope(DOMType::HtmlParagraphElement) {
+                        if self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
                             self.close_p_element();
                         }
 
@@ -2575,7 +2575,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     /// Extracted into its own functions because the adoption agency algorithm makes use of this sequence
     /// of steps too.
     fn any_other_end_tag_in_body(&mut self, tag: TagData) {
-        fn is_html_element_with_name(node: DOMPtr<Element>, name: InternedString) -> bool {
+        fn is_html_element_with_name(node: DomPtr<Element>, name: InternedString) -> bool {
             if let Some(element) = node.try_into_type::<Element>() {
                 if element.borrow().local_name() == name {
                     return node.is_a::<HtmlElement>();

@@ -10,7 +10,7 @@ use crate::{
         },
         ComputedStyle, StyleComputer,
     },
-    dom::{dom_objects, DOMPtr},
+    dom::{dom_objects, DomPtr},
 };
 
 use super::TextRun;
@@ -26,7 +26,7 @@ pub struct BoxTreeBuilder<'stylesheets, 'parent_style> {
 
 impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
     pub fn build(
-        node: DOMPtr<dom_objects::Node>,
+        node: DomPtr<dom_objects::Node>,
         style_computer: StyleComputer<'stylesheets>,
         style: &'parent_style ComputedStyle,
     ) -> BlockContainer {
@@ -52,7 +52,7 @@ impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
         BlockContainer::BlockLevelBoxes(builder.block_level_boxes)
     }
 
-    fn traverse_subtree(&mut self, node: DOMPtr<dom_objects::Node>, parent_style: &ComputedStyle) {
+    fn traverse_subtree(&mut self, node: DomPtr<dom_objects::Node>, parent_style: &ComputedStyle) {
         for child in node.borrow().children() {
             if let Some(element) = child.try_into_type::<dom_objects::Element>() {
                 let computed_style = self
@@ -103,7 +103,7 @@ impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
         }
     }
 
-    fn push_inline_box(&mut self, node: DOMPtr<dom_objects::Node>, style: ComputedStyle) {
+    fn push_inline_box(&mut self, node: DomPtr<dom_objects::Node>, style: ComputedStyle) {
         self.inline_stack
             .push(InlineBox::new(node.clone(), style.clone()));
 
@@ -128,7 +128,7 @@ impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
         }
     }
 
-    fn push_block_box(&mut self, node: DOMPtr<dom_objects::Node>, style: ComputedStyle) {
+    fn push_block_box(&mut self, node: DomPtr<dom_objects::Node>, style: ComputedStyle) {
         // Split all currently open inline boxes around the block box
         if !self.inline_stack.is_empty() {
             // Split each inline box - these will end up on the "right side" of the block box

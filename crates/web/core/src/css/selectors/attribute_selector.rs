@@ -8,7 +8,7 @@ use crate::{
         syntax::Token,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
     InternedString,
 };
 
@@ -92,7 +92,7 @@ impl CSSValidateSelector for AttributeSelector {
 }
 
 impl Selector for AttributeSelector {
-    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DomPtr<Element>) -> bool {
         match self {
             Self::Exists { attribute_name } => {
                 // FIXME: Don't consider attribute namespace

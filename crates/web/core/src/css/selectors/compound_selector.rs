@@ -6,7 +6,7 @@ use crate::{
         syntax::WhitespaceAllowed,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
 };
 
 /// <https://drafts.csswg.org/selectors-4/#compound>
@@ -53,7 +53,7 @@ impl CSSValidateSelector for CompoundSelector {
 }
 
 impl Selector for CompoundSelector {
-    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DomPtr<Element>) -> bool {
         if self
             .type_selector
             .as_ref()

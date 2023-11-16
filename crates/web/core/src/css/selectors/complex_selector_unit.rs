@@ -8,7 +8,7 @@ use crate::{
         syntax::WhitespaceAllowed,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
 };
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-complex-selector-unit>
@@ -51,7 +51,7 @@ impl CSSValidateSelector for ComplexSelectorUnit {
 }
 
 impl Selector for ComplexSelectorUnit {
-    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DomPtr<Element>) -> bool {
         !self
             .compound_selector
             .as_ref()

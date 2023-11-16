@@ -5,7 +5,7 @@ use crate::{
         selectors::{ComplexSelector, Specificity},
         Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
 };
 
 pub fn serialize_selector_list<S: Serializer>(
@@ -22,7 +22,7 @@ pub trait CSSValidateSelector {
 
 pub trait Selector {
     /// Determine if the given selector matches the given element
-    fn matches(&self, element: &DOMPtr<Element>) -> bool;
+    fn matches(&self, element: &DomPtr<Element>) -> bool;
 
     /// Calculate the selectors [Specificity](https://drafts.csswg.org/selectors-4/#specificity)
     fn specificity(&self) -> Specificity;

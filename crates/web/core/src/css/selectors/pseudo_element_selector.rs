@@ -9,7 +9,7 @@ use crate::{
         syntax::Token,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
 };
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-element-selector>
@@ -52,7 +52,7 @@ impl CSSValidateSelector for PseudoElementSelector {
 }
 
 impl Selector for PseudoElementSelector {
-    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DomPtr<Element>) -> bool {
         match self {
             Self::PseudoClass(pseudo_class_selector) => pseudo_class_selector.matches(element),
             Self::Legacy(legacy_pseudo_element_selector) => {

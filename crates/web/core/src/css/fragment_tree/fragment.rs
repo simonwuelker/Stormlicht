@@ -7,13 +7,13 @@ use crate::{
         values::{BackgroundColor, Color},
         ComputedStyle, FontMetrics,
     },
-    dom::{self, dom_objects, DOMPtr},
+    dom::{self, dom_objects, DomPtr},
 };
 
 #[derive(Clone, Debug)]
 pub struct BoxFragment {
     /// The [DOM Node](dom) that produced this fragment
-    dom_node: Option<DOMPtr<dom_objects::Node>>,
+    dom_node: Option<DomPtr<dom_objects::Node>>,
 
     style: ComputedStyle,
     margin_area: Rectangle<Pixels>,
@@ -115,7 +115,7 @@ impl TextFragment {
 impl BoxFragment {
     #[must_use]
     pub fn new(
-        dom_node: Option<DOMPtr<dom_objects::Node>>,
+        dom_node: Option<DomPtr<dom_objects::Node>>,
         style: ComputedStyle,
         margin_area: Rectangle<Pixels>,
         borders: Sides<Pixels>,

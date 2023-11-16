@@ -8,7 +8,7 @@ use crate::{
         syntax::WhitespaceAllowed,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
 };
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-compound-selector>
@@ -43,7 +43,7 @@ impl CSSValidateSelector for PseudoCompoundSelector {
 }
 
 impl Selector for PseudoCompoundSelector {
-    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DomPtr<Element>) -> bool {
         self.pseudo_element_selector.matches(element)
             && self
                 .pseudo_class_selectors

@@ -5,7 +5,7 @@ use crate::{
         selectors::{CSSValidateSelector, Selector, SubClassSelector, TypeSelector},
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
 };
 
 /// <https://drafts.csswg.org/selectors-4/#simple>
@@ -52,7 +52,7 @@ impl CSSValidateSelector for SimpleSelector {
 }
 
 impl Selector for SimpleSelector {
-    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DomPtr<Element>) -> bool {
         match self {
             Self::Type(type_selector) => type_selector.matches(element),
             Self::SubClass(subclass_selector) => subclass_selector.matches(element),

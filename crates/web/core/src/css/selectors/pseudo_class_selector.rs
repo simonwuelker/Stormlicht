@@ -6,7 +6,7 @@ use crate::{
         syntax::Token,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
     static_interned, InternedString,
 };
 
@@ -56,7 +56,7 @@ impl<'a> CSSParse<'a> for PseudoClassSelector {
 }
 
 impl Selector for PseudoClassSelector {
-    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, _element: &DomPtr<Element>) -> bool {
         log::warn!("FIXME: Pseudo Class selector matching");
         false
     }

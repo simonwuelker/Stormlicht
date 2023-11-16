@@ -6,7 +6,7 @@ use crate::{
         syntax::Token,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
     static_interned,
 };
 
@@ -53,7 +53,7 @@ impl CSSValidateSelector for LegacyPseudoElementSelector {
 }
 
 impl Selector for LegacyPseudoElementSelector {
-    fn matches(&self, _element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, _element: &DomPtr<Element>) -> bool {
         // Unimplemented
         false
     }

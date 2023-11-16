@@ -6,7 +6,7 @@ use crate::{
         syntax::Token,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
 };
 
 /// <https://drafts.csswg.org/selectors-4/#type-selectors>
@@ -46,7 +46,7 @@ impl CSSValidateSelector for TypeSelector {
 }
 
 impl Selector for TypeSelector {
-    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DomPtr<Element>) -> bool {
         _ = element;
         match self {
             Self::NSPrefix(_) => false,

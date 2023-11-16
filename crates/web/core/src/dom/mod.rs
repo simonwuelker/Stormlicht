@@ -6,7 +6,7 @@ pub mod dom_objects;
 mod dom_ptr;
 
 pub use boundary_point::{BoundaryPoint, RelativePosition};
-pub use codegen::{DOMType, DOMTyped, IsA};
+pub use codegen::{DomType, DomTyped, IsA};
 use dom_objects::{
     Document, Element, HtmlAnchorElement, HtmlBodyElement, HtmlButtonElement, HtmlDdElement,
     HtmlDivElement, HtmlDtElement, HtmlElement, HtmlFormElement, HtmlHeadElement,
@@ -14,7 +14,7 @@ use dom_objects::{
     HtmlNoscriptElement, HtmlParagraphElement, HtmlScriptElement, HtmlStyleElement,
     HtmlTemplateElement, HtmlTitleElement,
 };
-pub use dom_ptr::{DOMPtr, WeakDOMPtr};
+pub use dom_ptr::{DomPtr, WeakDomPtr};
 
 use crate::{infra::Namespace, static_interned, InternedString};
 
@@ -32,13 +32,13 @@ pub enum ElementCustomState {
 /// <https://dom.spec.whatwg.org/#concept-create-element>
 #[allow(clippy::let_and_return)]
 pub fn create_element(
-    document: WeakDOMPtr<Document>,
+    document: WeakDomPtr<Document>,
     local_name: InternedString,
     namespace: Namespace,
     prefix: Option<InternedString>,
     is: Option<InternedString>,
     _synchronous_custom_elements_flag: bool,
-) -> DOMPtr<Element> {
+) -> DomPtr<Element> {
     // FIXME: make this spec-compliant!
 
     // 1. If prefix was not given, let prefix be null.
@@ -119,59 +119,59 @@ fn create_element_for_interface(
     local_name: InternedString,
     namespace: Namespace,
     element_data: Element,
-) -> DOMPtr<Element> {
+) -> DomPtr<Element> {
     if namespace != Namespace::HTML {
         todo!();
     }
 
     match local_name {
         static_interned!("a") => {
-            DOMPtr::new(HtmlAnchorElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlAnchorElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("body") => {
-            DOMPtr::new(HtmlBodyElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlBodyElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("button") => {
-            DOMPtr::new(HtmlButtonElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlButtonElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("dd") => {
-            DOMPtr::new(HtmlDdElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlDdElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("div") => {
-            DOMPtr::new(HtmlDivElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlDivElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("dt") => {
-            DOMPtr::new(HtmlDtElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlDtElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("head") => {
-            DOMPtr::new(HtmlHeadElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlHeadElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("html") => {
-            DOMPtr::new(HtmlHtmlElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlHtmlElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("link") => {
-            DOMPtr::new(HtmlLinkElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlLinkElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("meta") => {
-            DOMPtr::new(HtmlMetaElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlMetaElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("noscript") => {
-            DOMPtr::new(HtmlNoscriptElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlNoscriptElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("p") => {
-            DOMPtr::new(HtmlParagraphElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlParagraphElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("script") => {
-            DOMPtr::new(HtmlScriptElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlScriptElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("style") => {
-            DOMPtr::new(HtmlStyleElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlStyleElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("template") => {
-            DOMPtr::new(HtmlTemplateElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlTemplateElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("title") => {
-            DOMPtr::new(HtmlTitleElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlTitleElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("h1")
         | static_interned!("h2")
@@ -179,20 +179,20 @@ fn create_element_for_interface(
         | static_interned!("h4")
         | static_interned!("h5")
         | static_interned!("h6") => {
-            DOMPtr::new(HtmlHeadingElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlHeadingElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("li") => {
-            DOMPtr::new(HtmlLiElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlLiElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("form") => {
-            DOMPtr::new(HtmlFormElement::new(HtmlElement::new(element_data))).upcast()
+            DomPtr::new(HtmlFormElement::new(HtmlElement::new(element_data))).upcast()
         },
         _ => {
             log::warn!(
                 "Failed to create element for interface {:?}",
                 local_name.to_string()
             );
-            DOMPtr::new(element_data)
+            DomPtr::new(element_data)
         },
     }
 }

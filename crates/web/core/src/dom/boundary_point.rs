@@ -1,11 +1,11 @@
 use std::cmp::Ordering;
 
-use crate::dom::{dom_objects, DOMPtr};
+use crate::dom::{dom_objects, DomPtr};
 
 /// <https://dom.spec.whatwg.org/#boundary-points>
 #[derive(Clone, Debug)]
 pub struct BoundaryPoint {
-    node: DOMPtr<dom_objects::Node>,
+    node: DomPtr<dom_objects::Node>,
     offset: usize,
 }
 
@@ -25,7 +25,7 @@ pub enum RelativePosition {
 impl BoundaryPoint {
     #[inline]
     #[must_use]
-    pub fn new(node: DOMPtr<dom_objects::Node>, offset: usize) -> Self {
+    pub fn new(node: DomPtr<dom_objects::Node>, offset: usize) -> Self {
         let length = dom_objects::Node::len(node.clone());
         assert!(
             offset <= length,
@@ -37,7 +37,7 @@ impl BoundaryPoint {
 
     #[inline]
     #[must_use]
-    pub fn node(&self) -> DOMPtr<dom_objects::Node> {
+    pub fn node(&self) -> DomPtr<dom_objects::Node> {
         self.node.clone()
     }
 

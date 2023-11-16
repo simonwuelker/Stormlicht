@@ -6,7 +6,7 @@ use crate::{
         syntax::WhitespaceAllowed,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
-    dom::{dom_objects::Element, DOMPtr},
+    dom::{dom_objects::Element, DomPtr},
 };
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-complex-selector>
@@ -69,7 +69,7 @@ impl CSSValidateSelector for ComplexSelector {
 }
 
 impl Selector for ComplexSelector {
-    fn matches(&self, element: &DOMPtr<Element>) -> bool {
+    fn matches(&self, element: &DomPtr<Element>) -> bool {
         // https://drafts.csswg.org/selectors-4/#match-a-complex-selector-against-an-element
         // FIXME:
         // Implement combinators, we only match on the rightmost compound selector
