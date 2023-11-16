@@ -221,11 +221,10 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#current-node>
-    fn current_node(&self) -> DomPtr<Node> {
+    fn current_node(&self) -> DomPtr<Element> {
         // The current node is the bottommost node in this stack of open elements.
         self.open_elements_bottommost_node()
             .expect("Stack of open elements is empty")
-            .upcast()
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#current-template-insertion-mode>
@@ -295,7 +294,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     ) -> DomPtr<Node> {
         // If there was an override target specified, then let target be the override target.
         // Otherwise, let target be the current node.
-        override_target.unwrap_or_else(|| self.current_node())
+        override_target.unwrap_or_else(|| self.current_node().upcast())
 
         // TODO: the specificaiton  talks about foster parenting here, which we don't support
 
@@ -531,7 +530,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
             // 17. Let node now be the node before node in the stack of open elements.
             node_index -= 1;
-            node = self.open_elements[node_index].clone().upcast();
+            node = self.open_elements[node_index].clone();
 
             // 18. Return to the step labeled loop.
         }
