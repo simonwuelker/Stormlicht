@@ -174,10 +174,11 @@ impl<P: ParseErrorHandler> Parser<P> {
 
     /// Pop elements from the stack of open elements until a element matching a predicate has been popped
     fn pop_from_open_elements_until<F: Fn(DOMPtr<Node>) -> bool>(&mut self, predicate: F) {
-        while self
-            .pop_from_open_elements()
-            .is_some_and(|element| !predicate(element))
-        {}
+        loop {
+            if predicate(self.pop_from_open_elements()) {
+                break;
+            }
+        }
     }
 
     fn remove_from_open_elements<T: DOMTyped>(&mut self, to_remove: &DOMPtr<T>) {
@@ -185,29 +186,31 @@ impl<P: ParseErrorHandler> Parser<P> {
             .retain_mut(|element| !DOMPtr::ptr_eq(to_remove, element))
     }
 
-    fn pop_from_open_elements(&mut self) -> Option<DOMPtr<Node>> {
-        let popped_node = self.open_elements.pop();
+    fn pop_from_open_elements(&mut self) -> DOMPtr<Node> {
+        let node = self
+            .open_elements
+            .pop()
+            .expect("there are no open elements to pop");
 
         // Check if we just popped a <style> element, if so, register a new stylesheet
-        if let Some(node) = popped_node.as_ref() {
-            if node.underlying_type() == DOMType::HtmlStyleElement {
-                if let Some(first_child) = node.borrow().children().first() {
-                    if let Some(text_node) = first_child.try_into_type::<Text>() {
-                        if let Ok(stylesheet) =
-                            css::Parser::new(text_node.borrow().content(), css::Origin::Author)
-                                .parse_stylesheet(self.stylesheets.len())
-                        {
-                            if !stylesheet.rules().is_empty() {
-                                self.stylesheets.push(stylesheet);
-                            } else {
-                                log::debug!("Dropping empty stylesheet");
-                            }
+        if node.underlying_type() == DOMType::HtmlStyleElement {
+            if let Some(first_child) = node.borrow().children().first() {
+                if let Some(text_node) = first_child.try_into_type::<Text>() {
+                    if let Ok(stylesheet) =
+                        css::Parser::new(text_node.borrow().content(), css::Origin::Author)
+                            .parse_stylesheet(self.stylesheets.len())
+                    {
+                        if !stylesheet.rules().is_empty() {
+                            self.stylesheets.push(stylesheet);
+                        } else {
+                            log::debug!("Dropping empty stylesheet");
                         }
                     }
                 }
             }
         }
-        popped_node
+
+        node
     }
 
     pub fn parse(mut self) -> (DOMPtr<Node>, Vec<Stylesheet>) {
@@ -1231,10 +1234,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     {
                         // Pop the current node (which will be the head element) off the stack of open elements.
                         let current_node = self.pop_from_open_elements();
-                        assert_eq!(
-                            current_node.as_ref().map(DOMPtr::underlying_type),
-                            Some(DOMType::HtmlHeadElement)
-                        );
+                        assert_eq!(current_node.underlying_type(), DOMType::HtmlHeadElement,);
 
                         // Switch the insertion mode to "after head".
                         self.insertion_mode = InsertionMode::AfterHead;
@@ -1313,10 +1313,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     other => {
                         // Pop the current node (which will be the head element) off the stack of open elements.
                         let popped_node = self.pop_from_open_elements();
-                        debug_assert_eq!(
-                            popped_node.map(|n| n.underlying_type()),
-                            Some(DOMType::HtmlHeadElement)
-                        );
+                        debug_assert_eq!(popped_node.underlying_type(), DOMType::HtmlHeadElement);
 
                         // Switch the insertion mode to "after head".
                         self.insertion_mode = InsertionMode::AfterHead;
@@ -1345,8 +1342,8 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Pop the current node (which will be a noscript element) from the stack of open elements; the new current node will be a head element.
                         let popped_node = self.pop_from_open_elements();
                         debug_assert_eq!(
-                            popped_node.map(|n| n.underlying_type()),
-                            Some(DOMType::HtmlNoscriptElement)
+                            popped_node.underlying_type(),
+                            DOMType::HtmlNoscriptElement
                         );
                         debug_assert_eq!(
                             self.current_node().underlying_type(),
@@ -1386,8 +1383,8 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Pop the current node (which will be a noscript element) from the stack of open elements; the new current node will be a head element.
                         let popped_node = self.pop_from_open_elements();
                         debug_assert_eq!(
-                            popped_node.map(|n| n.underlying_type()),
-                            Some(DOMType::HtmlNoscriptElement)
+                            popped_node.underlying_type(),
+                            DOMType::HtmlNoscriptElement
                         );
                         debug_assert_eq!(
                             self.current_node().underlying_type(),
