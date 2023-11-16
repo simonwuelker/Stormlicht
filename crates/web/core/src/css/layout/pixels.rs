@@ -4,7 +4,8 @@ use std::ops;
 ///
 /// Note that a CSS pixel is not necessarily equivalent to a
 /// physical pixel on a screen. A CSS Pixel is always equal to `1/96in`.
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+
+#[derive(Clone, Copy, Debug)]
 pub struct Pixels(pub f32);
 
 impl Pixels {
@@ -72,3 +73,23 @@ impl Default for Pixels {
         Self::ZERO
     }
 }
+
+impl PartialOrd for Pixels {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Pixels {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.total_cmp(&other.0)
+    }
+}
+
+impl PartialEq for Pixels {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
+    }
+}
+
+impl Eq for Pixels {}
