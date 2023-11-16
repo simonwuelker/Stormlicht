@@ -71,7 +71,13 @@ impl<T: DomTyped> DomPtr<T> {
     /// # Panics
     /// This function panics if the types are incompatible
     pub fn into_type<O: DomTyped>(self) -> DomPtr<O> {
-        assert!(self.is_a::<O>());
+        assert!(
+            self.is_a::<O>(),
+            "Cannot cast object of type \"{:?}\" into object of type \"{:?}\"",
+            T::as_type(),
+            O::as_type()
+        );
+
         unsafe { self.cast_unchecked() }
     }
 
