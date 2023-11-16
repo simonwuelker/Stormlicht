@@ -37,11 +37,6 @@ First, install the rust compiler[^1] , then switch to nightly using
 ```console
 rustup default nightly
 ```
-You will also need the [cranelift], install it using 
-```
-rustup component add rustc-codegen-cranelift-preview --toolchain nightly
-```
-If you do not wish to use `cranelift` or your target machine is not supported, you can disable it inside `.cargo/config.toml`.
 
 After installing rust, run the following commands to start the python build script
 ```console
