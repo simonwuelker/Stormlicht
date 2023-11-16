@@ -69,10 +69,7 @@ impl BlockFormattingContext {
     }
 
     pub fn fragment(&self, viewport: Size<Pixels>) -> FragmentTree {
-        let position = Vec2D {
-            x: Pixels::ZERO,
-            y: Pixels::ZERO,
-        };
+        let position = Vec2D::new(Pixels::ZERO, Pixels::ZERO);
         let length_resolution_context = length::ResolutionContext {
             font_size: DEFAULT_FONT_SIZE,
             root_font_size: DEFAULT_FONT_SIZE,
@@ -311,16 +308,13 @@ impl BlockLevelBox {
         };
 
         // The top-left corner of the content-rect
-        let top_left = position
-            + Vec2D {
-                x: margin_left + border_left + padding_left,
-                y: margin_top + border_top + padding_top,
-            };
+        let offset = Vec2D::new(
+            margin_left + border_left + padding_left,
+            margin_top + border_top + padding_top,
+        );
+        let top_left = position + offset;
 
-        let mut content_area_including_overflow = Rectangle {
-            top_left,
-            bottom_right: top_left,
-        };
+        let mut content_area_including_overflow = Rectangle::from_corners(top_left, top_left);
 
         // FIXME: Don't use the default font size here, it should be the font size
         // of this element instead
@@ -368,16 +362,9 @@ impl BlockLevelBox {
         let height = height.unwrap_or(content_height);
 
         // The bottom right corner of the content area
-        let bottom_right = top_left
-            + Vec2D {
-                x: width,
-                y: height,
-            };
+        let bottom_right = top_left + Vec2D::new(width, height);
 
-        let content_area = Rectangle {
-            top_left,
-            bottom_right,
-        };
+        let content_area = Rectangle::from_corners(top_left, bottom_right);
 
         let margin = Sides {
             top: margin_top,
@@ -483,10 +470,7 @@ impl BlockFormattingContextState {
             cursor: position,
             fragments_so_far: vec![],
             containing_block,
-            content_area_including_overflow: Rectangle {
-                top_left: position,
-                bottom_right: position,
-            },
+            content_area_including_overflow: Rectangle::from_corners(position, position),
             ctx,
             height: Pixels::ZERO,
         }

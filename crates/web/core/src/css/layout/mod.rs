@@ -20,18 +20,17 @@ impl<T> Sides<T> {
         T: Copy,
         Vec2D<T>: ops::Add<Vec2D<T>, Output = Vec2D<T>> + ops::Sub<Vec2D<T>, Output = Vec2D<T>>,
     {
-        Rectangle {
-            top_left: area.top_left
-                - Vec2D {
-                    x: self.left,
-                    y: self.top,
-                },
-            bottom_right: area.bottom_right
-                + Vec2D {
-                    x: self.right,
-                    y: self.bottom,
-                },
-        }
+        let top_left = area.top_left()
+            - Vec2D {
+                x: self.left,
+                y: self.top,
+            };
+        let bottom_right = area.bottom_right()
+            + Vec2D {
+                x: self.right,
+                y: self.bottom,
+            };
+        Rectangle::from_corners(top_left, bottom_right)
     }
 }
 

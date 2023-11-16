@@ -47,12 +47,12 @@ impl Painter {
                         .with_source(Source::Solid(rect_cmd.color))
                         .with_outline(Path::rect(
                             Vec2D {
-                                x: rect_cmd.area.top_left.x.0,
-                                y: rect_cmd.area.top_left.y.0,
+                                x: rect_cmd.area.top_left().x.0,
+                                y: rect_cmd.area.top_left().y.0,
                             },
                             Vec2D {
-                                x: rect_cmd.area.bottom_right.x.0,
-                                y: rect_cmd.area.bottom_right.y.0,
+                                x: rect_cmd.area.bottom_right().x.0,
+                                y: rect_cmd.area.bottom_right().y.0,
                             },
                         ));
                 },

@@ -105,7 +105,7 @@ impl TextFragment {
 
         painter.text(
             self.text().to_owned(),
-            self.area.top_left,
+            self.area.top_left(),
             color,
             self.font_metrics.clone(),
         );
@@ -177,56 +177,48 @@ impl BoxFragment {
 
         // Top border
         if !self.style().border_top_style().is_none() {
-            let area = Rectangle {
-                top_left: border_area.top_left(),
-                bottom_right: border_area.top_right()
-                    + math::Vec2D {
-                        x: Pixels::ZERO,
-                        y: self.borders.top,
-                    },
-            };
+            let bottom_right = border_area.top_right()
+                + math::Vec2D {
+                    x: Pixels::ZERO,
+                    y: self.borders.top,
+                };
+            let area = Rectangle::from_corners(border_area.top_left(), bottom_right);
             let color = *self.style().border_top_color();
             painter.rect(area, color.into());
         }
 
         // Right border
         if !self.style().border_right_style().is_none() {
-            let area = Rectangle {
-                top_left: border_area.top_right()
-                    - math::Vec2D {
-                        x: self.borders.right,
-                        y: Pixels::ZERO,
-                    },
-                bottom_right: border_area.bottom_right(),
-            };
+            let top_left = border_area.top_right()
+                - math::Vec2D {
+                    x: self.borders.right,
+                    y: Pixels::ZERO,
+                };
+            let area = Rectangle::from_corners(top_left, border_area.bottom_right());
             let color = *self.style().border_right_color();
             painter.rect(area, color.into());
         }
 
         // Bottom border
         if !self.style().border_bottom_style().is_none() {
-            let area = Rectangle {
-                top_left: border_area.bottom_left()
-                    - math::Vec2D {
-                        x: Pixels::ZERO,
-                        y: self.borders.bottom,
-                    },
-                bottom_right: border_area.bottom_right(),
-            };
+            let top_left = border_area.bottom_left()
+                - math::Vec2D {
+                    x: Pixels::ZERO,
+                    y: self.borders.bottom,
+                };
+            let area = Rectangle::from_corners(top_left, border_area.bottom_right());
             let color = *self.style().border_bottom_color();
             painter.rect(area, color.into());
         }
 
         // Left border
         if !self.style().border_left_style().is_none() {
-            let area = Rectangle {
-                top_left: border_area.top_left(),
-                bottom_right: border_area.bottom_left()
-                    + math::Vec2D {
-                        x: self.borders.left,
-                        y: Pixels::ZERO,
-                    },
-            };
+            let bottom_right = border_area.bottom_left()
+                + math::Vec2D {
+                    x: self.borders.left,
+                    y: Pixels::ZERO,
+                };
+            let area = Rectangle::from_corners(border_area.top_left(), bottom_right);
             let color = *self.style().border_left_color();
             painter.rect(area, color.into());
         }

@@ -248,10 +248,8 @@ impl LineItemLayoutState {
 impl InlineBoxItem {
     fn layout(self, state: &mut LineItemLayoutState) -> Option<BoxFragment> {
         // Create a nested layout state that will contain the children
-        let start = Vec2D {
-            x: state.top_left.x + state.width,
-            y: state.top_left.y,
-        };
+        let start = Vec2D::new(state.top_left.x + state.width, state.top_left.y);
+
         let mut nested_state = LineItemLayoutState::new(start);
         let child_fragments = nested_state.layout(self.children);
 
@@ -264,15 +262,8 @@ impl InlineBoxItem {
             state.height = nested_state.height;
         }
 
-        let bottom_right = start
-            + Vec2D {
-                x: nested_state.width,
-                y: nested_state.height,
-            };
-        let content_area = Rectangle {
-            top_left: start,
-            bottom_right,
-        };
+        let bottom_right = start + Vec2D::new(nested_state.width, nested_state.height);
+        let content_area = Rectangle::from_corners(start, bottom_right);
 
         // FIXME: respect margins/borders for inline boxes
         let borders = Sides::all(Pixels::ZERO);
@@ -361,10 +352,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
 
         let items_on_this_line = mem::take(&mut self.root_nesting_level_state.line_items);
 
-        let mut layout_state = LineItemLayoutState::new(Vec2D {
-            x: self.position.x,
-            y: self.y_cursor,
-        });
+        let mut layout_state = LineItemLayoutState::new(Vec2D::new(self.position.x, self.y_cursor));
         self.finished_fragments
             .extend(layout_state.layout(items_on_this_line));
 
@@ -455,18 +443,9 @@ impl TextRunItem {
             state.height = line_height;
         }
 
-        let top_left = Vec2D {
-            x: state.top_left.x + state.width,
-            y: state.top_left.y,
-        };
-        let area = Rectangle {
-            top_left,
-            bottom_right: top_left
-                + Vec2D {
-                    x: self.width,
-                    y: line_height,
-                },
-        };
+        let top_left = Vec2D::new(state.top_left.x + state.width, state.top_left.y);
+        let area =
+            Rectangle::from_corners(top_left, top_left + Vec2D::new(self.width, line_height));
 
         state.width += self.width;
 
