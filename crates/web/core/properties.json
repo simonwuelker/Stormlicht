@@ -92,7 +92,7 @@
             "type": "4-sides",
             "name": "margin-SIDE",
             "specification": "https://drafts.csswg.org/css-box-3/#propdef-margin-SIDE",
-            "value": "AutoOr<PercentageOr<Length>>",
+            "value": "Margin",
             "initial": "AutoOr::NotAuto(PercentageOr::NotPercentage(Length::ZERO))"
         }
     },
@@ -104,7 +104,7 @@
             "type": "4-sides",
             "name": "padding-SIDE",
             "specification": "https://drafts.csswg.org/css2/#propdef-padding-SIDE",
-            "value": "PercentageOr<Length>",
+            "value": "Padding",
             "initial": "PercentageOr::NotPercentage(Length::ZERO)"
         }
     },

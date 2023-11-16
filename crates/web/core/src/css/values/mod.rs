@@ -23,3 +23,6 @@ pub use length::Length;
 pub use number::Number;
 pub use percentage::{Percentage, PercentageOr};
 pub use position::Position;
+
+pub type Margin = AutoOr<PercentageOr<Length>>;
+pub type Padding = PercentageOr<Length>;

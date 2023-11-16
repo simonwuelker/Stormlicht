@@ -7,7 +7,7 @@ use crate::{
         font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::{BoxFragment, Fragment, FragmentTree},
         layout::{CSSPixels, ContainingBlock, Sides, Size},
-        values::{length, AutoOr, Length, PercentageOr},
+        values::{self, length, AutoOr, Length, PercentageOr},
         ComputedStyle, StyleComputer,
     },
     dom::{dom_objects, DOMPtr},
@@ -139,12 +139,28 @@ impl BlockLevelBox {
         containing_block: ContainingBlock,
         length_resolution_context: length::ResolutionContext,
     ) -> BoxFragment {
+        let available_length = Length::pixels(containing_block.width());
+
+        let resolve_margin = |margin: &values::Margin| {
+            margin
+                .map(|p| p.resolve_against(available_length))
+                .as_ref()
+                .map(|length| length.absolutize(length_resolution_context))
+        };
+
+        let resolve_border_width =
+            |border: &values::LineWidth| border.length().absolutize(length_resolution_context);
+
+        let resolve_padding = |padding: &values::Padding| {
+            padding
+                .resolve_against(available_length)
+                .absolutize(length_resolution_context)
+        };
         // FIXME: replaced elements
 
         // See https://drafts.csswg.org/css2/#blockwidth for a description of how the width is computed
 
         // FIXME: Consider padding and borders
-        let available_length = Length::pixels(containing_block.width());
         let width = self
             .style()
             .width()
@@ -152,48 +168,22 @@ impl BlockLevelBox {
             .as_ref()
             .map(|length| length.absolutize(length_resolution_context));
 
-        let mut margin_left = self
-            .style()
-            .margin_left()
-            .map(|p| p.resolve_against(available_length))
-            .as_ref()
-            .map(|length| length.absolutize(length_resolution_context));
+        let mut margin_left = resolve_margin(self.style().margin_left());
+        let mut margin_right = resolve_margin(self.style().margin_right());
 
-        let mut margin_right = self
-            .style()
-            .margin_right()
-            .map(|p| p.resolve_against(available_length))
-            .as_ref()
-            .map(|length| length.absolutize(length_resolution_context));
-
-        let padding_left = self
-            .style()
-            .padding_left()
-            .resolve_against(available_length)
-            .absolutize(length_resolution_context);
-
-        let padding_right = self
-            .style()
-            .padding_right()
-            .resolve_against(available_length)
-            .absolutize(length_resolution_context);
+        let padding_left = resolve_padding(self.style().padding_left());
+        let padding_right = resolve_padding(self.style().padding_right());
 
         let border_left = if self.style().border_left_style().is_none() {
             CSSPixels::ZERO
         } else {
-            self.style()
-                .border_left_width()
-                .length()
-                .absolutize(length_resolution_context)
+            resolve_border_width(self.style().border_left_width())
         };
 
         let border_right = if self.style().border_right_style().is_none() {
             CSSPixels::ZERO
         } else {
-            self.style()
-                .border_right_width()
-                .length()
-                .absolutize(length_resolution_context)
+            resolve_border_width(self.style().border_right_width())
         };
 
         // Margins are treated as zero if the total width exceeds the available width
@@ -272,50 +262,22 @@ impl BlockLevelBox {
         };
 
         // Compute the height according to https://drafts.csswg.org/css2/#normal-block
-        let margin_top = self
-            .style()
-            .margin_top()
-            .map(|p| p.resolve_against(available_length))
-            .as_ref()
-            .map(|length| length.absolutize(length_resolution_context))
-            .unwrap_or_default();
+        let margin_top = resolve_margin(self.style().margin_top()).unwrap_or_default();
+        let margin_bottom = resolve_margin(self.style().margin_bottom()).unwrap_or_default();
 
-        let margin_bottom = self
-            .style()
-            .margin_bottom()
-            .map(|p| p.resolve_against(available_length))
-            .as_ref()
-            .map(|length| length.absolutize(length_resolution_context))
-            .unwrap_or_default();
-
-        let padding_top = self
-            .style()
-            .padding_top()
-            .resolve_against(available_length)
-            .absolutize(length_resolution_context);
-
-        let padding_bottom = self
-            .style()
-            .padding_bottom()
-            .resolve_against(available_length)
-            .absolutize(length_resolution_context);
+        let padding_top = resolve_padding(self.style().padding_top());
+        let padding_bottom = resolve_padding(self.style().padding_bottom());
 
         let border_top = if self.style().border_top_style().is_none() {
             CSSPixels::ZERO
         } else {
-            self.style()
-                .border_top_width()
-                .length()
-                .absolutize(length_resolution_context)
+            resolve_border_width(self.style().border_top_width())
         };
 
         let border_bottom = if self.style().border_bottom_style().is_none() {
             CSSPixels::ZERO
         } else {
-            self.style()
-                .border_bottom_width()
-                .length()
-                .absolutize(length_resolution_context)
+            resolve_border_width(self.style().border_bottom_width())
         };
 
         // If the height is a percentage it is
