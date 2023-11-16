@@ -99,10 +99,10 @@ pub struct Parser<P: ParseErrorHandler> {
     insertion_mode: InsertionMode,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#stack-of-open-elements>
-    open_elements: Vec<DOMPtr<Node>>,
+    open_elements: Vec<DOMPtr<Element>>,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#head-element-pointer>
-    head: Option<DOMPtr<Node>>,
+    head: Option<DOMPtr<HtmlHeadElement>>,
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#frameset-ok-flag>
     frameset_ok: FramesetOkFlag,
@@ -148,12 +148,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     #[must_use]
-    fn open_elements_top_node(&self) -> Option<DOMPtr<Node>> {
-        self.open_elements.first().cloned()
-    }
-
-    #[must_use]
-    fn open_elements_bottommost_node(&self) -> Option<DOMPtr<Node>> {
+    fn open_elements_bottommost_node(&self) -> Option<DOMPtr<Element>> {
         self.open_elements.last().cloned()
     }
 
@@ -173,7 +168,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     /// Pop elements from the stack of open elements until a element matching a predicate has been popped
-    fn pop_from_open_elements_until<F: Fn(DOMPtr<Node>) -> bool>(&mut self, predicate: F) {
+    fn pop_from_open_elements_until<F: Fn(DOMPtr<Element>) -> bool>(&mut self, predicate: F) {
         loop {
             if predicate(self.pop_from_open_elements()) {
                 break;
@@ -186,15 +181,15 @@ impl<P: ParseErrorHandler> Parser<P> {
             .retain_mut(|element| !DOMPtr::ptr_eq(to_remove, element))
     }
 
-    fn pop_from_open_elements(&mut self) -> DOMPtr<Node> {
-        let node = self
+    fn pop_from_open_elements(&mut self) -> DOMPtr<Element> {
+        let element = self
             .open_elements
             .pop()
             .expect("there are no open elements to pop");
 
         // Check if we just popped a <style> element, if so, register a new stylesheet
-        if node.underlying_type() == DOMType::HtmlStyleElement {
-            if let Some(first_child) = node.borrow().children().first() {
+        if element.underlying_type() == DOMType::HtmlStyleElement {
+            if let Some(first_child) = element.borrow().children().first() {
                 if let Some(text_node) = first_child.try_into_type::<Text>() {
                     if let Ok(stylesheet) =
                         css::Parser::new(text_node.borrow().content(), css::Origin::Author)
@@ -210,10 +205,10 @@ impl<P: ParseErrorHandler> Parser<P> {
             }
         }
 
-        node
+        element
     }
 
-    pub fn parse(mut self) -> (DOMPtr<Node>, Vec<Stylesheet>) {
+    pub fn parse(mut self) -> (DOMPtr<Document>, Vec<Stylesheet>) {
         while let Some(token) = self.tokenizer.next() {
             self.consume(token);
 
@@ -222,11 +217,7 @@ impl<P: ParseErrorHandler> Parser<P> {
             }
         }
 
-        (
-            self.open_elements_top_node()
-                .expect("HTML parser did not produce a root node"),
-            self.stylesheets,
-        )
+        (self.document, self.stylesheets)
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#current-node>
@@ -234,6 +225,7 @@ impl<P: ParseErrorHandler> Parser<P> {
         // The current node is the bottommost node in this stack of open elements.
         self.open_elements_bottommost_node()
             .expect("Stack of open elements is empty")
+            .upcast()
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#current-template-insertion-mode>
@@ -452,6 +444,26 @@ impl<P: ParseErrorHandler> Parser<P> {
         }
     }
 
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#stop-parsing>
+    fn stop_parsing(&mut self) {
+        self.done = true;
+        // FIXME: this is ad-hoc, we don't support most of what is necessary here
+
+        // FIXME: I assume this must be done at some point, but i can't find it in the spec
+        let html_element = self
+            .open_elements
+            .first()
+            .expect("no root element found")
+            .clone()
+            .upcast();
+        Node::append_child(self.document.clone().upcast(), html_element);
+
+        // 4. Pop all the nodes off the stack of open elements.
+        while !self.open_elements.is_empty() {
+            self.pop_from_open_elements();
+        }
+    }
+
     /// <https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately>
     fn reset_insertion_mode_appropriately(&mut self) {
         // 1. Let last be false.
@@ -525,19 +537,19 @@ impl<P: ParseErrorHandler> Parser<P> {
 
             // 17. Let node now be the node before node in the stack of open elements.
             node_index -= 1;
-            node = self.open_elements[node_index].clone();
+            node = self.open_elements[node_index].clone().upcast();
 
             // 18. Return to the step labeled loop.
         }
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#create-an-element-for-the-token>
-    fn create_html_element_for_token(
+    fn create_element_for_token(
         &self,
         tagdata: &TagData,
         namespace: Namespace,
         intended_parent: &DOMPtr<Node>,
-    ) -> DOMPtr<Node> {
+    ) -> DOMPtr<Element> {
         // FIXME: If the active speculative HTML parser is not null, then return the result of creating a speculative mock element
         // given given namespace, the tag name of the given token, and the attributes of the given token.
 
@@ -597,22 +609,26 @@ impl<P: ParseErrorHandler> Parser<P> {
         // with the form element pointed to by the form element pointer and set element's parser inserted flag.
 
         // Return element.
-        element.upcast()
+        element
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-an-html-element>
-    fn insert_html_element_for_token(&mut self, tagdata: &TagData) -> DOMPtr<Node> {
+    fn insert_html_element_for_token(&mut self, tagdata: &TagData) -> DOMPtr<Element> {
         self.insert_foreign_element(tagdata, Namespace::HTML)
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-a-foreign-element>
-    fn insert_foreign_element(&mut self, tagdata: &TagData, namespace: Namespace) -> DOMPtr<Node> {
+    fn insert_foreign_element(
+        &mut self,
+        tagdata: &TagData,
+        namespace: Namespace,
+    ) -> DOMPtr<Element> {
         // Let the adjusted insertion location be the appropriate place for inserting a node.
         let adjusted_insertion_location = self.appropriate_place_for_inserting_node();
 
         // Let element be the result of creating an element for the token in the given namespace, with the intended parent being the element in which the adjusted insertion location finds itself.
         let element =
-            self.create_html_element_for_token(tagdata, namespace, &adjusted_insertion_location);
+            self.create_element_for_token(tagdata, namespace, &adjusted_insertion_location);
 
         // If it is possible to insert element at the adjusted insertion location, then:
         // FIXME: it is currently always possible to insert more elements
@@ -620,7 +636,7 @@ impl<P: ParseErrorHandler> Parser<P> {
         // FIXME: If the parser was not created as part of the HTML fragment parsing algorithm, then push a new element queue onto element's relevant agent's custom element reactions stack.
 
         // Insert element at the adjusted insertion location.
-        Node::append_child(adjusted_insertion_location, element.clone());
+        Node::append_child(adjusted_insertion_location, element.clone().upcast());
 
         // FIXME: If the parser was not created as part of the HTML fragment parsing algorithm, then pop the element queue from
         // element's relevant agent's custom element reactions stack, and invoke custom element reactions in that queue.
@@ -792,8 +808,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                 .enumerate()
                 .rev()
                 .filter_map(|(i, node)| Some((i, node.try_into_type::<Element>()?)))
-                .find(|(_, element)| is_element_in_special_category(element.borrow().local_name()))
-                .map(|(i, element)| (i, element.upcast()));
+                .find(|(_, element)| is_element_in_special_category(element.borrow().local_name()));
 
             match furthest_block {
                 None => {
@@ -872,11 +887,8 @@ impl<P: ParseErrorHandler> Parser<P> {
                             FormatEntry::Element(format_element) => format_element.tag.clone(),
                             FormatEntry::Marker => unreachable!("entry cannot be a marker"),
                         };
-                        let new_element = self.create_html_element_for_token(
-                            &tag,
-                            Namespace::HTML,
-                            &common_ancestor,
-                        );
+                        let new_element =
+                            self.create_element_for_token(&tag, Namespace::HTML, &common_ancestor);
                         self.open_elements[node_index] = new_element.clone();
                         node = new_element;
 
@@ -884,7 +896,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         //    new node in the list of active formatting elements.
 
                         // 8. Append last node to node.
-                        Node::append_child(node.clone(), last_node);
+                        Node::append_child(node.clone().upcast(), last_node.upcast());
 
                         // 9. Set last node to node.
                         last_node = node;
@@ -894,23 +906,23 @@ impl<P: ParseErrorHandler> Parser<P> {
                     //     but using common ancestor as the override target.
                     let appropriate_place = self
                         .appropriate_place_for_inserting_node_with_override(Some(common_ancestor));
-                    Node::append_child(appropriate_place, last_node);
+                    Node::append_child(appropriate_place, last_node.upcast());
 
                     // 15. Create an element for the token for which formatting element was created,
                     //     in the HTML namespace, with furthest block as the intended parent.
-                    let new_element = self.create_html_element_for_token(
+                    let new_element = self.create_element_for_token(
                         &formatting_element.tag,
                         Namespace::HTML,
-                        &furthest_block.clone(),
+                        &furthest_block.clone().upcast(),
                     );
 
                     // 16. Take all of the child nodes of furthest block and append them to the element created in the last step.
                     for child in furthest_block.borrow().children() {
-                        Node::append_child(new_element.clone(), child.clone());
+                        Node::append_child(new_element.clone().upcast(), child.clone());
                     }
 
                     // 17. Append that new element to furthest block.
-                    Node::append_child(furthest_block, new_element);
+                    Node::append_child(furthest_block.upcast(), new_element.upcast());
 
                     // 18. FIXME: Remove formatting element from the list of active formatting elements,
                     //     and insert the new element into the list of active formatting elements
@@ -995,7 +1007,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         if tagdata.opening && tagdata.name == static_interned!("html") =>
                     {
                         // Create an element for the token in the HTML namespace, with the Document as the intended parent.
-                        let element = self.create_html_element_for_token(
+                        let element = self.create_element_for_token(
                             tagdata,
                             Namespace::HTML,
                             &DOMPtr::clone(&self.document).upcast(),
@@ -1004,7 +1016,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Append it to the Document object.
                         Node::append_child(
                             DOMPtr::clone(&self.document).upcast(),
-                            DOMPtr::clone(&element),
+                            DOMPtr::clone(&element).upcast(),
                         );
 
                         // Put this element in the stack of open elements.
@@ -1017,16 +1029,16 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Create an html element whose node document is the Document object.
                         let mut html_element = HtmlHtmlElement::default();
                         html_element.set_owning_document(DOMPtr::clone(&self.document).downgrade());
-                        let new_node = DOMPtr::new(html_element).upcast();
+                        let new_element: DOMPtr<Element> = DOMPtr::new(html_element).upcast();
 
                         // Append it to the Document object.
                         Node::append_child(
                             DOMPtr::clone(&self.document).upcast(),
-                            DOMPtr::clone(&new_node),
+                            DOMPtr::clone(&new_element).upcast(),
                         );
 
                         // Put this element in the stack of open elements.
-                        self.open_elements.push(new_node);
+                        self.open_elements.push(new_element);
 
                         // Switch the insertion mode to "before head",
                         self.insertion_mode = InsertionMode::BeforeHead;
@@ -1059,7 +1071,10 @@ impl<P: ParseErrorHandler> Parser<P> {
                         if tagdata.opening && tagdata.name == static_interned!("head") =>
                     {
                         // Insert an HTML element for the token.
-                        let head = self.insert_html_element_for_token(tagdata);
+                        let head = self
+                            .insert_html_element_for_token(tagdata)
+                            .try_into_type()
+                            .expect("expected <head> element to be created");
 
                         // Set the head element pointer to the newly created head element.
                         self.head = Some(head);
@@ -1084,7 +1099,10 @@ impl<P: ParseErrorHandler> Parser<P> {
                             self_closing: false,
                             attributes: vec![],
                         };
-                        let head_element = self.insert_html_element_for_token(&bogus_head_token);
+                        let head_element = self
+                            .insert_html_element_for_token(&bogus_head_token)
+                            .try_into_type()
+                            .expect("expected <head> element to be created");
 
                         // Set the head element pointer to the newly created head element.
                         self.head = Some(head_element);
@@ -1201,7 +1219,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                         // 2. Create an element for the token in the HTML namespace, with the intended parent being the element
                         // in which the adjusted insertion location finds itself.
-                        let element = self.create_html_element_for_token(
+                        let element = self.create_element_for_token(
                             tagdata,
                             Namespace::HTML,
                             &adjusted_insert_location,
@@ -1215,7 +1233,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // 5. If the parser was invoked via the document.write() or document.writeln() methods, then optionally set the script element's already started to true.
 
                         // 6. Insert the newly created element at the adjusted insertion location.
-                        Node::append_child(adjusted_insert_location, element.clone());
+                        Node::append_child(adjusted_insert_location, element.clone().upcast());
 
                         // 7. Push the element onto the stack of open elements so that it is the new current node.
                         self.open_elements.push(element);
@@ -1458,7 +1476,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                                 .as_ref()
                                 .expect("Spec: self.head cannot be none at this point"),
                         );
-                        self.open_elements.push(DOMPtr::clone(&head));
+                        self.open_elements.push(DOMPtr::clone(&head).upcast());
 
                         // Process the token using the rules for the "in head" insertion mode.
                         self.consume_in_mode(InsertionMode::InHead, token);
@@ -1603,7 +1621,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                             //     element, or the html element, then this is a parse error.
                             //
                             // 2. Stop parsing.
-                            self.done = true;
+                            self.stop_parsing();
                         }
                     },
                     Token::Tag(ref tagdata)
@@ -2458,7 +2476,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     },
                     Token::EOF => {
                         // Stop parsing.
-                        self.done = true;
+                        self.stop_parsing();
                     },
                     _ => {
                         // Parse error. Switch the insertion mode to "in body" and reprocess the
@@ -2489,7 +2507,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     },
                     Token::EOF => {
                         // Stop parsing.
-                        self.done = true;
+                        self.stop_parsing();
                     },
                     _ => {
                         // Parse error. Switch the insertion mode to "in body" and reprocess the
@@ -2557,7 +2575,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     /// Extracted into its own functions because the adoption agency algorithm makes use of this sequence
     /// of steps too.
     fn any_other_end_tag_in_body(&mut self, tag: TagData) {
-        fn is_html_element_with_name(node: DOMPtr<Node>, name: InternedString) -> bool {
+        fn is_html_element_with_name(node: DOMPtr<Element>, name: InternedString) -> bool {
             if let Some(element) = node.try_into_type::<Element>() {
                 if element.borrow().local_name() == name {
                     return node.is_a::<HtmlElement>();

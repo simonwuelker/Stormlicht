@@ -18,7 +18,7 @@ use crate::{
 
 /// The Browsing Context takes care of coordinating loads, layout calculations and paints
 pub struct BrowsingContext {
-    document: DOMPtr<dom_objects::Node>,
+    document: DOMPtr<dom_objects::Document>,
     fragment_tree: FragmentTree,
     stylesheets: Vec<Stylesheet>,
     selection: Option<Selection>,

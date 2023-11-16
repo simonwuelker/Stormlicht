@@ -53,16 +53,31 @@ impl Default for BlockContainer {
 }
 
 impl BlockFormattingContext {
-    pub fn root(document: DOMPtr<dom_objects::Node>, style_computer: StyleComputer<'_>) -> Self {
-        let document_style = style_computer
-            .get_computed_style(document.clone().into_type(), &ComputedStyle::default());
+    pub fn root(
+        document: DOMPtr<dom_objects::Document>,
+        style_computer: StyleComputer<'_>,
+    ) -> Self {
+        let html = document
+            .borrow()
+            .children()
+            .last()
+            .expect("no root element found")
+            .try_into_type::<dom_objects::HtmlHtmlElement>()
+            .expect("expected root element to be html element");
 
-        let contents = BoxTreeBuilder::build(document.clone(), style_computer, &document_style);
+        let document_style = style_computer
+            .get_computed_style(DOMPtr::clone(&html).upcast(), &ComputedStyle::default());
+
+        let contents = BoxTreeBuilder::build(
+            DOMPtr::clone(&html).upcast(),
+            style_computer,
+            &document_style,
+        );
 
         let root = BlockLevelBox {
             style: document_style,
             contents,
-            node: Some(document),
+            node: Some(html.upcast()),
         };
 
         vec![root].into()
