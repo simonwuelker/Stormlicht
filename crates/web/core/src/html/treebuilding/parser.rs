@@ -14,13 +14,13 @@ use crate::{
     },
     html::{
         tokenization::{ParseErrorHandler, TagData, Token, Tokenizer, TokenizerState},
-        treebuilding::ActiveFormattingElements,
+        treebuilding::{ActiveFormattingElement, ActiveFormattingElements, FormatEntry},
     },
     infra::Namespace,
     static_interned, InternedString,
 };
 
-use super::active_formatting_elements::{ActiveFormattingElement, FormatEntry};
+use sl_std::iter::IteratorExtensions;
 
 const TAB: char = '\u{0009}';
 const LINE_FEED: char = '\u{000A}';
@@ -396,30 +396,45 @@ impl<P: ParseErrorHandler> Parser<P> {
         self.is_element_in_specific_scope(element_name, LIST_ITEM_SCOPE)
     }
 
+    fn elements_in_scope<'open_elements, 'scope, 'iterator>(
+        &'open_elements self,
+        scope: &'scope [InternedString],
+    ) -> impl 'iterator + Iterator<Item = DomPtr<Element>>
+    where
+        'open_elements: 'iterator,
+        'scope: 'iterator,
+    {
+        self.open_elements
+            .iter()
+            .rev()
+            .take_while_including(|e| !scope.contains(&e.borrow().local_name()))
+            .cloned()
+    }
+
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-the-specific-scope>
     fn is_element_in_specific_scope(
         &self,
         element_name: InternedString,
         scope: &[InternedString],
     ) -> bool {
+        // NOTE: elements_in_scope takes care of 1. and 3. for us
+
         // 1. Initialize node to be the current node (the bottommost node of the stack).
-        for node in self.open_elements.iter().rev() {
+        for node in self.elements_in_scope(scope) {
             let local_name = node.borrow().local_name();
 
             // 2. If node is the target node, terminate in a match state.
             if local_name == element_name {
                 return true;
             }
-            // 3. Otherwise, if node is one of the element types in list, terminate in a failure state.
-            else if scope.contains(&local_name) {
-                return false;
-            }
 
-            // Otherwise, set node to the previous entry in the stack of open elements and return to step 2.
-            // (This will never fail, since the loop will always terminate in the previous step if the
-            // top of the stack — an html element — is reached.)
+            // 3. Otherwise, if node is one of the element types in list, terminate in a failure state.
+
+            // 4. Otherwise, set node to the previous entry in the stack of open elements and return to step 2.
+            //    (This will never fail, since the loop will always terminate in the previous step if the
+            //    top of the stack — an html element — is reached.)
         }
-        unreachable!()
+        false
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#close-a-p-element>
@@ -739,7 +754,7 @@ impl<P: ParseErrorHandler> Parser<P> {
             // 9. Replace the entry for entry in the list with an entry for new element.
             self.active_formatting_elements.elements_mut()[entry_index] =
                 FormatEntry::Element(ActiveFormattingElement {
-                    element: new_element.try_into_type().unwrap(),
+                    element: new_element,
                     tag,
                 });
 
@@ -1738,19 +1753,20 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // If the current node is an HTML element whose tag name is one of
                         // "h1", "h2", "h3", "h4", "h5", or "h6", then this is a parse error;
                         // pop the current node off the stack of open elements.
-                        if let Some(element) = self.current_node().try_into_type::<Element>() {
-                            let tag_name = element.borrow().local_name();
-                            if tag_name == static_interned!("h1")
-                                || tag_name == static_interned!("h2")
-                                || tag_name == static_interned!("h3")
-                                || tag_name == static_interned!("h4")
-                                || tag_name == static_interned!("h5")
-                                || tag_name == static_interned!("h6")
-                            {
-                                self.pop_from_open_elements();
-                            }
+                        let tag_name = self.current_node().borrow().local_name();
+                        if matches!(
+                            tag_name,
+                            static_interned!("h1")
+                                | static_interned!("h2")
+                                | static_interned!("h3")
+                                | static_interned!("h4")
+                                | static_interned!("h5")
+                                | static_interned!("h6")
+                        ) {
+                            self.pop_from_open_elements();
                         }
 
+                        // Insert an HTML element for the token.
                         self.insert_html_element_for_token(&tagdata);
                     },
                     Token::Tag(tagdata)
@@ -1813,12 +1829,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                             // 4. If node is in the special category, but is not an address, div, or p element,
                             //    then jump to the step labeled done below.
-                            let local_name = node
-                                .clone()
-                                .try_into_type::<Element>()
-                                .unwrap()
-                                .borrow()
-                                .local_name();
+                            let local_name = node.clone().borrow().local_name();
 
                             // FIXME: Check if node is an address element
                             if is_element_in_special_category(local_name)
@@ -2043,14 +2054,29 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // FIXME: If the stack of open elements does not have an element in scope that is an HTML element
                         //        and whose tag name is one of "h1", "h2", "h3", "h4", "h5", or "h6",
                         //        then this is a parse error; ignore the token.
+                        let is_heading_in_scope = self.elements_in_scope(DEFAULT_SCOPE).any(|e| {
+                            let local_name = e.borrow().local_name();
+                            matches!(
+                                local_name,
+                                static_interned!("h1")
+                                    | static_interned!("h2")
+                                    | static_interned!("h3")
+                                    | static_interned!("h4")
+                                    | static_interned!("h5")
+                                    | static_interned!("h6")
+                            )
+                        });
+                        if !is_heading_in_scope {
+                            return;
+                        }
 
                         // Otherwise, run these steps:
 
                         // 1. Generate implied end tags.
                         self.generate_implied_end_tags();
 
-                        // 2. FIXME: If the current node is not an HTML element with the same tag name as that of the token,
-                        //           then this is a parse error.
+                        // 2. If the current node is not an HTML element with the same tag name as that of the token,
+                        //    then this is a parse error.
 
                         // 3. Pop elements from the stack of open elements until an HTML element whose tag name is one of
                         //    "h1", "h2", "h3", "h4", "h5", or "h6" has been popped from the stack.
@@ -2104,8 +2130,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                         // Push onto the list of active formatting elements that element.
                         // NOTE: the cast is safe because "insert_html_element_for_token" alwas produces an HTMLElement
-                        self.active_formatting_elements
-                            .push(element.try_into_type::<Element>().unwrap(), tagdata);
+                        self.active_formatting_elements.push(element, tagdata);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
@@ -2126,10 +2151,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.reconstruct_active_formatting_elements();
 
                         // Insert an HTML element for the token
-                        let element = self
-                            .insert_html_element_for_token(&tagdata)
-                            .try_into_type::<Element>()
-                            .unwrap();
+                        let element = self.insert_html_element_for_token(&tagdata);
 
                         // Push onto the list of active formatting elements that element.
                         self.active_formatting_elements.push(element, tagdata);
@@ -2149,10 +2171,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         }
 
                         // Insert an HTML element for the token
-                        let element = self
-                            .insert_html_element_for_token(&tagdata)
-                            .try_into_type::<Element>()
-                            .unwrap();
+                        let element = self.insert_html_element_for_token(&tagdata);
 
                         // Push onto the list of active formatting elements that element.
                         self.active_formatting_elements.push(element, tagdata);
@@ -2597,7 +2616,9 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.pop_from_open_elements();
 
                         // Switch the insertion mode to the original insertion mode.
-                        self.insertion_mode = self.original_insertion_mode.unwrap();
+                        self.insertion_mode = self
+                            .original_insertion_mode
+                            .expect("original insertion mode has not been set");
                     },
                     _ => todo!(),
                 }
