@@ -27,21 +27,42 @@ const LINE_FEED: char = '\u{000A}';
 const FORM_FEED: char = '\u{000C}';
 const WHITESPACE: char = '\u{0020}';
 
-const DEFAULT_SCOPE: &[DomType] = &[DomType::HtmlHtmlElement, DomType::HtmlTemplateElement];
+// FIXME: We should also consider the object namespaces here (and in every other scope)
+/// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-scope>
+const DEFAULT_SCOPE: &[InternedString] = &[
+    static_interned!("applet"),
+    static_interned!("caption"),
+    static_interned!("html"),
+    static_interned!("table"),
+    static_interned!("td"),
+    static_interned!("th"),
+    static_interned!("marquee"),
+    static_interned!("object"),
+    static_interned!("template"),
+    static_interned!("mi"),
+    static_interned!("mi"),
+    static_interned!("mn"),
+    static_interned!("ms"),
+    static_interned!("mtext"),
+    static_interned!("annotation-xml"),
+    static_interned!("foreignObject"),
+    static_interned!("desc"),
+    static_interned!("title"),
+];
 
 /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-button-scope>
-const BUTTON_SCOPE: &[DomType] = &[
-    DomType::HtmlHtmlElement,
-    DomType::HtmlTemplateElement,
-    DomType::HtmlButtonElement,
+const BUTTON_SCOPE: &[InternedString] = &[
+    static_interned!("html"),
+    static_interned!("template"),
+    static_interned!("button"),
 ];
 
 /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-list-item-scope>
-const ITEM_SCOPE: &[DomType] = &[
-    DomType::HtmlHtmlElement,
-    DomType::HtmlTemplateElement,
-    // <ol>
-    // <ul>
+const LIST_ITEM_SCOPE: &[InternedString] = &[
+    static_interned!("html"),
+    static_interned!("template"),
+    static_interned!("ol"),
+    static_interned!("ul"),
 ];
 
 #[derive(Clone, Copy, Debug)]
@@ -360,26 +381,37 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-scope>
-    fn is_element_in_scope(&self, target_node_type: DomType) -> bool {
+    fn is_element_in_scope(&self, element_name: InternedString) -> bool {
         // FIXME: this default scope should contain more types but they dont exist yet
-        self.is_element_in_specific_scope(target_node_type, DEFAULT_SCOPE)
+        self.is_element_in_specific_scope(element_name, DEFAULT_SCOPE)
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-button-scope>
-    fn is_element_in_button_scope(&self, target_node_type: DomType) -> bool {
-        self.is_element_in_specific_scope(target_node_type, BUTTON_SCOPE)
+    fn is_element_in_button_scope(&self, element_name: InternedString) -> bool {
+        self.is_element_in_specific_scope(element_name, BUTTON_SCOPE)
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-list-item-scope>
+    fn is_element_in_list_item_scope(&self, element_name: InternedString) -> bool {
+        self.is_element_in_specific_scope(element_name, LIST_ITEM_SCOPE)
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-the-specific-scope>
-    fn is_element_in_specific_scope(&self, target_node_type: DomType, scope: &[DomType]) -> bool {
+    fn is_element_in_specific_scope(
+        &self,
+        element_name: InternedString,
+        scope: &[InternedString],
+    ) -> bool {
         // 1. Initialize node to be the current node (the bottommost node of the stack).
         for node in self.open_elements.iter().rev() {
+            let local_name = node.borrow().local_name();
+
             // 2. If node is the target node, terminate in a match state.
-            if node.underlying_type() == target_node_type {
+            if local_name == element_name {
                 return true;
             }
             // 3. Otherwise, if node is one of the element types in list, terminate in a failure state.
-            else if scope.contains(&node.underlying_type()) {
+            else if scope.contains(&local_name) {
                 return false;
             }
 
@@ -788,7 +820,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
             // 5. If formatting element is in the stack of open elements, but the element is not in scope,
             //    then this is a parse error; return.
-            if !self.is_element_in_scope(formatting_element.element.underlying_type()) {
+            if !self.is_element_in_scope(formatting_element.element.borrow().local_name()) {
                 return;
             }
 
@@ -1621,7 +1653,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         if !tagdata.opening && tagdata.name == static_interned!("body") =>
                     {
                         // If the stack of open elements does not have a body element in scope, this is a parse error; ignore the token.
-                        if !self.is_element_in_scope(DomType::HtmlBodyElement) {
+                        if !self.is_element_in_scope(static_interned!("body")) {
                             return;
                         }
 
@@ -1639,7 +1671,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         if !tagdata.opening && tagdata.name == static_interned!("html") =>
                     {
                         // If the stack of open elements does not have a body element in scope, this is a parse error; ignore the token.
-                        if self.is_element_in_scope(DomType::HtmlBodyElement) {
+                        if self.is_element_in_scope(static_interned!("html")) {
                             return;
                         }
 
@@ -1682,7 +1714,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                                 || tagdata.name == static_interned!("ul")) =>
                     {
                         // If the stack of open elements has a p element in button scope, then close a p element.
-                        if self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
+                        if self.is_element_in_button_scope(static_interned!("p")) {
                             self.close_p_element();
                         }
 
@@ -1699,7 +1731,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                                 || tagdata.name == static_interned!("h6")) =>
                     {
                         // If the stack of open elements has a p element in button scope, then close a p element.
-                        if self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
+                        if self.is_element_in_button_scope(static_interned!("p")) {
                             self.close_p_element();
                         }
 
@@ -1744,7 +1776,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Otherwise:
                         else {
                             // If the stack of open elements has a p element in button scope, then close a p element.
-                            if self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
+                            if self.is_element_in_button_scope(static_interned!("p")) {
                                 self.close_p_element();
                             }
 
@@ -1803,7 +1835,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         }
 
                         // 6. Done: If the stack of open elements has a p element in button scope, then close a p element.
-                        if self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
+                        if self.is_element_in_button_scope(static_interned!("p")) {
                             self.close_p_element();
                         }
 
@@ -1841,7 +1873,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // FIXME: 6. Otherwise, set node to the previous entry in the stack of open elements and return to the step labeled loop.
 
                         // 7. Done: If the stack of open elements has a p element in button scope, then close a p element.
-                        if self.is_element_in_scope(DomType::HtmlParagraphElement) {
+                        if self.is_element_in_scope(static_interned!("p")) {
                             self.close_p_element();
                         }
 
@@ -1901,7 +1933,9 @@ impl<P: ParseErrorHandler> Parser<P> {
                             let node = self.form.take();
 
                             match node {
-                                Some(node) if self.is_element_in_scope(node.underlying_type()) => {
+                                Some(node)
+                                    if self.is_element_in_scope(node.borrow().local_name()) =>
+                                {
                                     // 4. Generate implied end tags.
                                     self.generate_implied_end_tags();
 
@@ -1919,7 +1953,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // If there is a template element on the stack of open elements, then run these substeps instead:
                         else {
                             // 1. If the stack of open elements does not have a form element in scope, then this is a parse error; return and ignore the token.
-                            if !self.is_element_in_scope(DomType::HtmlFormElement) {
+                            if !self.is_element_in_scope(static_interned!("form")) {
                                 return;
                             }
 
@@ -1939,7 +1973,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     {
                         // If the stack of open elements does not have a p element in button scope, then this is a parse error;
                         // insert an HTML element for a "p" start tag token with no attributes.
-                        if !self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
+                        if !self.is_element_in_button_scope(static_interned!("p")) {
                             self.insert_html_element_for_token(&TagData {
                                 opening: true,
                                 name: static_interned!("p"),
@@ -1956,7 +1990,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     {
                         // If the stack of open elements does not have an li element in list item scope,
                         // then this is a parse error; ignore the token.
-                        if !self.is_element_in_specific_scope(DomType::HtmlLiElement, ITEM_SCOPE) {
+                        if !self.is_element_in_list_item_scope(static_interned!("li")) {
                             return;
                         }
 
@@ -1974,8 +2008,11 @@ impl<P: ParseErrorHandler> Parser<P> {
                             && (tagdata.name == static_interned!("dd")
                                 || tagdata.name == static_interned!("dt")) =>
                     {
-                        // FIXME: If the stack of open elements does not have an element in scope that is an HTML element with the same tag name as that of the token,
-                        // then this is a parse error; ignore the token.
+                        // If the stack of open elements does not have an element in scope that is an HTML element with the
+                        // same tag name as that of the token, then this is a parse error; ignore the token.
+                        if !self.is_element_in_scope(tagdata.name) {
+                            return;
+                        }
 
                         // Otherwise, run these steps:
                         // 1. Generate implied end tags, except for HTML elements with the same tag name as the token.
@@ -2103,9 +2140,13 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Reconstruct the active formatting elements, if any.
                         self.reconstruct_active_formatting_elements();
 
-                        // FIXME: If the stack of open elements has a nobr element in scope, then this is a parse error; run the adoption agency algorithm for the token,
-                        // then once again reconstruct the active formatting elements, if any.
-                        log::warn!("FIXME: check if <nobr> is in scope");
+                        // If the stack of open elements has a nobr element in scope, then this is a parse error;
+                        // run the adoption agency algorithm for the token, then once again reconstruct the
+                        // active formatting elements, if any.
+                        if !self.is_element_in_scope(static_interned!("nobr")) {
+                            self.run_adoption_agency_algorithm(&tagdata);
+                            self.reconstruct_active_formatting_elements();
+                        }
 
                         // Insert an HTML element for the token
                         let element = self
@@ -2167,7 +2208,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                     {
                         // If the Document is not set to quirks mode, and the stack of open elements has a p element in button scope, then close a p element.
                         // FIXME: respect quirks mode
-                        if self.is_element_in_scope(DomType::HtmlParagraphElement) {
+                        if self.is_element_in_scope(static_interned!("p")) {
                             self.close_p_element();
                         }
 
@@ -2270,7 +2311,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         if tagdata.opening && tagdata.name == static_interned!("hr") =>
                     {
                         // If the stack of open elements has a p element in button scope, then close a p element.
-                        if self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
+                        if self.is_element_in_button_scope(static_interned!("p")) {
                             self.close_p_element();
                         }
 
@@ -2321,7 +2362,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         if tagdata.opening && tagdata.name == static_interned!("xmp") =>
                     {
                         // If the stack of open elements has a p element in button scope, then close a p element.
-                        if self.is_element_in_button_scope(DomType::HtmlParagraphElement) {
+                        if self.is_element_in_button_scope(static_interned!("p")) {
                             self.close_p_element();
                         }
 
