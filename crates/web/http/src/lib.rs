@@ -2,6 +2,8 @@
 //!
 //! [Specifications](https://developer.mozilla.org/en-US/docs/Web/HTTP/Resources_and_specifications)
 
+#![feature(exclusive_range_pattern)]
+
 mod headers;
 pub mod request;
 mod response;
