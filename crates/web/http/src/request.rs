@@ -73,10 +73,6 @@ impl Method {
     }
 }
 
-trait Stream: io::Read + io::Write {}
-
-impl<S> Stream for S where S: io::Read + io::Write {}
-
 impl Request {
     /// Create a `GET` request for the specified URL
     ///
@@ -174,7 +170,10 @@ impl Request {
         }
     }
 
-    fn send_on_stream<S: Stream>(&mut self, mut stream: S) -> Result<Response, HTTPError> {
+    fn send_on_stream<S: io::Read + io::Write>(
+        &mut self,
+        mut stream: S,
+    ) -> Result<Response, HTTPError> {
         // Send our request
         self.write_to(&mut stream)?;
 
