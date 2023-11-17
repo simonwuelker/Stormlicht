@@ -1,5 +1,68 @@
 //! Various extensions to [std::iter]
 
+use std::iter::FusedIterator;
+
+pub trait IteratorExtensions: Iterator {
+    /// Creates an iterator that yields elements based on a predicate.
+    fn take_while_including<P>(self, predicate: P) -> TakeWhileIncluding<Self, P>
+    where
+        Self: Sized,
+        P: FnMut(&Self::Item) -> bool,
+    {
+        TakeWhileIncluding {
+            iter: self,
+            is_done: false,
+            predicate,
+        }
+    }
+}
+
+impl<I: Iterator> IteratorExtensions for I {}
+
+#[must_use = "iterators are lazy and do nothing unless consumed"]
+#[derive(Clone)]
+pub struct TakeWhileIncluding<I, P> {
+    iter: I,
+    is_done: bool,
+    predicate: P,
+}
+
+impl<I: Iterator, P> Iterator for TakeWhileIncluding<I, P>
+where
+    P: FnMut(&I::Item) -> bool,
+{
+    type Item = I::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.is_done {
+            return None;
+        }
+
+        let element = self.iter.next()?;
+        if !(self.predicate)(&element) {
+            // Stop iterating, but return the last item
+            self.is_done = true;
+        }
+
+        Some(element)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        if self.is_done {
+            (0, Some(0))
+        } else {
+            (0, self.iter.size_hint().1)
+        }
+    }
+}
+
+impl<I, P> FusedIterator for TakeWhileIncluding<I, P>
+where
+    I: Iterator + FusedIterator,
+    P: FnMut(&I::Item) -> bool,
+{
+}
+
 /// Like [std::slice::Split] except it allows to split on a sequence
 /// of elements instead of just a single one.
 #[derive(Clone, Copy)]
@@ -78,7 +141,16 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::MultiElementSplit;
+    use super::*;
+
+    #[test]
+    fn take_until() {
+        let mut iter = (1..5).take_while_including(|&i| i < 3);
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), Some(3));
+        assert_eq!(iter.next(), None);
+    }
 
     #[test]
     fn multi_element_split() {
