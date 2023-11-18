@@ -43,6 +43,13 @@
         }
     },
     {
+        "name": "clear",
+        "specification": "https://drafts.csswg.org/css2/#propdef-clear",
+        "inherited": false,
+        "value": "Clear",
+        "initial": "Clear::None"
+    },
+    {
         "name": "color",
         "specification": "https://drafts.csswg.org/css2/#colors",
         "inherited": true,
