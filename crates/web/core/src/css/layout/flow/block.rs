@@ -356,7 +356,7 @@ impl BlockLevelBox {
                 state.finish()
             },
             BlockContainer::InlineFormattingContext(inline_formatting_context) => {
-                let (fragments, content_height) = inline_formatting_context.layout(
+                let (fragments, height) = inline_formatting_context.layout(
                     top_left,
                     containing_block,
                     length_resolution_context,
@@ -365,8 +365,6 @@ impl BlockLevelBox {
                     content_area_including_overflow
                         .grow_to_contain(fragment.content_area_including_overflow());
                 }
-
-                let height = padding_top + content_height + padding_bottom;
 
                 (height, fragments)
             },
