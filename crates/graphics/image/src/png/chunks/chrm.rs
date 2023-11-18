@@ -1,6 +1,6 @@
 //! [cHRM](https://www.w3.org/TR/png/#11cHRM) chunk
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Chromacities {
     pub white_point: (u32, u32),
     pub red_point: (u32, u32),

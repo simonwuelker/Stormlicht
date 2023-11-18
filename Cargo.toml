@@ -7,6 +7,7 @@ members = [
     "crates/web/dom-derive",
     "crates/graphics/render",
     "crates/graphics/font",
+    "crates/graphics/image",
     "crates/graphics/math",
     "crates/compression",
     "crates/util/buildutils",
@@ -38,6 +39,7 @@ dns = { path = "crates/web/dns" }
 dom-derive = { path = "crates/web/dom-derive" }
 render = { path = "crates/graphics/render" }
 font = { path = "crates/graphics/font" }
+image = { path = "crates/graphics/image" }
 math = { path = "crates/graphics/math" }
 compression = { path = "crates/compression" }
 cli = { path = "crates/util/cli" }

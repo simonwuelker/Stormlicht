@@ -13,14 +13,14 @@ use std::{
 
 use compression::zlib;
 
-use hash::CRC32;
+use hash::Crc32Hasher;
 
 use self::chunks::ihdr::ImageType;
 
 const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
 #[derive(Debug)]
-pub enum PNGError {
+pub enum Error {
     NotAPng,
     ExpectedIHDR,
     UnknownChunk,
@@ -33,16 +33,13 @@ pub enum PNGError {
     MismatchedDecompressedZlibSize,
     UnknownFilterType,
     IndexedImageWithoutPLTE,
-    ZLib(zlib::ZLibError),
+    ZLib(zlib::Error),
     IO(io::Error),
 }
 
-pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<math::Bitmap<u32>, PNGError> {
+pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<math::Bitmap<u32>, Error> {
     let mut file_contents = vec![];
-    fs::File::open(&path)
-        .map_err(PNGError::IO)?
-        .read_to_end(&mut file_contents)
-        .map_err(PNGError::IO)?;
+    fs::File::open(&path)?.read_to_end(&mut file_contents)?;
     decode(&file_contents)
 }
 
@@ -88,14 +85,14 @@ enum ParserStage {
     AfterIDAT,
 }
 
-pub fn decode(bytes: &[u8]) -> Result<math::Bitmap<u32>, PNGError> {
+pub fn decode(bytes: &[u8]) -> Result<math::Bitmap<u32>, Error> {
     let mut reader = Cursor::new(bytes);
 
     let mut signature = [0; 8];
-    reader.read_exact(&mut signature).map_err(PNGError::IO)?;
+    reader.read_exact(&mut signature)?;
 
     if signature != PNG_HEADER {
-        return Err(PNGError::NotAPng);
+        return Err(Error::NotAPng);
     }
 
     let ihdr_chunk = read_chunk(&mut reader)?;
@@ -103,7 +100,7 @@ pub fn decode(bytes: &[u8]) -> Result<math::Bitmap<u32>, PNGError> {
         image_header
     } else {
         log::warn!("Expected IHDR chunk, found {ihdr_chunk:?}");
-        return Err(PNGError::ExpectedIHDR);
+        return Err(Error::ExpectedIHDR);
     };
     let image_width = image_header.width as usize;
     let image_height = image_header.height as usize;
@@ -124,7 +121,7 @@ pub fn decode(bytes: &[u8]) -> Result<math::Bitmap<u32>, PNGError> {
             Chunk::IDAT(data) => {
                 match parser_stage {
                     ParserStage::BeforeIDAT => parser_stage = ParserStage::DuringIDAT,
-                    ParserStage::AfterIDAT => return Err(PNGError::NonConsecutiveIDATChunk),
+                    ParserStage::AfterIDAT => return Err(Error::NonConsecutiveIDATChunk),
                     _ => {},
                 }
                 idat.extend(data.bytes());
@@ -135,10 +132,10 @@ pub fn decode(bytes: &[u8]) -> Result<math::Bitmap<u32>, PNGError> {
     }
 
     if image_header.image_type == chunks::ihdr::ImageType::IndexedColor && palette.is_none() {
-        return Err(PNGError::IndexedImageWithoutPLTE);
+        return Err(Error::IndexedImageWithoutPLTE);
     }
 
-    let decompressed_body = zlib::decode(&idat).map_err(PNGError::ZLib)?;
+    let decompressed_body = zlib::decompress(&idat)?;
 
     let scanline_width = image_width * image_header.image_type.pixel_width();
 
@@ -149,7 +146,7 @@ pub fn decode(bytes: &[u8]) -> Result<math::Bitmap<u32>, PNGError> {
             decompressed_body.len(),
             scanline_width + 1
         );
-        return Err(PNGError::MismatchedDecompressedZlibSize);
+        return Err(Error::MismatchedDecompressedZlibSize);
     }
 
     let mut image_data = vec![0; image_height * scanline_width];
@@ -185,26 +182,22 @@ pub fn decode(bytes: &[u8]) -> Result<math::Bitmap<u32>, PNGError> {
     ))
 }
 
-fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk, PNGError> {
+fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk, Error> {
     let mut length_bytes = [0; 4];
-    reader.read_exact(&mut length_bytes).map_err(PNGError::IO)?;
+    reader.read_exact(&mut length_bytes)?;
     let length = u32::from_be_bytes(length_bytes) as usize;
 
     let mut chunk_name_bytes = [0; 4];
-    reader
-        .read_exact(&mut chunk_name_bytes)
-        .map_err(PNGError::IO)?;
+    reader.read_exact(&mut chunk_name_bytes)?;
 
     let mut data = vec![0; length];
-    reader
-        .read_exact(data.as_mut_slice())
-        .map_err(PNGError::IO)?;
+    reader.read_exact(data.as_mut_slice())?;
 
     let mut crc_bytes = [0; 4];
-    reader.read_exact(&mut crc_bytes).map_err(PNGError::IO)?;
+    reader.read_exact(&mut crc_bytes)?;
     let expected_crc = u32::from_be_bytes(crc_bytes);
 
-    let mut hasher = CRC32::default();
+    let mut hasher = Crc32Hasher::default();
     hasher.write(&chunk_name_bytes);
     hasher.write(&data);
     let computed_crc = hasher.finish();
@@ -213,14 +206,12 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk, PNGError> {
         log::warn!(
             "Incorrect chunk checksum: expected {expected_crc:0>8x}, found {computed_crc:0>8x}"
         );
-        return Err(PNGError::MismatchedChecksum);
+        return Err(Error::MismatchedChecksum);
     }
 
     let chunk = match &chunk_name_bytes {
-        b"IHDR" => {
-            Chunk::IHDR(chunks::ImageHeader::new(&data).map_err(PNGError::InvalidIHDRChunk)?)
-        },
-        b"PLTE" => Chunk::PLTE(chunks::Palette::new(&data).map_err(PNGError::InvalidPLTEChunk)?),
+        b"IHDR" => Chunk::IHDR(chunks::ImageHeader::new(&data).map_err(Error::InvalidIHDRChunk)?),
+        b"PLTE" => Chunk::PLTE(chunks::Palette::new(&data).map_err(Error::InvalidPLTEChunk)?),
         b"IDAT" => Chunk::IDAT(chunks::ImageData::new(data)),
         b"IEND" => {
             if length != 0 {
@@ -232,7 +223,7 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk, PNGError> {
         b"cHRM" => {
             if length != 32 {
                 log::warn!("cHRM length must be exactly 32 bytes, found {length}");
-                return Err(PNGError::InvalidcHRMChunk);
+                return Err(Error::InvalidcHRMChunk);
             }
 
             let white_point = (
@@ -295,7 +286,7 @@ fn apply_filters(
     to: &mut [u8],
     scanline_width: usize,
     _pixel_width: usize,
-) -> Result<(), PNGError> {
+) -> Result<(), Error> {
     // For each scanline, apply a filter (which is the first byte) to the scanline data (which is the rest)
     let mut previous_scanline = vec![0; scanline_width];
     for (index, scanline_data_and_filter_method) in
@@ -384,6 +375,7 @@ fn apply_filters(
 /// Note that this function only implements a single selection
 /// step in the paeth algorithm
 #[inline]
+#[must_use]
 fn paeth(a: u8, b: u8, c: u8) -> u8 {
     // Note that we need to use i16's because all the calculations
     // must be performed without overflows
@@ -415,16 +407,28 @@ enum Filter {
 }
 
 impl TryFrom<u8> for Filter {
-    type Error = PNGError;
+    type Error = Error;
 
-    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(Self::None),
             1 => Ok(Self::Sub),
             2 => Ok(Self::Up),
             3 => Ok(Self::Average),
             4 => Ok(Self::Paeth),
-            _ => Err(PNGError::UnknownFilterType),
+            _ => Err(Error::UnknownFilterType),
         }
+    }
+}
+
+impl From<zlib::Error> for Error {
+    fn from(value: zlib::Error) -> Self {
+        Self::ZLib(value)
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(value: io::Error) -> Self {
+        Self::IO(value)
     }
 }
