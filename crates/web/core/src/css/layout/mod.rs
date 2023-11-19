@@ -1,11 +1,13 @@
+mod box_tree;
 pub mod flow;
 mod pixels;
 
-use math::{Rectangle, Vec2D};
+pub use box_tree::BoxTree;
 pub use pixels::Pixels;
 
-use std::ops;
+use math::{Rectangle, Vec2D};
 
+use std::ops;
 #[derive(Clone, Copy, Debug)]
 pub struct Sides<T> {
     pub top: T,

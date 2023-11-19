@@ -7,7 +7,7 @@ use crate::{
     css::{
         display_list::Painter,
         fragment_tree::FragmentTree,
-        layout::{flow::BlockFormattingContext, Pixels, Size},
+        layout::{BoxTree, Pixels, Size},
         StyleComputer, Stylesheet,
     },
     dom::{dom_objects, DomPtr},
@@ -70,7 +70,7 @@ impl BrowsingContext {
         let style_computer = StyleComputer::new(&self.stylesheets);
 
         // Build a box tree for the parsed document
-        let box_tree = BlockFormattingContext::root(self.document.clone(), style_computer);
+        let box_tree = BoxTree::new(self.document.clone(), style_computer);
         log::info!("\n{:?}", box_tree);
 
         // Build a fragment tree by fragmenting the boxes
@@ -78,7 +78,7 @@ impl BrowsingContext {
             width: Pixels(viewport_size.0 as f32),
             height: Pixels(viewport_size.1 as f32),
         };
-        self.fragment_tree = box_tree.fragment(viewport_size);
+        self.fragment_tree = box_tree.compute_fragments(viewport_size);
 
         let layout_end = time::Instant::now();
         log::info!(
