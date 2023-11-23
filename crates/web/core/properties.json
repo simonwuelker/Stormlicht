@@ -43,6 +43,13 @@
         }
     },
     {
+        "name": "bottom",
+        "specification": "https://drafts.csswg.org/css-position/#propdef-bottom",
+        "inherited": false,
+        "value": "AutoOr<PercentageOr<Length>>",
+        "initial": "AutoOr::Auto"
+    },
+    {
         "name": "clear",
         "specification": "https://drafts.csswg.org/css2/#propdef-clear",
         "inherited": false,
@@ -92,6 +99,13 @@
         "initial": "AutoOr::Auto"
     },
     {
+        "name": "left",
+        "specification": "https://drafts.csswg.org/css-position/#propdef-left",
+        "inherited": false,
+        "value": "AutoOr<PercentageOr<Length>>",
+        "initial": "AutoOr::Auto"
+    },
+    {
         "name": "margin",
         "specification": "https://drafts.csswg.org/css-box-3/#margin-shorthand",
         "inherited": false,
@@ -121,6 +135,20 @@
         "inherited": false,
         "value": "Position",
         "initial": "Position::default()"
+    },
+    {
+        "name": "right",
+        "specification": "https://drafts.csswg.org/css-position/#propdef-right",
+        "inherited": false,
+        "value": "AutoOr<PercentageOr<Length>>",
+        "initial": "AutoOr::Auto"
+    },
+    {
+        "name": "top",
+        "specification": "https://drafts.csswg.org/css-position/#propdef-top",
+        "inherited": false,
+        "value": "AutoOr<PercentageOr<Length>>",
+        "initial": "AutoOr::Auto"
     },
     {
         "name": "width",
