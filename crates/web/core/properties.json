@@ -99,6 +99,13 @@
         "initial": "AutoOr::Auto"
     },
     {
+        "name": "justify-self",
+        "specification": "https://drafts.csswg.org/css-align-3/#propdef-justify-self",
+        "inherited": false,
+        "value": "AutoOr<JustifySelf>",
+        "initial": "AutoOr::Auto"
+    },
+    {
         "name": "left",
         "specification": "https://drafts.csswg.org/css-position/#propdef-left",
         "inherited": false,

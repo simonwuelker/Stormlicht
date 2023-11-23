@@ -1,3 +1,4 @@
+mod alignment;
 mod auto;
 mod background_color;
 mod border;
@@ -11,6 +12,7 @@ mod number;
 mod percentage;
 mod position;
 
+pub use alignment::{Inset, JustifySelf};
 pub use auto::AutoOr;
 pub use background_color::BackgroundColor;
 pub use border::{Border, LineStyle, LineWidth};
