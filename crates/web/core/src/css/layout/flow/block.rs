@@ -153,9 +153,6 @@ impl BlockLevelBox {
                 .map(|length| length.absolutize(length_resolution_context))
         };
 
-        let resolve_border_width =
-            |border: &values::LineWidth| border.length().absolutize(length_resolution_context);
-
         let resolve_padding = |padding: &values::Padding| {
             padding
                 .resolve_against(available_length)
@@ -179,26 +176,19 @@ impl BlockLevelBox {
         let padding_left = resolve_padding(self.style().padding_left());
         let padding_right = resolve_padding(self.style().padding_right());
 
-        let border_left = if self.style().border_left_style().is_none() {
-            Pixels::ZERO
-        } else {
-            resolve_border_width(self.style().border_left_width())
-        };
-
-        let border_right = if self.style().border_right_style().is_none() {
-            Pixels::ZERO
-        } else {
-            resolve_border_width(self.style().border_right_width())
-        };
+        let border_widths = self
+            .style()
+            .used_border_widths()
+            .map(|side| side.absolutize(length_resolution_context));
 
         // Margins are treated as zero if the total width exceeds the available width
         let total_width_is_more_than_available = |width: &Pixels| {
             let total_width = margin_left.unwrap_or_default()
-                + border_left
+                + border_widths.left
                 + padding_left
                 + *width
                 + padding_right
-                + border_right
+                + border_widths.right
                 + margin_right.unwrap_or_default();
             total_width > containing_block.width()
         };
@@ -215,40 +205,40 @@ impl BlockLevelBox {
                 let margin_right = margin_right.unwrap_or(Pixels::ZERO);
                 let width = containing_block.width()
                     - margin_left
-                    - border_left
+                    - border_widths.left
                     - padding_left
                     - padding_right
-                    - border_right
+                    - border_widths.right
                     - margin_right;
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::Auto) => {
                 let margin_width = (containing_block.width()
-                    - border_left
+                    - border_widths.left
                     - padding_left
                     - width
                     - padding_right
-                    - border_right)
+                    - border_widths.right)
                     / 2.;
                 (width, margin_width, margin_width)
             },
             (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::Auto) => {
                 let margin_right = containing_block.width()
                     - margin_left
-                    - border_left
+                    - border_widths.left
                     - padding_left
                     - width
                     - padding_right
-                    - border_right;
+                    - border_widths.right;
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::NotAuto(margin_right)) => {
                 let margin_left = containing_block.width()
-                    - border_left
+                    - border_widths.left
                     - padding_left
                     - width
                     - padding_right
-                    - border_right
+                    - border_widths.right
                     - margin_right;
                 (width, margin_left, margin_right)
             },
@@ -257,11 +247,11 @@ impl BlockLevelBox {
                 // FIXME: If the "direction" property is "rtl", we should ignore the margin left instead
                 let margin_right = containing_block.width()
                     - margin_left
-                    - border_left
+                    - border_widths.left
                     - padding_left
                     - width
                     - padding_right
-                    - border_right;
+                    - border_widths.right;
                 (width, margin_left, margin_right)
             },
         };
@@ -272,18 +262,6 @@ impl BlockLevelBox {
 
         let padding_top = resolve_padding(self.style().padding_top());
         let padding_bottom = resolve_padding(self.style().padding_bottom());
-
-        let border_top = if self.style().border_top_style().is_none() {
-            Pixels::ZERO
-        } else {
-            resolve_border_width(self.style().border_top_width())
-        };
-
-        let border_bottom = if self.style().border_bottom_style().is_none() {
-            Pixels::ZERO
-        } else {
-            resolve_border_width(self.style().border_bottom_width())
-        };
 
         // If the height is a percentage it is
         let height = self.style().height().flat_map(|percentage_or_length| {
@@ -317,8 +295,8 @@ impl BlockLevelBox {
 
         // The top-left corner of the content-rect
         let offset = Vec2D::new(
-            margin_left + border_left + padding_left,
-            margin_top + border_top + padding_top,
+            margin_left + border_widths.left + padding_left,
+            margin_top + border_widths.top + padding_top,
         );
         let top_left = position + offset;
 
@@ -366,21 +344,14 @@ impl BlockLevelBox {
 
         // FIXME: This is ugly, refactor the way we tell our parent
         //        about the height of the box fragment
-        let borders = Sides {
-            top: border_top,
-            right: border_right,
-            bottom: border_bottom,
-            left: border_left,
-        };
-
         let padding_area = padding.surround(content_area);
-        let margin_area = margin.surround(borders.surround(padding_area));
+        let margin_area = margin.surround(border_widths.surround(padding_area));
 
         BoxFragment::new(
             self.node.clone(),
             self.style().clone(),
             margin_area,
-            borders,
+            border_widths,
             padding_area,
             content_area_including_overflow,
             children,
