@@ -16,12 +16,13 @@ pub struct Sides<T> {
     pub left: T,
 }
 
-impl<T> Sides<T> {
-    pub fn surround(&self, area: Rectangle<T>) -> Rectangle<T>
-    where
-        T: Copy,
-        Vec2D<T>: ops::Add<Vec2D<T>, Output = Vec2D<T>> + ops::Sub<Vec2D<T>, Output = Vec2D<T>>,
-    {
+impl<T> Sides<T>
+where
+    T: Copy,
+    Vec2D<T>: ops::Add<Vec2D<T>, Output = Vec2D<T>> + ops::Sub<Vec2D<T>, Output = Vec2D<T>>,
+{
+    #[must_use]
+    pub fn surround(&self, area: Rectangle<T>) -> Rectangle<T> {
         let top_left = area.top_left()
             - Vec2D {
                 x: self.left,
@@ -33,6 +34,21 @@ impl<T> Sides<T> {
                 y: self.bottom,
             };
         Rectangle::from_corners(top_left, bottom_right)
+    }
+}
+
+impl<T> Sides<T> {
+    #[must_use]
+    pub fn map<F, R>(&self, f: F) -> Sides<R>
+    where
+        F: Fn(&T) -> R,
+    {
+        Sides {
+            top: f(&self.top),
+            right: f(&self.right),
+            bottom: f(&self.bottom),
+            left: f(&self.left),
+        }
     }
 }
 
