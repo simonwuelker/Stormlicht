@@ -229,3 +229,15 @@ impl BoxFragment {
         }
     }
 }
+
+impl From<BoxFragment> for Fragment {
+    fn from(value: BoxFragment) -> Self {
+        Self::Box(value)
+    }
+}
+
+impl From<TextFragment> for Fragment {
+    fn from(value: TextFragment) -> Self {
+        Self::Text(value)
+    }
+}
