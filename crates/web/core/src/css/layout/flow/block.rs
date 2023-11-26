@@ -17,10 +17,8 @@ use crate::{
 use super::{positioning::AbsolutelyPositionedBox, InlineFormattingContext};
 
 /// <https://drafts.csswg.org/css2/#block-formatting>
-#[derive(Clone)]
-pub struct BlockFormattingContext {
-    contents: Vec<BlockLevelBox>,
-}
+#[derive(Clone, Default)]
+pub struct BlockFormattingContext;
 
 /// A Box that participates in a [BlockFormattingContext]
 /// <https://drafts.csswg.org/css2/#block-level-boxes>
@@ -54,12 +52,6 @@ pub enum BlockContainer {
 impl Default for BlockContainer {
     fn default() -> Self {
         Self::InlineFormattingContext(vec![].into())
-    }
-}
-
-impl From<Vec<BlockLevelBox>> for BlockFormattingContext {
-    fn from(contents: Vec<BlockLevelBox>) -> Self {
-        Self { contents }
     }
 }
 
@@ -101,6 +93,7 @@ impl InFlowBlockBox {
         position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
         length_resolution_context: length::ResolutionContext,
+        formatting_context: &mut BlockFormattingContext,
     ) -> BoxFragment {
         let available_length = Length::pixels(containing_block.width());
 
@@ -275,6 +268,7 @@ impl InFlowBlockBox {
             containing_block,
             length_resolution_context,
             &mut content_area_including_overflow,
+            formatting_context,
         );
 
         // After having looked at all the children we can now actually determine the box height
@@ -337,10 +331,12 @@ impl BlockContainer {
         containing_block: ContainingBlock,
         ctx: length::ResolutionContext,
         content_area_including_overflow: &mut Rectangle<Pixels>,
+        formatting_context: &mut BlockFormattingContext,
     ) -> (Pixels, Vec<Fragment>) {
         match &self {
             Self::BlockLevelBoxes(block_level_boxes) => {
-                let mut state = BlockFlowState::new(position, containing_block, ctx);
+                let mut state =
+                    BlockFlowState::new(position, containing_block, ctx, formatting_context);
                 for block_box in block_level_boxes {
                     state.visit_block_box(block_box);
                 }
@@ -360,8 +356,8 @@ impl BlockContainer {
     }
 }
 
-#[derive(Clone)]
-pub struct BlockFlowState<'box_tree> {
+pub struct BlockFlowState<'box_tree, 'formatting_context> {
+    block_formatting_context: &'formatting_context mut BlockFormattingContext,
     cursor: Vec2D<Pixels>,
     fragments_so_far: Vec<Fragment>,
     containing_block: ContainingBlock,
@@ -378,13 +374,15 @@ struct AbsoluteBoxRequiringLayout<'a> {
     index: usize,
 }
 
-impl<'box_tree> BlockFlowState<'box_tree> {
+impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_context> {
     pub fn new(
         position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
         ctx: length::ResolutionContext,
+        formatting_context: &'formatting_context mut BlockFormattingContext,
     ) -> Self {
         Self {
+            block_formatting_context: formatting_context,
             cursor: position,
             fragments_so_far: vec![],
             containing_block,
@@ -399,8 +397,12 @@ impl<'box_tree> BlockFlowState<'box_tree> {
         match block_box {
             BlockLevelBox::InFlowBlockBox(in_flow_box) => {
                 // Every block box creates exactly one box fragment
-                let box_fragment =
-                    in_flow_box.fragment(self.cursor, self.containing_block, self.ctx);
+                let box_fragment = in_flow_box.fragment(
+                    self.cursor,
+                    self.containing_block,
+                    self.ctx,
+                    self.block_formatting_context,
+                );
 
                 self.content_area_including_overflow
                     .grow_to_contain(box_fragment.content_area_including_overflow());
@@ -443,26 +445,6 @@ impl<'box_tree> BlockFlowState<'box_tree> {
         }
 
         (self.height, fragments)
-    }
-}
-
-impl fmt::Debug for BlockFormattingContext {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut tree_formatter = TreeFormatter::new(f);
-        self.tree_fmt(&mut tree_formatter)
-    }
-}
-
-impl TreeDebug for BlockFormattingContext {
-    fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> std::fmt::Result {
-        formatter.indent()?;
-        writeln!(formatter, "Block Formatting Context")?;
-        formatter.increase_indent();
-        for child in &self.contents {
-            child.tree_fmt(formatter)?;
-        }
-        formatter.decrease_indent();
-        Ok(())
     }
 }
 

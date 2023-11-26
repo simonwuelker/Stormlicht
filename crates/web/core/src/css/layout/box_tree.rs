@@ -18,7 +18,7 @@ use crate::{
     TreeDebug, TreeFormatter,
 };
 
-use super::flow::InFlowBlockBox;
+use super::flow::{BlockFormattingContext, InFlowBlockBox};
 
 #[derive(Clone)]
 pub struct BoxTree {
@@ -67,8 +67,13 @@ impl BoxTree {
             viewport,
         };
 
-        let mut state =
-            BlockFlowState::new(origin, initial_containing_block, length_resolution_context);
+        let mut root_formatting_context = BlockFormattingContext::default();
+        let mut state = BlockFlowState::new(
+            origin,
+            initial_containing_block,
+            length_resolution_context,
+            &mut root_formatting_context,
+        );
         for root_box in &self.root {
             state.visit_block_box(root_box);
         }
