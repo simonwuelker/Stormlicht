@@ -91,7 +91,6 @@ impl<'a> CSSParse<'a> for JustifySelf {
 }
 
 impl JustifySelfPosition {
-    #[must_use]
     fn from_identifier(ident: InternedString) -> Result<Self, css::ParseError> {
         let position = match ident {
             static_interned!("center") => Self::Center,

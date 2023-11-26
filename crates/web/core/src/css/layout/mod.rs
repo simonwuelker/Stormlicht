@@ -71,7 +71,11 @@ pub struct Size<T> {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ContainingBlock {
+    /// The top-left corner of the block
+    position: Vec2D<Pixels>,
+
     width: Pixels,
+
     /// The height of the containing block
     ///
     /// `Some` if the height is defined (for example, using the CSS "height" property)
@@ -82,8 +86,9 @@ pub struct ContainingBlock {
 impl ContainingBlock {
     #[inline]
     #[must_use]
-    pub const fn new(width: Pixels) -> Self {
+    pub const fn new(position: Vec2D<Pixels>, width: Pixels) -> Self {
         Self {
+            position,
             width,
             height: None,
         }
@@ -104,5 +109,14 @@ impl ContainingBlock {
     #[must_use]
     pub const fn height(&self) -> Option<Pixels> {
         self.height
+    }
+
+    #[must_use]
+    pub fn make_definite(&self, definite_height: Pixels) -> Rectangle<Pixels> {
+        Rectangle::from_position_and_size(
+            self.position,
+            self.width,
+            self.height.unwrap_or(definite_height),
+        )
     }
 }

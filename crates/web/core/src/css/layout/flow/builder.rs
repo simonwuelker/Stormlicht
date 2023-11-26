@@ -6,14 +6,15 @@
 use crate::{
     css::{
         layout::flow::{
-            BlockContainer, BlockLevelBox, InlineBox, InlineFormattingContext, InlineLevelBox,
+            BlockContainer, BlockLevelBox, InFlowBlockBox, InlineBox, InlineFormattingContext,
+            InlineLevelBox,
         },
         ComputedStyle, StyleComputer,
     },
     dom::{dom_objects, DomPtr},
 };
 
-use super::TextRun;
+use super::{positioning::AbsolutelyPositionedBox, TextRun};
 
 #[derive(Clone)]
 pub struct BoxTreeBuilder<'stylesheets, 'parent_style> {
@@ -85,11 +86,13 @@ impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
         debug_assert!(!self.current_inline_formatting_context.is_empty());
 
         let formatting_context = std::mem::take(&mut self.current_inline_formatting_context);
-        self.block_level_boxes
-            .push(BlockLevelBox::create_anonymous_box(
+        self.block_level_boxes.push(
+            InFlowBlockBox::create_anonymous_box(
                 BlockContainer::InlineFormattingContext(formatting_context),
                 self.style.clone(),
-            ));
+            )
+            .into(),
+        );
     }
 
     fn push_text(&mut self, text_run: TextRun) {
@@ -156,8 +159,19 @@ impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
         }
 
         // Push the actual box
-        let contents = BoxTreeBuilder::build(node.clone(), self.style_computer, &style);
-        self.block_level_boxes
-            .push(BlockLevelBox::new(style, Some(node), contents));
+        let content = BoxTreeBuilder::build(node.clone(), self.style_computer, &style);
+
+        let position = style.position();
+        let block_box = if position.is_absolute() || position.is_fixed() {
+            AbsolutelyPositionedBox {
+                style,
+                node,
+                content,
+            }
+            .into()
+        } else {
+            InFlowBlockBox::new(style, Some(node), content).into()
+        };
+        self.block_level_boxes.push(block_box);
     }
 }

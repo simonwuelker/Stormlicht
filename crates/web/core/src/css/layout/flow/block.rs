@@ -5,16 +5,16 @@ use math::{Rectangle, Vec2D};
 use crate::{
     css::{
         font_metrics::DEFAULT_FONT_SIZE,
-        fragment_tree::{BoxFragment, Fragment, FragmentTree},
-        layout::{ContainingBlock, Pixels, Sides, Size},
+        fragment_tree::{BoxFragment, Fragment},
+        layout::{ContainingBlock, Pixels, Sides},
         values::{self, length, AutoOr, Length, PercentageOr},
-        ComputedStyle, StyleComputer,
+        ComputedStyle,
     },
     dom::{dom_objects, DomPtr},
     TreeDebug, TreeFormatter,
 };
 
-use super::{BoxTreeBuilder, InlineFormattingContext};
+use super::{positioning::AbsolutelyPositionedBox, InlineFormattingContext};
 
 /// <https://drafts.csswg.org/css2/#block-formatting>
 #[derive(Clone)]
@@ -25,7 +25,12 @@ pub struct BlockFormattingContext {
 /// A Box that participates in a [BlockFormattingContext]
 /// <https://drafts.csswg.org/css2/#block-level-boxes>
 #[derive(Clone)]
-pub struct BlockLevelBox {
+pub enum BlockLevelBox {
+    InFlowBlockBox(InFlowBlockBox),
+    AbsolutelyPositionedBox(AbsolutelyPositionedBox),
+}
+#[derive(Clone)]
+pub struct InFlowBlockBox {
     style: ComputedStyle,
 
     /// The DOM element that produced this box.
@@ -52,60 +57,13 @@ impl Default for BlockContainer {
     }
 }
 
-#[allow(dead_code)] // will be necessary once floats etc are introduced
-impl BlockFormattingContext {
-    pub fn new_for_element(
-        element: DomPtr<dom_objects::Element>,
-        style_computer: StyleComputer<'_>,
-    ) -> Self {
-        let element_style =
-            style_computer.get_computed_style(DomPtr::clone(&element), &ComputedStyle::default());
-
-        let contents = BoxTreeBuilder::build(
-            DomPtr::clone(&element).upcast(),
-            style_computer,
-            &element_style,
-        );
-
-        let root = BlockLevelBox {
-            style: element_style,
-            contents,
-            node: Some(element.upcast()),
-        };
-
-        vec![root].into()
-    }
-
-    pub fn fragment(&self, viewport: Size<Pixels>) -> FragmentTree {
-        let position = Vec2D::new(Pixels::ZERO, Pixels::ZERO);
-        let length_resolution_context = length::ResolutionContext {
-            font_size: DEFAULT_FONT_SIZE,
-            root_font_size: DEFAULT_FONT_SIZE,
-            viewport,
-        };
-
-        let mut cursor_position = position;
-
-        let mut root_fragments = vec![];
-        let containing_block = ContainingBlock::new(viewport.width).with_height(viewport.height);
-        for element in &self.contents {
-            let box_fragment =
-                element.fragment(cursor_position, containing_block, length_resolution_context);
-            cursor_position.y += box_fragment.margin_area().height();
-            root_fragments.push(Fragment::Box(box_fragment));
-        }
-
-        FragmentTree::new(root_fragments)
-    }
-}
-
 impl From<Vec<BlockLevelBox>> for BlockFormattingContext {
     fn from(contents: Vec<BlockLevelBox>) -> Self {
         Self { contents }
     }
 }
 
-impl BlockLevelBox {
+impl InFlowBlockBox {
     #[must_use]
     pub const fn new(
         style: ComputedStyle,
@@ -282,23 +240,23 @@ impl BlockLevelBox {
             }
         });
 
-        let containing_block = match height {
-            AutoOr::Auto => {
-                // The height of this element depends on its contents
-                ContainingBlock::new(width)
-            },
-            AutoOr::NotAuto(height) => {
-                // The height of this element is fixed, children may overflow
-                ContainingBlock::new(width).with_height(height)
-            },
-        };
-
         // The top-left corner of the content-rect
         let offset = Vec2D::new(
             margin_left + border_widths.left + padding_left,
             margin_top + border_widths.top + padding_top,
         );
         let top_left = position + offset;
+
+        let containing_block = match height {
+            AutoOr::Auto => {
+                // The height of this element depends on its contents
+                ContainingBlock::new(top_left, width)
+            },
+            AutoOr::NotAuto(height) => {
+                // The height of this element is fixed, children may overflow
+                ContainingBlock::new(top_left, width).with_height(height)
+            },
+        };
 
         let mut content_area_including_overflow = Rectangle::from_corners(top_left, top_left);
 
@@ -312,7 +270,7 @@ impl BlockLevelBox {
             viewport: length_resolution_context.viewport,
         };
 
-        let (content_height, children) = self.layout_children_given_size(
+        let (content_height, children) = self.contents.layout(
             top_left,
             containing_block,
             length_resolution_context,
@@ -357,25 +315,38 @@ impl BlockLevelBox {
             children,
         )
     }
+}
 
-    fn layout_children_given_size(
+impl From<InFlowBlockBox> for BlockLevelBox {
+    fn from(value: InFlowBlockBox) -> Self {
+        Self::InFlowBlockBox(value)
+    }
+}
+
+impl From<AbsolutelyPositionedBox> for BlockLevelBox {
+    fn from(value: AbsolutelyPositionedBox) -> Self {
+        Self::AbsolutelyPositionedBox(value)
+    }
+}
+
+impl BlockContainer {
+    #[must_use]
+    pub(crate) fn layout(
         &self,
         position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
         ctx: length::ResolutionContext,
         content_area_including_overflow: &mut Rectangle<Pixels>,
     ) -> (Pixels, Vec<Fragment>) {
-        match &self.contents {
-            BlockContainer::BlockLevelBoxes(block_level_boxes) => {
-                let mut state = BlockFormattingContextState::new(position, containing_block, ctx);
-
+        match &self {
+            Self::BlockLevelBoxes(block_level_boxes) => {
+                let mut state = BlockFlowState::new(position, containing_block, ctx);
                 for block_box in block_level_boxes {
                     state.visit_block_box(block_box);
                 }
-
                 state.finish()
             },
-            BlockContainer::InlineFormattingContext(inline_formatting_context) => {
+            Self::InlineFormattingContext(inline_formatting_context) => {
                 let (fragments, height) =
                     inline_formatting_context.layout(position, containing_block, ctx);
                 for fragment in &fragments {
@@ -386,6 +357,92 @@ impl BlockLevelBox {
                 (height, fragments)
             },
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct BlockFlowState<'box_tree> {
+    cursor: Vec2D<Pixels>,
+    fragments_so_far: Vec<Fragment>,
+    containing_block: ContainingBlock,
+    content_area_including_overflow: Rectangle<Pixels>,
+    ctx: length::ResolutionContext,
+    height: Pixels,
+    absolute_boxes_requiring_layout: Vec<AbsoluteBoxRequiringLayout<'box_tree>>,
+}
+
+#[derive(Clone, Copy)]
+struct AbsoluteBoxRequiringLayout<'a> {
+    absolute_box: &'a AbsolutelyPositionedBox,
+    static_position: Vec2D<Pixels>,
+    index: usize,
+}
+
+impl<'box_tree> BlockFlowState<'box_tree> {
+    pub fn new(
+        position: Vec2D<Pixels>,
+        containing_block: ContainingBlock,
+        ctx: length::ResolutionContext,
+    ) -> Self {
+        Self {
+            cursor: position,
+            fragments_so_far: vec![],
+            containing_block,
+            content_area_including_overflow: Rectangle::from_corners(position, position),
+            ctx,
+            height: Pixels::ZERO,
+            absolute_boxes_requiring_layout: vec![],
+        }
+    }
+
+    pub fn visit_block_box(&mut self, block_box: &'box_tree BlockLevelBox) {
+        match block_box {
+            BlockLevelBox::InFlowBlockBox(in_flow_box) => {
+                // Every block box creates exactly one box fragment
+                let box_fragment =
+                    in_flow_box.fragment(self.cursor, self.containing_block, self.ctx);
+
+                self.content_area_including_overflow
+                    .grow_to_contain(box_fragment.content_area_including_overflow());
+
+                let box_height = box_fragment.margin_area().height();
+                self.cursor.y += box_height;
+                self.height += box_height;
+
+                self.fragments_so_far.push(Fragment::Box(box_fragment));
+            },
+            BlockLevelBox::AbsolutelyPositionedBox(absolute_box) => {
+                // Absolutely positioned boxes cannot be laid out during the initial pass,
+                // as their positioning requires the size of the containing block to be known.
+                //
+                // However, they should still be painted in tree-order.
+                // To accomodate this, we keep track of the absolute boxes we found during the first
+                // pass and later insert the fragments at the correct position once the
+                // size of the containing block is known.
+                self.absolute_boxes_requiring_layout
+                    .push(AbsoluteBoxRequiringLayout {
+                        absolute_box,
+                        static_position: self.cursor,
+                        index: self.fragments_so_far.len(),
+                    });
+            },
+        }
+    }
+
+    pub fn finish(self) -> (Pixels, Vec<Fragment>) {
+        // Now that we have processed all in-flow elements, we can layout absolutely positioned
+        // elements.
+        let mut fragments = self.fragments_so_far;
+        let definite_containing_block = self.containing_block.make_definite(self.height);
+
+        for task in self.absolute_boxes_requiring_layout {
+            let fragment =
+                task.absolute_box
+                    .layout(definite_containing_block, self.ctx, task.static_position);
+            fragments.insert(task.index, fragment.into());
+        }
+
+        (self.height, fragments)
     }
 }
 
@@ -410,6 +467,15 @@ impl TreeDebug for BlockFormattingContext {
 }
 
 impl TreeDebug for BlockLevelBox {
+    fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> fmt::Result {
+        match self {
+            Self::AbsolutelyPositionedBox(abs_box) => abs_box.tree_fmt(formatter),
+            Self::InFlowBlockBox(block_box) => block_box.tree_fmt(formatter),
+        }
+    }
+}
+
+impl TreeDebug for InFlowBlockBox {
     fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> std::fmt::Result {
         formatter.indent()?;
         write!(formatter, "Block Box")?;
@@ -420,62 +486,24 @@ impl TreeDebug for BlockLevelBox {
         }
 
         formatter.increase_indent();
-        match &self.contents {
-            BlockContainer::BlockLevelBoxes(block_level_boxes) => {
-                for block_box in block_level_boxes {
-                    block_box.tree_fmt(formatter)?;
-                }
-            },
-            BlockContainer::InlineFormattingContext(inline_formatting_context) => {
-                inline_formatting_context.tree_fmt(formatter)?;
-            },
-        }
+        self.contents.tree_fmt(formatter)?;
         formatter.decrease_indent();
         Ok(())
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct BlockFormattingContextState {
-    cursor: Vec2D<Pixels>,
-    fragments_so_far: Vec<Fragment>,
-    containing_block: ContainingBlock,
-    content_area_including_overflow: Rectangle<Pixels>,
-    ctx: length::ResolutionContext,
-    height: Pixels,
-}
-
-impl BlockFormattingContextState {
-    pub fn new(
-        position: Vec2D<Pixels>,
-        containing_block: ContainingBlock,
-        ctx: length::ResolutionContext,
-    ) -> Self {
-        Self {
-            cursor: position,
-            fragments_so_far: vec![],
-            containing_block,
-            content_area_including_overflow: Rectangle::from_corners(position, position),
-            ctx,
-            height: Pixels::ZERO,
+impl TreeDebug for BlockContainer {
+    fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> fmt::Result {
+        match &self {
+            Self::BlockLevelBoxes(block_level_boxes) => {
+                for block_box in block_level_boxes {
+                    block_box.tree_fmt(formatter)?;
+                }
+                Ok(())
+            },
+            Self::InlineFormattingContext(inline_formatting_context) => {
+                inline_formatting_context.tree_fmt(formatter)
+            },
         }
-    }
-
-    pub fn visit_block_box(&mut self, block_box: &BlockLevelBox) {
-        // Every block box creates exactly one box fragment
-        let box_fragment = block_box.fragment(self.cursor, self.containing_block, self.ctx);
-
-        self.content_area_including_overflow
-            .grow_to_contain(box_fragment.content_area_including_overflow());
-
-        let box_height = box_fragment.margin_area().height();
-        self.cursor.y += box_height;
-        self.height += box_height;
-
-        self.fragments_so_far.push(Fragment::Box(box_fragment));
-    }
-
-    pub fn finish(self) -> (Pixels, Vec<Fragment>) {
-        (self.height, self.fragments_so_far)
     }
 }
