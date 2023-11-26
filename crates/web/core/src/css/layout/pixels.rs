@@ -10,6 +10,13 @@ pub struct Pixels(pub f32);
 
 impl Pixels {
     pub const ZERO: Self = Self(0.);
+
+    /// Returns `true` if `self.0` has a negative sign, including `-0.0`
+    #[inline]
+    #[must_use]
+    pub fn is_sign_negative(&self) -> bool {
+        self.0.is_sign_negative()
+    }
 }
 
 impl From<f32> for Pixels {
