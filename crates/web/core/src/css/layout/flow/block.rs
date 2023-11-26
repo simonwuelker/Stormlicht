@@ -310,10 +310,7 @@ impl InFlowBlockBox {
 
         // If the content did not contain any in-flow elements *but* it has a nonzero
         // height anyways then it does prevent the top and bottom margins from collapsing
-        if !content_info.has_in_flow_content
-            && !height.is_auto()
-            && !height.is_not_auto_and(|&l| l == Pixels::ZERO)
-        {
+        if !content_info.has_in_flow_content && height.is_not_auto_and(|&l| l != Pixels::ZERO) {
             formatting_context.prevent_margin_collapse();
         }
 
