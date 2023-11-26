@@ -27,6 +27,10 @@ impl Position {
     pub const fn is_absolute(&self) -> bool {
         matches!(self, Self::Absolute)
     }
+
+    pub const fn is_fixed(&self) -> bool {
+        matches!(self, Self::Fixed)
+    }
 }
 
 impl<'a> CSSParse<'a> for Position {
