@@ -113,7 +113,6 @@ impl InFlowBlockBox {
 
         // See https://drafts.csswg.org/css2/#blockwidth for a description of how the width is computed
 
-        // FIXME: Consider padding and borders
         let width = self
             .style()
             .width()
