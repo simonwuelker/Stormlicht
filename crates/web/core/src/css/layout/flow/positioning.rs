@@ -159,7 +159,7 @@ impl AbsolutelyPositionedBox {
         // Absolute elements establish a new formatting context for their elements
         let mut formatting_context = BlockFormattingContext::default();
 
-        let (_content_height, children) = self.content.layout(
+        let block_content = self.content.layout(
             top_left,
             containing_block,
             length_resolution_context,
@@ -174,7 +174,7 @@ impl AbsolutelyPositionedBox {
             borders,
             padding_area,
             content_area_including_overflow,
-            children,
+            block_content.fragments,
         )
     }
 }

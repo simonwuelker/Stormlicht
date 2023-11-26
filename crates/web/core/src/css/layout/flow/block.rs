@@ -17,8 +17,37 @@ use crate::{
 use super::{positioning::AbsolutelyPositionedBox, InlineFormattingContext};
 
 /// <https://drafts.csswg.org/css2/#block-formatting>
-#[derive(Clone, Default)]
-pub struct BlockFormattingContext;
+///
+/// Holds state about collapsible margins and floating elements.
+#[derive(Clone)]
+pub struct BlockFormattingContext {
+    last_margin: Pixels,
+}
+
+impl Default for BlockFormattingContext {
+    fn default() -> Self {
+        Self {
+            last_margin: Pixels::ZERO,
+        }
+    }
+}
+
+impl BlockFormattingContext {
+    fn prevent_margin_collapse(&mut self) {
+        self.last_margin = Pixels::ZERO;
+    }
+
+    fn get_collapsed_margin(&mut self, specified_margin: Pixels) -> Pixels {
+        if specified_margin <= self.last_margin {
+            // The new margin fully collapses into the previous one
+            Pixels::ZERO
+        } else {
+            let used_margin = specified_margin - self.last_margin;
+            self.last_margin = specified_margin;
+            used_margin
+        }
+    }
+}
 
 /// A Box that participates in a [BlockFormattingContext]
 /// <https://drafts.csswg.org/css2/#block-level-boxes>
@@ -232,6 +261,9 @@ impl InFlowBlockBox {
             }
         });
 
+        // Possibly collapse top margin
+        let margin_top = formatting_context.get_collapsed_margin(margin_top);
+
         // The top-left corner of the content-rect
         let offset = Vec2D::new(
             margin_left + border_widths.left + padding_left,
@@ -262,7 +294,13 @@ impl InFlowBlockBox {
             viewport: length_resolution_context.viewport,
         };
 
-        let (content_height, children) = self.contents.layout(
+        // Prevent margin-collapse of our top margin with the top margin of the
+        // first in-flow child if there is a top border or top padding on this element
+        if border_widths.top != Pixels::ZERO || padding_top != Pixels::ZERO {
+            formatting_context.prevent_margin_collapse();
+        }
+
+        let content_info = self.contents.layout(
             top_left,
             containing_block,
             length_resolution_context,
@@ -270,9 +308,26 @@ impl InFlowBlockBox {
             formatting_context,
         );
 
+        // If the content did not contain any in-flow elements *but* it has a nonzero
+        // height anyways then it does prevent the top and bottom margins from collapsing
+        if !content_info.has_in_flow_content
+            && !height.is_auto()
+            && !height.is_not_auto_and(|&l| l == Pixels::ZERO)
+        {
+            formatting_context.prevent_margin_collapse();
+        }
+
+        // Prevent margin-collapse of our bottom margin with the bottom margin of the
+        // last in-flow child if there is a top border or top padding on this element
+        if border_widths.bottom != Pixels::ZERO || padding_bottom != Pixels::ZERO {
+            formatting_context.prevent_margin_collapse();
+        }
+
+        let margin_bottom = formatting_context.get_collapsed_margin(margin_bottom);
+
         // After having looked at all the children we can now actually determine the box height
         // if it wasn't defined previously
-        let height = height.unwrap_or(content_height);
+        let height = height.unwrap_or(content_info.height);
 
         // The bottom right corner of the content area
         let bottom_right = top_left + Vec2D::new(width, height);
@@ -305,7 +360,7 @@ impl InFlowBlockBox {
             border_widths,
             padding_area,
             content_area_including_overflow,
-            children,
+            content_info.fragments,
         )
     }
 }
@@ -322,6 +377,12 @@ impl From<AbsolutelyPositionedBox> for BlockLevelBox {
     }
 }
 
+pub(crate) struct ContentLayoutInfo {
+    pub height: Pixels,
+    pub fragments: Vec<Fragment>,
+    pub has_in_flow_content: bool,
+}
+
 impl BlockContainer {
     #[must_use]
     pub(crate) fn layout(
@@ -331,7 +392,7 @@ impl BlockContainer {
         ctx: length::ResolutionContext,
         content_area_including_overflow: &mut Rectangle<Pixels>,
         formatting_context: &mut BlockFormattingContext,
-    ) -> (Pixels, Vec<Fragment>) {
+    ) -> ContentLayoutInfo {
         match &self {
             Self::BlockLevelBoxes(block_level_boxes) => {
                 let mut state =
@@ -342,6 +403,11 @@ impl BlockContainer {
                 state.finish()
             },
             Self::InlineFormattingContext(inline_formatting_context) => {
+                // Margins cannot collapse across inline formatting contexts
+                // FIXME: Zero-height line boxes do not prevent margin collapse
+                //        https://drafts.csswg.org/css2/#inline-formatting
+                formatting_context.prevent_margin_collapse();
+
                 let (fragments, height) =
                     inline_formatting_context.layout(position, containing_block, ctx);
                 for fragment in &fragments {
@@ -349,7 +415,11 @@ impl BlockContainer {
                         .grow_to_contain(fragment.content_area_including_overflow());
                 }
 
-                (height, fragments)
+                ContentLayoutInfo {
+                    height,
+                    fragments,
+                    has_in_flow_content: true,
+                }
             },
         }
     }
@@ -364,6 +434,7 @@ pub struct BlockFlowState<'box_tree, 'formatting_context> {
     ctx: length::ResolutionContext,
     height: Pixels,
     absolute_boxes_requiring_layout: Vec<AbsoluteBoxRequiringLayout<'box_tree>>,
+    has_in_flow_content: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -389,6 +460,7 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
             ctx,
             height: Pixels::ZERO,
             absolute_boxes_requiring_layout: vec![],
+            has_in_flow_content: false,
         }
     }
 
@@ -430,7 +502,7 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
         }
     }
 
-    pub fn finish(self) -> (Pixels, Vec<Fragment>) {
+    pub fn finish(self) -> ContentLayoutInfo {
         // Now that we have processed all in-flow elements, we can layout absolutely positioned
         // elements.
         let mut fragments = self.fragments_so_far;
@@ -443,7 +515,11 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
             fragments.insert(task.index, fragment.into());
         }
 
-        (self.height, fragments)
+        ContentLayoutInfo {
+            height: self.height,
+            fragments,
+            has_in_flow_content: self.has_in_flow_content,
+        }
     }
 }
 

@@ -78,9 +78,9 @@ impl BoxTree {
             state.visit_block_box(root_box);
         }
 
-        let (_height, root_fragments) = state.finish();
+        let content_info = state.finish();
 
-        FragmentTree::new(root_fragments)
+        FragmentTree::new(content_info.fragments)
     }
 }
 
