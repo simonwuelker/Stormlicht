@@ -596,11 +596,13 @@ impl<'a> Parser<'a> {
         &mut self,
     ) -> Result<Sides<T>, ParseError> {
         let first: T = self.parse()?;
+        self.skip_whitespace();
 
         let Some(second) = self.parse_optional_value(T::parse) else {
             // If only one value is supplied, it is used for all four sides
             return Ok(Sides::all(first));
         };
+        self.skip_whitespace();
 
         let Some(third) = self.parse_optional_value(T::parse) else {
             // If two values are supplied then the first one is used for the
@@ -612,6 +614,7 @@ impl<'a> Parser<'a> {
                 left: second,
             });
         };
+        self.skip_whitespace();
 
         let Some(fourth) = self.parse_optional_value(T::parse) else {
             // If three values are supplied then the first one is used for the
@@ -623,6 +626,7 @@ impl<'a> Parser<'a> {
                 left: second,
             });
         };
+        self.skip_whitespace();
 
         Ok(Sides {
             top: first,
