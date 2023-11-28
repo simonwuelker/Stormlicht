@@ -10,6 +10,7 @@ pub struct Rasterizer {
 }
 
 impl Rasterizer {
+    #[must_use]
     pub fn new(area: Rectangle<usize>, offset: Vec2D) -> Self {
         let width = area.width() + 1;
         let height = area.height() + 1;
@@ -21,6 +22,7 @@ impl Rasterizer {
         }
     }
 
+    #[must_use]
     pub fn into_mask(self) -> Mask {
         Mask {
             width: self.width,
@@ -119,14 +121,14 @@ impl Rasterizer {
             }
         }
 
-        // Fill the outlines
-        for y in 0..self.height {
-            let mut accumulator = 0.;
-            for x in 0..self.width {
-                let index = self.width * y + x;
-                accumulator += self.buffer[index];
-                self.buffer[index] = accumulator;
-            }
+        self.fill_outline()
+    }
+
+    fn fill_outline(&mut self) {
+        let mut accumulator = 0.;
+        for elem in &mut self.buffer {
+            accumulator += *elem;
+            *elem = accumulator;
         }
     }
 }
@@ -139,14 +141,17 @@ pub struct Mask {
 }
 
 impl Mask {
+    #[must_use]
     pub fn width(&self) -> usize {
         self.width
     }
 
+    #[must_use]
     pub fn height(&self) -> usize {
         self.height
     }
 
+    #[must_use]
     pub fn opacity_at(&self, x: usize, y: usize) -> f32 {
         self.mask[y * self.width + x]
     }
