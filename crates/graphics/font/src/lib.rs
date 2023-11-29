@@ -3,7 +3,13 @@
 //! In the future, this should also cover [Font Shaping](https://fonts.google.com/knowledge/glossary/shaping)
 //! but for now, we are only concerned with rasterization.
 
-#![feature(array_chunks, iter_map_windows, result_flattening, cfg_match)]
+#![feature(
+    array_chunks,
+    iter_map_windows,
+    result_flattening,
+    cfg_match,
+    iter_advance_by
+)]
 
 pub mod hinting;
 pub mod path;
