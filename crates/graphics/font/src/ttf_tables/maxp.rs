@@ -4,7 +4,14 @@ use crate::ttf::read_u16_at;
 
 #[derive(Clone, Copy, Debug)]
 pub struct MaxPTable {
-    num_glyphs: u16,
+    /// Number of glyphs defined in the font
+    pub num_glyphs: u16,
+
+    /// Maximum number of storage units used by the interpreter
+    pub max_storage: u16,
+
+    /// Maximum number of function definitions
+    pub max_function_defs: u16,
 }
 
 impl MaxPTable {
@@ -13,13 +20,8 @@ impl MaxPTable {
     pub fn new(data: &[u8]) -> Self {
         Self {
             num_glyphs: read_u16_at(data, 4),
+            max_storage: read_u16_at(data, 18),
+            max_function_defs: read_u16_at(data, 20),
         }
-    }
-
-    /// Get the number of glyphs defined in the font
-    #[inline]
-    #[must_use]
-    pub fn num_glyphs(&self) -> usize {
-        self.num_glyphs as usize
     }
 }

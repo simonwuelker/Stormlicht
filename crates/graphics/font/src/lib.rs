@@ -5,6 +5,7 @@
 
 #![feature(array_chunks, iter_map_windows, result_flattening, cfg_match)]
 
+pub mod hinting;
 pub mod path;
 pub mod sources;
 mod stream;

@@ -8,6 +8,7 @@
 use std::{fmt, iter};
 
 use crate::{
+    hinting::Interpreter,
     path::{Operation, PathConsumer, PathReader},
     ttf_tables::{
         cmap::{self, GlyphID},
@@ -31,6 +32,8 @@ const HMTX_TAG: u32 = u32::from_be_bytes(*b"hmtx");
 const MAXP_TAG: u32 = u32::from_be_bytes(*b"maxp");
 const NAME_TAG: u32 = u32::from_be_bytes(*b"name");
 const _VHEA_TAG: u32 = u32::from_be_bytes(*b"vhea");
+const PREP_TAG: u32 = u32::from_be_bytes(*b"prep");
+const FPGM_TAG: u32 = u32::from_be_bytes(*b"fpgm");
 
 #[derive(Clone, Copy, Debug)]
 pub enum TTFParseError {
@@ -48,6 +51,13 @@ pub struct Font {
     hmtx_table: hmtx::HMTXTable,
     maxp_table: maxp::MaxPTable,
     name_table: name::NameTable,
+
+    /// A program that is run once the font is loaded and whenever its environment changes
+    ///
+    /// Stored inside the `prep` table
+    control_value_program: Option<Vec<u8>>,
+    interpreter: Interpreter,
+    is_instructed: bool,
 }
 
 impl Font {
@@ -83,7 +93,7 @@ impl Font {
         let loca_table = loca::LocaTable::new(
             &data[loca_entry.offset()..],
             head_table.loca_table_format(),
-            maxp_table.num_glyphs(),
+            maxp_table.num_glyphs as usize,
         );
 
         let glyf_entry = offset_table
@@ -113,6 +123,41 @@ impl Font {
             .ok_or(TTFParseError::MissingTable)?;
         let name_table = name::NameTable::new(&data[name_entry.offset()..]).unwrap();
 
+        let mut interpreter = Interpreter::new(
+            maxp_table.max_storage as usize,
+            maxp_table.max_function_defs as usize,
+        );
+
+        // If there is a fpgm table, execute the font program inside it.
+        // If no such table exists then the font is not instructed
+        let is_instructed = offset_table
+            .get_table(FPGM_TAG)
+            .map(|fpgm_entry| data[fpgm_entry.offset()..][..fpgm_entry.length()].to_owned())
+            .filter(|p| {
+                let result = interpreter.run(p);
+                if let Err(error) = result {
+                    log::error!("Failed to run font program: {error:?}. Treating the font as not-instructed")
+                }
+                result.is_err()
+            })
+            .is_some();
+
+        // If there is a prep table
+        let control_value_program = if is_instructed {
+            offset_table
+            .get_table(PREP_TAG)
+            .map(|prep_entry| data[prep_entry.offset()..][..prep_entry.length()].to_owned())
+            .filter(|p| {
+                let result = interpreter.run(p);
+                if let Err(error) = result {
+                    log::error!("Failed to run prep table program: {error:?}. Ignoring prep table in the future (this might break the font)")
+                }
+                result.is_err()
+            })
+        } else {
+            None
+        };
+
         Ok(Self {
             offset_table,
             head_table,
@@ -121,12 +166,23 @@ impl Font {
             hmtx_table,
             maxp_table,
             name_table,
+            control_value_program,
+            interpreter,
+            is_instructed,
         })
+    }
+
+    pub fn rerun_prep_program(&mut self) {
+        if let Some(program) = &self.control_value_program {
+            if let Err(error) = self.interpreter.run(program) {
+                log::error!("Failed to run prep table program: {error:?}");
+            }
+        }
     }
 
     /// Get the total number of glyphs defined in the font
     pub fn num_glyphs(&self) -> usize {
-        self.maxp_table.num_glyphs()
+        self.maxp_table.num_glyphs as usize
     }
 
     // TODO: support more than one cmap format table (format 4 seems to be the most common but still)
