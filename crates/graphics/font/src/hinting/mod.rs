@@ -1,3 +1,4 @@
+mod fixed;
 mod interpreter;
 mod op;
 
