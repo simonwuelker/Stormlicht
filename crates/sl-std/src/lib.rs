@@ -15,6 +15,7 @@
 )]
 
 pub mod ascii;
+mod assert;
 pub mod base64;
 pub mod big_num;
 pub mod chars;
