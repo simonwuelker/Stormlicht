@@ -1,4 +1,4 @@
-use super::op;
+use super::{op, GraphicsState};
 
 const MAX_STORAGE_AREAS_TO_RESERVE: usize = 32;
 const MAX_FUNCTION_DEFS_TO_RESERVE: usize = 32;
@@ -31,6 +31,9 @@ pub enum Error {
     NestedFunctionDefinition,
 
     UnterminatedIfBlock,
+
+    /// A [Zone](super::graphics_state::Zone) reference that is neither `0` (Twilight Zone) nor `1` (Glyph Zone)
+    InvalidZone,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,6 +48,7 @@ pub struct Interpreter {
     stack: Vec<u32>,
     function_definitions: Box<[Option<Vec<u8>>]>,
     is_inside_if: bool,
+    graphics_state: GraphicsState,
 }
 
 impl Interpreter {
@@ -72,6 +76,7 @@ impl Interpreter {
             stack: Vec::new(),
             function_definitions,
             is_inside_if: false,
+            graphics_state: GraphicsState::default(),
         }
     }
 
@@ -91,7 +96,43 @@ impl Interpreter {
         &mut self,
         program: &mut ExecutionContext<'_>,
     ) -> Result<IterationDecision, Error> {
-        match dbg!(program.next_u8()) {
+        match program.next_u8() {
+            Some(op::SRP0) => {
+                // Set reference point 0
+                self.graphics_state.rp0 = self.stack.pop().ok_or(Error::EmptyStack)?;
+            },
+            Some(op::SRP1) => {
+                // Set reference point 1
+                self.graphics_state.rp1 = self.stack.pop().ok_or(Error::EmptyStack)?;
+            },
+            Some(op::SRP2) => {
+                // Set reference point 2
+                self.graphics_state.rp2 = self.stack.pop().ok_or(Error::EmptyStack)?;
+            },
+            Some(op::SZP0) => {
+                // Set zone pointer 0
+                let n = self.stack.pop().ok_or(Error::EmptyStack)?;
+                self.graphics_state.zp0 = Zone::try_from(n)?;
+            },
+            Some(op::SZP1) => {
+                // Set zone pointer 1
+                let n = self.stack.pop().ok_or(Error::EmptyStack)?;
+                self.graphics_state.zp1 = Zone::try_from(n)?;
+            },
+            Some(op::SZP2) => {
+                // Set zone pointer 2
+                let n = self.stack.pop().ok_or(Error::EmptyStack)?;
+                self.graphics_state.zp2 = Zone::try_from(n)?;
+            },
+            Some(op::SZPS) => {
+                // Set zone pointers
+                let n = self.stack.pop().ok_or(Error::EmptyStack)?;
+                let zone = Zone::try_from(n)?;
+
+                self.graphics_state.zp0 = zone;
+                self.graphics_state.zp1 = zone;
+                self.graphics_state.zp2 = zone;
+            },
             Some(op::ELSE) => {
                 if !self.is_inside_if {
                     return Err(Error::UnexpectedEndOfIfBlock);
@@ -318,5 +359,28 @@ where
         }
 
         Some(instruction)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Zone {
+    /// Z0
+    Twilight,
+
+    /// Z1
+    Glyph,
+}
+
+impl TryFrom<u32> for Zone {
+    type Error = super::interpreter::Error;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        let zone = match value {
+            0 => Zone::Twilight,
+            1 => Zone::Glyph,
+            _ => return Err(Error::InvalidZone),
+        };
+
+        Ok(zone)
     }
 }

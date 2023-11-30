@@ -1,7 +1,31 @@
 pub type Opcode = u8;
 
+/// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#SRPO>
+pub const SRP0: Opcode = 0x10;
+
+/// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#SRP1>
+pub const SRP1: Opcode = 0x11;
+
+/// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#SRP2>
+pub const SRP2: Opcode = 0x12;
+
+/// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#SZP0>
+pub const SZP0: Opcode = 0x13;
+
+/// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#SZP1>
+pub const SZP1: Opcode = 0x14;
+
+/// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#SZP2>
+pub const SZP2: Opcode = 0x15;
+
+/// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#SZPS>
+pub const SZPS: Opcode = 0x16;
+
 /// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#ELSE>
 pub const ELSE: Opcode = 0x1B;
+
+/// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#SSW>
+pub const SSW: Opcode = 0x1F;
 
 /// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#CALL>
 pub const CALL: Opcode = 0x2B;
