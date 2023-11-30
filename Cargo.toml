@@ -77,5 +77,8 @@ perf = { level = "deny" }
 # "-1 * x" can be more readable than "-x", especially in complex expressions
 neg_multiply = { level = "allow" }
 
+# This lint causes a lot of false-positives
+suspicious_arithmetic_impl = { level = "allow" }
+
 [profile.bench]
 debug = true
