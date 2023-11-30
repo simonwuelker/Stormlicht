@@ -173,9 +173,11 @@ impl Font {
     }
 
     pub fn rerun_prep_program(&mut self) {
-        if let Some(program) = &self.control_value_program {
-            if let Err(error) = self.interpreter.run(program) {
-                log::error!("Failed to run prep table program: {error:?}");
+        if self.is_instructed {
+            if let Some(program) = &self.control_value_program {
+                if let Err(error) = self.interpreter.run(program) {
+                    log::error!("Failed to run prep table program: {error:?}");
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-use super::{op, GraphicsState};
+use super::{op, F26Dot6, GraphicsState};
 
 const MAX_STORAGE_AREAS_TO_RESERVE: usize = 32;
 const MAX_FUNCTION_DEFS_TO_RESERVE: usize = 32;
@@ -45,7 +45,7 @@ enum IterationDecision {
 #[derive(Clone, Debug)]
 pub struct Interpreter {
     storage_areas: Box<[u8]>,
-    stack: Vec<u32>,
+    stack: Stack,
     function_definitions: Box<[Option<Vec<u8>>]>,
     is_inside_if: bool,
     graphics_state: GraphicsState,
@@ -73,7 +73,7 @@ impl Interpreter {
 
         Self {
             storage_areas,
-            stack: Vec::new(),
+            stack: Stack::default(),
             function_definitions,
             is_inside_if: false,
             graphics_state: GraphicsState::default(),
@@ -99,34 +99,34 @@ impl Interpreter {
         match program.next_u8() {
             Some(op::SRP0) => {
                 // Set reference point 0
-                self.graphics_state.rp0 = self.stack.pop().ok_or(Error::EmptyStack)?;
+                self.graphics_state.rp0 = self.stack.pop()?.as_uint32();
             },
             Some(op::SRP1) => {
                 // Set reference point 1
-                self.graphics_state.rp1 = self.stack.pop().ok_or(Error::EmptyStack)?;
+                self.graphics_state.rp1 = self.stack.pop()?.as_uint32();
             },
             Some(op::SRP2) => {
                 // Set reference point 2
-                self.graphics_state.rp2 = self.stack.pop().ok_or(Error::EmptyStack)?;
+                self.graphics_state.rp2 = self.stack.pop()?.as_uint32();
             },
             Some(op::SZP0) => {
                 // Set zone pointer 0
-                let n = self.stack.pop().ok_or(Error::EmptyStack)?;
+                let n = self.stack.pop()?.as_uint32();
                 self.graphics_state.zp0 = Zone::try_from(n)?;
             },
             Some(op::SZP1) => {
                 // Set zone pointer 1
-                let n = self.stack.pop().ok_or(Error::EmptyStack)?;
+                let n = self.stack.pop()?.as_uint32();
                 self.graphics_state.zp1 = Zone::try_from(n)?;
             },
             Some(op::SZP2) => {
                 // Set zone pointer 2
-                let n = self.stack.pop().ok_or(Error::EmptyStack)?;
+                let n = self.stack.pop()?.as_uint32();
                 self.graphics_state.zp2 = Zone::try_from(n)?;
             },
             Some(op::SZPS) => {
                 // Set zone pointers
-                let n = self.stack.pop().ok_or(Error::EmptyStack)?;
+                let n = self.stack.pop()?.as_uint32();
                 let zone = Zone::try_from(n)?;
 
                 self.graphics_state.zp0 = zone;
@@ -161,9 +161,16 @@ impl Interpreter {
 
                 return Err(Error::UnterminatedIfBlock);
             },
+            Some(op::SSW) => {
+                // Set single width
+                let n_funits = self.stack.pop()?.as_uint32();
+
+                // FIXME: implement this
+                _ = n_funits;
+            },
             Some(op::CALL) => {
                 // Call a previously defined function
-                let function_identifier = self.stack.pop().ok_or(Error::EmptyStack)?;
+                let function_identifier = self.stack.pop()?.as_uint32();
 
                 let function = self
                     .function_definitions
@@ -182,11 +189,10 @@ impl Interpreter {
             },
             Some(op::FDEF) => {
                 // Function definition
-                let function_identifier = self.stack.pop().ok_or(Error::EmptyStack)?;
+                let function_identifier = self.stack.pop()?.as_uint32();
 
-                let function_body = program.consume_function_definition()?;
-                self.function_definitions[function_identifier as usize] =
-                    Some(function_body.to_owned());
+                let function_body = program.consume_function_definition()?.to_owned();
+                self.function_definitions[function_identifier as usize] = Some(function_body);
             },
             Some(op::ENDF) => {
                 // ENDF (End Function)
@@ -195,7 +201,7 @@ impl Interpreter {
             },
             Some(op::RS) => {
                 // RS (Read Storage)
-                let address = self.stack.pop().ok_or(Error::EmptyStack)?;
+                let address = self.stack.pop()?.as_uint32();
                 let storage_value = self
                     .storage_areas
                     .get(address as usize)
@@ -205,10 +211,14 @@ impl Interpreter {
             Some(op::MPPEM) => {
                 // MPPEM (Measure Pixels Per Em)
             },
+            Some(op::DEBUG) => {
+                // This instruction is meant to be used during font development,
+                // it has no specified effect at any other time
+            },
             Some(op::LT) => {
                 // Less-than
-                let e2 = self.stack.pop().ok_or(Error::EmptyStack)?;
-                let e1 = self.stack.pop().ok_or(Error::EmptyStack)?;
+                let e2 = self.stack.pop()?.as_uint32();
+                let e1 = self.stack.pop()?.as_uint32();
 
                 if e1 < e2 {
                     self.stack.push(1);
@@ -218,8 +228,8 @@ impl Interpreter {
             },
             Some(op::LTEQ) => {
                 // Less-than or equal
-                let e2 = self.stack.pop().ok_or(Error::EmptyStack)?;
-                let e1 = self.stack.pop().ok_or(Error::EmptyStack)?;
+                let e2 = self.stack.pop()?.as_uint32();
+                let e1 = self.stack.pop()?.as_uint32();
 
                 if e1 <= e2 {
                     self.stack.push(1);
@@ -228,7 +238,7 @@ impl Interpreter {
                 }
             },
             Some(op::IF) => {
-                let condition = self.stack.pop().ok_or(Error::EmptyStack)? != 0;
+                let condition = self.stack.pop()?.as_int32() != 0;
 
                 if !condition {
                     // Find the corresponding ELSE (or EIF) instruction, then jump one *past* it
@@ -270,12 +280,22 @@ impl Interpreter {
                     return Err(Error::UnexpectedEndOfIfBlock);
                 }
             },
+            Some(op::SDB) => {
+                // Set delta base
+                self.graphics_state.delta_base = self.stack.pop()?.as_uint32();
+            },
             Some(op::SDS) => {
                 // Set delta shift
+                self.graphics_state.delta_shift = self.stack.pop()?.as_uint32();
+            },
+            Some(op::ABS) => {
+                // Absolute value
+                let last_element = self.stack.items.last_mut().ok_or(Error::EmptyStack)?;
+                *last_element = last_element.as_f26dot6().abs().into()
             },
             Some(op::AA) => {
                 // Adjust Angle (anachronistic)
-                self.stack.pop();
+                self.stack.pop()?;
             },
             Some(n @ (op::PUSHB_START..=op::PUSHB_END)) => {
                 // Push bytes on stack
@@ -311,14 +331,20 @@ impl<'a> ExecutionContext<'a> {
     }
 
     fn consume_function_definition(&mut self) -> Result<&[u8], Error> {
-        let instructions = Instructions::new(self.remaining().iter().copied());
-        for (index, instruction) in instructions.enumerate() {
+        let mut instructions = Instructions::new(self.remaining().iter().copied());
+        let mut depth = 0;
+        while let Some(instruction) = instructions.next() {
             if instruction == op::ENDF {
-                let function_body = &self.bytes[self.cursor..self.cursor + index];
-                self.cursor += index + 1;
-                return Ok(function_body);
+                if depth == 0 {
+                    let offset = instructions.offset;
+                    let function_body = &self.bytes[self.cursor..self.cursor + offset];
+                    self.cursor += offset;
+                    return Ok(function_body);
+                } else {
+                    depth -= 1;
+                }
             } else if instruction == op::FDEF {
-                return Err(Error::NestedFunctionDefinition);
+                depth += 1;
             }
         }
         Err(Error::UnterminatedFunctionDefinition)
@@ -333,12 +359,13 @@ impl<'a> ExecutionContext<'a> {
 
 struct Instructions<I> {
     bytes: I,
+    offset: usize,
 }
 
 impl<I> Instructions<I> {
     #[must_use]
     fn new(bytes: I) -> Self {
-        Self { bytes }
+        Self { bytes, offset: 0 }
     }
 }
 
@@ -350,12 +377,14 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         let instruction = self.bytes.next()?;
+        self.offset += 1;
 
         // If the instruction is a PUSHB then the next few bytes are not instructions
         // but instead values to be pushed onto the stack
         if (op::PUSHB_START..=op::PUSHB_END).contains(&instruction) {
             let n_bytes_to_skip = instruction - op::PUSHB_START + 1;
             let _ = self.bytes.advance_by(n_bytes_to_skip as usize);
+            self.offset += n_bytes_to_skip as usize;
         }
 
         Some(instruction)
@@ -382,5 +411,103 @@ impl TryFrom<u32> for Zone {
         };
 
         Ok(zone)
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct Stack {
+    items: Vec<StackElement>,
+}
+
+impl Stack {
+    #[inline]
+    fn push<T>(&mut self, item: T)
+    where
+        T: Into<StackElement>,
+    {
+        self.items.push(item.into())
+    }
+
+    #[inline]
+    fn pop(&mut self) -> Result<StackElement, Error> {
+        self.items.pop().ok_or(Error::EmptyStack)
+    }
+}
+
+/// An element on the interpreter [Stack] whose bits can be interpreter in multiple
+/// different ways.
+///
+/// A stack element can be any of the following:
+/// * `Eint8` (sign extended 8-bit integer)
+/// * `Euint16` (zero extended 16-bit unsigned integer)
+/// * `EFWord` (sign extended 16-bit signed integer that describes a quantity in FUnits, the smallest measurable unit in the em space)
+/// * `EF2Dot14` (sign extended 16-bit signed fixed number with the low 14 bits representing fraction)
+/// * `uint32` (32-bit unsigned integer)
+/// * `int32` (32-bit signed integer)
+/// * `F26Dot6` (32-bit signed fixed number with the low 6 bits representing fraction)
+/// * `StkElt` (any 32 bit quantity)
+#[derive(Clone, Copy, Debug)]
+struct StackElement(u32);
+
+#[allow(dead_code)]
+impl StackElement {
+    #[inline]
+    #[must_use]
+    fn as_bits(&self) -> u32 {
+        self.0
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_eint8(&self) -> i8 {
+        self.0 as i8
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_euint16(&self) -> u16 {
+        self.0 as u16
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_efword(&self) -> i16 {
+        self.0 as i16
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_uint32(&self) -> u32 {
+        self.0
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_int32(&self) -> i32 {
+        self.0 as i32
+    }
+
+    #[inline]
+    #[must_use]
+    fn as_f26dot6(&self) -> F26Dot6 {
+        F26Dot6::from_bits(self.as_int32())
+    }
+}
+
+impl From<u32> for StackElement {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<i32> for StackElement {
+    fn from(value: i32) -> Self {
+        Self(value as u32)
+    }
+}
+
+impl From<F26Dot6> for StackElement {
+    fn from(value: F26Dot6) -> Self {
+        Self(value.bits() as u32)
     }
 }

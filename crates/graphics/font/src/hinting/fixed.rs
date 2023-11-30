@@ -19,6 +19,11 @@ impl<const N: usize> Fixed<N> {
     };
 
     #[must_use]
+    pub const fn abs(&self) -> Self {
+        Self(self.0.abs())
+    }
+
+    #[must_use]
     pub const fn bits(&self) -> i32 {
         self.0
     }
@@ -244,5 +249,12 @@ mod tests {
         type F = Fixed<2>;
         assert_eq!(F::from(1.25).floor(), F::from(1.));
         assert_eq!(F::from(-1.75).floor(), F::from(-2.));
+    }
+
+    #[test]
+    fn abs() {
+        type F = Fixed<2>;
+        assert_eq!(F::from(1.25).abs(), F::from(1.25));
+        assert_eq!(F::from(-1.75).abs(), F::from(1.75));
     }
 }

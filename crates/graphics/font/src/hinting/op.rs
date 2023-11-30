@@ -42,6 +42,9 @@ pub const RS: Opcode = 0x43;
 /// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#MPPEM>
 pub const MPPEM: Opcode = 0x4B;
 
+/// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#DEBUG>
+pub const DEBUG: Opcode = 0x4F;
+
 /// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#LT>
 pub const LT: Opcode = 0x50;
 
@@ -54,8 +57,14 @@ pub const IF: Opcode = 0x58;
 /// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#EIF>
 pub const EIF: Opcode = 0x59;
 
+/// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#SDB>
+pub const SDB: Opcode = 0x5E;
+
 /// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#SDS>
 pub const SDS: Opcode = 0x5F;
+
+/// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#ABS>
+pub const ABS: Opcode = 0x64;
 
 /// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#AA>
 pub const AA: Opcode = 0x7F;
