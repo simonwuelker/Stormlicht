@@ -1,60 +1,67 @@
-use super::{FontQuery, FontStore, MatchedFont, Style, Weight};
+use crate::{SystemFont, Weight};
 
-pub struct FontConfig {
-    config: fontconfig::Config,
-}
+use super::FontStore;
+
+pub struct FontConfig;
 
 impl FontStore for FontConfig {
-    fn new() -> Self {
-        log::info!("Using fontconfig version {}", fontconfig::Version::get());
+    const NAME: &'static str = "FontConfig";
 
-        Self {
-            config: fontconfig::Config::init(),
-        }
-    }
+    fn enumerate_system_fonts() -> Vec<SystemFont> {
+        let config = fontconfig::Config::init();
 
-    fn lookup(&self, query: FontQuery<'_, Self>) -> MatchedFont {
-        // Build a fontconfig pattern from the query
         let pattern = fontconfig::Pattern::default();
+        // FIXME: Remove this once we support all common font formats
+        pattern.add_string(fontconfig::objects::FC_FONTFORMAT, "truetype");
 
-        if let Some(name) = query.name() {
-            pattern.add_string(fontconfig::objects::FC_FAMILY, name);
-        }
+        let mut os = fontconfig::ObjectSet::default();
+        os.add_object(fontconfig::objects::FC_FAMILY);
+        os.add_object(fontconfig::objects::FC_FILE);
+        os.add_object(fontconfig::objects::FC_STYLE);
+        os.add_object(fontconfig::objects::FC_FILE);
+        os.add_object(fontconfig::objects::FC_WEIGHT);
 
-        if let Some(weight) = query.weight() {
-            let fc_value = match weight {
-                Weight::Normal => fontconfig::consts::FC_WEIGHT_REGULAR,
-                Weight::Bold => fontconfig::consts::FC_WEIGHT_BOLD,
-            };
-            pattern.add_int(fontconfig::objects::FC_WEIGHT, fc_value);
-        }
+        let system_base_path = config.system_root().unwrap_or_default();
 
-        if let Some(style) = query.style() {
-            let fc_value = match style {
-                Style::Normal => fontconfig::consts::FC_SLANT_ROMAN,
-                Style::Italic => fontconfig::consts::FC_SLANT_ITALIC,
-            };
-            pattern.add_int(fontconfig::objects::FC_SLANT, fc_value);
-        }
+        config
+            .matching_fonts(pattern, os)
+            .iter()
+            .map(|pattern| {
+                let path = system_base_path.join(
+                    pattern
+                        .get_string(fontconfig::objects::FC_FILE)
+                        .expect("Could not read FC_FILE key"),
+                );
+                let name = pattern
+                    .get_string(fontconfig::objects::FC_FAMILY)
+                    .expect("Could not read FC_FAMILY key")
+                    .to_owned();
 
-        self.lookup_internal(pattern).unwrap_or_else(|error| {
-            log::error!("Font lookup failed: {error:?}");
-            MatchedFont::fallback()
-        })
-    }
-}
+                let weight = pattern
+                    .get(fontconfig::objects::FC_WEIGHT)
+                    .expect("Could not read FC_WEIGHT key");
 
-impl FontConfig {
-    fn lookup_internal(
-        &self,
-        pattern: fontconfig::Pattern,
-    ) -> Result<MatchedFont, fontconfig::bindings::LookupError> {
-        let matched_pattern = self.config.best_match_for_pattern(&pattern)?;
-        let filename = matched_pattern.get_string(fontconfig::objects::FC_FILE)?;
+                let weight_range = match weight {
+                    fontconfig::Value::Double(double) => {
+                        let supported_weight = Weight(double.round() as u16);
+                        (supported_weight, supported_weight)
+                    },
+                    fontconfig::Value::Range(range) => {
+                        let (begin, end) = range.get_bounds();
 
-        let mut base = self.config.system_root().unwrap_or_default();
-        base.push(filename);
+                        (Weight(begin.round() as u16), Weight(end.round() as u16))
+                    },
+                    other => {
+                        panic!("Invalid font weight range: Expected Range or Double, got {other:?}")
+                    },
+                };
 
-        Ok(MatchedFont { file: base })
+                SystemFont {
+                    path,
+                    name,
+                    weight_range,
+                }
+            })
+            .collect()
     }
 }
