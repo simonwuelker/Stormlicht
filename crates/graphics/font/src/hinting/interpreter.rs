@@ -1,7 +1,7 @@
 use super::{op, F26Dot6, GraphicsState};
 
-const MAX_STORAGE_AREAS_TO_RESERVE: usize = 32;
-const MAX_FUNCTION_DEFS_TO_RESERVE: usize = 32;
+const MAX_STORAGE_AREAS_TO_RESERVE: usize = 256;
+const MAX_FUNCTION_DEFS_TO_RESERVE: usize = 256;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Error {
