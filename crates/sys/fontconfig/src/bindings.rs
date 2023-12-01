@@ -18,21 +18,21 @@ pub struct FcMatrix {
 
 #[repr(C)]
 pub struct FcValue {
-    type_tag: FcType,
-    content: FcValueContents,
+    pub type_tag: FcType,
+    pub content: FcValueContents,
 }
 
 #[repr(C)]
 pub union FcValueContents {
-    s: *const FcChar8,
-    i: ffi::c_int,
-    b: FcBool,
-    d: ffi::c_double,
-    m: *const FcMatrix,
-    c: *const FcCharSet,
-    f: *const ffi::c_void,
-    l: *const FcLangSet,
-    r: *const FcRange,
+    pub s: *const FcChar8,
+    pub i: ffi::c_int,
+    pub b: FcBool,
+    pub d: ffi::c_double,
+    pub m: *const FcMatrix,
+    pub c: *const FcCharSet,
+    pub f: *const ffi::c_void,
+    pub l: *const FcLangSet,
+    pub r: *const FcRange,
 }
 
 #[repr(C)]
@@ -52,6 +52,7 @@ pub struct FcObjectType {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub enum FcType {
     FcTypeUnknown = -1,
     FcTypeVoid,
@@ -67,6 +68,7 @@ pub enum FcType {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub enum FcResult {
     FcResultMatch,
     FcResultNoMatch,
@@ -76,6 +78,7 @@ pub enum FcResult {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub enum FcMatchKind {
     FcMatchPattern, // FcMatchKindBegin
     FcMatchFont,
@@ -84,6 +87,7 @@ pub enum FcMatchKind {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub enum FcSetName {
     FcSetSystem,
     FcSetApplication,
@@ -441,6 +445,25 @@ extern "C" {
     pub fn FcObjectSetBuild(first: *const ffi::c_char, ...) -> *mut FcObjectSet;
 
     // MISSING METHODS HERE
+
+    /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcrangecopy.html>
+    pub fn FcRangeCopy(range: *const FcRange) -> *mut FcRange;
+
+    /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcrangecreatedouble.html>
+    pub fn FcRangeCreateDouble(begin: ffi::c_double, end: ffi::c_double) -> *const FcRange;
+
+    /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcrangecreateinteger.html>
+    pub fn FcRangeCreateInteger(begin: ffi::c_int, end: ffi::c_int) -> *const FcRange;
+
+    /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcrangedestroy.html>
+    pub fn FcRangeDestroy(range: *const FcRange);
+
+    /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcrangegetdouble.html>
+    pub fn FcRangeGetDouble(
+        range: *const FcRange,
+        begin: *mut ffi::c_double,
+        end: *mut ffi::c_double,
+    );
 
     /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcconfigcreate.html>
     pub fn FcConfigCreate() -> *mut FcConfig;

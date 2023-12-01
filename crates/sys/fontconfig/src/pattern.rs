@@ -1,8 +1,8 @@
-use std::{ffi, ptr};
+use std::{ffi, mem::MaybeUninit, ptr};
 
 use crate::{
     bindings::{self, fcbool},
-    Object,
+    Object, Value,
 };
 
 #[repr(transparent)]
@@ -46,6 +46,22 @@ impl Pattern {
         };
 
         return_code.to_rust_result(|| unsafe { bindings::to_str(result_ptr) })
+    }
+
+    pub fn get(&self, key: Object) -> Result<Value, bindings::LookupError> {
+        let mut result = MaybeUninit::uninit();
+        let return_code =
+            unsafe { bindings::FcPatternGet(self.ptr, key.as_ptr(), 0, result.as_mut_ptr()) };
+
+        return_code.to_rust_result(|| unsafe { result.assume_init() }.into())
+    }
+
+    pub fn get_int(&self, key: Object) -> Result<i32, bindings::LookupError> {
+        let mut result = 0;
+        let return_code =
+            unsafe { bindings::FcPatternGetInteger(self.ptr, key.as_ptr(), 0, &mut result) };
+
+        return_code.to_rust_result(|| result)
     }
 
     pub fn add_string(&self, key: Object, value: &str) {
