@@ -6,19 +6,26 @@ use crate::{
 /// <https://drafts.csswg.org/css-fonts/#font-family-prop>
 #[derive(Clone, Debug)]
 pub struct FontFamily {
-    _desired_fonts: Vec<DesiredFont>,
+    fonts: Vec<FontName>,
 }
 
 #[derive(Clone, Debug)]
-enum DesiredFont {
+pub enum FontName {
     /// <https://drafts.csswg.org/css-fonts/#family-name-syntax>
-    FamilyName(InternedString),
-    GenericFamily(GenericFontFamily),
+    Family(InternedString),
+    Generic(GenericFontFamily),
+}
+
+impl FontFamily {
+    #[must_use]
+    pub fn fonts(&self) -> &[FontName] {
+        &self.fonts
+    }
 }
 
 /// <https://drafts.csswg.org/css-fonts/#generic-family-value>
 #[derive(Clone, Copy, Debug)]
-enum GenericFontFamily {
+pub enum GenericFontFamily {
     /// <https://drafts.csswg.org/css-fonts/#serif-def>
     Serif,
 
@@ -63,7 +70,7 @@ impl Default for FontFamily {
     fn default() -> Self {
         // The initial value is UA dependent
         Self {
-            _desired_fonts: vec![DesiredFont::GenericFamily(GenericFontFamily::SansSerif)],
+            fonts: vec![FontName::Generic(GenericFontFamily::SansSerif)],
         }
     }
 }
@@ -81,19 +88,19 @@ impl<'a> CSSParse<'a> for FontFamily {
         }
 
         Ok(Self {
-            _desired_fonts: desired_fonts,
+            fonts: desired_fonts,
         })
     }
 }
 
-impl<'a> CSSParse<'a> for DesiredFont {
+impl<'a> CSSParse<'a> for FontName {
     fn parse(parser: &mut css::Parser<'a>) -> Result<Self, css::ParseError> {
         if let Some(Token::String(name)) = parser.peek_token() {
             parser.next_token();
-            Ok(Self::FamilyName(name))
+            Ok(Self::Family(name))
         } else {
             let generic_family = CSSParse::parse(parser)?;
-            Ok(Self::GenericFamily(generic_family))
+            Ok(Self::Generic(generic_family))
         }
     }
 }

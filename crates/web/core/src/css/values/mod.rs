@@ -19,7 +19,7 @@ pub use border::{Border, LineStyle, LineWidth};
 pub use color::Color;
 pub use display::Display;
 pub use float::{Clear, Float};
-pub use font_family::FontFamily;
+pub use font_family::{FontFamily, FontName};
 pub use font_size::FontSize;
 pub use length::Length;
 pub use number::Number;

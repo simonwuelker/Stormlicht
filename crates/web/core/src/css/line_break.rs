@@ -123,7 +123,12 @@ mod tests {
     fn do_not_break_empty_text() {
         // When iterating over line breaks of empty text, we should produce no lines at all
         // (as opposed to one empty line)
-        let mut lines = LineBreakIterator::new("", FontMetrics::default(), Pixels::ZERO);
+        let font_metrics = FontMetrics {
+            font_face: Box::default(),
+            size: Pixels::ZERO,
+        };
+
+        let mut lines = LineBreakIterator::new("", font_metrics, Pixels::ZERO);
         assert!(lines.next().is_none());
     }
 }

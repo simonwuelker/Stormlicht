@@ -8,7 +8,7 @@ use crate::{
         font_metrics::{self, DEFAULT_FONT_SIZE},
         fragment_tree::{BoxFragment, Fragment, TextFragment},
         layout::{ContainingBlock, Pixels, Sides},
-        values::{font_size, length},
+        values::{font_size, length, FontName},
         ComputedStyle, LineBreakIterator,
     },
     dom::{dom_objects, DomPtr},
@@ -61,6 +61,30 @@ impl TextRun {
         &self.style
     }
 
+    fn find_suitable_font(&self, ctx: font_size::ResolutionContext) -> FontMetrics {
+        let font_size = self.style().font_size().to_pixels(ctx);
+
+        // FIXME: Consider more than just the first specified font
+        let family = match self.style().font_family().fonts()[0] {
+            FontName::Family(name) => font::Family::Specific(name.to_string()),
+            FontName::Generic(_name) => todo!(),
+        };
+
+        let properties = font::Properties {
+            style: font::Style::Normal,
+            weight: font::Weight::NORMAL,
+        };
+        let font = font::SYSTEM_FONTS
+            .lookup(family, properties)
+            .try_load()
+            .expect("Failed to load font");
+
+        FontMetrics {
+            font_face: Box::new(font),
+            size: font_size,
+        }
+    }
+
     fn layout_into_line_items(&self, state: &mut InlineFormattingContextState<'_>) {
         // FIXME: use the inherited font size here, not the default one
         let ctx = font_size::ResolutionContext {
@@ -68,10 +92,7 @@ impl TextRun {
             length_context: state.length_resolution_context,
         };
 
-        let font_size = self.style().font_size().to_pixels(ctx);
-
-        let font_metrics = FontMetrics::new(font_size);
-        let height = font_metrics.size;
+        let font_metrics = self.find_suitable_font(ctx);
 
         // Collapse sequences of whitespace in the text and remove newlines as defined in
         // https://drafts.csswg.org/css2/#white-space-model (3)
@@ -109,7 +130,7 @@ impl TextRun {
                 width: text_line.width,
                 style: self.style().get_inherited(),
             });
-            state.push_line_item(line_item, text_line.width, height);
+            state.push_line_item(line_item, text_line.width, font_metrics.size);
 
             if !lines.is_done() {
                 state.finish_current_line();
