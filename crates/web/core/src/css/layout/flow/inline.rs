@@ -70,6 +70,8 @@ impl TextRun {
             FontName::Generic(_name) => todo!(),
         };
 
+        // let style = self.style()
+
         let properties = font::Properties {
             style: font::Style::Normal,
             weight: font::Weight::NORMAL,

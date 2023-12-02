@@ -92,6 +92,13 @@
         "initial": "FontSize::default()"
     },
     {
+        "name": "font-style",
+        "specification": "https://drafts.csswg.org/css-fonts/#font-style-prop",
+        "inherited": true,
+        "value": "FontStyle",
+        "initial": "FontStyle::Normal"
+    },
+    {
         "name": "height",
         "specification": "https://drafts.csswg.org/css2/#propdef-height",
         "inherited": false,
