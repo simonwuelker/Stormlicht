@@ -4,7 +4,8 @@
     let_chains,
     lazy_cell,
     iter_advance_by,
-    extend_one
+    extend_one,
+    const_fn_floating_point_arithmetic
 )]
 
 mod browsing_context;
