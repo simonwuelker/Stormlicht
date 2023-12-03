@@ -35,7 +35,7 @@ impl CryptographicRand {
 
         Ok(Self {
             state: 0,
-            key: AES128::new([0; 16]),
+            key: Aes128Cipher::new([0; 16]),
         })
     }
 
