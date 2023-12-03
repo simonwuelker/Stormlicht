@@ -28,7 +28,8 @@ def clean(args, unknown_args):
 
 
 def run_stormlicht(args, unknown_args):
-    build_gtk_blueprints()
+    if args.chrome == "gtk":
+        build_gtk_blueprints()
 
     cmd = util.Command.create("cargo").with_arguments(["run"]).with_forwarded_arguments(unknown_args)
 
@@ -110,6 +111,12 @@ def run():
         "--release",
         action="store_true",
         help="Build in release mode",
+    )
+    parser_run.add_argument(
+        "--chrome",
+        choices=["glazier", "gtk"],
+        default="glazier",
+        help="Which browser chrome to use"
     )
     parser_run.set_defaults(handler=run_stormlicht)
 
