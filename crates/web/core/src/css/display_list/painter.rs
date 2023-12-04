@@ -13,10 +13,26 @@ use crate::css::{
 #[derive(Clone, Debug, Default)]
 pub struct Painter {
     commands: Vec<Command>,
+    offset: Vec2D<Pixels>,
 }
 
 impl Painter {
+    #[must_use]
+    pub fn offset(&self) -> Vec2D<Pixels> {
+        self.offset
+    }
+
+    pub fn set_offset(&mut self, offset: Vec2D<Pixels>) {
+        self.offset = offset;
+    }
+
     pub fn rect(&mut self, area: math::Rectangle<Pixels>, color: math::Color) {
+        let area = math::Rectangle::from_position_and_size(
+            area.top_left() + self.offset,
+            area.width(),
+            area.height(),
+        );
+
         self.commands
             .push(Command::Rect(RectCommand { area, color }))
     }
@@ -28,6 +44,7 @@ impl Painter {
         color: math::Color,
         font_metrics: FontMetrics,
     ) {
+        let position = position + self.offset;
         let text_command = TextCommand {
             position,
             text,

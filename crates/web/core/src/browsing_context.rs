@@ -96,15 +96,15 @@ impl BrowsingContext {
     pub fn handle_event(&mut self, event: event::Event) -> bool {
         match event {
             event::Event::Mouse(mouse_event) => {
-                let position = mouse_event.position.map(|x| Pixels::from(x as f32));
+                let _position = mouse_event.position.map(|x| Pixels::from(x as f32));
 
                 match mouse_event.kind {
                     event::MouseEventKind::Down(event::MouseButton::Left) => {
-                        if let Some(clicked_point) = self.fragment_tree.hit_test(position) {
-                            self.selection =
-                                Some(Selection::new(clicked_point.clone(), clicked_point));
-                            return true;
-                        }
+                        // if let Some(clicked_point) = self.fragment_tree.hit_test(position) {
+                        //     self.selection =
+                        //         Some(Selection::new(clicked_point.clone(), clicked_point));
+                        //     return true;
+                        // }
                     },
 
                     event::MouseEventKind::Up(event::MouseButton::Left) => {
@@ -114,14 +114,14 @@ impl BrowsingContext {
                     },
                     event::MouseEventKind::Move => {
                         // Update the current selection range if necessary
-                        if let Some(selection) = self.selection.as_mut() {
-                            if selection.is_modifiable {
-                                if let Some(clicked_point) = self.fragment_tree.hit_test(position) {
-                                    selection.extend_to(clicked_point);
-                                    return true;
-                                }
-                            }
-                        }
+                        // if let Some(selection) = self.selection.as_mut() {
+                        //     if selection.is_modifiable {
+                        //         if let Some(clicked_point) = self.fragment_tree.hit_test(position) {
+                        //             selection.extend_to(clicked_point);
+                        //             return true;
+                        //         }
+                        //     }
+                        // }
                     },
                     _ => {},
                 };

@@ -7,19 +7,19 @@ use crate::{
         values::{BackgroundColor, Color},
         ComputedStyle, FontMetrics,
     },
-    dom::{self, dom_objects, DomPtr},
+    dom::{dom_objects, DomPtr},
 };
 
 #[derive(Clone, Debug)]
 pub struct BoxFragment {
     /// The [DOM Node](dom) that produced this fragment
-    dom_node: Option<DomPtr<dom_objects::Node>>,
+    _dom_node: Option<DomPtr<dom_objects::Node>>,
 
     style: ComputedStyle,
     margin_area: Rectangle<Pixels>,
     borders: Sides<Pixels>,
     padding_area: Rectangle<Pixels>,
-    content_area_including_overflow: Rectangle<Pixels>,
+    content_area: Rectangle<Pixels>,
     children: Vec<Fragment>,
 }
 
@@ -42,37 +42,6 @@ impl Fragment {
         match self {
             Self::Box(box_fragment) => box_fragment.fill_display_list(painter),
             Self::Text(text_fragment) => text_fragment.fill_display_list(painter),
-        }
-    }
-
-    pub const fn content_area_including_overflow(&self) -> Rectangle<Pixels> {
-        match self {
-            Self::Box(box_fragment) => box_fragment.content_area_including_overflow,
-            Self::Text(text_fragment) => text_fragment.area,
-        }
-    }
-
-    pub fn hit_test(&self, point: math::Vec2D<Pixels>) -> Option<dom::BoundaryPoint> {
-        match self {
-            Self::Box(box_fragment) => {
-                let first_hit_child = box_fragment.children().iter().find(|child| {
-                    child
-                        .content_area_including_overflow()
-                        .contains_point(point)
-                });
-
-                if let Some(hit_child) = first_hit_child {
-                    hit_child.hit_test(point)
-                } else {
-                    // None of our children were hit (or we have no children)
-                    // In this case, this fragment is the target of the hit-test
-                    Some(dom::BoundaryPoint::new(box_fragment.dom_node.clone()?, 0))
-                }
-            },
-            Self::Text(_text_fragment) => {
-                // FIXME: Text element hit-testing
-                None
-            },
         }
     }
 }
@@ -115,21 +84,21 @@ impl TextFragment {
 impl BoxFragment {
     #[must_use]
     pub fn new(
-        dom_node: Option<DomPtr<dom_objects::Node>>,
+        _dom_node: Option<DomPtr<dom_objects::Node>>,
         style: ComputedStyle,
         margin_area: Rectangle<Pixels>,
         borders: Sides<Pixels>,
         padding_area: Rectangle<Pixels>,
-        content_area_including_overflow: Rectangle<Pixels>,
+        content_area: Rectangle<Pixels>,
         children: Vec<Fragment>,
     ) -> Self {
         Self {
-            dom_node,
+            _dom_node,
             style,
             margin_area,
             borders,
             padding_area,
-            content_area_including_overflow,
+            content_area,
             children,
         }
     }
@@ -153,12 +122,6 @@ impl BoxFragment {
 
     pub fn border_area(&self) -> Rectangle<Pixels> {
         self.borders.surround(self.padding_area)
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn content_area_including_overflow(&self) -> Rectangle<Pixels> {
-        self.content_area_including_overflow
     }
 
     pub fn fill_display_list(&self, painter: &mut Painter) {
@@ -224,9 +187,12 @@ impl BoxFragment {
         }
 
         // Paint all children
+        let old_offset = painter.offset();
+        painter.set_offset(old_offset + self.content_area.top_left());
         for child in self.children() {
             child.fill_display_list(painter);
         }
+        painter.set_offset(old_offset);
     }
 }
 

@@ -7,9 +7,7 @@ mod fragment;
 
 pub use fragment::{BoxFragment, Fragment, TextFragment};
 
-use crate::dom;
-
-use super::{display_list::Painter, layout::Pixels};
+use super::display_list::Painter;
 
 #[derive(Clone, Debug, Default)]
 pub struct FragmentTree {
@@ -25,19 +23,5 @@ impl FragmentTree {
         for fragment in &self.root_fragments {
             fragment.fill_display_list(painter);
         }
-    }
-
-    pub fn hit_test(&self, point: math::Vec2D<Pixels>) -> Option<dom::BoundaryPoint> {
-        for fragment in &self.root_fragments {
-            if fragment
-                .content_area_including_overflow()
-                .contains_point(point)
-            {
-                if let Some(hit) = fragment.hit_test(point) {
-                    return Some(hit);
-                }
-            }
-        }
-        None
     }
 }

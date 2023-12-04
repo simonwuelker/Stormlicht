@@ -163,22 +163,18 @@ impl InlineFormattingContext {
 
     pub fn layout(
         &self,
-        position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
         length_resolution_context: length::ResolutionContext,
     ) -> (Vec<Fragment>, Pixels) {
-        let mut state = InlineFormattingContextState::new(
-            position,
-            containing_block,
-            length_resolution_context,
-        );
+        let mut state =
+            InlineFormattingContextState::new(containing_block, length_resolution_context);
 
         state.traverse(self.elements());
 
         state.finish_current_line();
 
         if state.has_seen_relevant_content {
-            (state.finished_fragments, state.y_cursor - position.y)
+            (state.finished_fragments, state.y_cursor)
         } else {
             (vec![], Pixels::ZERO)
         }
@@ -218,7 +214,6 @@ struct InlineFormattingContextState<'box_tree> {
     has_seen_relevant_content: bool,
 
     /// The top left corner of the first line box
-    position: Vec2D<Pixels>,
     y_cursor: Pixels,
 
     /// `true` if the current line is empty
@@ -251,19 +246,25 @@ struct InlineBoxItem {
 }
 
 /// State used during conversion from [LineItems](LineItem) to [Fragments](Fragment)
+///
+/// This is always created for laying out line items horizontally within a single box,
+/// its the inline equivalent of a [BlockFlowState](super::BlockFlowState).
+///
+/// However, it is guaranteed that no line breaks will occur while handling line items.
 #[derive(Clone, Copy, Debug)]
 struct LineItemLayoutState {
-    top_left: Vec2D<Pixels>,
-    width: Pixels,
-    height: Pixels,
+    /// The offset of the inline box from its containing inline formatting context
+    position: Vec2D<Pixels>,
+    current_width: Pixels,
+    current_height: Pixels,
 }
 
 impl LineItemLayoutState {
-    fn new(top_left: Vec2D<Pixels>) -> Self {
+    fn new(position: Vec2D<Pixels>) -> Self {
         Self {
-            top_left,
-            width: Pixels::ZERO,
-            height: Pixels::ZERO,
+            position,
+            current_width: Pixels::ZERO,
+            current_height: Pixels::ZERO,
         }
     }
 }
@@ -271,24 +272,24 @@ impl LineItemLayoutState {
 impl InlineBoxItem {
     fn layout(self, state: &mut LineItemLayoutState) -> Option<BoxFragment> {
         // Create a nested layout state that will contain the children
-        let start = Vec2D::new(state.top_left.x + state.width, state.top_left.y);
-
-        let mut nested_state = LineItemLayoutState::new(start);
+        let box_position = state.position + Vec2D::new(state.current_width, Pixels::ZERO);
+        let mut nested_state = LineItemLayoutState::new(Vec2D::new(Pixels::ZERO, Pixels::ZERO));
         let child_fragments = nested_state.layout(self.children);
 
         if child_fragments.is_empty() {
             return None;
         }
 
-        state.width += nested_state.width;
-        if nested_state.height > state.height {
-            state.height = nested_state.height;
-        }
-
-        let bottom_right = start + Vec2D::new(nested_state.width, nested_state.height);
-        let content_area = Rectangle::from_corners(start, bottom_right);
-
         // FIXME: respect margins/borders for inline boxes
+        let content_area = Rectangle::from_position_and_size(
+            box_position,
+            nested_state.current_width,
+            nested_state.current_height,
+        );
+
+        state.current_width += nested_state.current_width;
+        state.current_height = state.current_height.max(nested_state.current_height);
+
         let borders = Sides::all(Pixels::ZERO);
         let margin_area = content_area;
         let padding_area = content_area;
@@ -309,7 +310,6 @@ impl InlineBoxItem {
 
 impl<'box_tree> InlineFormattingContextState<'box_tree> {
     fn new(
-        position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
         length_resolution_context: length::ResolutionContext,
     ) -> Self {
@@ -320,8 +320,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
             containing_block,
             finished_fragments: Vec::new(),
             has_seen_relevant_content: false,
-            position,
-            y_cursor: position.y,
+            y_cursor: Pixels::ZERO,
             at_beginning_of_line: true,
             length_resolution_context,
         }
@@ -375,7 +374,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
 
         let items_on_this_line = mem::take(&mut self.root_nesting_level_state.line_items);
 
-        let mut layout_state = LineItemLayoutState::new(Vec2D::new(self.position.x, self.y_cursor));
+        let mut layout_state = LineItemLayoutState::new(Vec2D::new(Pixels::ZERO, self.y_cursor));
         self.finished_fragments
             .extend(layout_state.layout(items_on_this_line));
 
@@ -421,6 +420,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
 }
 
 impl LineItemLayoutState {
+    /// Returns all the fragments within a line box
     fn layout(&mut self, line_items: Vec<LineItem>) -> Vec<Fragment> {
         let mut fragments = Vec::new();
 
@@ -462,15 +462,12 @@ impl TextRunItem {
     fn layout(self, state: &mut LineItemLayoutState) -> TextFragment {
         // Make the line box high enough to fit the line
         let line_height = self.metrics.size;
-        if line_height > state.height {
-            state.height = line_height;
-        }
+        state.current_height = state.current_height.max(line_height);
 
-        let top_left = Vec2D::new(state.top_left.x + state.width, state.top_left.y);
-        let area =
-            Rectangle::from_corners(top_left, top_left + Vec2D::new(self.width, line_height));
+        let top_left = state.position + Vec2D::new(state.current_width, Pixels::ZERO);
+        let area = Rectangle::from_position_and_size(top_left, self.width, line_height);
 
-        state.width += self.width;
+        state.current_width += self.width;
 
         TextFragment::new(self.text, area, *self.style.color(), self.metrics)
     }

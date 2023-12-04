@@ -282,8 +282,6 @@ impl InFlowBlockBox {
             },
         };
 
-        let mut content_area_including_overflow = Rectangle::from_corners(top_left, top_left);
-
         // FIXME: Don't use the default font size here, it should be the font size
         // of this element instead
         let font_size = DEFAULT_FONT_SIZE;
@@ -301,10 +299,8 @@ impl InFlowBlockBox {
         }
 
         let content_info = self.contents.layout(
-            top_left,
             containing_block,
             length_resolution_context,
-            &mut content_area_including_overflow,
             formatting_context,
         );
 
@@ -356,7 +352,7 @@ impl InFlowBlockBox {
             margin_area,
             border_widths,
             padding_area,
-            content_area_including_overflow,
+            content_area,
             content_info.fragments,
         )
     }
@@ -384,16 +380,13 @@ impl BlockContainer {
     #[must_use]
     pub(crate) fn layout(
         &self,
-        position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
         ctx: length::ResolutionContext,
-        content_area_including_overflow: &mut Rectangle<Pixels>,
         formatting_context: &mut BlockFormattingContext,
     ) -> ContentLayoutInfo {
         match &self {
             Self::BlockLevelBoxes(block_level_boxes) => {
-                let mut state =
-                    BlockFlowState::new(position, containing_block, ctx, formatting_context);
+                let mut state = BlockFlowState::new(containing_block, ctx, formatting_context);
                 for block_box in block_level_boxes {
                     state.visit_block_box(block_box);
                 }
@@ -405,12 +398,7 @@ impl BlockContainer {
                 //        https://drafts.csswg.org/css2/#inline-formatting
                 formatting_context.prevent_margin_collapse();
 
-                let (fragments, height) =
-                    inline_formatting_context.layout(position, containing_block, ctx);
-                for fragment in &fragments {
-                    content_area_including_overflow
-                        .grow_to_contain(fragment.content_area_including_overflow());
-                }
+                let (fragments, height) = inline_formatting_context.layout(containing_block, ctx);
 
                 ContentLayoutInfo {
                     height,
@@ -427,7 +415,6 @@ pub struct BlockFlowState<'box_tree, 'formatting_context> {
     cursor: Vec2D<Pixels>,
     fragments_so_far: Vec<Fragment>,
     containing_block: ContainingBlock,
-    content_area_including_overflow: Rectangle<Pixels>,
     ctx: length::ResolutionContext,
     height: Pixels,
     absolute_boxes_requiring_layout: Vec<AbsoluteBoxRequiringLayout<'box_tree>>,
@@ -443,17 +430,15 @@ struct AbsoluteBoxRequiringLayout<'a> {
 
 impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_context> {
     pub fn new(
-        position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
         ctx: length::ResolutionContext,
         formatting_context: &'formatting_context mut BlockFormattingContext,
     ) -> Self {
         Self {
+            cursor: Vec2D::new(Pixels::ZERO, Pixels::ZERO),
             block_formatting_context: formatting_context,
-            cursor: position,
             fragments_so_far: vec![],
             containing_block,
-            content_area_including_overflow: Rectangle::from_corners(position, position),
             ctx,
             height: Pixels::ZERO,
             absolute_boxes_requiring_layout: vec![],
@@ -471,9 +456,6 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
                     self.ctx,
                     self.block_formatting_context,
                 );
-
-                self.content_area_including_overflow
-                    .grow_to_contain(box_fragment.content_area_including_overflow());
 
                 let box_height = box_fragment.margin_area().height();
                 self.cursor.y += box_height;
