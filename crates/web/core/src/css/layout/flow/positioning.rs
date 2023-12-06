@@ -58,9 +58,11 @@ fn resolve_inset_on_axis(
 }
 
 /// <https://drafts.csswg.org/css-position/#inset-modified-containing-block>
+///
+/// The coordinates of the inset-modified containing block are relative to the actual containing block.
 #[must_use]
 pub fn inset_modified_containing_block(
-    containing_block: Rectangle<Pixels>,
+    containing_block: Size<Pixels>,
     style: &ComputedStyle,
     length_resolution_context: length::ResolutionContext,
     static_position: Vec2D<Pixels>,
@@ -70,8 +72,8 @@ pub fn inset_modified_containing_block(
             .map(|l| l.absolutize(length_resolution_context))
     };
 
-    let width = Length::pixels(containing_block.width());
-    let height = Length::pixels(containing_block.height());
+    let width = Length::pixels(containing_block.width);
+    let height = Length::pixels(containing_block.height);
 
     let left = resolve_inset_property(style.left(), width);
     let right = resolve_inset_property(style.right(), width);
@@ -79,12 +81,13 @@ pub fn inset_modified_containing_block(
     let bottom = resolve_inset_property(style.bottom(), height);
 
     let (inset_left, inset_right) =
-        resolve_inset_on_axis(left, right, containing_block.width(), static_position.x);
+        resolve_inset_on_axis(left, right, containing_block.width, static_position.x);
     let (inset_top, inset_bottom) =
-        resolve_inset_on_axis(top, bottom, containing_block.height(), static_position.y);
+        resolve_inset_on_axis(top, bottom, containing_block.height, static_position.y);
 
-    let top_left = containing_block.top_left() + Vec2D::new(inset_left, inset_top);
-    let bottom_right = containing_block.bottom_right() - Vec2D::new(inset_right, inset_bottom);
+    let top_left = Vec2D::new(inset_left, inset_top);
+    let bottom_right = Vec2D::new(containing_block.width, containing_block.height)
+        - Vec2D::new(inset_right, inset_bottom);
 
     Rectangle::from_corners(top_left, bottom_right)
 }
@@ -96,7 +99,7 @@ impl AbsolutelyPositionedBox {
     /// therefore always has a definite size
     pub fn layout(
         &self,
-        containing_block: Rectangle<Pixels>,
+        containing_block: Size<Pixels>,
         length_resolution_context: length::ResolutionContext,
         static_position: Vec2D<Pixels>,
     ) -> BoxFragment {
@@ -115,16 +118,16 @@ impl AbsolutelyPositionedBox {
         let width = self
             .style
             .width()
-            .map(|p| p.resolve_against(containing_block.width().into()))
+            .map(|p| p.resolve_against(containing_block.width.into()))
             .map(|l| l.absolutize(length_resolution_context))
-            .unwrap_or(containing_block.width());
+            .unwrap_or(containing_block.width);
 
         let height = self
             .style
             .height()
-            .map(|p| p.resolve_against(containing_block.height().into()))
+            .map(|p| p.resolve_against(containing_block.height.into()))
             .map(|l| l.absolutize(length_resolution_context))
-            .unwrap_or(containing_block.height());
+            .unwrap_or(containing_block.height);
 
         let content_size = Size { width, height };
 
@@ -153,7 +156,7 @@ impl AbsolutelyPositionedBox {
         let padding_area = borders.surround(content_area);
         let margin_area = margins.surround(padding_area);
 
-        let containing_block = ContainingBlock::new(top_left, width).with_height(height);
+        let containing_block = ContainingBlock::new(width).with_height(height);
 
         // Absolute elements establish a new formatting context for their elements
         let mut formatting_context = BlockFormattingContext::default();

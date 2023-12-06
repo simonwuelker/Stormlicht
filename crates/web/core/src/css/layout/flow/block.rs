@@ -274,11 +274,11 @@ impl InFlowBlockBox {
         let containing_block = match height {
             AutoOr::Auto => {
                 // The height of this element depends on its contents
-                ContainingBlock::new(top_left, width)
+                ContainingBlock::new(width)
             },
             AutoOr::NotAuto(height) => {
                 // The height of this element is fixed, children may overflow
-                ContainingBlock::new(top_left, width).with_height(height)
+                ContainingBlock::new(width).with_height(height)
             },
         };
 
