@@ -10,6 +10,7 @@ pub struct Pixels(pub f32);
 
 impl Pixels {
     pub const ZERO: Self = Self(0.);
+    pub const INFINITY: Self = Self(f32::INFINITY);
 
     /// Returns `true` if `self.0` has a negative sign, including `-0.0`
     #[inline]
