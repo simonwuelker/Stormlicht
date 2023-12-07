@@ -178,6 +178,14 @@ impl<T> AutoOr<T> {
             AutoOr::Auto => AutoOr::Auto,
         }
     }
+
+    #[must_use]
+    pub fn into_option(self) -> Option<T> {
+        match self {
+            AutoOr::NotAuto(value) => Some(value),
+            AutoOr::Auto => None,
+        }
+    }
 }
 
 impl<T> Default for AutoOr<T> {
