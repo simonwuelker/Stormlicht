@@ -188,11 +188,6 @@ impl InFlowBlockBox {
             .margin
             .surround(dimensions.border.surround(padding_area));
 
-        // Lower the float ceiling: New floats may not be positioned above this element
-        formatting_context
-            .float_context
-            .lower_float_ceiling(top_left.y);
-
         BoxFragment::new(
             self.node.clone(),
             self.style().clone(),
@@ -303,6 +298,11 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
     pub fn visit_block_box(&mut self, block_box: &'box_tree BlockLevelBox) {
         match block_box {
             BlockLevelBox::Floating(float_box) => {
+                // Floats are placed at or below the flow position
+                self.block_formatting_context
+                    .float_context
+                    .lower_float_ceiling(self.cursor.y);
+
                 let box_fragment = float_box.layout(
                     self.containing_block,
                     self.ctx,
