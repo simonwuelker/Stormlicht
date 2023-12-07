@@ -176,6 +176,9 @@ pub struct FloatContext {
 
     /// Describes how the available space is reduced by floating elements
     content_bands: Vec<ContentBand>,
+
+    lowest_float_left: Pixels,
+    lowest_float_right: Pixels,
 }
 
 impl FloatContext {
@@ -193,7 +196,24 @@ impl FloatContext {
             float_ceiling: Pixels::ZERO,
             containing_block,
             content_bands: vec![content_band],
+            lowest_float_left: Pixels::ZERO,
+            lowest_float_right: Pixels::ZERO,
         }
+    }
+
+    #[must_use]
+    pub fn clear_left(&self) -> Pixels {
+        self.lowest_float_left
+    }
+
+    #[must_use]
+    pub fn clear_right(&self) -> Pixels {
+        self.lowest_float_right
+    }
+
+    #[must_use]
+    pub fn clear_both(&self) -> Pixels {
+        self.lowest_float_left.max(self.lowest_float_right)
     }
 
     pub fn lower_float_ceiling(&mut self, new_ceiling: Pixels) {
@@ -250,6 +270,15 @@ impl FloatContext {
 
         // Lower the float ceiling: New floats may not appear above this box
         self.lower_float_ceiling(placement.position.y);
+
+        match side {
+            Side::Left => {
+                self.lowest_float_left = placement.position.y + margin_area.height;
+            },
+            Side::Right => {
+                self.lowest_float_right = placement.position.y + margin_area.height;
+            },
+        }
     }
 
     fn find_position_for_float(&self, float_width: Pixels, side: Side) -> Placement {

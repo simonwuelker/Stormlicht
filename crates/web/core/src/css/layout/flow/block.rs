@@ -295,9 +295,28 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
         }
     }
 
+    fn respect_clearance(&mut self, clear: &values::Clear) {
+        let clear_to = match clear {
+            values::Clear::Left => self.block_formatting_context.float_context.clear_left(),
+            values::Clear::Right => self.block_formatting_context.float_context.clear_right(),
+            values::Clear::Both => self.block_formatting_context.float_context.clear_both(),
+            _ => return,
+        };
+
+        if self.cursor.y < clear_to {
+            // Introduce "clearance".
+            // This prevents margin collapse
+            self.block_formatting_context.prevent_margin_collapse();
+
+            self.cursor.y = clear_to;
+        }
+    }
+
     pub fn visit_block_box(&mut self, block_box: &'box_tree BlockLevelBox) {
         match block_box {
             BlockLevelBox::Floating(float_box) => {
+                self.respect_clearance(float_box.style.clear());
+
                 // Floats are placed at or below the flow position
                 self.block_formatting_context
                     .float_context
@@ -312,6 +331,8 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
                 self.fragments_so_far.push(box_fragment.into())
             },
             BlockLevelBox::InFlow(in_flow_box) => {
+                self.respect_clearance(in_flow_box.style.clear());
+
                 // Every block box creates exactly one box fragment
                 let box_fragment = in_flow_box.fragment(
                     self.cursor,
