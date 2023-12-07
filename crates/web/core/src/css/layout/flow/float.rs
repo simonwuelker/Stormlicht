@@ -2,12 +2,19 @@
 //!
 //! Also refer to [the exact rules](https://drafts.csswg.org/css2/#float-rules) that govern float behaviour.
 
-use math::Vec2D;
+use math::{Rectangle, Vec2D};
 
 use crate::{
     css::{
         computed_style::ComputedStyle,
-        layout::{ContainingBlock, Pixels, Size},
+        font_metrics::DEFAULT_FONT_SIZE,
+        fragment_tree::BoxFragment,
+        layout::{flow::BlockFormattingContext, ContainingBlock, Pixels, Sides, Size},
+        values::{
+            self,
+            length::{self, Length},
+            AutoOr, PercentageOr,
+        },
     },
     dom::{dom_objects, DomPtr},
     TreeDebug, TreeFormatter,
@@ -15,14 +22,147 @@ use crate::{
 
 use std::{cmp, fmt, fmt::Write};
 
-use super::BlockLevelBox;
+use super::BlockContainer;
 
 #[derive(Clone)]
 pub struct FloatingBox {
     pub node: DomPtr<dom_objects::Node>,
     pub style: ComputedStyle,
     pub side: Side,
-    pub contents: Vec<BlockLevelBox>,
+    pub contents: BlockContainer,
+}
+
+impl FloatingBox {
+    #[must_use]
+    pub fn new(
+        node: DomPtr<dom_objects::Node>,
+        style: ComputedStyle,
+        side: Side,
+        contents: BlockContainer,
+    ) -> Self {
+        Self {
+            node,
+            style,
+            side,
+            contents,
+        }
+    }
+
+    pub fn layout(
+        &self,
+        containing_block: ContainingBlock,
+        ctx: length::ResolutionContext,
+        float_context: &mut FloatContext,
+    ) -> BoxFragment {
+        let available_width = Length::pixels(containing_block.width);
+        let resolve_margin = |margin: &values::Margin| {
+            margin
+                .map(|p| p.resolve_against(available_width))
+                .map(|l| l.absolutize(ctx))
+                .unwrap_or_default()
+        };
+
+        let resolve_padding =
+            |padding: &values::Padding| padding.resolve_against(available_width).absolutize(ctx);
+
+        let margin = Sides {
+            top: resolve_margin(self.style.margin_top()),
+            right: resolve_margin(self.style.margin_right()),
+            bottom: resolve_margin(self.style.margin_bottom()),
+            left: resolve_margin(self.style.margin_left()),
+        };
+
+        let padding = Sides {
+            top: resolve_padding(self.style.padding_top()),
+            right: resolve_padding(self.style.padding_right()),
+            bottom: resolve_padding(self.style.padding_bottom()),
+            left: resolve_padding(self.style.padding_left()),
+        };
+
+        let border = self
+            .style
+            .used_border_widths()
+            .map(|side| side.absolutize(ctx));
+
+        let width = self
+            .style
+            .width()
+            .map(|p| p.resolve_against(available_width))
+            .map(|l| l.absolutize(ctx))
+            .unwrap_or_else(|| {
+                todo!("compute shrink-to-fit width");
+            });
+
+        let height =
+            self.style
+                .height()
+                .flat_map(|percentage_or_length| match percentage_or_length {
+                    PercentageOr::Percentage(percentage) => {
+                        if let Some(available_height) = containing_block.height() {
+                            AutoOr::NotAuto(available_height * percentage.as_fraction())
+                        } else {
+                            AutoOr::Auto
+                        }
+                    },
+                    PercentageOr::NotPercentage(length) => AutoOr::NotAuto(length.absolutize(ctx)),
+                });
+
+        // Layout the floats contents to determine its size
+        let mut established_formatting_context = BlockFormattingContext::new(containing_block);
+
+        let content_info = self.contents.layout(
+            containing_block,
+            // FIXME: this should be this elements font size
+            ctx.with_font_size(DEFAULT_FONT_SIZE),
+            &mut established_formatting_context,
+        );
+
+        let total_width = margin.left
+            + border.left
+            + padding.left
+            + width
+            + padding.right
+            + border.right
+            + margin.right;
+        let total_height = margin.top
+            + border.top
+            + padding.top
+            + height.unwrap_or(content_info.height)
+            + padding.bottom
+            + border.bottom
+            + margin.bottom;
+
+        let position = float_context.find_position_and_place_float_box(
+            Size {
+                width: total_width,
+                height: total_height,
+            },
+            self.side,
+        );
+
+        let content_offset = Vec2D::new(
+            margin.left + border.left + padding.left,
+            margin.top + border.top + padding.top,
+        );
+
+        let content_area = Rectangle::from_position_and_size(
+            position + content_offset,
+            width,
+            height.unwrap_or(content_info.height),
+        );
+        let padding_area = padding.surround(content_area);
+        let margin_area = margin.surround(border.surround(padding_area));
+
+        BoxFragment::new(
+            Some(self.node.clone()),
+            self.style.clone(),
+            margin_area,
+            border,
+            padding_area,
+            content_area,
+            content_info.fragments,
+        )
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -35,7 +175,7 @@ pub struct FloatContext {
     containing_block: ContainingBlock,
 
     /// Describes how the available space is reduced by floating elements
-    float_rects: Vec<FloatRect>,
+    content_bands: Vec<ContentBand>,
 }
 
 impl FloatContext {
@@ -43,7 +183,7 @@ impl FloatContext {
     pub fn new(containing_block: ContainingBlock) -> Self {
         // Initially, there is only one float rect which makes
         // up the entire content area of the containing block
-        let float_rect = FloatRect {
+        let content_band = ContentBand {
             height: Pixels::INFINITY,
             inset_left: None,
             inset_right: None,
@@ -52,16 +192,11 @@ impl FloatContext {
         Self {
             float_ceiling: Pixels::ZERO,
             containing_block,
-            float_rects: vec![float_rect],
+            content_bands: vec![content_band],
         }
     }
 
     pub fn lower_float_ceiling(&mut self, new_ceiling: Pixels) {
-        debug_assert!(
-            self.float_ceiling < new_ceiling,
-            "There is no reason to ever elevate the float ceiling"
-        );
-
         self.float_ceiling = new_ceiling;
     }
 
@@ -69,8 +204,8 @@ impl FloatContext {
     ///
     /// `y_offset` describes the offset within the height of the content band specified by `content_band_index`.
     fn place_float(&mut self, margin_area: Size<Pixels>, side: Side, placement: Placement) {
-        let old_content_band = self.float_rects.remove(placement.band_index);
-
+        // Split the content band in up to three new bands
+        let old_content_band = self.content_bands.remove(placement.band_index);
         let (new_inset_left, new_inset_right) = match side {
             Side::Left => {
                 let inset_left =
@@ -84,41 +219,45 @@ impl FloatContext {
             },
         };
 
-        // Split the content band in up to three new bands
         if old_content_band.height > placement.offset_in_band + margin_area.height {
             // There will be a new content_band *below* the floating box
-            let area_below = FloatRect {
+            let area_below = ContentBand {
                 height: old_content_band.height - placement.offset_in_band - margin_area.height,
                 inset_left: old_content_band.inset_left,
                 inset_right: old_content_band.inset_right,
             };
 
-            self.float_rects.insert(placement.band_index, area_below);
+            self.content_bands.insert(placement.band_index, area_below);
         }
 
-        let reduced_area = FloatRect {
+        let reduced_area = ContentBand {
             height: margin_area.height,
             inset_left: new_inset_left,
             inset_right: new_inset_right,
         };
-        self.float_rects.insert(placement.band_index, reduced_area);
+        self.content_bands
+            .insert(placement.band_index, reduced_area);
 
         if placement.offset_in_band != Pixels::ZERO {
             // There will be a new content band *above* the floating box
-            let area_above = FloatRect {
+            let area_above = ContentBand {
                 height: placement.offset_in_band,
                 inset_left: old_content_band.inset_left,
                 inset_right: old_content_band.inset_right,
             };
-            self.float_rects.insert(placement.band_index, area_above);
+            self.content_bands.insert(placement.band_index, area_above);
         }
+
+        // Lower the float ceiling: New floats may not appear above this box
+        self.lower_float_ceiling(placement.position.y);
     }
 
-    fn find_position_for_float(&self, margin_area: Size<Pixels>, side: Side) -> Placement {
-        debug_assert!(!self.float_rects.is_empty());
+    fn find_position_for_float(&self, float_width: Pixels, side: Side) -> Placement {
+        debug_assert!(!self.content_bands.is_empty());
 
         let mut cursor = Pixels::ZERO;
-        for (index, content_band) in self.float_rects[..self.float_rects.len() - 1]
+        let mut band_to_place_float_in = self.content_bands.len() - 1;
+        for (index, content_band) in self.content_bands[..self.content_bands.len() - 1]
             .iter()
             .enumerate()
         {
@@ -128,31 +267,36 @@ impl FloatContext {
                 continue;
             }
 
-            if !content_band.box_fits(margin_area, side, self.containing_block.width) {
+            if !content_band.box_fits(float_width, side, self.containing_block.width) {
                 // The float does not fit here
                 cursor += content_band.height;
                 continue;
             }
 
             // This the first suitable place to put the float
-            let y_position = cmp::max(cursor, self.float_ceiling);
-            let position = Vec2D::new(content_band.inset_left.unwrap_or_default(), y_position);
-
-            return Placement {
-                position,
-                offset_in_band: y_position - cursor,
-                band_index: index,
-            };
+            band_to_place_float_in = index;
+            break;
         }
 
         // The last fragment has infinite height. The float can always be placed here
         // (but won't if theres any available space earlier)
+        let chosen_band = &self.content_bands[band_to_place_float_in];
         let y_position = cmp::max(cursor, self.float_ceiling);
-        let position = Vec2D::new(Pixels::ZERO, y_position);
+        let x_position = match side {
+            Side::Left => chosen_band.inset_left.unwrap_or_default(),
+            Side::Right => {
+                self.containing_block.width()
+                    - float_width
+                    - chosen_band.inset_right.unwrap_or_default()
+            },
+        };
+
+        let position = Vec2D::new(x_position, y_position);
+
         Placement {
             position,
-            band_index: self.float_rects.len() - 1,
             offset_in_band: y_position - cursor,
+            band_index: band_to_place_float_in,
         }
     }
 
@@ -164,7 +308,7 @@ impl FloatContext {
         margin_area: Size<Pixels>,
         side: Side,
     ) -> Vec2D<Pixels> {
-        let placement = self.find_position_for_float(margin_area, side);
+        let placement = self.find_position_for_float(margin_area.width, side);
         self.place_float(margin_area, side, placement);
         placement.position
     }
@@ -185,16 +329,16 @@ pub enum Side {
 
 /// A rectangular area where content may be placed
 #[derive(Clone, Debug)]
-struct FloatRect {
+struct ContentBand {
     height: Pixels,
     inset_left: Option<Pixels>,
     inset_right: Option<Pixels>,
 }
 
-impl FloatRect {
+impl ContentBand {
     fn box_fits(
         &self,
-        to_place: Size<Pixels>,
+        box_width: Pixels,
         place_on_side: Side,
         width_of_containing_block: Pixels,
     ) -> bool {
@@ -208,7 +352,7 @@ impl FloatRect {
         };
 
         let position = this_side.unwrap_or_default();
-        let right_edge = position + to_place.width;
+        let right_edge = position + box_width;
 
         // Rule 7:
         // > A left-floating box that has another left-floating box to its left may not have its right
@@ -232,13 +376,11 @@ impl FloatRect {
 impl TreeDebug for FloatingBox {
     fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> fmt::Result {
         formatter.indent()?;
-        write!(formatter, "Block Box")?;
+        write!(formatter, "Block Box (floating)")?;
         writeln!(formatter, " ({:?})", self.node.underlying_type())?;
 
         formatter.increase_indent();
-        for block_box in &self.contents {
-            block_box.tree_fmt(formatter)?;
-        }
+        self.contents.tree_fmt(formatter)?;
         formatter.decrease_indent();
         Ok(())
     }

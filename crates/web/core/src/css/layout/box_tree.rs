@@ -64,7 +64,7 @@ impl BoxTree {
             viewport,
         };
 
-        let mut root_formatting_context = BlockFormattingContext::default();
+        let mut root_formatting_context = BlockFormattingContext::new(initial_containing_block);
         let mut state = BlockFlowState::new(
             initial_containing_block,
             length_resolution_context,

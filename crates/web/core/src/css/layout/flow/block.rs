@@ -14,7 +14,9 @@ use crate::{
     TreeDebug, TreeFormatter,
 };
 
-use super::{positioning::AbsolutelyPositionedBox, InlineFormattingContext};
+use super::{
+    positioning::AbsolutelyPositionedBox, FloatContext, FloatingBox, InlineFormattingContext,
+};
 
 /// <https://drafts.csswg.org/css2/#block-formatting>
 ///
@@ -22,17 +24,18 @@ use super::{positioning::AbsolutelyPositionedBox, InlineFormattingContext};
 #[derive(Clone)]
 pub struct BlockFormattingContext {
     last_margin: Pixels,
-}
-
-impl Default for BlockFormattingContext {
-    fn default() -> Self {
-        Self {
-            last_margin: Pixels::ZERO,
-        }
-    }
+    float_context: FloatContext,
 }
 
 impl BlockFormattingContext {
+    #[must_use]
+    pub fn new(containing_block: ContainingBlock) -> Self {
+        Self {
+            last_margin: Pixels::ZERO,
+            float_context: FloatContext::new(containing_block),
+        }
+    }
+
     fn prevent_margin_collapse(&mut self) {
         self.last_margin = Pixels::ZERO;
     }
@@ -53,8 +56,9 @@ impl BlockFormattingContext {
 /// <https://drafts.csswg.org/css2/#block-level-boxes>
 #[derive(Clone)]
 pub enum BlockLevelBox {
-    InFlowBlockBox(InFlowBlockBox),
-    AbsolutelyPositionedBox(AbsolutelyPositionedBox),
+    Floating(FloatingBox),
+    InFlow(InFlowBlockBox),
+    AbsolutelyPositioned(AbsolutelyPositionedBox),
 }
 #[derive(Clone)]
 pub struct InFlowBlockBox {
@@ -124,233 +128,76 @@ impl InFlowBlockBox {
         length_resolution_context: length::ResolutionContext,
         formatting_context: &mut BlockFormattingContext,
     ) -> BoxFragment {
-        let available_length = Length::pixels(containing_block.width());
-
-        let resolve_margin = |margin: &values::Margin| {
-            margin
-                .map(|p| p.resolve_against(available_length))
-                .as_ref()
-                .map(|length| length.absolutize(length_resolution_context))
-        };
-
-        let resolve_padding = |padding: &values::Padding| {
-            padding
-                .resolve_against(available_length)
-                .absolutize(length_resolution_context)
-        };
-        // FIXME: replaced elements
-
-        // See https://drafts.csswg.org/css2/#blockwidth for a description of how the width is computed
-
-        let width = self
-            .style()
-            .width()
-            .map(|p| p.resolve_against(available_length))
-            .as_ref()
-            .map(|length| length.absolutize(length_resolution_context));
-
-        let mut margin_left = resolve_margin(self.style().margin_left());
-        let mut margin_right = resolve_margin(self.style().margin_right());
-
-        let padding_left = resolve_padding(self.style().padding_left());
-        let padding_right = resolve_padding(self.style().padding_right());
-
-        let border_widths = self
-            .style()
-            .used_border_widths()
-            .map(|side| side.absolutize(length_resolution_context));
-
-        // Margins are treated as zero if the total width exceeds the available width
-        let total_width_is_more_than_available = |width: &Pixels| {
-            let total_width = margin_left.unwrap_or_default()
-                + border_widths.left
-                + padding_left
-                + *width
-                + padding_right
-                + border_widths.right
-                + margin_right.unwrap_or_default();
-            total_width > containing_block.width()
-        };
-        if width.is_not_auto_and(total_width_is_more_than_available) {
-            margin_left = margin_left.or(AutoOr::NotAuto(Pixels::ZERO));
-            margin_right = margin_right.or(AutoOr::NotAuto(Pixels::ZERO));
-        }
-
-        // If there is exactly one value specified as auto, its used value follows from the equality.
-        let (width, margin_left, margin_right) = match (width, margin_left, margin_right) {
-            (AutoOr::Auto, margin_left, margin_right) => {
-                // If width is set to auto, any other auto values become 0 and width follows from the resulting equality.
-                let margin_left: Pixels = margin_left.unwrap_or(Pixels::ZERO);
-                let margin_right = margin_right.unwrap_or(Pixels::ZERO);
-                let width = containing_block.width()
-                    - margin_left
-                    - border_widths.left
-                    - padding_left
-                    - padding_right
-                    - border_widths.right
-                    - margin_right;
-                (width, margin_left, margin_right)
-            },
-            (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::Auto) => {
-                let margin_width = (containing_block.width()
-                    - border_widths.left
-                    - padding_left
-                    - width
-                    - padding_right
-                    - border_widths.right)
-                    / 2.;
-                (width, margin_width, margin_width)
-            },
-            (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::Auto) => {
-                let margin_right = containing_block.width()
-                    - margin_left
-                    - border_widths.left
-                    - padding_left
-                    - width
-                    - padding_right
-                    - border_widths.right;
-                (width, margin_left, margin_right)
-            },
-            (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::NotAuto(margin_right)) => {
-                let margin_left = containing_block.width()
-                    - border_widths.left
-                    - padding_left
-                    - width
-                    - padding_right
-                    - border_widths.right
-                    - margin_right;
-                (width, margin_left, margin_right)
-            },
-            (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::NotAuto(_)) => {
-                // The values are overconstrained
-                // FIXME: If the "direction" property is "rtl", we should ignore the margin left instead
-                let margin_right = containing_block.width()
-                    - margin_left
-                    - border_widths.left
-                    - padding_left
-                    - width
-                    - padding_right
-                    - border_widths.right;
-                (width, margin_left, margin_right)
-            },
-        };
-
-        // Compute the height according to https://drafts.csswg.org/css2/#normal-block
-        let margin_top = resolve_margin(self.style().margin_top()).unwrap_or_default();
-        let margin_bottom = resolve_margin(self.style().margin_bottom()).unwrap_or_default();
-
-        let padding_top = resolve_padding(self.style().padding_top());
-        let padding_bottom = resolve_padding(self.style().padding_bottom());
-
-        // If the height is a percentage it is
-        let height = self.style().height().flat_map(|percentage_or_length| {
-            match percentage_or_length {
-                PercentageOr::Percentage(percentage) => {
-                    if let Some(available_height) = containing_block.height() {
-                        AutoOr::NotAuto(available_height * percentage.as_fraction())
-                    } else {
-                        // If the value is a percentage but the length of the containing block is not
-                        // yet determined, the value should be treated as auto.
-                        // (https://drafts.csswg.org/css2/#the-height-property)
-                        AutoOr::Auto
-                    }
-                },
-                PercentageOr::NotPercentage(length) => {
-                    AutoOr::NotAuto(length.absolutize(length_resolution_context))
-                },
-            }
-        });
+        let mut dimensions =
+            BlockDimensions::compute(self.style(), containing_block, length_resolution_context);
 
         // Possibly collapse top margin
-        let margin_top = formatting_context.get_collapsed_margin(margin_top);
-
-        // The top-left corner of the content-rect
-        let offset = Vec2D::new(
-            margin_left + border_widths.left + padding_left,
-            margin_top + border_widths.top + padding_top,
-        );
-        let top_left = position + offset;
-
-        let containing_block = match height {
-            AutoOr::Auto => {
-                // The height of this element depends on its contents
-                ContainingBlock::new(width)
-            },
-            AutoOr::NotAuto(height) => {
-                // The height of this element is fixed, children may overflow
-                ContainingBlock::new(width).with_height(height)
-            },
-        };
+        dimensions.margin.top = formatting_context.get_collapsed_margin(dimensions.margin.top);
 
         // FIXME: Don't use the default font size here, it should be the font size
         // of this element instead
         let font_size = DEFAULT_FONT_SIZE;
 
-        let length_resolution_context = length::ResolutionContext {
-            font_size,
-            root_font_size: length_resolution_context.root_font_size,
-            viewport: length_resolution_context.viewport,
-        };
+        let length_resolution_context = length_resolution_context.with_font_size(font_size);
+
+        // The top-left corner of the content-rect
+        let top_left = position + dimensions.content_offset();
 
         // Prevent margin-collapse of our top margin with the top margin of the
         // first in-flow child if there is a top border or top padding on this element
-        if border_widths.top != Pixels::ZERO || padding_top != Pixels::ZERO {
+        if dimensions.border.top != Pixels::ZERO || dimensions.padding.top != Pixels::ZERO {
             formatting_context.prevent_margin_collapse();
         }
 
         let content_info = self.contents.layout(
-            containing_block,
+            dimensions.as_containing_block(),
             length_resolution_context,
             formatting_context,
         );
 
         // If the content did not contain any in-flow elements *but* it has a nonzero
         // height anyways then it does prevent the top and bottom margins from collapsing
-        if !content_info.has_in_flow_content && height.is_not_auto_and(|&l| l != Pixels::ZERO) {
+        if !content_info.has_in_flow_content
+            && dimensions.height.is_not_auto_and(|&l| l != Pixels::ZERO)
+        {
             formatting_context.prevent_margin_collapse();
         }
 
         // Prevent margin-collapse of our bottom margin with the bottom margin of the
-        // last in-flow child if there is a top border or top padding on this element
-        if border_widths.bottom != Pixels::ZERO || padding_bottom != Pixels::ZERO {
+        // last in-flow child if there is a bottom border or bottom padding on this element
+        if dimensions.border.bottom != Pixels::ZERO || dimensions.padding.bottom != Pixels::ZERO {
             formatting_context.prevent_margin_collapse();
         }
 
-        let margin_bottom = formatting_context.get_collapsed_margin(margin_bottom);
+        dimensions.margin.bottom =
+            formatting_context.get_collapsed_margin(dimensions.margin.bottom);
 
         // After having looked at all the children we can now actually determine the box height
         // if it wasn't defined previously
-        let height = height.unwrap_or(content_info.height);
+        let height = dimensions.height.unwrap_or(content_info.height);
 
         // The bottom right corner of the content area
-        let bottom_right = top_left + Vec2D::new(width, height);
+        let bottom_right = top_left + Vec2D::new(dimensions.width, height);
 
         let content_area = Rectangle::from_corners(top_left, bottom_right);
 
-        let margin = Sides {
-            top: margin_top,
-            right: margin_right,
-            bottom: margin_bottom,
-            left: margin_left,
-        };
-
-        let padding = Sides {
-            top: padding_top,
-            right: padding_right,
-            bottom: padding_bottom,
-            left: padding_left,
-        };
-
         // FIXME: This is ugly, refactor the way we tell our parent
         //        about the height of the box fragment
-        let padding_area = padding.surround(content_area);
-        let margin_area = margin.surround(border_widths.surround(padding_area));
+        let padding_area = dimensions.padding.surround(content_area);
+        let margin_area = dimensions
+            .margin
+            .surround(dimensions.border.surround(padding_area));
+
+        // Lower the float ceiling: New floats may not be positioned above this element
+        formatting_context
+            .float_context
+            .lower_float_ceiling(top_left.y);
 
         BoxFragment::new(
             self.node.clone(),
             self.style().clone(),
             margin_area,
-            border_widths,
+            dimensions.border,
             padding_area,
             content_area,
             content_info.fragments,
@@ -358,18 +205,25 @@ impl InFlowBlockBox {
     }
 }
 
+impl From<FloatingBox> for BlockLevelBox {
+    fn from(value: FloatingBox) -> Self {
+        Self::Floating(value)
+    }
+}
+
 impl From<InFlowBlockBox> for BlockLevelBox {
     fn from(value: InFlowBlockBox) -> Self {
-        Self::InFlowBlockBox(value)
+        Self::InFlow(value)
     }
 }
 
 impl From<AbsolutelyPositionedBox> for BlockLevelBox {
     fn from(value: AbsolutelyPositionedBox) -> Self {
-        Self::AbsolutelyPositionedBox(value)
+        Self::AbsolutelyPositioned(value)
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) struct ContentLayoutInfo {
     pub height: Pixels,
     pub fragments: Vec<Fragment>,
@@ -448,7 +302,16 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
 
     pub fn visit_block_box(&mut self, block_box: &'box_tree BlockLevelBox) {
         match block_box {
-            BlockLevelBox::InFlowBlockBox(in_flow_box) => {
+            BlockLevelBox::Floating(float_box) => {
+                let box_fragment = float_box.layout(
+                    self.containing_block,
+                    self.ctx,
+                    &mut self.block_formatting_context.float_context,
+                );
+
+                self.fragments_so_far.push(box_fragment.into())
+            },
+            BlockLevelBox::InFlow(in_flow_box) => {
                 // Every block box creates exactly one box fragment
                 let box_fragment = in_flow_box.fragment(
                     self.cursor,
@@ -463,7 +326,7 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
 
                 self.fragments_so_far.push(Fragment::Box(box_fragment));
             },
-            BlockLevelBox::AbsolutelyPositionedBox(absolute_box) => {
+            BlockLevelBox::AbsolutelyPositioned(absolute_box) => {
                 // Absolutely positioned boxes cannot be laid out during the initial pass,
                 // as their positioning requires the size of the containing block to be known.
                 //
@@ -502,11 +365,206 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+struct BlockDimensions {
+    margin: Sides<Pixels>,
+    padding: Sides<Pixels>,
+    border: Sides<Pixels>,
+    width: Pixels,
+    height: AutoOr<Pixels>,
+}
+
+impl BlockDimensions {
+    /// Compute dimensions for normal, non replaced block elements
+    ///
+    /// The relevant parts of the specification are:
+    /// * https://drafts.csswg.org/css2/#blockwidth
+    /// * https://drafts.csswg.org/css2/#normal-block
+    ///
+    /// This method does **not** layout the blocks contents nor does it perform margin-collapsing.
+    #[must_use]
+    fn compute(
+        style: &ComputedStyle,
+        containing_block: ContainingBlock,
+        length_resolution_context: length::ResolutionContext,
+    ) -> Self {
+        let available_length = Length::pixels(containing_block.width());
+
+        let resolve_margin = |margin: &values::Margin| {
+            margin
+                .map(|p| p.resolve_against(available_length))
+                .as_ref()
+                .map(|length| length.absolutize(length_resolution_context))
+        };
+
+        let resolve_padding = |padding: &values::Padding| {
+            padding
+                .resolve_against(available_length)
+                .absolutize(length_resolution_context)
+        };
+        // FIXME: replaced elements
+
+        // See https://drafts.csswg.org/css2/#blockwidth for a description of how the width is computed
+
+        let width = style
+            .width()
+            .map(|p| p.resolve_against(available_length))
+            .as_ref()
+            .map(|length| length.absolutize(length_resolution_context));
+
+        let mut margin_left = resolve_margin(style.margin_left());
+        let mut margin_right = resolve_margin(style.margin_right());
+
+        let padding_left = resolve_padding(style.padding_left());
+        let padding_right = resolve_padding(style.padding_right());
+
+        let border = style
+            .used_border_widths()
+            .map(|side| side.absolutize(length_resolution_context));
+
+        // Margins are treated as zero if the total width exceeds the available width
+        let total_width_is_more_than_available = |width: &Pixels| {
+            let total_width = margin_left.unwrap_or_default()
+                + border.left
+                + padding_left
+                + *width
+                + padding_right
+                + border.right
+                + margin_right.unwrap_or_default();
+            total_width > containing_block.width()
+        };
+        if width.is_not_auto_and(total_width_is_more_than_available) {
+            margin_left = margin_left.or(AutoOr::NotAuto(Pixels::ZERO));
+            margin_right = margin_right.or(AutoOr::NotAuto(Pixels::ZERO));
+        }
+
+        // If there is exactly one value specified as auto, its used value follows from the equality.
+        let (width, margin_left, margin_right) = match (width, margin_left, margin_right) {
+            (AutoOr::Auto, margin_left, margin_right) => {
+                // If width is set to auto, any other auto values become 0 and width follows from the resulting equality.
+                let margin_left: Pixels = margin_left.unwrap_or(Pixels::ZERO);
+                let margin_right = margin_right.unwrap_or(Pixels::ZERO);
+                let width = containing_block.width()
+                    - margin_left
+                    - border.left
+                    - padding_left
+                    - padding_right
+                    - border.right
+                    - margin_right;
+                (width, margin_left, margin_right)
+            },
+            (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::Auto) => {
+                let margin_width = (containing_block.width()
+                    - border.left
+                    - padding_left
+                    - width
+                    - padding_right
+                    - border.right)
+                    / 2.;
+                (width, margin_width, margin_width)
+            },
+            (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::Auto) => {
+                let margin_right = containing_block.width()
+                    - margin_left
+                    - border.left
+                    - padding_left
+                    - width
+                    - padding_right
+                    - border.right;
+                (width, margin_left, margin_right)
+            },
+            (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::NotAuto(margin_right)) => {
+                let margin_left = containing_block.width()
+                    - border.left
+                    - padding_left
+                    - width
+                    - padding_right
+                    - border.right
+                    - margin_right;
+                (width, margin_left, margin_right)
+            },
+            (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::NotAuto(_)) => {
+                // The values are overconstrained
+                // FIXME: If the "direction" property is "rtl", we should ignore the margin left instead
+                let margin_right = containing_block.width()
+                    - margin_left
+                    - border.left
+                    - padding_left
+                    - width
+                    - padding_right
+                    - border.right;
+                (width, margin_left, margin_right)
+            },
+        };
+
+        // Compute the height according to https://drafts.csswg.org/css2/#normal-block
+        // If the height is a percentage it is
+        let height = style.height().flat_map(|percentage_or_length| {
+            match percentage_or_length {
+                PercentageOr::Percentage(percentage) => {
+                    if let Some(available_height) = containing_block.height() {
+                        AutoOr::NotAuto(available_height * percentage.as_fraction())
+                    } else {
+                        // If the value is a percentage but the length of the containing block is not
+                        // yet determined, the value should be treated as auto.
+                        // (https://drafts.csswg.org/css2/#the-height-property)
+                        AutoOr::Auto
+                    }
+                },
+                PercentageOr::NotPercentage(length) => {
+                    AutoOr::NotAuto(length.absolutize(length_resolution_context))
+                },
+            }
+        });
+
+        let margin = Sides {
+            top: resolve_margin(style.margin_top()).unwrap_or_default(),
+            right: margin_right,
+            bottom: resolve_margin(style.margin_bottom()).unwrap_or_default(),
+            left: margin_left,
+        };
+
+        let padding = Sides {
+            top: resolve_padding(style.padding_top()),
+            right: padding_right,
+            bottom: resolve_padding(style.padding_bottom()),
+            left: padding_left,
+        };
+
+        Self {
+            margin,
+            padding,
+            border,
+            width,
+            height,
+        }
+    }
+
+    /// Return the offset of the top-left corner of the content area from the top-left corner
+    /// of the margin area
+    #[must_use]
+    fn content_offset(&self) -> Vec2D<Pixels> {
+        Vec2D::new(
+            self.margin.left + self.border.left + self.padding.left,
+            self.margin.top + self.border.top + self.margin.top,
+        )
+    }
+
+    #[must_use]
+    fn as_containing_block(&self) -> ContainingBlock {
+        ContainingBlock {
+            width: self.width,
+            height: self.height.into_option(),
+        }
+    }
+}
+
 impl TreeDebug for BlockLevelBox {
     fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> fmt::Result {
         match self {
-            Self::AbsolutelyPositionedBox(abs_box) => abs_box.tree_fmt(formatter),
-            Self::InFlowBlockBox(block_box) => block_box.tree_fmt(formatter),
+            Self::Floating(float_box) => float_box.tree_fmt(formatter),
+            Self::AbsolutelyPositioned(abs_box) => abs_box.tree_fmt(formatter),
+            Self::InFlow(block_box) => block_box.tree_fmt(formatter),
         }
     }
 }

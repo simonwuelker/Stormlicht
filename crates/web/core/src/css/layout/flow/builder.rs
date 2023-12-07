@@ -9,12 +9,12 @@ use crate::{
             BlockContainer, BlockLevelBox, InFlowBlockBox, InlineBox, InlineFormattingContext,
             InlineLevelBox,
         },
-        ComputedStyle, StyleComputer,
+        values, ComputedStyle, StyleComputer,
     },
     dom::{dom_objects, DomPtr},
 };
 
-use super::{positioning::AbsolutelyPositionedBox, TextRun};
+use super::{float, positioning::AbsolutelyPositionedBox, TextRun};
 
 #[derive(Clone)]
 pub struct BoxTreeBuilder<'stylesheets, 'parent_style> {
@@ -162,15 +162,25 @@ impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
         let content = BoxTreeBuilder::build(node.clone(), self.style_computer, &style);
 
         let position = style.position();
-        let block_box = if position.is_absolute() || position.is_fixed() {
-            AbsolutelyPositionedBox {
-                style,
-                node,
-                content,
-            }
-            .into()
-        } else {
-            InFlowBlockBox::new(style, Some(node), content).into()
+        let block_box = match style.float() {
+            values::Float::None => {
+                if position.is_absolute() || position.is_fixed() {
+                    AbsolutelyPositionedBox {
+                        style,
+                        node,
+                        content,
+                    }
+                    .into()
+                } else {
+                    InFlowBlockBox::new(style, Some(node), content).into()
+                }
+            },
+            values::Float::Left => {
+                float::FloatingBox::new(node, style, float::Side::Left, content).into()
+            },
+            values::Float::Right => {
+                float::FloatingBox::new(node, style, float::Side::Right, content).into()
+            },
         };
         self.block_level_boxes.push(block_box);
     }
