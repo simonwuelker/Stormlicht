@@ -131,6 +131,17 @@ pub struct ResolutionContext {
     pub viewport: Size<Pixels>,
 }
 
+impl ResolutionContext {
+    #[must_use]
+    pub fn with_font_size(&self, font_size: Pixels) -> Self {
+        Self {
+            font_size,
+            root_font_size: self.root_font_size,
+            viewport: self.viewport,
+        }
+    }
+}
+
 impl Length {
     pub const ZERO: Self = Self {
         value: 0.,
