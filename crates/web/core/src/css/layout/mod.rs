@@ -63,6 +63,21 @@ impl<T: Copy> Sides<T> {
     }
 }
 
+impl<T, S> Sides<T>
+where
+    T: ops::Add<T, Output = S> + Copy,
+{
+    #[must_use]
+    pub fn horizontal_sum(&self) -> S {
+        self.left + self.right
+    }
+
+    #[must_use]
+    pub fn vertical_sum(&self) -> S {
+        self.top + self.bottom
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Size<T> {
     pub width: T,

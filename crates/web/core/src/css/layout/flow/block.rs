@@ -388,6 +388,7 @@ impl BlockDimensions {
         containing_block: ContainingBlock,
         length_resolution_context: length::ResolutionContext,
     ) -> Self {
+        // FIXME: replaced elements
         let available_length = Length::pixels(containing_block.width());
 
         let resolve_margin = |margin: &values::Margin| {
@@ -402,10 +403,19 @@ impl BlockDimensions {
                 .resolve_against(available_length)
                 .absolutize(length_resolution_context)
         };
-        // FIXME: replaced elements
+
+        let padding = Sides {
+            top: resolve_padding(style.padding_top()),
+            right: resolve_padding(style.padding_right()),
+            bottom: resolve_padding(style.padding_bottom()),
+            left: resolve_padding(style.padding_left()),
+        };
+
+        let border = style
+            .used_border_widths()
+            .map(|side| side.absolutize(length_resolution_context));
 
         // See https://drafts.csswg.org/css2/#blockwidth for a description of how the width is computed
-
         let width = style
             .width()
             .map(|p| p.resolve_against(available_length))
@@ -415,21 +425,12 @@ impl BlockDimensions {
         let mut margin_left = resolve_margin(style.margin_left());
         let mut margin_right = resolve_margin(style.margin_right());
 
-        let padding_left = resolve_padding(style.padding_left());
-        let padding_right = resolve_padding(style.padding_right());
-
-        let border = style
-            .used_border_widths()
-            .map(|side| side.absolutize(length_resolution_context));
-
         // Margins are treated as zero if the total width exceeds the available width
         let total_width_is_more_than_available = |width: &Pixels| {
             let total_width = margin_left.unwrap_or_default()
-                + border.left
-                + padding_left
+                + border.horizontal_sum()
+                + padding.horizontal_sum()
                 + *width
-                + padding_right
-                + border.right
                 + margin_right.unwrap_or_default();
             total_width > containing_block.width()
         };
@@ -446,40 +447,29 @@ impl BlockDimensions {
                 let margin_right = margin_right.unwrap_or(Pixels::ZERO);
                 let width = containing_block.width()
                     - margin_left
-                    - border.left
-                    - padding_left
-                    - padding_right
-                    - border.right
+                    - border.horizontal_sum()
+                    - padding.horizontal_sum()
                     - margin_right;
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::Auto) => {
-                let margin_width = (containing_block.width()
-                    - border.left
-                    - padding_left
-                    - width
-                    - padding_right
-                    - border.right)
-                    / 2.;
+                let margin_width =
+                    (containing_block.width() - border.horizontal_sum() - padding.horizontal_sum())
+                        / 2.;
                 (width, margin_width, margin_width)
             },
             (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::Auto) => {
                 let margin_right = containing_block.width()
                     - margin_left
-                    - border.left
-                    - padding_left
-                    - width
-                    - padding_right
-                    - border.right;
+                    - border.horizontal_sum()
+                    - padding.horizontal_sum();
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::NotAuto(margin_right)) => {
                 let margin_left = containing_block.width()
-                    - border.left
-                    - padding_left
+                    - border.horizontal_sum()
+                    - padding.horizontal_sum()
                     - width
-                    - padding_right
-                    - border.right
                     - margin_right;
                 (width, margin_left, margin_right)
             },
@@ -488,11 +478,9 @@ impl BlockDimensions {
                 // FIXME: If the "direction" property is "rtl", we should ignore the margin left instead
                 let margin_right = containing_block.width()
                     - margin_left
-                    - border.left
-                    - padding_left
-                    - width
-                    - padding_right
-                    - border.right;
+                    - border.horizontal_sum()
+                    - padding.horizontal_sum()
+                    - width;
                 (width, margin_left, margin_right)
             },
         };
@@ -522,13 +510,6 @@ impl BlockDimensions {
             right: margin_right,
             bottom: resolve_margin(style.margin_bottom()).unwrap_or_default(),
             left: margin_left,
-        };
-
-        let padding = Sides {
-            top: resolve_padding(style.padding_top()),
-            right: padding_right,
-            bottom: resolve_padding(style.padding_bottom()),
-            left: padding_left,
         };
 
         Self {
