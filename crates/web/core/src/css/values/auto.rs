@@ -179,6 +179,18 @@ impl<T> AutoOr<T> {
         }
     }
 
+    /// Returns the contained [`NotAuto`] value or computes it from a closure.
+    #[inline]
+    pub fn unwrap_or_else<F>(self, f: F) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        match self {
+            AutoOr::NotAuto(x) => x,
+            AutoOr::Auto => f(),
+        }
+    }
+
     #[must_use]
     pub fn into_option(self) -> Option<T> {
         match self {
