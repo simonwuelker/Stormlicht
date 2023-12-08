@@ -290,7 +290,7 @@ impl FloatContext {
             .iter()
             .enumerate()
         {
-            if cursor + content_band.height < self.float_ceiling {
+            if cursor + content_band.height <= self.float_ceiling {
                 // Cannot place floats above the float ceiling
                 cursor += content_band.height;
                 continue;
