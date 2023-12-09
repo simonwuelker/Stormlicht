@@ -548,7 +548,7 @@ impl BlockDimensions {
     fn content_offset(&self) -> Vec2D<Pixels> {
         Vec2D::new(
             self.margin.left + self.border.left + self.padding.left,
-            self.margin.top + self.border.top + self.margin.top,
+            self.margin.top + self.border.top + self.padding.top,
         )
     }
 
