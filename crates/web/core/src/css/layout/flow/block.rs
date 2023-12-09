@@ -265,7 +265,6 @@ pub struct BlockFlowState<'box_tree, 'formatting_context> {
     fragments_so_far: Vec<Fragment>,
     containing_block: ContainingBlock,
     ctx: length::ResolutionContext,
-    height: Pixels,
     absolute_boxes_requiring_layout: Vec<AbsoluteBoxRequiringLayout<'box_tree>>,
     has_in_flow_content: bool,
 }
@@ -289,7 +288,6 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
             fragments_so_far: vec![],
             containing_block,
             ctx,
-            height: Pixels::ZERO,
             absolute_boxes_requiring_layout: vec![],
             has_in_flow_content: false,
         }
@@ -343,7 +341,6 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
 
                 let box_height = box_fragment.margin_area().height();
                 self.cursor.y += box_height;
-                self.height += box_height;
 
                 self.fragments_so_far.push(Fragment::Box(box_fragment));
             },
@@ -368,8 +365,9 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
     pub fn finish(self) -> ContentLayoutInfo {
         // Now that we have processed all in-flow elements, we can layout absolutely positioned
         // elements.
+        let height = self.cursor.y;
         let mut fragments = self.fragments_so_far;
-        let definite_containing_block = self.containing_block.make_definite(self.height);
+        let definite_containing_block = self.containing_block.make_definite(height);
 
         for task in self.absolute_boxes_requiring_layout {
             let fragment =
@@ -379,7 +377,7 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
         }
 
         ContentLayoutInfo {
-            height: self.height,
+            height,
             fragments,
             has_in_flow_content: self.has_in_flow_content,
         }
