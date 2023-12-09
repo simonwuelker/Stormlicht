@@ -13,7 +13,7 @@ use crate::{
         values::{
             self,
             length::{self, Length},
-            AutoOr, PercentageOr,
+            AutoOr, FloatSide, PercentageOr,
         },
     },
     dom::{dom_objects, DomPtr},
@@ -28,7 +28,7 @@ use super::BlockContainer;
 pub struct FloatingBox {
     pub node: DomPtr<dom_objects::Node>,
     pub style: ComputedStyle,
-    pub side: Side,
+    pub side: FloatSide,
     pub contents: BlockContainer,
 }
 
@@ -37,7 +37,7 @@ impl FloatingBox {
     pub fn new(
         node: DomPtr<dom_objects::Node>,
         style: ComputedStyle,
-        side: Side,
+        side: FloatSide,
         contents: BlockContainer,
     ) -> Self {
         Self {
@@ -223,16 +223,16 @@ impl FloatContext {
     /// Place a float in a given position.
     ///
     /// `y_offset` describes the offset within the height of the content band specified by `content_band_index`.
-    fn place_float(&mut self, margin_area: Size<Pixels>, side: Side, placement: Placement) {
+    fn place_float(&mut self, margin_area: Size<Pixels>, side: FloatSide, placement: Placement) {
         // Split the content band in up to three new bands
         let old_content_band = self.content_bands.remove(placement.band_index);
         let (new_inset_left, new_inset_right) = match side {
-            Side::Left => {
+            FloatSide::Left => {
                 let inset_left =
                     Some(old_content_band.inset_left.unwrap_or_default() + margin_area.width);
                 (inset_left, old_content_band.inset_right)
             },
-            Side::Right => {
+            FloatSide::Right => {
                 let inset_right =
                     Some(old_content_band.inset_right.unwrap_or_default() + margin_area.width);
                 (old_content_band.inset_left, inset_right)
@@ -272,16 +272,16 @@ impl FloatContext {
         self.lower_float_ceiling(placement.position.y);
 
         match side {
-            Side::Left => {
+            FloatSide::Left => {
                 self.lowest_float_left = placement.position.y + margin_area.height;
             },
-            Side::Right => {
+            FloatSide::Right => {
                 self.lowest_float_right = placement.position.y + margin_area.height;
             },
         }
     }
 
-    fn find_position_for_float(&self, float_width: Pixels, side: Side) -> Placement {
+    fn find_position_for_float(&self, float_width: Pixels, side: FloatSide) -> Placement {
         debug_assert!(!self.content_bands.is_empty());
 
         let mut cursor = Pixels::ZERO;
@@ -312,8 +312,8 @@ impl FloatContext {
         let chosen_band = &self.content_bands[band_to_place_float_in];
         let y_position = cmp::max(cursor, self.float_ceiling);
         let x_position = match side {
-            Side::Left => chosen_band.inset_left.unwrap_or_default(),
-            Side::Right => {
+            FloatSide::Left => chosen_band.inset_left.unwrap_or_default(),
+            FloatSide::Right => {
                 self.containing_block.width()
                     - float_width
                     - chosen_band.inset_right.unwrap_or_default()
@@ -335,7 +335,7 @@ impl FloatContext {
     pub fn find_position_and_place_float_box(
         &mut self,
         margin_area: Size<Pixels>,
-        side: Side,
+        side: FloatSide,
     ) -> Vec2D<Pixels> {
         let placement = self.find_position_for_float(margin_area.width, side);
         self.place_float(margin_area, side, placement);
@@ -350,12 +350,6 @@ struct Placement {
     offset_in_band: Pixels,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Side {
-    Left,
-    Right,
-}
-
 /// A rectangular area where content may be placed
 #[derive(Clone, Debug)]
 struct ContentBand {
@@ -368,7 +362,7 @@ impl ContentBand {
     fn box_fits(
         &self,
         box_width: Pixels,
-        place_on_side: Side,
+        place_on_side: FloatSide,
         width_of_containing_block: Pixels,
     ) -> bool {
         // The algorithm is the same for left- and right-floating boxes.
@@ -376,8 +370,8 @@ impl ContentBand {
         // and switch the insets on the two sides if necessary
 
         let (this_side, opposing_side) = match place_on_side {
-            Side::Left => (self.inset_left, self.inset_right),
-            Side::Right => (self.inset_right, self.inset_left),
+            FloatSide::Left => (self.inset_left, self.inset_right),
+            FloatSide::Right => (self.inset_right, self.inset_left),
         };
 
         let position = this_side.unwrap_or_default();

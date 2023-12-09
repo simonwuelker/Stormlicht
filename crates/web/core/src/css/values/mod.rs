@@ -21,7 +21,7 @@ pub use background_color::BackgroundColor;
 pub use border::{Border, LineStyle, LineWidth};
 pub use color::Color;
 pub use display::Display;
-pub use float::{Clear, Float};
+pub use float::{Clear, Float, FloatSide};
 pub use font_family::{FontFamily, FontName};
 pub use font_size::FontSize;
 pub use font_style::FontStyle;

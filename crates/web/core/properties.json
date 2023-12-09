@@ -75,7 +75,7 @@
         "specification": "https://drafts.csswg.org/css2/#propdef-float",
         "inherited": false,
         "value": "Float",
-        "initial": "Float::None"
+        "initial": "Float::default()"
     },
     {
         "name": "font-family",
