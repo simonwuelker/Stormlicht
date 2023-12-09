@@ -48,6 +48,11 @@ impl<T> Rectangle<T>
 where
     T: ops::Add<Output = T> + ops::Sub<Output = T> + Copy,
 {
+    #[must_use]
+    pub fn offset_by(&self, offset: Vec2D<T>) -> Self {
+        Self::from_position_and_size(self.top_left() + offset, self.width(), self.height())
+    }
+
     pub fn from_position_and_size(top_left: Vec2D<T>, width: T, height: T) -> Self {
         let bottom_right = Vec2D {
             x: top_left.x + width,
