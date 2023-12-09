@@ -165,7 +165,8 @@ impl BoxFragment {
                     x: Pixels::ZERO,
                     y: self.borders.top,
                 };
-            let area = Rectangle::from_corners(border_area.top_left() + state.offset, bottom_right);
+            let area = Rectangle::from_corners(border_area.top_left(), bottom_right)
+                .offset_by(state.offset);
             let color = *self.style().border_top_color();
             painter.rect(area, color.into());
         }
@@ -177,7 +178,8 @@ impl BoxFragment {
                     x: self.borders.right,
                     y: Pixels::ZERO,
                 };
-            let area = Rectangle::from_corners(top_left + state.offset, border_area.bottom_right());
+            let area = Rectangle::from_corners(top_left, border_area.bottom_right())
+                .offset_by(state.offset);
             let color = *self.style().border_right_color();
             painter.rect(area, color.into());
         }
@@ -189,7 +191,8 @@ impl BoxFragment {
                     x: Pixels::ZERO,
                     y: self.borders.bottom,
                 };
-            let area = Rectangle::from_corners(top_left + state.offset, border_area.bottom_right());
+            let area = Rectangle::from_corners(top_left, border_area.bottom_right())
+                .offset_by(state.offset);
             let color = *self.style().border_bottom_color();
             painter.rect(area, color.into());
         }
@@ -201,7 +204,8 @@ impl BoxFragment {
                     x: self.borders.left,
                     y: Pixels::ZERO,
                 };
-            let area = Rectangle::from_corners(border_area.top_left() + state.offset, bottom_right);
+            let area = Rectangle::from_corners(border_area.top_left(), bottom_right)
+                .offset_by(state.offset);
             let color = *self.style().border_left_color();
             painter.rect(area, color.into());
         }
