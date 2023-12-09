@@ -89,7 +89,7 @@ impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
         self.block_level_boxes.push(
             InFlowBlockBox::create_anonymous_box(
                 BlockContainer::InlineFormattingContext(formatting_context),
-                self.style.clone(),
+                self.style,
             )
             .into(),
         );

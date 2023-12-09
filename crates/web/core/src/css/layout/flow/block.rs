@@ -109,9 +109,9 @@ impl InFlowBlockBox {
     }
 
     #[must_use]
-    pub fn create_anonymous_box(contents: BlockContainer, style: ComputedStyle) -> Self {
+    pub fn create_anonymous_box(contents: BlockContainer, parent_style: &ComputedStyle) -> Self {
         Self {
-            style,
+            style: parent_style.get_inherited(),
             node: None,
             contents,
         }
