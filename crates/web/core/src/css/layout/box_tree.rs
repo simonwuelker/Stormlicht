@@ -55,7 +55,7 @@ impl BoxTree {
         }
     }
     pub fn compute_fragments(&self, viewport: Size<Pixels>) -> FragmentTree {
-        // The root box always has the size of the viewport
+        // The initial containing block always has the size of the viewport
         let initial_containing_block =
             ContainingBlock::new(viewport.width).with_height(viewport.height);
         let length_resolution_context = length::ResolutionContext {

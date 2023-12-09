@@ -88,7 +88,8 @@ impl BrowsingContext {
 
         // Paint the fragment_tree to the screen
         let mut painter = Painter::default();
-        self.fragment_tree.fill_display_list(&mut painter);
+        self.fragment_tree
+            .fill_display_list(&mut painter, viewport_size);
 
         painter.paint(to);
     }

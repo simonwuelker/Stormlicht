@@ -7,13 +7,15 @@ use crate::{
         values::{BackgroundColor, Color},
         ComputedStyle, FontMetrics,
     },
-    dom::{dom_objects, DomPtr},
+    dom::{self, dom_objects, DomPtr},
 };
+
+use super::DisplayState;
 
 #[derive(Clone, Debug)]
 pub struct BoxFragment {
     /// The [DOM Node](dom) that produced this fragment
-    _dom_node: Option<DomPtr<dom_objects::Node>>,
+    dom_node: Option<DomPtr<dom_objects::Node>>,
 
     style: ComputedStyle,
     margin_area: Rectangle<Pixels>,
@@ -38,10 +40,10 @@ pub enum Fragment {
 }
 
 impl Fragment {
-    pub fn fill_display_list(&self, painter: &mut Painter) {
+    pub(super) fn fill_display_list(&self, painter: &mut Painter, state: &mut DisplayState) {
         match self {
-            Self::Box(box_fragment) => box_fragment.fill_display_list(painter),
-            Self::Text(text_fragment) => text_fragment.fill_display_list(painter),
+            Self::Box(box_fragment) => box_fragment.fill_display_list(painter, state),
+            Self::Text(text_fragment) => text_fragment.fill_display_list(painter, state),
         }
     }
 }
@@ -69,12 +71,12 @@ impl TextFragment {
     }
 
     #[inline]
-    pub fn fill_display_list(&self, painter: &mut Painter) {
+    pub(super) fn fill_display_list(&self, painter: &mut Painter, state: &DisplayState) {
         let color = math::Color::from(self.color);
 
         painter.text(
             self.text().to_owned(),
-            self.area.top_left(),
+            self.area.top_left() + state.offset,
             color,
             self.font_metrics.clone(),
         );
@@ -84,7 +86,7 @@ impl TextFragment {
 impl BoxFragment {
     #[must_use]
     pub fn new(
-        _dom_node: Option<DomPtr<dom_objects::Node>>,
+        dom_node: Option<DomPtr<dom_objects::Node>>,
         style: ComputedStyle,
         margin_area: Rectangle<Pixels>,
         borders: Sides<Pixels>,
@@ -93,7 +95,7 @@ impl BoxFragment {
         children: Vec<Fragment>,
     ) -> Self {
         Self {
-            _dom_node,
+            dom_node,
             style,
             margin_area,
             borders,
@@ -124,15 +126,33 @@ impl BoxFragment {
         self.borders.surround(self.padding_area)
     }
 
-    pub fn fill_display_list(&self, painter: &mut Painter) {
+    fn draw_background(&self, painter: &mut Painter, state: &mut DisplayState) {
         match *self.style().background_color() {
             BackgroundColor::Transparent => {
                 // Skip drawing the background entirely
             },
             BackgroundColor::Color(color) => {
-                painter.rect(self.padding_area, color.into());
+                let box_type = self.dom_node.as_ref().map(|n| n.underlying_type());
+                if box_type == Some(dom::DomType::HtmlHtmlElement) {
+                    // Special case: The background of the html element *always* covers the whole page, even if
+                    // the box itself is smaller
+                    state.has_seen_background_on_html_element = true;
+                    painter.paint_magic_background(state.viewport, color.into());
+                } else if box_type == Some(dom::DomType::HtmlBodyElement)
+                    && !state.has_seen_background_on_html_element
+                {
+                    // Special case: In the absence of a background on the html element, the same behaviour
+                    // applies to the body element
+                    painter.paint_magic_background(state.viewport, color.into());
+                } else {
+                    painter.rect(self.padding_area.offset_by(state.offset), color.into());
+                }
             },
         }
+    }
+
+    fn fill_display_list(&self, painter: &mut Painter, state: &mut DisplayState) {
+        self.draw_background(painter, state);
 
         // Draw borders
         // FIXME: different border styles (other than "solid")
@@ -145,7 +165,7 @@ impl BoxFragment {
                     x: Pixels::ZERO,
                     y: self.borders.top,
                 };
-            let area = Rectangle::from_corners(border_area.top_left(), bottom_right);
+            let area = Rectangle::from_corners(border_area.top_left() + state.offset, bottom_right);
             let color = *self.style().border_top_color();
             painter.rect(area, color.into());
         }
@@ -157,7 +177,7 @@ impl BoxFragment {
                     x: self.borders.right,
                     y: Pixels::ZERO,
                 };
-            let area = Rectangle::from_corners(top_left, border_area.bottom_right());
+            let area = Rectangle::from_corners(top_left + state.offset, border_area.bottom_right());
             let color = *self.style().border_right_color();
             painter.rect(area, color.into());
         }
@@ -169,7 +189,7 @@ impl BoxFragment {
                     x: Pixels::ZERO,
                     y: self.borders.bottom,
                 };
-            let area = Rectangle::from_corners(top_left, border_area.bottom_right());
+            let area = Rectangle::from_corners(top_left + state.offset, border_area.bottom_right());
             let color = *self.style().border_bottom_color();
             painter.rect(area, color.into());
         }
@@ -181,18 +201,19 @@ impl BoxFragment {
                     x: self.borders.left,
                     y: Pixels::ZERO,
                 };
-            let area = Rectangle::from_corners(border_area.top_left(), bottom_right);
+            let area = Rectangle::from_corners(border_area.top_left() + state.offset, bottom_right);
             let color = *self.style().border_left_color();
             painter.rect(area, color.into());
         }
 
         // Paint all children
-        let old_offset = painter.offset();
-        painter.set_offset(old_offset + self.content_area.top_left());
+        let old_offset = state.offset;
+        state.offset = old_offset + self.content_area.top_left();
+
         for child in self.children() {
-            child.fill_display_list(painter);
+            child.fill_display_list(painter, state);
         }
-        painter.set_offset(old_offset);
+        state.offset = old_offset;
     }
 }
 
