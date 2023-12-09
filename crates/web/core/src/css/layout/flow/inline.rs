@@ -67,7 +67,7 @@ impl TextRun {
         // FIXME: Consider more than just the first specified font
         let family = match self.style().font_family().fonts()[0] {
             FontName::Family(name) => font::Family::Specific(name.to_string()),
-            FontName::Generic(_name) => todo!(),
+            FontName::Generic(name) => font::Family::Generic(name.to_string()),
         };
 
         // let style = self.style()

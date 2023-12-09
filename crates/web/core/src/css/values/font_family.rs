@@ -126,3 +126,24 @@ impl<'a> CSSParse<'a> for GenericFontFamily {
         Ok(parsed_value)
     }
 }
+
+impl ToString for GenericFontFamily {
+    fn to_string(&self) -> String {
+        let name = match self {
+            Self::Serif => "serif",
+            Self::SansSerif => "sans-serif",
+            Self::Cursive => "cursive",
+            Self::Fantasy => "fantasy",
+            Self::Monospace => "monospace",
+            Self::SystemUi => "system-ui",
+            Self::Emoji => "emoji",
+            Self::Math => "math",
+            Self::GenericFangSong => "generic(fangsong)",
+            Self::UiSerif => "ui-serif",
+            Self::UiSansSerif => "ui-sans-serif",
+            Self::UiMonospace => "ui-monospace",
+            Self::UiRounded => "ui-rounded",
+        };
+        name.to_string()
+    }
+}
