@@ -84,6 +84,16 @@ pub struct Size<T> {
     pub height: T,
 }
 
+impl<T> Size<T>
+where
+    T: ops::Add<Output = T> + ops::Sub<Output = T> + Copy,
+{
+    #[must_use]
+    pub fn at_position(&self, position: math::Vec2D<T>) -> Rectangle<T> {
+        Rectangle::from_position_and_size(position, self.width, self.height)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct ContainingBlock {
     width: Pixels,
