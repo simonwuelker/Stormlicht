@@ -474,16 +474,19 @@ impl BlockDimensions {
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::Auto) => {
-                let margin_width =
-                    (containing_block.width() - border.horizontal_sum() - padding.horizontal_sum())
-                        / 2.;
+                let margin_width = (containing_block.width()
+                    - border.horizontal_sum()
+                    - padding.horizontal_sum()
+                    - width)
+                    / 2.;
                 (width, margin_width, margin_width)
             },
             (AutoOr::NotAuto(width), AutoOr::NotAuto(margin_left), AutoOr::Auto) => {
                 let margin_right = containing_block.width()
                     - margin_left
                     - border.horizontal_sum()
-                    - padding.horizontal_sum();
+                    - padding.horizontal_sum()
+                    - width;
                 (width, margin_left, margin_right)
             },
             (AutoOr::NotAuto(width), AutoOr::Auto, AutoOr::NotAuto(margin_right)) => {
