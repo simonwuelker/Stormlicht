@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashSet, mem};
+use std::cmp;
 
 use crate::{
     css::{
@@ -169,15 +169,11 @@ impl<'a> StyleComputer<'a> {
         matched_properties.sort_unstable_by(MatchingProperty::compare_in_cascade_order);
         let mut computed_style = parent_style.get_inherited();
 
-        // Add properties in reverse order (most important first)
-        let mut properties_added = HashSet::new();
-
-        for matched_property in matched_properties.into_iter().rev() {
+        // Add properties in logical order (least important first)
+        // That way, more important rules can override less important ones
+        for matched_property in matched_properties.into_iter() {
             let property = matched_property.into_property();
-
-            if properties_added.insert(mem::discriminant(&property)) {
-                computed_style.set_property(property);
-            }
+            computed_style.set_property(property);
         }
 
         computed_style
