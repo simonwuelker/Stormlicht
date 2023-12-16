@@ -439,9 +439,10 @@ impl BlockDimensions {
         containing_block: ContainingBlock,
         length_resolution_context: length::ResolutionContext,
     ) -> Self {
-        // FIXME: replaced elements
+        // NOTE: This is not a mistake, *both* horizontal and vertical margin percentages are calculated
+        //       with respect to the *width* of the containing block.
+        //       Refer to https://drafts.csswg.org/css2/#margin-properties
         let available_length = Length::pixels(containing_block.width());
-
         let resolve_margin = |margin: &values::Margin| {
             margin
                 .map(|p| p.resolve_against(available_length))
