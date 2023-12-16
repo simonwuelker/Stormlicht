@@ -117,20 +117,12 @@ impl FloatingBox {
             &mut established_formatting_context,
         );
 
-        let total_width = margin.left
-            + border.left
-            + padding.left
-            + width
-            + padding.right
-            + border.right
-            + margin.right;
-        let total_height = margin.top
-            + border.top
-            + padding.top
-            + height.unwrap_or(content_info.height)
-            + padding.bottom
-            + border.bottom
-            + margin.bottom;
+        let total_width =
+            margin.horizontal_sum() + border.horizontal_sum() + padding.horizontal_sum() + width;
+        let total_height = margin.vertical_sum()
+            + border.vertical_sum()
+            + padding.vertical_sum()
+            + height.unwrap_or(content_info.height);
 
         let position = float_context.find_position_and_place_float_box(
             Size {
