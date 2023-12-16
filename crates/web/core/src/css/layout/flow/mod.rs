@@ -5,7 +5,8 @@ mod inline;
 mod positioning;
 
 pub use block::{
-    BlockContainer, BlockFlowState, BlockFormattingContext, BlockLevelBox, InFlowBlockBox,
+    BlockContainer, BlockFormattingContext, BlockFormattingContextState, BlockLevelBox,
+    InFlowBlockBox,
 };
 pub use builder::BoxTreeBuilder;
 pub use float::{FloatContext, FloatingBox};

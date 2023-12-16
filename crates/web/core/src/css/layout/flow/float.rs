@@ -9,7 +9,7 @@ use crate::{
         computed_style::ComputedStyle,
         font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::BoxFragment,
-        layout::{flow::BlockFormattingContext, ContainingBlock, Pixels, Sides, Size},
+        layout::{flow::BlockFormattingContextState, ContainingBlock, Pixels, Sides, Size},
         values::{
             self,
             length::{self, Length},
@@ -108,7 +108,7 @@ impl FloatingBox {
                 });
 
         // Layout the floats contents to determine its size
-        let mut established_formatting_context = BlockFormattingContext::new(containing_block);
+        let mut established_formatting_context = BlockFormattingContextState::new(containing_block);
 
         let content_info = self.contents.layout(
             containing_block,
@@ -202,12 +202,12 @@ impl FloatContext {
     }
 
     #[must_use]
-    pub fn clear_left(&self) -> Pixels {
+    pub const fn clear_left(&self) -> Pixels {
         self.lowest_float_left
     }
 
     #[must_use]
-    pub fn clear_right(&self) -> Pixels {
+    pub const fn clear_right(&self) -> Pixels {
         self.lowest_float_right
     }
 

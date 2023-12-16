@@ -22,12 +22,12 @@ use super::{
 ///
 /// Holds state about collapsible margins and floating elements.
 #[derive(Clone)]
-pub struct BlockFormattingContext {
+pub struct BlockFormattingContextState {
     last_margin: Pixels,
     float_context: FloatContext,
 }
 
-impl BlockFormattingContext {
+impl BlockFormattingContextState {
     #[must_use]
     pub fn new(containing_block: ContainingBlock) -> Self {
         Self {
@@ -49,6 +49,38 @@ impl BlockFormattingContext {
             self.last_margin = specified_margin;
             used_margin
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct BlockFormattingContext {
+    block_level_boxes: Vec<BlockLevelBox>,
+}
+
+impl BlockFormattingContext {
+    #[must_use]
+    pub const fn new(block_level_boxes: Vec<BlockLevelBox>) -> Self {
+        Self { block_level_boxes }
+    }
+
+    #[must_use]
+    pub fn layout(
+        &self,
+        containing_block: ContainingBlock,
+        length_resolution_context: length::ResolutionContext,
+    ) -> ContentLayoutInfo {
+        let mut formatting_context_state = BlockFormattingContextState::new(containing_block);
+        let mut state = BlockFlowState::new(
+            containing_block,
+            length_resolution_context,
+            &mut formatting_context_state,
+        );
+
+        for root_box in &self.block_level_boxes {
+            state.visit_block_box(root_box);
+        }
+
+        state.finish()
     }
 }
 
@@ -126,7 +158,7 @@ impl InFlowBlockBox {
         position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
         length_resolution_context: length::ResolutionContext,
-        formatting_context: &mut BlockFormattingContext,
+        formatting_context: &mut BlockFormattingContextState,
     ) -> BoxFragment {
         let mut dimensions =
             BlockDimensions::compute(self.style(), containing_block, length_resolution_context);
@@ -231,7 +263,7 @@ impl BlockContainer {
         &self,
         containing_block: ContainingBlock,
         ctx: length::ResolutionContext,
-        formatting_context: &mut BlockFormattingContext,
+        formatting_context: &mut BlockFormattingContextState,
     ) -> ContentLayoutInfo {
         match &self {
             Self::BlockLevelBoxes(block_level_boxes) => {
@@ -260,7 +292,7 @@ impl BlockContainer {
 }
 
 pub struct BlockFlowState<'box_tree, 'formatting_context> {
-    block_formatting_context: &'formatting_context mut BlockFormattingContext,
+    block_formatting_context: &'formatting_context mut BlockFormattingContextState,
     cursor: Vec2D<Pixels>,
     fragments_so_far: Vec<Fragment>,
     containing_block: ContainingBlock,
@@ -280,7 +312,7 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
     pub fn new(
         containing_block: ContainingBlock,
         ctx: length::ResolutionContext,
-        formatting_context: &'formatting_context mut BlockFormattingContext,
+        formatting_context: &'formatting_context mut BlockFormattingContextState,
     ) -> Self {
         Self {
             cursor: Vec2D::new(Pixels::ZERO, Pixels::ZERO),
@@ -602,5 +634,14 @@ impl TreeDebug for BlockContainer {
                 inline_formatting_context.tree_fmt(formatter)
             },
         }
+    }
+}
+
+impl TreeDebug for BlockFormattingContext {
+    fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> fmt::Result {
+        for root_box in &self.block_level_boxes {
+            root_box.tree_fmt(formatter)?;
+        }
+        Ok(())
     }
 }

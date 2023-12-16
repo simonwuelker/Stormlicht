@@ -14,7 +14,7 @@ use crate::{
     TreeDebug, TreeFormatter,
 };
 
-use super::{BlockContainer, BlockFormattingContext};
+use super::{BlockContainer, BlockFormattingContextState};
 
 /// A block-level box with `position: absolute;`
 #[derive(Clone)]
@@ -159,7 +159,7 @@ impl AbsolutelyPositionedBox {
         let containing_block = ContainingBlock::new(width).with_height(height);
 
         // Absolute elements establish a new formatting context for their elements
-        let mut formatting_context = BlockFormattingContext::new(containing_block);
+        let mut formatting_context = BlockFormattingContextState::new(containing_block);
 
         let block_content = self.content.layout(
             containing_block,

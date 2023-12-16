@@ -5,10 +5,7 @@ use crate::{
         computed_style::ComputedStyle,
         font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::FragmentTree,
-        layout::{
-            flow::{BlockFlowState, BlockLevelBox, BoxTreeBuilder},
-            ContainingBlock, Pixels, Size,
-        },
+        layout::{flow::BoxTreeBuilder, ContainingBlock, Pixels, Size},
         values::length,
         StyleComputer,
     },
@@ -26,7 +23,7 @@ pub struct BoxTree {
     ///
     /// There might be *no* root boxes if the root element has `display: none;`
     // FIXME: can there be more than one root element?
-    root: Vec<BlockLevelBox>,
+    root: BlockFormattingContext,
 }
 
 impl BoxTree {
@@ -51,7 +48,7 @@ impl BoxTree {
         let root_box = InFlowBlockBox::new(element_style, Some(html.upcast()), contents).into();
 
         Self {
-            root: vec![root_box],
+            root: BlockFormattingContext::new(vec![root_box]),
         }
     }
     pub fn compute_fragments(&self, viewport: Size<Pixels>) -> FragmentTree {
@@ -64,17 +61,9 @@ impl BoxTree {
             viewport,
         };
 
-        let mut root_formatting_context = BlockFormattingContext::new(initial_containing_block);
-        let mut state = BlockFlowState::new(
-            initial_containing_block,
-            length_resolution_context,
-            &mut root_formatting_context,
-        );
-        for root_box in &self.root {
-            state.visit_block_box(root_box);
-        }
-
-        let content_info = state.finish();
+        let content_info = self
+            .root
+            .layout(initial_containing_block, length_resolution_context);
 
         FragmentTree::new(content_info.fragments)
     }
@@ -83,9 +72,6 @@ impl BoxTree {
 impl fmt::Debug for BoxTree {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut tree_formatter = TreeFormatter::new(f);
-        for root_box in &self.root {
-            root_box.tree_fmt(&mut tree_formatter)?;
-        }
-        Ok(())
+        self.root.tree_fmt(&mut tree_formatter)
     }
 }
