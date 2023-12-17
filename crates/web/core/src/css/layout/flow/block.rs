@@ -8,14 +8,15 @@ use crate::{
         fragment_tree::{BoxFragment, Fragment},
         layout::{ContainingBlock, Pixels, Sides},
         values::{self, length, AutoOr, Length, PercentageOr},
-        ComputedStyle,
+        ComputedStyle, StyleComputer,
     },
     dom::{dom_objects, DomPtr},
     TreeDebug, TreeFormatter,
 };
 
 use super::{
-    positioning::AbsolutelyPositionedBox, FloatContext, FloatingBox, InlineFormattingContext,
+    positioning::AbsolutelyPositionedBox, BoxTreeBuilder, FloatContext, FloatingBox,
+    InlineFormattingContext,
 };
 
 /// <https://drafts.csswg.org/css2/#block-formatting>
@@ -59,8 +60,22 @@ pub struct BlockFormattingContext {
 
 impl BlockFormattingContext {
     #[must_use]
-    pub const fn new(block_level_boxes: Vec<BlockLevelBox>) -> Self {
-        Self { block_level_boxes }
+    pub fn build(
+        element: DomPtr<dom_objects::Element>,
+        element_style: ComputedStyle,
+        style_computer: StyleComputer<'_>,
+    ) -> Self {
+        let contents = BoxTreeBuilder::build(
+            DomPtr::clone(&element).upcast(),
+            style_computer,
+            &element_style,
+        );
+
+        let root_box = InFlowBlockBox::new(element_style, Some(element.upcast()), contents).into();
+
+        Self {
+            block_level_boxes: vec![root_box],
+        }
     }
 
     #[must_use]

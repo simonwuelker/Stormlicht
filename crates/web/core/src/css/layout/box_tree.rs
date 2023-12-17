@@ -5,7 +5,7 @@ use crate::{
         computed_style::ComputedStyle,
         font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::FragmentTree,
-        layout::{flow::BoxTreeBuilder, ContainingBlock, Pixels, Size},
+        layout::{ContainingBlock, Pixels, Size},
         values::length,
         StyleComputer,
     },
@@ -13,7 +13,7 @@ use crate::{
     TreeDebug, TreeFormatter,
 };
 
-use super::flow::{BlockFormattingContext, InFlowBlockBox};
+use super::flow::BlockFormattingContext;
 
 #[derive(Clone)]
 pub struct BoxTree {
@@ -27,6 +27,7 @@ pub struct BoxTree {
 }
 
 impl BoxTree {
+    #[must_use]
     pub fn new(document: DomPtr<dom_objects::Document>, style_computer: StyleComputer<'_>) -> Self {
         let html = document
             .borrow()
@@ -38,19 +39,11 @@ impl BoxTree {
 
         let element_style =
             style_computer.get_computed_style(html.clone().upcast(), &ComputedStyle::default());
+        let root = BlockFormattingContext::build(html.upcast(), element_style, style_computer);
 
-        let contents = BoxTreeBuilder::build(
-            DomPtr::clone(&html).upcast(),
-            style_computer,
-            &element_style,
-        );
-
-        let root_box = InFlowBlockBox::new(element_style, Some(html.upcast()), contents).into();
-
-        Self {
-            root: BlockFormattingContext::new(vec![root_box]),
-        }
+        Self { root }
     }
+
     pub fn compute_fragments(&self, viewport: Size<Pixels>) -> FragmentTree {
         // The initial containing block always has the size of the viewport
         let initial_containing_block =
