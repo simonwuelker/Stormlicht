@@ -18,6 +18,8 @@ pub use dom_ptr::{DomPtr, WeakDomPtr};
 
 use crate::{infra::Namespace, static_interned, InternedString};
 
+use self::dom_objects::HtmlImageElement;
+
 /// <https://dom.spec.whatwg.org/#concept-element-custom-element-state>
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum ElementCustomState {
@@ -148,6 +150,9 @@ fn create_element_for_interface(
         },
         static_interned!("html") => {
             DomPtr::new(HtmlHtmlElement::new(HtmlElement::new(element_data))).upcast()
+        },
+        static_interned!("img") => {
+            DomPtr::new(HtmlImageElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("link") => {
             DomPtr::new(HtmlLinkElement::new(HtmlElement::new(element_data))).upcast()
