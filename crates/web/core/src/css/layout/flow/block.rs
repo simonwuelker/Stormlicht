@@ -55,7 +55,7 @@ impl BlockFormattingContextState {
 
 #[derive(Clone)]
 pub struct BlockFormattingContext {
-    block_level_boxes: Vec<BlockLevelBox>,
+    contents: BlockContainer,
 }
 
 impl BlockFormattingContext {
@@ -71,10 +71,13 @@ impl BlockFormattingContext {
             &element_style,
         );
 
-        let root_box = InFlowBlockBox::new(element_style, Some(element.upcast()), contents).into();
+        Self { contents }
+    }
 
+    #[must_use]
+    pub fn from_block_level_boxes(block_level_boxes: Vec<BlockLevelBox>) -> Self {
         Self {
-            block_level_boxes: vec![root_box],
+            contents: BlockContainer::BlockLevelBoxes(block_level_boxes),
         }
     }
 
@@ -85,17 +88,12 @@ impl BlockFormattingContext {
         length_resolution_context: length::ResolutionContext,
     ) -> ContentLayoutInfo {
         let mut formatting_context_state = BlockFormattingContextState::new(containing_block);
-        let mut state = BlockFlowState::new(
+
+        self.contents.layout(
             containing_block,
             length_resolution_context,
             &mut formatting_context_state,
-        );
-
-        for root_box in &self.block_level_boxes {
-            state.visit_block_box(root_box);
-        }
-
-        state.finish()
+        )
     }
 }
 
@@ -655,9 +653,6 @@ impl TreeDebug for BlockContainer {
 
 impl TreeDebug for BlockFormattingContext {
     fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> fmt::Result {
-        for root_box in &self.block_level_boxes {
-            root_box.tree_fmt(formatter)?;
-        }
-        Ok(())
+        self.contents.tree_fmt(formatter)
     }
 }

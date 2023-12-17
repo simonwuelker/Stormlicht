@@ -13,7 +13,7 @@ use crate::{
     TreeDebug, TreeFormatter,
 };
 
-use super::flow::BlockFormattingContext;
+use super::flow::{BlockFormattingContext, BoxTreeBuilder, InFlowBlockBox};
 
 #[derive(Clone)]
 pub struct BoxTree {
@@ -39,9 +39,18 @@ impl BoxTree {
 
         let element_style =
             style_computer.get_computed_style(html.clone().upcast(), &ComputedStyle::default());
-        let root = BlockFormattingContext::build(html.upcast(), element_style, style_computer);
 
-        Self { root }
+        let contents = BoxTreeBuilder::build(
+            DomPtr::clone(&html).upcast(),
+            style_computer,
+            &element_style,
+        );
+
+        let root_box = InFlowBlockBox::new(element_style, Some(html.upcast()), contents).into();
+
+        Self {
+            root: BlockFormattingContext::from_block_level_boxes(vec![root_box]),
+        }
     }
 
     pub fn compute_fragments(&self, viewport: Size<Pixels>) -> FragmentTree {
