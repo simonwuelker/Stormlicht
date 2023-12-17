@@ -136,6 +136,8 @@ impl BoxFragment {
                 if box_type == Some(dom::DomType::HtmlHtmlElement) {
                     // Special case: The background of the html element *always* covers the whole page, even if
                     // the box itself is smaller
+                    // (https://drafts.csswg.org/css2/#background)
+                    // (https://drafts.csswg.org/css-backgrounds/#root-background)
                     state.has_seen_background_on_html_element = true;
                     painter.paint_magic_background(state.viewport, color.into());
                 } else if box_type == Some(dom::DomType::HtmlBodyElement)
@@ -143,6 +145,8 @@ impl BoxFragment {
                 {
                     // Special case: In the absence of a background on the html element, the same behaviour
                     // applies to the body element
+                    // (https://drafts.csswg.org/css2/#background)
+                    // (https://drafts.csswg.org/css-backgrounds/#body-background)
                     painter.paint_magic_background(state.viewport, color.into());
                 } else {
                     painter.rect(self.padding_area.offset_by(state.offset), color.into());
