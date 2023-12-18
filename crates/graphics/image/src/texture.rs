@@ -23,7 +23,7 @@ impl<T: Default + Copy> Texture<T> {
     }
 }
 
-impl<T: Copy> Texture<T> {
+impl<T> Texture<T> {
     #[must_use]
     pub fn from_data(data: Vec<T>, width: usize, height: usize) -> Self {
         debug_assert_eq!(data.len(), width * height);
@@ -54,20 +54,10 @@ impl<T: Copy> Texture<T> {
         self.data[index] = pixel;
     }
 
-    /// Get the pixel value at the given coordinates
-    ///
-    /// # Panics
-    /// This function panics if the coordinates are outside of the bitmap
-    #[must_use]
-    pub fn get_pixel(&self, x: usize, y: usize) -> T {
-        self.data[self.index_of_pixel(x, y)]
-    }
-
     /// Calculate the index of the pixel data for a given set of coordinates
     #[must_use]
     fn index_of_pixel(&self, x: usize, y: usize) -> usize {
-        debug_assert!(x < self.width);
-        debug_assert!(y < self.height);
+        debug_assert!(self.contains(x, y));
 
         y * self.width + x
     }
@@ -77,7 +67,24 @@ impl<T: Copy> Texture<T> {
         &self.data
     }
 
+    /// Return `true` if the coordinates are inside the bounds of the texutre
+    #[must_use]
+    pub const fn contains(&self, x: usize, y: usize) -> bool {
+        x < self.width() && y < self.height()
+    }
+}
+
+impl<T: Copy> Texture<T> {
     pub fn clear(&mut self, clear_color: T) {
         self.data.fill(clear_color);
+    }
+
+    /// Get the pixel value at the given coordinates
+    ///
+    /// # Panics
+    /// This function panics if the coordinates are outside of the bitmap
+    #[must_use]
+    pub fn get_pixel(&self, x: usize, y: usize) -> T {
+        self.data[self.index_of_pixel(x, y)]
     }
 }

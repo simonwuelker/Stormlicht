@@ -87,7 +87,7 @@ enum ParserStage {
     AfterIDAT,
 }
 
-pub fn decode(bytes: &[u8]) -> Result<Texture<u32>, Error> {
+pub(crate) fn decode(bytes: &[u8]) -> Result<Texture<u32>, Error> {
     let mut reader = Cursor::new(bytes);
 
     let mut signature = [0; 8];
