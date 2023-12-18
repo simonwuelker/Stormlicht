@@ -23,3 +23,9 @@ impl<'a> CSSParse<'a> for BackgroundColor {
         }
     }
 }
+
+impl From<Color> for BackgroundColor {
+    fn from(value: Color) -> Self {
+        Self::Color(value)
+    }
+}
