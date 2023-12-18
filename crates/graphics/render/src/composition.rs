@@ -2,7 +2,7 @@
 
 use std::collections::{hash_map::Iter, HashMap};
 
-use math::Bitmap;
+use image::Texture;
 
 use crate::Layer;
 
@@ -51,7 +51,7 @@ impl Composition {
         self.layers.clear();
     }
 
-    pub fn render_to(&mut self, bitmap: &mut Bitmap<u32>) {
+    pub fn render_to(&mut self, texture: &mut Texture<u32>) {
         // Draw all the layers, in order
         let mut keys: Vec<u16> = self.layers.keys().copied().collect();
         keys.sort();
@@ -62,7 +62,7 @@ impl Composition {
                 .get_mut(&key)
                 .expect("Every key returned by layers.keys() should be valid");
 
-            layer.render_to(bitmap);
+            layer.render_to(texture);
         }
     }
 }

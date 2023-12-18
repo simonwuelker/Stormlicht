@@ -1,12 +1,13 @@
 /// The target surface that content should be drawn to
 #[derive(Clone, Debug)]
-pub struct Bitmap<T: Copy> {
+pub struct Texture<T> {
     width: usize,
     height: usize,
     data: Vec<T>,
 }
 
-impl<T: Default + Copy> Bitmap<T> {
+impl<T: Default + Copy> Texture<T> {
+    #[must_use]
     pub fn new(width: usize, height: usize) -> Self {
         Self {
             width,
@@ -22,7 +23,8 @@ impl<T: Default + Copy> Bitmap<T> {
     }
 }
 
-impl<T: Copy> Bitmap<T> {
+impl<T: Copy> Texture<T> {
+    #[must_use]
     pub fn from_data(data: Vec<T>, width: usize, height: usize) -> Self {
         debug_assert_eq!(data.len(), width * height);
 
@@ -32,11 +34,14 @@ impl<T: Copy> Bitmap<T> {
             data,
         }
     }
-    pub fn width(&self) -> usize {
+
+    #[must_use]
+    pub const fn width(&self) -> usize {
         self.width
     }
 
-    pub fn height(&self) -> usize {
+    #[must_use]
+    pub const fn height(&self) -> usize {
         self.height
     }
 
@@ -53,11 +58,13 @@ impl<T: Copy> Bitmap<T> {
     ///
     /// # Panics
     /// This function panics if the coordinates are outside of the bitmap
+    #[must_use]
     pub fn get_pixel(&self, x: usize, y: usize) -> T {
         self.data[self.index_of_pixel(x, y)]
     }
 
     /// Calculate the index of the pixel data for a given set of coordinates
+    #[must_use]
     fn index_of_pixel(&self, x: usize, y: usize) -> usize {
         debug_assert!(x < self.width);
         debug_assert!(y < self.height);
@@ -65,6 +72,7 @@ impl<T: Copy> Bitmap<T> {
         y * self.width + x
     }
 
+    #[must_use]
     pub fn data(&self) -> &[T] {
         &self.data
     }

@@ -18,6 +18,7 @@ render = { workspace = true }
 math = { workspace = true }
 core = { workspace = true }
 url = { workspace = true }
+image = { workspace = true }
 
 glazier = { git = "https://github.com/linebender/glazier", optional = true }
 softbuffer = { version = "0.2", optional = true }

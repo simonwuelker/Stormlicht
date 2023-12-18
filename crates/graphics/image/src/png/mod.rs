@@ -15,6 +15,8 @@ use compression::zlib;
 
 use hash::Crc32Hasher;
 
+use crate::Texture;
+
 use self::chunks::ihdr::ImageType;
 
 const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
@@ -37,7 +39,7 @@ pub enum Error {
     IO(io::Error),
 }
 
-pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<math::Bitmap<u32>, Error> {
+pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Texture<u32>, Error> {
     let mut file_contents = vec![];
     fs::File::open(&path)?.read_to_end(&mut file_contents)?;
     decode(&file_contents)
@@ -85,7 +87,7 @@ enum ParserStage {
     AfterIDAT,
 }
 
-pub fn decode(bytes: &[u8]) -> Result<math::Bitmap<u32>, Error> {
+pub fn decode(bytes: &[u8]) -> Result<Texture<u32>, Error> {
     let mut reader = Cursor::new(bytes);
 
     let mut signature = [0; 8];
@@ -175,7 +177,7 @@ pub fn decode(bytes: &[u8]) -> Result<math::Bitmap<u32>, Error> {
         }
     }
 
-    Ok(math::Bitmap::from_data(
+    Ok(Texture::from_data(
         image_data_u32,
         image_header.width as usize,
         image_header.height as usize,

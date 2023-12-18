@@ -1,4 +1,5 @@
-use math::{AffineTransform, Angle, Bitmap, Color, Rectangle, Vec2D};
+use image::Texture;
+use math::{AffineTransform, Angle, Color, Rectangle, Vec2D};
 
 use crate::{FlattenedPathPoint, Mask, Path, Rasterizer};
 
@@ -149,7 +150,7 @@ impl Layer {
             })
     }
 
-    pub(crate) fn render_to(&mut self, bitmap: &mut Bitmap<u32>) {
+    pub(crate) fn render_to(&mut self, texture: &mut Texture<u32>) {
         self.flatten_if_necessary();
 
         if let Some(outline_extent) = self.apply_transform() {
@@ -163,7 +164,7 @@ impl Layer {
             let mask = rasterizer.into_mask();
 
             // Compose the mask onto the buffer
-            compose(bitmap, mask, self.source, outline_extent.top_left());
+            compose(texture, mask, self.source, outline_extent.top_left());
         }
     }
 }
@@ -181,18 +182,18 @@ impl Default for Layer {
     }
 }
 
-fn compose(bitmap: &mut Bitmap<u32>, mask: Mask, source: Source, offset: Vec2D<usize>) {
-    if offset.x < bitmap.width() && offset.y < bitmap.height() {
+fn compose(texture: &mut Texture<u32>, mask: Mask, source: Source, offset: Vec2D<usize>) {
+    if offset.x < texture.width() && offset.y < texture.height() {
         // Don't draw out of bounds
-        let available_space = Vec2D::new(bitmap.width() - offset.x, bitmap.height() - offset.y);
+        let available_space = Vec2D::new(texture.width() - offset.x, texture.height() - offset.y);
         match source {
             Source::Solid(color) => {
                 for x in 0..mask.width().min(available_space.x) {
                     for y in 0..mask.height().min(available_space.y) {
                         let opacity = mask.opacity_at(x, y).abs().min(1.);
-                        let previous_color = bitmap.get_pixel(x + offset.x, y + offset.y);
+                        let previous_color = texture.get_pixel(x + offset.x, y + offset.y);
                         let computed_color = color.interpolate(Color(previous_color), opacity);
-                        bitmap.set_pixel(x + offset.x, y + offset.y, computed_color.into());
+                        texture.set_pixel(x + offset.x, y + offset.y, computed_color.into());
                     }
                 }
             },

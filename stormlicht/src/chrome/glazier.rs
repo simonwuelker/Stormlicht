@@ -1,4 +1,5 @@
 use core::{event, BrowsingContext};
+use image::Texture;
 use url::URL;
 
 use std::process::ExitCode;
@@ -11,7 +12,7 @@ enum RepaintRequired {
 }
 
 pub struct BrowserApplication {
-    view_buffer: math::Bitmap<u32>,
+    view_buffer: Texture<u32>,
     graphics_context: Option<softbuffer::GraphicsContext>,
 
     /// Viewport size, in Display Points (not pixels)
@@ -177,7 +178,7 @@ pub fn run(url: Option<&str>) -> ExitCode {
     // The view buffer is initialized once the window size method is called on startup.
     // Before that, we can't know the windows dpi scaling and therefore cant know how large the
     // view buffer needs to be.
-    let view_buffer = math::Bitmap::new(0, 0);
+    let view_buffer = Texture::new(0, 0);
 
     let application = BrowserApplication {
         view_buffer,
