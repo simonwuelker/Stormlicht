@@ -8,6 +8,12 @@ pub struct Texture<T> {
     data: Vec<T>,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum AccessMode<T> {
+    Default(T),
+    Clamp,
+}
+
 impl<T: Default + Copy> Texture<T> {
     #[must_use]
     pub fn new(width: usize, height: usize) -> Self {
@@ -88,6 +94,40 @@ impl<T: Copy> Texture<T> {
     #[must_use]
     pub fn get_pixel(&self, x: usize, y: usize) -> T {
         self.data[self.index_of_pixel(x, y)]
+    }
+
+    /// Access a specific pixel in the image
+    ///
+    /// If the coordinates are outside the image, `default` will be returned
+    #[must_use]
+    pub fn get_or(&self, x: usize, y: usize, default: T) -> T {
+        if self.contains(x, y) {
+            self.get_pixel(x, y)
+        } else {
+            default
+        }
+    }
+
+    /// Access a specific pixel in the image
+    ///
+    /// If the coordinates are outside the image, the nearest pixel in the
+    /// image will be returned instead.
+    ///
+    /// # Panics
+    /// Panics if the image has no pixels (is empty)
+    #[must_use]
+    pub fn get_clamped(&self, x: usize, y: usize) -> T {
+        let clamped_x = x.min(self.width() - 1);
+        let clamped_y = y.min(self.height() - 1);
+        self.get_pixel(clamped_x, clamped_y)
+    }
+
+    #[must_use]
+    pub fn get(&self, x: usize, y: usize, access_mode: AccessMode<T>) -> T {
+        match access_mode {
+            AccessMode::Default(default) => self.get_or(x, y, default),
+            AccessMode::Clamp => self.get_clamped(x, y),
+        }
     }
 }
 
