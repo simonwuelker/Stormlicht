@@ -504,14 +504,15 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
             .block_formatting_context
             .get_collapsed_margin(margins.bottom);
 
-        // Advance the flow state
-        self.cursor.y += margins.vertical_sum() + content_size.height;
-
         // Create a fragment for at the calculated position
-        let content_position = Vec2D::new(margins.top, margins.right);
+        let content_position = Vec2D::new(margins.left, self.cursor.y + margins.top);
         let fragment = replaced_element
             .content()
             .create_fragment(content_position, content_size);
+
+        // Advance the flow state
+        self.cursor.y += margins.vertical_sum() + content_size.height;
+
         self.fragments_so_far.push(fragment);
     }
 }
