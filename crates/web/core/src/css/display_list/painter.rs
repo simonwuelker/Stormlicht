@@ -1,3 +1,4 @@
+use image::Texture;
 use math::Vec2D;
 use render::{Composition, Path, Source};
 
@@ -9,6 +10,8 @@ use crate::css::{
     layout::{Pixels, Size},
     FontMetrics,
 };
+
+use super::command::ImageCommand;
 
 #[derive(Clone, Debug, Default)]
 pub struct Painter {
@@ -28,6 +31,11 @@ impl Painter {
             .push(Command::Rect(RectCommand { area, color }))
     }
 
+    pub fn image(&mut self, area: math::Rectangle<Pixels>, texture: Texture<u32>) {
+        self.commands
+            .push(Command::Image(ImageCommand { area, texture }))
+    }
+
     pub fn text(
         &mut self,
         text: String,
@@ -45,8 +53,8 @@ impl Painter {
         self.commands.push(Command::Text(text_command));
     }
 
-    pub fn paint(&self, composition: &mut Composition) {
-        for (index, command) in self.commands.iter().enumerate() {
+    pub fn paint(self, composition: &mut Composition) {
+        for (index, command) in self.commands.into_iter().enumerate() {
             match command {
                 Command::Rect(rect_cmd) => {
                     composition
@@ -76,6 +84,21 @@ impl Painter {
                             },
                         )
                         .with_source(Source::Solid(text_command.color));
+                },
+                Command::Image(image_command) => {
+                    composition
+                        .get_or_insert_layer(index as u16)
+                        .with_source(Source::Texture(image_command.texture))
+                        .with_outline(Path::rect(
+                            Vec2D {
+                                x: image_command.area.top_left().x.0,
+                                y: image_command.area.top_left().y.0,
+                            },
+                            Vec2D {
+                                x: image_command.area.bottom_right().x.0,
+                                y: image_command.area.bottom_right().y.0,
+                            },
+                        ));
                 },
             }
         }

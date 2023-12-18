@@ -1,3 +1,4 @@
+use image::Texture;
 use math::Rectangle;
 
 use crate::{
@@ -34,9 +35,16 @@ pub struct TextFragment {
 }
 
 #[derive(Clone, Debug)]
+pub struct TextureFragment {
+    pub texture: Texture<u32>,
+    pub area: Rectangle<Pixels>,
+}
+
+#[derive(Clone, Debug)]
 pub enum Fragment {
     Box(BoxFragment),
     Text(TextFragment),
+    Image(TextureFragment),
 }
 
 impl Fragment {
@@ -44,6 +52,7 @@ impl Fragment {
         match self {
             Self::Box(box_fragment) => box_fragment.fill_display_list(painter, state),
             Self::Text(text_fragment) => text_fragment.fill_display_list(painter, state),
+            Self::Image(image_fragment) => image_fragment.fill_display_list(painter),
         }
     }
 }
@@ -225,6 +234,12 @@ impl BoxFragment {
     }
 }
 
+impl TextureFragment {
+    fn fill_display_list(&self, painter: &mut Painter) {
+        painter.image(self.area, self.texture.clone());
+    }
+}
+
 impl From<BoxFragment> for Fragment {
     fn from(value: BoxFragment) -> Self {
         Self::Box(value)
@@ -234,5 +249,11 @@ impl From<BoxFragment> for Fragment {
 impl From<TextFragment> for Fragment {
     fn from(value: TextFragment) -> Self {
         Self::Text(value)
+    }
+}
+
+impl From<TextureFragment> for Fragment {
+    fn from(value: TextureFragment) -> Self {
+        Self::Image(value)
     }
 }
