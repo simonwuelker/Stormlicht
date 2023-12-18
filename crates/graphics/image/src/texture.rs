@@ -1,3 +1,5 @@
+use crate::png;
+
 /// The target surface that content should be drawn to
 #[derive(Clone, Debug)]
 pub struct Texture<T> {
@@ -86,5 +88,11 @@ impl<T: Copy> Texture<T> {
     #[must_use]
     pub fn get_pixel(&self, x: usize, y: usize) -> T {
         self.data[self.index_of_pixel(x, y)]
+    }
+}
+
+impl Texture<u32> {
+    pub fn from_png(bytes: &[u8]) -> Result<Self, png::Error> {
+        png::decode(bytes)
     }
 }
