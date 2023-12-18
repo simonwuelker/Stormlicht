@@ -9,7 +9,9 @@ use crate::{
         computed_style::ComputedStyle,
         font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::BoxFragment,
-        layout::{flow::BlockFormattingContextState, ContainingBlock, Pixels, Sides, Size},
+        layout::{
+            formatting_context::IndependentFormattingContext, ContainingBlock, Pixels, Sides, Size,
+        },
         values::{
             self,
             length::{self, Length},
@@ -22,14 +24,12 @@ use crate::{
 
 use std::{cmp, fmt, fmt::Write};
 
-use super::BlockContainer;
-
 #[derive(Clone)]
-pub struct FloatingBox {
+pub(crate) struct FloatingBox {
     pub node: DomPtr<dom_objects::Node>,
     pub style: ComputedStyle,
     pub side: FloatSide,
-    pub contents: BlockContainer,
+    pub contents: IndependentFormattingContext,
 }
 
 impl FloatingBox {
@@ -38,7 +38,7 @@ impl FloatingBox {
         node: DomPtr<dom_objects::Node>,
         style: ComputedStyle,
         side: FloatSide,
-        contents: BlockContainer,
+        contents: IndependentFormattingContext,
     ) -> Self {
         Self {
             node,
@@ -108,14 +108,13 @@ impl FloatingBox {
                 });
 
         // Layout the floats contents to determine its size
-        let mut established_formatting_context = BlockFormattingContextState::new(containing_block);
-
-        let content_info = self.contents.layout(
-            containing_block,
-            // FIXME: this should be this elements font size
-            ctx.with_font_size(DEFAULT_FONT_SIZE),
-            &mut established_formatting_context,
-        );
+        let content_info = match &self.contents {
+            IndependentFormattingContext::Replaced(_) => todo!(),
+            IndependentFormattingContext::NonReplaced(bfc) => {
+                // FIXME: This should be the elements font size
+                bfc.layout(containing_block, ctx.with_font_size(DEFAULT_FONT_SIZE))
+            },
+        };
 
         let total_width =
             margin.horizontal_sum() + border.horizontal_sum() + padding.horizontal_sum() + width;

@@ -13,7 +13,7 @@ use crate::{
     TreeDebug, TreeFormatter,
 };
 
-use super::flow::{BlockFormattingContext, BoxTreeBuilder, InFlowBlockBox};
+use super::flow::{BlockContainerBuilder, BlockFormattingContext, InFlowBlockBox};
 
 #[derive(Clone)]
 pub struct BoxTree {
@@ -40,7 +40,7 @@ impl BoxTree {
         let element_style =
             style_computer.get_computed_style(html.clone().upcast(), &ComputedStyle::default());
 
-        let contents = BoxTreeBuilder::build(
+        let contents = BlockContainerBuilder::build(
             DomPtr::clone(&html).upcast(),
             style_computer,
             &element_style,

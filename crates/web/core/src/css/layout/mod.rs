@@ -1,6 +1,8 @@
 mod box_tree;
 pub mod flow;
+mod formatting_context;
 mod pixels;
+mod replaced;
 
 pub use box_tree::BoxTree;
 pub use pixels::Pixels;

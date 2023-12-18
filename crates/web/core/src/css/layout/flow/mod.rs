@@ -4,10 +4,7 @@ mod float;
 mod inline;
 mod positioning;
 
-pub use block::{
-    BlockContainer, BlockFormattingContext, BlockFormattingContextState, BlockLevelBox,
-    InFlowBlockBox,
-};
-pub use builder::BoxTreeBuilder;
-pub use float::{FloatContext, FloatingBox};
-pub use inline::{InlineBox, InlineFormattingContext, InlineLevelBox, TextRun};
+pub(crate) use block::{BlockContainer, BlockFormattingContext, BlockLevelBox, InFlowBlockBox};
+pub use builder::BlockContainerBuilder;
+use float::{FloatContext, FloatingBox};
+use inline::{InlineBox, InlineFormattingContext, InlineLevelBox, TextRun};

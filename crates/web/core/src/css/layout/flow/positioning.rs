@@ -7,21 +7,21 @@ use crate::{
     css::{
         computed_style::ComputedStyle,
         fragment_tree::BoxFragment,
-        layout::{ContainingBlock, Pixels, Sides, Size},
+        layout::{
+            formatting_context::IndependentFormattingContext, ContainingBlock, Pixels, Sides, Size,
+        },
         values::{length, AutoOr, Inset, Length},
     },
     dom::{dom_objects, DomPtr},
     TreeDebug, TreeFormatter,
 };
 
-use super::{BlockContainer, BlockFormattingContextState};
-
 /// A block-level box with `position: absolute;`
 #[derive(Clone)]
-pub struct AbsolutelyPositionedBox {
+pub(crate) struct AbsolutelyPositionedBox {
     pub node: DomPtr<dom_objects::Node>,
     pub style: ComputedStyle,
-    pub content: BlockContainer,
+    pub content: IndependentFormattingContext,
 }
 
 /// Computes the used inset properties on a given axis
@@ -159,13 +159,13 @@ impl AbsolutelyPositionedBox {
         let containing_block = ContainingBlock::new(width).with_height(height);
 
         // Absolute elements establish a new formatting context for their elements
-        let mut formatting_context = BlockFormattingContextState::new(containing_block);
-
-        let block_content = self.content.layout(
-            containing_block,
-            length_resolution_context,
-            &mut formatting_context,
-        );
+        let fragments = match &self.content {
+            IndependentFormattingContext::Replaced(_) => todo!(),
+            IndependentFormattingContext::NonReplaced(bfc) => {
+                bfc.layout(containing_block, length_resolution_context)
+                    .fragments
+            },
+        };
 
         BoxFragment::new(
             Some(self.node.clone()),
@@ -174,7 +174,7 @@ impl AbsolutelyPositionedBox {
             borders,
             padding_area,
             content_area,
-            block_content.fragments,
+            fragments,
         )
     }
 }

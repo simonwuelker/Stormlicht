@@ -6,7 +6,7 @@ use crate::{
     css::{
         font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::{BoxFragment, Fragment},
-        layout::{ContainingBlock, Pixels, Sides},
+        layout::{replaced::ReplacedElement, ContainingBlock, Pixels, Sides},
         values::{self, length, AutoOr, Length, PercentageOr},
         ComputedStyle, StyleComputer,
     },
@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::{
-    positioning::AbsolutelyPositionedBox, BoxTreeBuilder, FloatContext, FloatingBox,
+    positioning::AbsolutelyPositionedBox, BlockContainerBuilder, FloatContext, FloatingBox,
     InlineFormattingContext,
 };
 
@@ -65,7 +65,7 @@ impl BlockFormattingContext {
         element_style: ComputedStyle,
         style_computer: StyleComputer<'_>,
     ) -> Self {
-        let contents = BoxTreeBuilder::build(
+        let contents = BlockContainerBuilder::build(
             DomPtr::clone(&element).upcast(),
             style_computer,
             &element_style,
@@ -100,11 +100,13 @@ impl BlockFormattingContext {
 /// A Box that participates in a [BlockFormattingContext]
 /// <https://drafts.csswg.org/css2/#block-level-boxes>
 #[derive(Clone)]
-pub enum BlockLevelBox {
+pub(crate) enum BlockLevelBox {
     Floating(FloatingBox),
     InFlow(InFlowBlockBox),
     AbsolutelyPositioned(AbsolutelyPositionedBox),
+    Replaced(ReplacedElement),
 }
+
 #[derive(Clone)]
 pub struct InFlowBlockBox {
     style: ComputedStyle,
@@ -263,6 +265,12 @@ impl From<AbsolutelyPositionedBox> for BlockLevelBox {
     }
 }
 
+impl From<ReplacedElement> for BlockLevelBox {
+    fn from(value: ReplacedElement) -> Self {
+        Self::Replaced(value)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct ContentLayoutInfo {
     pub height: Pixels,
@@ -404,6 +412,9 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
                         index: self.fragments_so_far.len(),
                     });
             },
+            BlockLevelBox::Replaced(replaced_element) => {
+                self.layout_block_level_replaced_element(replaced_element);
+            },
         }
     }
 
@@ -426,6 +437,82 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
             fragments,
             has_in_flow_content: self.has_in_flow_content,
         }
+    }
+
+    fn layout_block_level_replaced_element(&mut self, replaced_element: &ReplacedElement) {
+        let element_style = replaced_element.style();
+        self.respect_clearance(element_style.clear());
+
+        let content_size =
+            replaced_element.used_size_if_it_was_inline(self.containing_block, self.ctx);
+
+        let available_width = Length::pixels(self.containing_block.width());
+        let resolve_margin = |margin: &values::Margin| {
+            margin
+                .map(|p| p.resolve_against(available_width))
+                .as_ref()
+                .map(|length| length.absolutize(self.ctx))
+        };
+
+        // Choose horizontal margins such that the total width of the element is equal to the available space.
+        // This is similar to https://drafts.csswg.org/css2/#blockwidth, except padding and borders are always zero
+        let horizontal_margin_space = self.containing_block.width() - content_size.width;
+        let mut margin_left = resolve_margin(element_style.margin_left());
+        let mut margin_right = resolve_margin(element_style.margin_right());
+
+        if content_size.width + margin_left.unwrap_or_default() + margin_right.unwrap_or_default()
+            > self.containing_block.width()
+        {
+            margin_left = AutoOr::NotAuto(margin_left.unwrap_or_default());
+            margin_right = AutoOr::NotAuto(margin_right.unwrap_or_default());
+        }
+
+        let (margin_left, margin_right) = match (margin_left, margin_right) {
+            (AutoOr::Auto, AutoOr::Auto) => {
+                let margin = horizontal_margin_space / 2.;
+                (margin, margin)
+            },
+            (AutoOr::NotAuto(margin_left), AutoOr::Auto) => {
+                (margin_left, horizontal_margin_space - margin_left)
+            },
+            (AutoOr::Auto, AutoOr::NotAuto(margin_right)) => {
+                (horizontal_margin_space - margin_right, margin_right)
+            },
+            (AutoOr::NotAuto(margin_left), AutoOr::NotAuto(_)) => {
+                // Overconstrained case
+                (margin_left, horizontal_margin_space - margin_left)
+            },
+        };
+
+        let mut margins = Sides {
+            top: resolve_margin(element_style.margin_top()).unwrap_or_default(),
+            right: margin_right,
+            bottom: resolve_margin(element_style.margin_bottom()).unwrap_or_default(),
+            left: margin_left,
+        };
+
+        // Perform margin-collapse
+        margins.top = self
+            .block_formatting_context
+            .get_collapsed_margin(margins.top);
+
+        if content_size.height != Pixels::ZERO {
+            self.block_formatting_context.prevent_margin_collapse();
+        }
+
+        margins.bottom = self
+            .block_formatting_context
+            .get_collapsed_margin(margins.bottom);
+
+        // Advance the flow state
+        self.cursor.y += margins.vertical_sum() + content_size.height;
+
+        // Create a fragment for at the calculated position
+        let content_position = Vec2D::new(margins.top, margins.right);
+        let fragment = replaced_element
+            .content()
+            .create_fragment(content_position, content_size);
+        self.fragments_so_far.push(fragment);
     }
 }
 
@@ -614,6 +701,10 @@ impl TreeDebug for BlockLevelBox {
             Self::Floating(float_box) => float_box.tree_fmt(formatter),
             Self::AbsolutelyPositioned(abs_box) => abs_box.tree_fmt(formatter),
             Self::InFlow(block_box) => block_box.tree_fmt(formatter),
+            Self::Replaced(_) => {
+                formatter.indent()?;
+                write!(formatter, "Replaced Element")
+            },
         }
     }
 }

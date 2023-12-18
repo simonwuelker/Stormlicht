@@ -5,9 +5,13 @@
 
 use crate::{
     css::{
-        layout::flow::{
-            BlockContainer, BlockLevelBox, InFlowBlockBox, InlineBox, InlineFormattingContext,
-            InlineLevelBox,
+        layout::{
+            flow::{
+                BlockContainer, BlockLevelBox, InFlowBlockBox, InlineBox, InlineFormattingContext,
+                InlineLevelBox,
+            },
+            formatting_context::IndependentFormattingContext,
+            replaced::ReplacedElement,
         },
         ComputedStyle, StyleComputer,
     },
@@ -17,7 +21,7 @@ use crate::{
 use super::{float, positioning::AbsolutelyPositionedBox, TextRun};
 
 #[derive(Clone)]
-pub struct BoxTreeBuilder<'stylesheets, 'parent_style> {
+pub struct BlockContainerBuilder<'stylesheets, 'parent_style> {
     style_computer: StyleComputer<'stylesheets>,
     style: &'parent_style ComputedStyle,
     block_level_boxes: Vec<BlockLevelBox>,
@@ -25,7 +29,7 @@ pub struct BoxTreeBuilder<'stylesheets, 'parent_style> {
     inline_stack: Vec<InlineBox>,
 }
 
-impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
+impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_style> {
     pub fn build(
         node: DomPtr<dom_objects::Node>,
         style_computer: StyleComputer<'stylesheets>,
@@ -58,7 +62,7 @@ impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
             if let Some(element) = child.try_into_type::<dom_objects::Element>() {
                 let computed_style = self
                     .style_computer
-                    .get_computed_style(element, parent_style);
+                    .get_computed_style(element.clone(), parent_style);
 
                 if computed_style.display().is_none() {
                     continue;
@@ -67,7 +71,7 @@ impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
                 if computed_style.display().is_inline() {
                     self.push_inline_box(child.clone(), computed_style);
                 } else {
-                    self.push_block_box(child.clone(), computed_style);
+                    self.push_block_box(element.clone(), computed_style);
                 }
             } else if let Some(text) = child.try_into_type::<dom_objects::Text>() {
                 // Content that would later be collapsed away according to the white-space property
@@ -130,8 +134,7 @@ impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
                 .push(populated_inline_box);
         }
     }
-
-    fn push_block_box(&mut self, node: DomPtr<dom_objects::Node>, style: ComputedStyle) {
+    fn push_block_box(&mut self, element: DomPtr<dom_objects::Element>, style: ComputedStyle) {
         // Split all currently open inline boxes around the block box
         if !self.inline_stack.is_empty() {
             // Split each inline box - these will end up on the "right side" of the block box
@@ -159,24 +162,48 @@ impl<'stylesheets, 'parent_style> BoxTreeBuilder<'stylesheets, 'parent_style> {
         }
 
         // Push the actual box
-        let content = BoxTreeBuilder::build(node.clone(), self.style_computer, &style);
+        let is_absolutely_positioned =
+            style.position().is_absolute() || style.position().is_fixed();
 
-        let position = style.position();
-        let block_box = match style.float().side() {
-            Some(side) => float::FloatingBox::new(node, style, side, content).into(),
-            None => {
-                if position.is_absolute() || position.is_fixed() {
-                    AbsolutelyPositionedBox {
-                        style,
-                        node,
-                        content,
-                    }
-                    .into()
+        let block_box = match (style.float().side(), is_absolutely_positioned) {
+            (Some(side), _) => {
+                let content = IndependentFormattingContext::create(
+                    element.clone(),
+                    self.style_computer,
+                    style.clone(),
+                );
+                float::FloatingBox::new(element.upcast(), style, side, content).into()
+            },
+            (None, true) => {
+                let content = IndependentFormattingContext::create(
+                    element.clone(),
+                    self.style_computer,
+                    style.clone(),
+                );
+
+                AbsolutelyPositionedBox {
+                    style,
+                    node: element.upcast(),
+                    content,
+                }
+                .into()
+            },
+            (None, false) => {
+                if let Some(replaced_element) =
+                    ReplacedElement::try_from(element.clone(), style.clone())
+                {
+                    replaced_element.into()
                 } else {
-                    InFlowBlockBox::new(style, Some(node), content).into()
+                    let content = BlockContainerBuilder::build(
+                        element.clone().upcast(),
+                        self.style_computer,
+                        &style,
+                    );
+                    InFlowBlockBox::new(style, Some(element.upcast()), content).into()
                 }
             },
         };
+
         self.block_level_boxes.push(block_box);
     }
 }
