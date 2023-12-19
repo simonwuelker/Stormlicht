@@ -32,6 +32,16 @@ impl<T: Default + Copy> Texture<T> {
 }
 
 impl<T> Texture<T> {
+    /// Constructs an empty texture
+    #[must_use]
+    pub fn empty() -> Self {
+        Self {
+            width: 0,
+            height: 0,
+            data: vec![],
+        }
+    }
+
     #[must_use]
     pub fn from_data(data: Vec<T>, width: usize, height: usize) -> Self {
         debug_assert_eq!(data.len(), width * height);
