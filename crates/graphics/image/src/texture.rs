@@ -124,9 +124,12 @@ impl<T: Copy> Texture<T> {
     /// image will be returned instead.
     ///
     /// # Panics
-    /// Panics if the image has no pixels (is empty)
+    /// Panics if any of the image dimensions is zero.
     #[must_use]
     pub fn get_clamped(&self, x: usize, y: usize) -> T {
+        assert!(self.width() != 0);
+        assert!(self.height() != 0);
+
         let clamped_x = x.min(self.width() - 1);
         let clamped_y = y.min(self.height() - 1);
         self.get_pixel(clamped_x, clamped_y)
