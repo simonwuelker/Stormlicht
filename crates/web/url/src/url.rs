@@ -1,6 +1,6 @@
 //! Implements <https://url.spec.whatwg.org>
 
-use std::{io, path, str::FromStr};
+use std::{fmt::Display, io, path, str::FromStr};
 
 use sl_std::{ascii, chars::ReversibleCharIterator};
 
@@ -437,9 +437,9 @@ impl FromStr for URL {
     }
 }
 
-impl ToString for URL {
-    fn to_string(&self) -> String {
-        self.serialize(ExcludeFragment::default())
+impl Display for URL {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.serialize(ExcludeFragment::default()))
     }
 }
 
