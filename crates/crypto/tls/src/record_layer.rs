@@ -3,8 +3,11 @@
 use std::io;
 
 use crate::{
-    connection::{ProtocolVersion, TLSError, TLS_VERSION},
+    connection::{TLSError, TLS_VERSION},
+    encoding::{Cursor, Decoding},
+    enum_encoding,
     handshake::CompressionMethod,
+    Encoding,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -64,41 +67,14 @@ pub struct SecurityParameters {
     server_random: [u8; 32],
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ContentType {
-    ChangeCipherSpec,
-    Alert,
-    Handshake,
-    ApplicationData,
-}
-
-impl TryFrom<u8> for ContentType {
-    type Error = TLSError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            20 => Ok(Self::ChangeCipherSpec),
-            21 => Ok(Self::Alert),
-            22 => Ok(Self::Handshake),
-            23 => Ok(Self::ApplicationData),
-            other => {
-                log::warn!("Unknown TLS content type: {other}");
-                Err(TLSError::UnknownContentType)
-            },
-        }
+enum_encoding!(
+    pub enum ContentType(u8) {
+        ChangeCipherSpec = 20,
+        Alert = 21,
+        Handshake = 22,
+        ApplicationData = 23,
     }
-}
-
-impl From<ContentType> for u8 {
-    fn from(value: ContentType) -> Self {
-        match value {
-            ContentType::ChangeCipherSpec => 20,
-            ContentType::Alert => 21,
-            ContentType::Handshake => 22,
-            ContentType::ApplicationData => 23,
-        }
-    }
-}
+);
 
 /// The maximum length allowed for an individual TLS record
 const TLS_RECORD_MAX_LENGTH: usize = (1 << 14) + 1024;
@@ -178,15 +154,17 @@ impl<W: io::Write> TLSRecordWriter<W> {
         // FIXME: actually encrypt the data here
         let encrypted = data;
         assert!(encrypted.len() < TLS_RECORD_MAX_LENGTH);
-        let length = encrypted.len() as u16;
 
-        self.out.write_all(&[self.content_type.into()])?;
-        self.out.write_all(&TLS_VERSION.as_bytes())?;
-        self.out.write_all(&length.to_be_bytes())?;
-        self.out.write_all(encrypted)?;
+        // Assemble the bytes as they are sent on the wire
+        let mut bytes = vec![];
+        self.content_type.encode(&mut bytes);
+        TLS_VERSION.encode(&mut bytes);
+        (encrypted.len() as u16).encode(&mut bytes);
+        bytes.extend_from_slice(encrypted);
 
         self.cursor.set_position(0);
-        Ok(())
+
+        self.out.write_all(&bytes)
     }
 
     /// The number of bytes that can be written before the buffer needs to be flushed
@@ -196,32 +174,26 @@ impl<W: io::Write> TLSRecordWriter<W> {
 }
 
 impl<R: io::Read> TLSRecordReader<R> {
-    pub fn new(reader: R) -> Self {
+    #[must_use]
+    pub const fn new(reader: R) -> Self {
         Self { reader }
     }
 
     pub fn next_record(&mut self) -> Result<Record, TLSError> {
-        // Read content type field
-        let mut content_type_buffer = [0];
-        self.reader.read_exact(&mut content_type_buffer)?;
-        let content_type = ContentType::try_from(content_type_buffer[0])?;
+        let mut record_header = [0; 5];
+        self.reader.read_exact(&mut record_header)?;
+        let mut record_header = Cursor::new(&record_header);
 
-        // Read TLS version field
-        let mut tls_version_buffer = [0, 0];
-        self.reader.read_exact(&mut tls_version_buffer)?;
-        let tls_version = ProtocolVersion::try_from(tls_version_buffer)?;
+        let content_type = record_header.decode()?;
+        let tls_version = record_header.decode()?;
+        let data_length = u16::decode(&mut record_header)? as usize;
 
         if TLS_VERSION < tls_version {
             log::error!("Unsupported TLS version: We implement {TLS_VERSION:?} but the server sent {tls_version:?}");
             return Err(TLSError::UnsupportedTLSVersion);
         }
 
-        // Read data fragment
-        let mut length_buffer = [0, 0];
-        self.reader.read_exact(&mut length_buffer)?;
-        let length = u16::from_be_bytes(length_buffer);
-
-        let mut data = vec![0; length as usize];
+        let mut data = vec![0; data_length];
         self.reader.read_exact(&mut data)?;
 
         Ok(Record { content_type, data })

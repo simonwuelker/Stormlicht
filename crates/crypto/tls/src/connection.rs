@@ -1,13 +1,15 @@
 use crate::{
     alert::{Alert, AlertError, Severity},
+    encoding::{self, Cursor, Decoding},
     handshake::{self, ClientHello, HandshakeMessage},
     random::CryptographicRand,
     record_layer::{ContentType, TLSRecordReader, TLSRecordWriter},
     server_name::ServerName,
+    Encoding,
 };
 
 use std::{
-    io::{self, BufReader},
+    io::{self, BufReader, Write},
     net::{self, TcpStream},
 };
 
@@ -17,8 +19,28 @@ pub const TLS_VERSION: ProtocolVersion = ProtocolVersion::new(1, 2);
 /// The destination port used for TLS connections
 const TLS_PORT: u16 = 443;
 
+impl Encoding for ProtocolVersion {
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        bytes.extend_from_slice(&[self.major + 2, self.minor + 1])
+    }
+}
+
+impl<'a> Decoding<'a> for ProtocolVersion {
+    fn decode(cursor: &mut Cursor<'a>) -> encoding::Result<Self> {
+        let buf: [u8; 2] = cursor.decode()?;
+
+        if buf[0] < 2 || buf[1] == 0 {
+            log::warn!("Invalid TLS version: {}.{}", buf[0], buf[1]);
+            return Err(encoding::Error);
+        }
+
+        Ok(Self::new(buf[0] - 2, buf[1] - 1))
+    }
+}
+
 #[derive(Debug)]
 pub enum TLSError {
+    BadMessage,
     FatalAlert,
     UnknownContentType,
     InvalidTLSVersion,
@@ -41,26 +63,6 @@ impl ProtocolVersion {
     #[must_use]
     pub const fn new(major: u8, minor: u8) -> Self {
         Self { major, minor }
-    }
-
-    /// Note that the version is TLS 1.2 but the version number
-    /// is slightly odd (`3.3`) since TLS 1.0 was the successor of OpenSSL 3.0
-    /// which gave it the version number [0x03, 0x01] and so on.
-    #[must_use]
-    pub const fn as_bytes(&self) -> [u8; 2] {
-        [self.major + 2, self.minor + 1]
-    }
-}
-
-impl TryFrom<[u8; 2]> for ProtocolVersion {
-    type Error = TLSError;
-    fn try_from(value: [u8; 2]) -> Result<Self, TLSError> {
-        if value[0] < 3 || value[1] < 1 {
-            log::warn!("Invalid TLS version: {}.{}", value[0], value[1]);
-            Err(TLSError::InvalidTLSVersion)
-        } else {
-            Ok(Self::new(value[0] - 2, value[1] - 1))
-        }
     }
 }
 
@@ -103,8 +105,9 @@ impl TLSConnection {
             client_hello.add_extension(handshake::Extension::ServerName(domain))
         }
 
-        let client_hello_writer = self.writer.writer_for(ContentType::Handshake)?;
-        client_hello.write_to(client_hello_writer)?;
+        let mut client_hello_writer = self.writer.writer_for(ContentType::Handshake)?;
+        client_hello_writer.write_all(&client_hello.as_bytes())?;
+        client_hello_writer.flush()?;
 
         for _ in 0..10 {
             let record = self.reader.next_record()?;

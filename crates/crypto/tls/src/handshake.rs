@@ -1,30 +1,30 @@
-use std::io::{self, Cursor, Read};
-
 use crate::{
     certificate::{self, SignedCertificate, X509Certificate},
     connection::{ProtocolVersion, TLSError, TLS_VERSION},
     der::Deserialize,
-    CipherSuite,
+    encoding::{Cursor, Decoding, WithU16LengthPrefix, WithU8LengthPrefix, U24},
+    enum_encoding, CipherSuite, Encoding, SessionId,
 };
 
 /// A list of all cipher suites supported by this implementation
-const SUPPORTED_CIPHER_SUITES: [CipherSuite; 1] = [CipherSuite::TLS_RSA_WITH_AES_128_CBC_SHA];
+const SUPPORTED_CIPHER_SUITES: [CipherSuite; 1] = [CipherSuite::TlsRsaWithAes128CbcSha];
 
-/// TLS Compression methods are defined in [RFC 3749](https://www.rfc-editor.org/rfc/rfc3749)
-///
-/// # Security
-/// Encrypting compressed data can compromise security.
-/// See [CRIME](https://en.wikipedia.org/wiki/CRIME) and [BREACH](https://en.wikipedia.org/wiki/BREACH)
-/// for more information.
-///
-/// We will therefore **never** set a [CompressionMethod] other than [CompressionMethod::None].
-/// Seeing how future TLS protocol version removed this option altogether, this
-/// seems like the correct approach.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum CompressionMethod {
-    None,
-    Deflate,
-}
+enum_encoding!(
+    /// TLS Compression methods are defined in [RFC 3749](https://www.rfc-editor.org/rfc/rfc3749)
+    ///
+    /// # Security
+    /// Encrypting compressed data can compromise security.
+    /// See [CRIME](https://en.wikipedia.org/wiki/CRIME) and [BREACH](https://en.wikipedia.org/wiki/BREACH)
+    /// for more information.
+    ///
+    /// We will therefore **never** set a [CompressionMethod] other than [CompressionMethod::None].
+    /// Seeing how future TLS protocol version removed this option altogether, this
+    /// seems like the correct approach.
+    pub enum CompressionMethod(u8) {
+        None = 0x00,
+        Deflate = 0x01,
+    }
+);
 
 impl TryFrom<u8> for CompressionMethod {
     type Error = TLSError;
@@ -41,59 +41,22 @@ impl TryFrom<u8> for CompressionMethod {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum HandshakeType {
-    HelloRequest,
-    ClientHello,
-    ServerHello,
-    Certificate,
-    ServerKeyExchange,
-    CertificateRequest,
-    ServerHelloDone,
-    CertificateVerify,
-    ClientKeyExchange,
-    Finished,
-}
-
-impl From<HandshakeType> for u8 {
-    fn from(value: HandshakeType) -> Self {
-        match value {
-            HandshakeType::HelloRequest => 0,
-            HandshakeType::ClientHello => 1,
-            HandshakeType::ServerHello => 2,
-            HandshakeType::Certificate => 11,
-            HandshakeType::ServerKeyExchange => 12,
-            HandshakeType::CertificateRequest => 13,
-            HandshakeType::ServerHelloDone => 14,
-            HandshakeType::CertificateVerify => 15,
-            HandshakeType::ClientKeyExchange => 16,
-            HandshakeType::Finished => 20,
-        }
+enum_encoding! {
+    pub enum HandshakeType(u8) {
+        HelloRequest = 0,
+        ClientHello = 1,
+        ServerHello = 2,
+        Certificate = 11,
+        ServerKeyExchange = 12,
+        CertificateRequest = 13,
+        ServerHelloDone = 14,
+        CertificateVerify = 15,
+        ClientKeyExchange = 16,
+        Finished = 20,
+        CertificateStatus = 22,
     }
 }
 
-impl TryFrom<u8> for HandshakeType {
-    type Error = TLSError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::HelloRequest),
-            1 => Ok(Self::ClientHello),
-            2 => Ok(Self::ServerHello),
-            11 => Ok(Self::Certificate),
-            12 => Ok(Self::ServerKeyExchange),
-            13 => Ok(Self::CertificateRequest),
-            14 => Ok(Self::ServerHelloDone),
-            15 => Ok(Self::CertificateVerify),
-            16 => Ok(Self::ClientKeyExchange),
-            20 => Ok(Self::Finished),
-            other => {
-                log::warn!("Unknown TLS handshake message type: {other}");
-                Err(TLSError::UnknownHandshakeMessageType)
-            },
-        }
-    }
-}
 #[derive(Clone, Debug)]
 pub struct ClientHello {
     client_random: [u8; 32],
@@ -104,7 +67,7 @@ pub struct ClientHello {
 pub struct ServerHello {
     version: ProtocolVersion,
     server_random: [u8; 32],
-    session_id: Option<Vec<u8>>,
+    session_id: SessionId,
     selected_cipher_suite: CipherSuite,
     selected_compression_method: CompressionMethod,
     extensions: Vec<Extension>,
@@ -115,6 +78,7 @@ pub enum HandshakeMessage {
     ClientHello(ClientHello),
     ServerHello(ServerHello),
     Certificate(CertificateChain),
+    CertificateStatus,
     ServerHelloDone,
 }
 
@@ -132,7 +96,7 @@ impl ServerHello {
         self.server_random
     }
 
-    pub fn session_id(&self) -> &Option<Vec<u8>> {
+    pub fn session_id(&self) -> &SessionId {
         &self.session_id
     }
 
@@ -165,50 +129,36 @@ impl ClientHello {
     pub fn add_extension(&mut self, extension: Extension) {
         self.extensions.push(extension)
     }
+}
 
-    pub fn write_to<W: io::Write>(self, mut writer: W) -> io::Result<()> {
-        let cipher_suites_length = SUPPORTED_CIPHER_SUITES.len() as u16 * 2;
-        let extensions_length = self.extensions.iter().map(Extension::length).sum::<usize>() as u16;
+impl Encoding for ClientHello {
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        HandshakeType::ClientHello.encode(bytes);
 
-        #[allow(clippy::identity_op)]
-        let length: u32 = 2 // Protocol version
-            + 32 // Client random
-            + 1 // Session id length (always 0 since we don't resume sessions)
-            + 0 // [session id]
-            + 2 // Supported cipher suites length
-            + cipher_suites_length as u32 // List of supported cipher suites
-            + 2 // Compression method
-            + 2 // Extension length
-            + extensions_length as u32;
+        // The length of the clienthello message, will be patched later
+        let offset = bytes.len();
+        bytes.extend_from_slice(&[0xAB, 0xAB, 0xAB]);
 
-        writer.write_all(&[HandshakeType::ClientHello.into()])?;
-        writer.write_all(&length.to_be_bytes()[1..])?;
-        writer.write_all(&TLS_VERSION.as_bytes())?;
-        writer.write_all(&self.client_random)?;
+        TLS_VERSION.encode(bytes);
 
-        writer.write_all(&[0])?;
+        self.client_random.encode(bytes);
 
-        writer.write_all(&(2 * SUPPORTED_CIPHER_SUITES.len() as u16).to_be_bytes())?;
-        for suite in SUPPORTED_CIPHER_SUITES {
-            let suite_bytes: [u8; 2] = suite.into();
-            writer.write_all(&suite_bytes)?;
-        }
+        bytes.push(0x00); // No session id to resume
+
+        // Supported Cipher Suites
+        WithU16LengthPrefix::new(SUPPORTED_CIPHER_SUITES.as_slice()).encode(bytes);
 
         // Compression method
         // Since compression can compromise security (see CRIME), we will
         // never use compression.
-        writer.write_all(&[0x01, 0x00])?;
+        WithU8LengthPrefix::new([CompressionMethod::None].as_slice()).encode(bytes);
 
         // Extensions
-        writer.write_all(&extensions_length.to_be_bytes())?;
-        for extension in self.extensions {
-            let expected_length = extension.length();
-            let extension_data = extension.into_bytes();
-            debug_assert_eq!(extension_data.len(), expected_length);
-            writer.write_all(&extension_data)?;
-        }
+        WithU16LengthPrefix::new(self.extensions.as_slice()).encode(bytes);
 
-        writer.flush()
+        // Patch the length of the message
+        let clienthello_length = (bytes.len() - offset) as u32 - 3;
+        bytes[offset..offset + 3].copy_from_slice(&clienthello_length.to_be_bytes()[1..]);
     }
 }
 
@@ -229,83 +179,61 @@ impl HandshakeMessage {
         if message_data.len() < 4 {
             todo!("fragmented message");
         }
+        let mut header = Cursor::new(message_data);
+        let handshake_type = header.decode()?;
+        let length: U24 = header.decode()?;
 
-        let handshake_type = HandshakeType::try_from(message_data[0])?;
+        let mut message_buf = Vec::with_capacity(length.into());
+        message_buf.extend_from_slice(header.remainder());
 
-        let mut length_bytes = [0; 4];
-        length_bytes[1..].copy_from_slice(&message_data[1..4]);
-        let message_length = u32::from_be_bytes(length_bytes) as usize;
-
-        if message_data.len() - 4 != message_length {
+        // FIXME: Fully assemble fragmented message
+        if message_data.len() - 4 != length.into() {
             todo!(
-                "Message is fragmented (message len {message_length} but we only got {}",
+                "Message is fragmented (message len {:?} but we only got {}",
+                length,
                 message_data.len() - 4
             );
         };
 
-        let mut reader = Cursor::new(&message_data[4..]);
+        let mut message = Cursor::new(&message_data[4..]);
 
         match handshake_type {
             HandshakeType::ServerHello => {
                 // https://www.rfc-editor.org/rfc/rfc5246#section-7.4.1.3
-                let mut server_version_bytes: [u8; 2] = [0, 0];
-                reader.read_exact(&mut server_version_bytes)?;
-                let server_version = ProtocolVersion::try_from(server_version_bytes)?;
-
-                let mut server_random: [u8; 32] = [0; 32];
-                reader.read_exact(&mut server_random)?;
-
-                let mut session_id_length_buffer = [0];
-                reader.read_exact(&mut session_id_length_buffer)?;
-                let session_id_length = session_id_length_buffer[0];
-
-                let session_id = if session_id_length == 0 {
-                    None
-                } else {
-                    let mut session_id = vec![0; session_id_length as usize];
-                    reader.read_exact(&mut session_id)?;
-                    Some(session_id)
-                };
-
-                let mut cipher_suite_bytes = [0, 0];
-                reader.read_exact(&mut cipher_suite_bytes)?;
-                let cipher_suite = CipherSuite::try_from(cipher_suite_bytes)?;
-
-                let mut selected_compression_method_buffer = [0];
-                reader.read_exact(&mut selected_compression_method_buffer)?;
-                let selected_compression_method =
-                    CompressionMethod::try_from(selected_compression_method_buffer[0])?;
+                let server_version = ProtocolVersion::decode(&mut message)?; // message.decode()?;
+                let server_random: [u8; 32] = message.decode()?;
+                let session_id = message.decode()?;
+                let selected_cipher_suite = message.decode()?;
+                let selected_compression_method = message.decode()?;
 
                 let server_hello = Self::ServerHello(ServerHello {
                     version: server_version,
                     server_random,
                     session_id,
-                    selected_cipher_suite: cipher_suite,
+                    selected_cipher_suite,
                     selected_compression_method,
                     extensions: vec![],
                 });
                 Ok(server_hello)
             },
             HandshakeType::Certificate => {
-                let mut certificate_chain_length_bytes = [0; 4];
-                reader.read_exact(&mut certificate_chain_length_bytes[1..])?;
-                let certificate_chain_length =
-                    u32::from_be_bytes(certificate_chain_length_bytes) as usize;
+                // https://www.rfc-editor.org/rfc/rfc5246#section-7.4.2
+                let certificate_chain_length: usize = message.decode::<U24>()?.into();
 
                 let mut certificate_chain = vec![];
 
-                let mut bytes_read = 0;
+                let mut bytes_read: usize = 0;
                 while bytes_read != certificate_chain_length {
-                    let mut certificate_length_bytes = [0; 4];
-                    reader.read_exact(&mut certificate_length_bytes[1..])?;
-                    let certificate_length = u32::from_be_bytes(certificate_length_bytes) as usize;
+                    let certificate_length: usize = message.decode::<U24>()?.into();
 
-                    let mut certificate_bytes = vec![0; certificate_length];
-                    reader.read_exact(&mut certificate_bytes)?;
+                    let remainder = message.remainder();
+                    if remainder.len() < certificate_length {
+                        return Err(TLSError::BadMessage);
+                    }
 
                     // FIXME: propagate error
                     let signed_cert = SignedCertificate::from_bytes(
-                        &certificate_bytes,
+                        &remainder[..certificate_length],
                         certificate::Error::TrailingBytes,
                     )
                     .expect("certificate parsing failed");
@@ -314,6 +242,7 @@ impl HandshakeMessage {
                         log::warn!("Browser supplied invalid certificate");
                     }
 
+                    message.advance(certificate_length);
                     certificate_chain.push(signed_cert.into());
                     bytes_read += certificate_length + 3;
                 }
@@ -322,9 +251,19 @@ impl HandshakeMessage {
                     certificate_chain,
                 )))
             },
+            HandshakeType::CertificateStatus => {
+                // FIXME: Handle this
+                Ok(Self::CertificateStatus)
+            },
             HandshakeType::ServerHelloDone => Ok(Self::ServerHelloDone),
             _ => unimplemented!("Parse {handshake_type:?} message"),
         }
+    }
+}
+
+impl Encoding for Extension {
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        bytes.extend_from_slice(&self.into_bytes())
     }
 }
 
@@ -345,7 +284,7 @@ impl Extension {
         }
     }
 
-    pub fn into_bytes(self) -> Vec<u8> {
+    pub fn into_bytes(&self) -> Vec<u8> {
         match self {
             Self::ServerName(hostname) => {
                 let hostname_bytes = hostname.as_bytes();
