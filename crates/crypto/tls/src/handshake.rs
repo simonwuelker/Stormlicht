@@ -59,18 +59,18 @@ enum_encoding! {
 
 #[derive(Clone, Debug)]
 pub struct ClientHello {
-    client_random: [u8; 32],
-    extensions: Vec<Extension>,
+    pub client_random: [u8; 32],
+    pub extensions: Vec<Extension>,
 }
 
 #[derive(Clone, Debug)]
 pub struct ServerHello {
-    version: ProtocolVersion,
-    server_random: [u8; 32],
-    session_id: SessionId,
-    selected_cipher_suite: CipherSuite,
-    selected_compression_method: CompressionMethod,
-    extensions: Vec<Extension>,
+    pub version: ProtocolVersion,
+    pub server_random: [u8; 32],
+    pub session_id: SessionId,
+    pub selected_cipher_suite: CipherSuite,
+    pub selected_compression_method: CompressionMethod,
+    pub extensions: Vec<Extension>,
 }
 
 #[derive(Clone, Debug)]
@@ -85,50 +85,6 @@ pub enum HandshakeMessage {
 #[derive(Clone, Debug)]
 pub enum CertificateChain {
     X509v3(Vec<X509Certificate>),
-}
-
-impl ServerHello {
-    pub fn version(&self) -> ProtocolVersion {
-        self.version
-    }
-
-    pub fn server_random(&self) -> [u8; 32] {
-        self.server_random
-    }
-
-    pub fn session_id(&self) -> &SessionId {
-        &self.session_id
-    }
-
-    pub fn selected_cipher_suite(&self) -> CipherSuite {
-        self.selected_cipher_suite
-    }
-
-    pub fn selected_compression_method(&self) -> CompressionMethod {
-        self.selected_compression_method
-    }
-
-    pub fn extensions(&self) -> &[Extension] {
-        &self.extensions
-    }
-}
-
-impl ClientHello {
-    pub fn new(client_random: [u8; 32]) -> Self {
-        Self {
-            client_random,
-            extensions: vec![
-                Extension::StatusRequest,
-                Extension::RenegotiationInfo,
-                Extension::SignedCertificateTimestamp,
-            ],
-        }
-    }
-
-    #[inline]
-    pub fn add_extension(&mut self, extension: Extension) {
-        self.extensions.push(extension)
-    }
 }
 
 impl Encoding for ClientHello {

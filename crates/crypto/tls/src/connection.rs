@@ -1,7 +1,7 @@
 use crate::{
     alert::{Alert, AlertError, Severity},
     encoding::{self, Cursor, Decoding},
-    handshake::{self, ClientHello, HandshakeMessage},
+    handshake::{self, ClientHello, Extension, HandshakeMessage},
     random::CryptographicRand,
     record_layer::{ContentType, TLSRecordReader, TLSRecordWriter},
     server_name::ServerName,
@@ -98,11 +98,20 @@ impl TLSConnection {
         // NOTE: We override the version here because some TLS server apparently fail if the version isn't 1.0
         // for the initial ClientHello
         // This is also mentioned in https://www.rfc-editor.org/rfc/rfc5246#appendix-E
-        let mut client_hello = ClientHello::new(client_random);
+        let mut client_hello = ClientHello {
+            client_random,
+            extensions: vec![
+                Extension::StatusRequest,
+                Extension::RenegotiationInfo,
+                Extension::SignedCertificateTimestamp,
+            ],
+        };
 
         if let ServerName::Domain(domain) = server_name {
             // If we have a domain name we can use the SNI extension
-            client_hello.add_extension(handshake::Extension::ServerName(domain))
+            client_hello
+                .extensions
+                .push(handshake::Extension::ServerName(domain))
         }
 
         let mut client_hello_writer = self.writer.writer_for(ContentType::Handshake)?;
