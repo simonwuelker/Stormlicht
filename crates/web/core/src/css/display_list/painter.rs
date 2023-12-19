@@ -1,4 +1,4 @@
-use image::Texture;
+use image::{AccessMode, Texture};
 use math::Vec2D;
 use render::{Composition, Path, Source};
 
@@ -86,9 +86,14 @@ impl Painter {
                         .with_source(Source::Solid(text_command.color));
                 },
                 Command::Image(image_command) => {
+                    let texture_source = Source::Texture {
+                        texture: image_command.texture,
+                        access_mode: AccessMode::Default(0),
+                    };
+
                     composition
                         .get_or_insert_layer(index as u16)
-                        .with_source(Source::Texture(image_command.texture))
+                        .with_source(texture_source)
                         .with_outline(Path::rect(
                             Vec2D {
                                 x: image_command.area.top_left().x.0,

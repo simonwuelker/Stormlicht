@@ -8,7 +8,10 @@ pub enum Source {
     /// One single color
     Solid(Color),
 
-    Texture(Texture<u32>),
+    Texture {
+        texture: Texture<u32>,
+        access_mode: AccessMode<u32>,
+    },
 }
 
 impl Default for Source {
@@ -202,11 +205,14 @@ fn compose(destination: &mut Texture<u32>, mask: Mask, source: &Source, offset: 
                     }
                 }
             },
-            Source::Texture(texture) => {
+            Source::Texture {
+                texture,
+                access_mode,
+            } => {
                 for x in 0..mask.width().min(available_space.x) {
                     for y in 0..mask.height().min(available_space.y) {
                         let opacity = mask.opacity_at(x, y).abs().min(1.);
-                        let texture_pixel = Color(texture.get(x, y, AccessMode::Clamp));
+                        let texture_pixel = Color(texture.get(x, y, *access_mode));
 
                         let previous_color = destination.get_pixel(x + offset.x, y + offset.y);
                         let computed_color =
