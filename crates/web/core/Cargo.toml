@@ -19,6 +19,7 @@ render = { workspace = true }
 url = { workspace = true }
 sl-std = { workspace = true }
 perfect_hash = { workspace = true }
+image = { workspace = true }
 
 [build-dependencies]
 buildutils = { workspace = true }

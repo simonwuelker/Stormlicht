@@ -1,13 +1,13 @@
+use image::Texture;
 use math::{Rectangle, Vec2D};
 
 use crate::{
     css::{
         computed_style::ComputedStyle,
-        fragment_tree::{BoxFragment, Fragment},
-        layout::Sides,
+        fragment_tree::{Fragment, TextureFragment},
         values::{
             length::{self, Length},
-            AutoOr, Color,
+            AutoOr,
         },
     },
     dom::{dom_objects, DomPtr},
@@ -52,7 +52,7 @@ impl IntrinsicSize {
 
 #[derive(Clone, Debug)]
 pub(crate) enum ReplacedContent {
-    Image,
+    Image(Texture<u32>),
 }
 
 /// <https://drafts.csswg.org/css-display/#replaced-element>
@@ -213,10 +213,25 @@ impl ReplacedElement {
     ) -> Option<Self> {
         // Check if the element is replaced
         // Currently the only replaced element supported is the <img> element
-        if element.is_a::<dom_objects::HtmlImageElement>() {
+        if let Some(image) = element.try_into_type::<dom_objects::HtmlImageElement>() {
+            let Some(texture) = image.borrow_mut().texture().cloned() else {
+                // Fallback to an empty image with no intrinsic size
+                let replaced_element = ReplacedElement {
+                    intrinsic_size: IntrinsicSize::NONE,
+                    content: ReplacedContent::Image(Texture::empty()),
+                    style: element_style,
+                };
+
+                return Some(replaced_element);
+            };
+
+            let intrinsic_width = Pixels(texture.width() as f32);
+            let intrinsic_height = Pixels(texture.height() as f32);
+
+            let intrinsic_size = IntrinsicSize::new(intrinsic_width, intrinsic_height);
             let replaced_image = ReplacedElement {
-                intrinsic_size: IntrinsicSize::NONE,
-                content: ReplacedContent::Image,
+                intrinsic_size,
+                content: ReplacedContent::Image(texture),
                 style: element_style,
             };
             Some(replaced_image)
@@ -233,11 +248,13 @@ impl ReplacedContent {
     /// this fragment is not affected by the outside world anymore.
     #[must_use]
     pub fn create_fragment(&self, position: Vec2D<Pixels>, size: Size<Pixels>) -> Fragment {
-        // FIXME: This is just a placeholder until image fragments (for the image replaced element) exist
-        let area = Rectangle::from_position_and_size(position, size.width, size.height);
-        let borders = Sides::all(Pixels::ZERO);
-        let mut style = ComputedStyle::default();
-        style.set_background_color(Color::GREEN.into());
-        BoxFragment::new(None, style, area, borders, area, area, vec![]).into()
+        // FIXME: This is just a placeholder until we can dynamically load images from the "<img src=" attribute
+        match self {
+            Self::Image(texture) => TextureFragment {
+                texture: texture.clone(),
+                area: Rectangle::from_position_and_size(position, size.width, size.height),
+            }
+            .into(),
+        }
     }
 }
