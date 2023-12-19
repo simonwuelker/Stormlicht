@@ -1,5 +1,5 @@
 use crate::{
-    alert::{Alert, AlertError},
+    alert::{Alert, AlertError, Severity},
     handshake::{self, ClientHello, HandshakeMessage},
     random::CryptographicRand,
     record_layer::{ContentType, TLSRecordReader, TLSRecordWriter},
@@ -19,6 +19,7 @@ const TLS_PORT: u16 = 443;
 
 #[derive(Debug)]
 pub enum TLSError {
+    FatalAlert,
     UnknownContentType,
     InvalidTLSVersion,
     UnsupportedTLSVersion,
@@ -112,7 +113,15 @@ impl TLSConnection {
             match record.content_type {
                 ContentType::Alert => {
                     let alert = Alert::try_from(record.data.as_slice())?;
-                    dbg!(alert);
+                    match alert.severity {
+                        Severity::Fatal => {
+                            log::error!("Fatal Alert: {:?}", alert.description);
+                            return Err(TLSError::FatalAlert);
+                        },
+                        Severity::Warning => {
+                            log::warn!("Alert: {:?}", alert.description);
+                        },
+                    }
                 },
                 ContentType::Handshake => {
                     let _handshake_msg = HandshakeMessage::new(&record.data)?;
