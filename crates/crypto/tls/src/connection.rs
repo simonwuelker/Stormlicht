@@ -96,6 +96,13 @@ impl TLSConnection {
         Ok(connection)
     }
 
+    pub fn send_alert(&mut self, alert: Alert) -> io::Result<()> {
+        let mut writer = self.writer.writer_for(ContentType::Alert)?;
+        writer.write_all(&alert.as_bytes())?;
+        writer.flush()?;
+        Ok(())
+    }
+
     pub fn do_handshake(&mut self, server_name: ServerName) -> Result<(), TLSError> {
         let mut security_parameters = SecurityParameters::new(ConnectionEnd::Client);
 
@@ -132,7 +139,7 @@ impl TLSConnection {
             // TODO: fragmented messages are not yet supported
             match record.content_type {
                 ContentType::Alert => {
-                    let alert = Alert::try_from(record.data.as_slice())?;
+                    let alert: Alert = Cursor::new(&record.data).decode()?;
                     match alert.severity {
                         Severity::Fatal => {
                             log::error!("Fatal Alert: {:?}", alert.description);

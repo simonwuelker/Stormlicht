@@ -1,5 +1,10 @@
 //! The alert protocol as defined in the [TLS Specification](https://www.rfc-editor.org/rfc/rfc5246#section-7.2.2)
 
+use crate::{
+    encoding::{self, Cursor, Decoding, Encoding},
+    enum_encoding,
+};
+
 #[derive(Clone, Copy, Debug)]
 pub enum AlertError {
     UnknownAlertSeverity,
@@ -7,96 +12,42 @@ pub enum AlertError {
     MismatchedDataLength,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum Severity {
-    Warning,
-    Fatal,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Description {
-    CloseNotify,
-    UnexpectedMessage,
-    BadRecordMAC,
-    #[allow(non_camel_case_types)] // The whole point is that these stand out
-    DecryptionFailed_RESERVED_DO_NOT_USE,
-    RecordOverflow,
-    DecompressionFailure,
-    HandshakeFailure,
-    #[allow(non_camel_case_types)]
-    NoCertificate_RESERVED_DO_NOT_USE,
-    BadCertificate,
-    UnsupportedCertificate,
-    CertificateRevoked,
-    CertificateExpired,
-    CertificateUnknown,
-    IllegalParameter,
-    UnknownCA,
-    AccessDenied,
-    DecodeError,
-    DecryptError,
-    #[allow(non_camel_case_types)]
-    ExportRestriction_RESERVED_DO_NOT_USE,
-    ProtocolVersion,
-    InsufficientSecurity,
-    InternalError,
-    UserCanceled,
-    NoRenegotiation,
-    UnsupportedExcension,
-}
-
-impl TryFrom<u8> for Severity {
-    type Error = AlertError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            1 => Ok(Self::Warning),
-            2 => Ok(Self::Fatal),
-            other => {
-                log::warn!("Unknown TLS alert severity: {other}");
-                Err(AlertError::UnknownAlertSeverity)
-            },
-        }
+enum_encoding!(
+    pub enum Severity(u8) {
+        Warning = 1,
+        Fatal = 2,
     }
-}
+);
 
-impl TryFrom<u8> for Description {
-    type Error = AlertError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::CloseNotify),
-            10 => Ok(Self::UnexpectedMessage),
-            20 => Ok(Self::BadRecordMAC),
-            21 => Ok(Self::DecryptionFailed_RESERVED_DO_NOT_USE),
-            22 => Ok(Self::RecordOverflow),
-            30 => Ok(Self::DecompressionFailure),
-            40 => Ok(Self::HandshakeFailure),
-            41 => Ok(Self::NoCertificate_RESERVED_DO_NOT_USE),
-            42 => Ok(Self::BadCertificate),
-            43 => Ok(Self::UnsupportedCertificate),
-            44 => Ok(Self::CertificateRevoked),
-            45 => Ok(Self::CertificateExpired),
-            46 => Ok(Self::CertificateUnknown),
-            47 => Ok(Self::IllegalParameter),
-            48 => Ok(Self::UnknownCA),
-            49 => Ok(Self::AccessDenied),
-            50 => Ok(Self::DecodeError),
-            51 => Ok(Self::DecryptError),
-            60 => Ok(Self::ExportRestriction_RESERVED_DO_NOT_USE),
-            70 => Ok(Self::ProtocolVersion),
-            71 => Ok(Self::InsufficientSecurity),
-            80 => Ok(Self::InternalError),
-            90 => Ok(Self::UserCanceled),
-            100 => Ok(Self::NoRenegotiation),
-            110 => Ok(Self::UnsupportedExcension),
-            other => {
-                log::warn!("Unknown TLS alert code: {other}");
-                Err(AlertError::UnknownAlertCode)
-            },
-        }
+enum_encoding!(
+    pub enum Description(u8) {
+        CloseNotify = 0,
+        UnexpectedMessage = 10,
+        BadRecordMAC = 20,
+        DecryptionFailedReservedDoNotUse = 21,
+        RecordOverflow = 22,
+        DecompressionFailure = 30,
+        HandshakeFailure = 40,
+        NoCertificateReservedDoNotUse = 41,
+        BadCertificate = 42,
+        UnsupportedCertificate = 43,
+        CertificateRevoked = 44,
+        CertificateExpired = 45,
+        CertificateUnknown = 46,
+        IllegalParameter = 47,
+        UnknownCA = 48,
+        AccessDenied = 49,
+        DecodeError = 50,
+        DecryptError = 51,
+        ExportRestrictionReservedDoNotUse = 60,
+        ProtocolVersion = 70,
+        InsufficientSecurity = 71,
+        InternalError = 80,
+        UserCanceled = 90,
+        NoRenegotiation = 100,
+        UnsupportedExcension = 110,
     }
-}
+);
 
 #[derive(Clone, Copy, Debug)]
 pub struct Alert {
@@ -104,21 +55,23 @@ pub struct Alert {
     pub description: Description,
 }
 
-impl TryFrom<&[u8]> for Alert {
-    type Error = AlertError;
+impl Encoding for Alert {
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        self.severity.encode(bytes);
+        self.description.encode(bytes);
+    }
+}
 
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        if value.len() != 2 {
-            log::warn!(
-                "Mismatched data length for TLS alert: Expected 2, found {}",
-                value.len()
-            );
-            Err(AlertError::MismatchedDataLength)
-        } else {
-            Ok(Self {
-                severity: Severity::try_from(value[0])?,
-                description: Description::try_from(value[1])?,
-            })
-        }
+impl<'a> Decoding<'a> for Alert {
+    fn decode(cursor: &mut Cursor<'a>) -> encoding::Result<Self> {
+        let severity = cursor.decode()?;
+        let description = cursor.decode()?;
+
+        let alert = Self {
+            severity,
+            description,
+        };
+
+        Ok(alert)
     }
 }
