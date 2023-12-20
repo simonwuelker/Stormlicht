@@ -2,8 +2,9 @@ use crate::{
     alert::{Alert, AlertError, Severity},
     encoding::{self, Cursor, Decoding},
     handshake::{self, ClientHello, Extension, HandshakeMessage},
-    random::CryptographicRand,
-    record_layer::{ContentType, TLSRecordReader, TLSRecordWriter},
+    record_layer::{
+        ConnectionEnd, ContentType, SecurityParameters, TLSRecordReader, TLSRecordWriter,
+    },
     server_name::ServerName,
     Encoding,
 };
@@ -19,28 +20,15 @@ pub const TLS_VERSION: ProtocolVersion = ProtocolVersion::new(1, 2);
 /// The destination port used for TLS connections
 const TLS_PORT: u16 = 443;
 
-impl Encoding for ProtocolVersion {
-    fn encode(&self, bytes: &mut Vec<u8>) {
-        bytes.extend_from_slice(&[self.major + 2, self.minor + 1])
-    }
-}
-
-impl<'a> Decoding<'a> for ProtocolVersion {
-    fn decode(cursor: &mut Cursor<'a>) -> encoding::Result<Self> {
-        let buf: [u8; 2] = cursor.decode()?;
-
-        if buf[0] < 2 || buf[1] == 0 {
-            log::warn!("Invalid TLS version: {}.{}", buf[0], buf[1]);
-            return Err(encoding::Error);
-        }
-
-        Ok(Self::new(buf[0] - 2, buf[1] - 1))
-    }
-}
+const MAX_HANDSHAKE_LEN: usize = 32;
 
 #[derive(Debug)]
 pub enum TLSError {
     BadMessage,
+    UnexpectedMessage,
+
+    /// Not receiving a `ServerHelloDone` message
+    HandshakeWontStop,
     FatalAlert,
     UnknownContentType,
     InvalidTLSVersion,
@@ -63,6 +51,25 @@ impl ProtocolVersion {
     #[must_use]
     pub const fn new(major: u8, minor: u8) -> Self {
         Self { major, minor }
+    }
+}
+
+impl Encoding for ProtocolVersion {
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        bytes.extend_from_slice(&[self.major + 2, self.minor + 1])
+    }
+}
+
+impl<'a> Decoding<'a> for ProtocolVersion {
+    fn decode(cursor: &mut Cursor<'a>) -> encoding::Result<Self> {
+        let buf: [u8; 2] = cursor.decode()?;
+
+        if buf[0] < 2 || buf[1] == 0 {
+            log::warn!("Invalid TLS version: {}.{}", buf[0], buf[1]);
+            return Err(encoding::Error);
+        }
+
+        Ok(Self::new(buf[0] - 2, buf[1] - 1))
     }
 }
 
@@ -90,16 +97,13 @@ impl TLSConnection {
     }
 
     pub fn do_handshake(&mut self, server_name: ServerName) -> Result<(), TLSError> {
-        let mut client_random = [0; 32];
-        let mut rng = CryptographicRand::new().unwrap();
-        client_random[0..16].copy_from_slice(&rng.next_u128().to_ne_bytes());
-        client_random[16..32].copy_from_slice(&rng.next_u128().to_ne_bytes());
+        let mut security_parameters = SecurityParameters::new(ConnectionEnd::Client);
 
         // NOTE: We override the version here because some TLS server apparently fail if the version isn't 1.0
         // for the initial ClientHello
         // This is also mentioned in https://www.rfc-editor.org/rfc/rfc5246#appendix-E
         let mut client_hello = ClientHello {
-            client_random,
+            client_random: security_parameters.client_random,
             extensions: vec![
                 Extension::StatusRequest,
                 Extension::RenegotiationInfo,
@@ -118,7 +122,11 @@ impl TLSConnection {
         client_hello_writer.write_all(&client_hello.as_bytes())?;
         client_hello_writer.flush()?;
 
-        for _ in 0..10 {
+        for i in 0.. {
+            if i == MAX_HANDSHAKE_LEN {
+                return Err(TLSError::HandshakeWontStop);
+            }
+
             let record = self.reader.next_record()?;
 
             // TODO: fragmented messages are not yet supported
@@ -136,11 +144,29 @@ impl TLSConnection {
                     }
                 },
                 ContentType::Handshake => {
-                    let _handshake_msg = HandshakeMessage::new(&record.data)?;
+                    let handshake_msg = HandshakeMessage::new(&record.data)?;
+                    match handshake_msg {
+                        HandshakeMessage::ServerHello(server_hello) => {
+                            security_parameters.server_random = Some(server_hello.server_random);
+                            security_parameters.compression_method =
+                                Some(server_hello.selected_compression_method);
+                            security_parameters.cipher_suite = server_hello.selected_cipher_suite;
+                        },
+                        HandshakeMessage::Certificate(server_certificate) => {
+                            _ = server_certificate;
+                        },
+                        HandshakeMessage::ServerHelloDone => {
+                            break;
+                        },
+                        _ => {
+                            return Err(TLSError::UnexpectedMessage);
+                        },
+                    }
                 },
                 _ => {},
             }
         }
+
         Ok(())
     }
 }

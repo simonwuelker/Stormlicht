@@ -1,8 +1,9 @@
 use crate::{
     certificate::{self, SignedCertificate, X509Certificate},
+    cipher_suite::CipherSuiteParameters,
     connection::{ProtocolVersion, TLSError, TLS_VERSION},
     der::Deserialize,
-    encoding::{Cursor, Decoding, WithU16LengthPrefix, WithU8LengthPrefix, U24},
+    encoding::{self, Cursor, Decoding, WithU16LengthPrefix, WithU8LengthPrefix, U24},
     enum_encoding, CipherSuite, Encoding, SessionId,
 };
 
@@ -25,21 +26,6 @@ enum_encoding!(
         Deflate = 0x01,
     }
 );
-
-impl TryFrom<u8> for CompressionMethod {
-    type Error = TLSError;
-
-    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
-        match value {
-            0 => Ok(Self::None),
-            1 => Ok(Self::Deflate),
-            other => {
-                log::warn!("Unknown TLS compression method: {other}");
-                Err(TLSError::UnknownCompressionMethod)
-            },
-        }
-    }
-}
 
 enum_encoding! {
     pub enum HandshakeType(u8) {
@@ -68,7 +54,7 @@ pub struct ServerHello {
     pub version: ProtocolVersion,
     pub server_random: [u8; 32],
     pub session_id: SessionId,
-    pub selected_cipher_suite: CipherSuite,
+    pub selected_cipher_suite: CipherSuiteParameters,
     pub selected_compression_method: CompressionMethod,
     pub extensions: Vec<Extension>,
 }
@@ -126,6 +112,27 @@ pub enum Extension {
     SignedCertificateTimestamp,
 }
 
+impl<'a> Decoding<'a> for ServerHello {
+    fn decode(cursor: &mut Cursor<'a>) -> encoding::Result<Self> {
+        // https://www.rfc-editor.org/rfc/rfc5246#section-7.4.1.3
+        let server_version = cursor.decode()?;
+        let server_random: [u8; 32] = cursor.decode()?;
+        let session_id = cursor.decode()?;
+        let selected_cipher_suite = cursor.decode()?;
+        let selected_compression_method = cursor.decode()?;
+
+        let server_hello = Self {
+            version: server_version,
+            server_random,
+            session_id,
+            selected_cipher_suite,
+            selected_compression_method,
+            extensions: vec![],
+        };
+        Ok(server_hello)
+    }
+}
+
 impl HandshakeMessage {
     pub fn new(message_data: &[u8]) -> Result<Self, TLSError> {
         // Every Handshake message starts with the same header
@@ -154,24 +161,7 @@ impl HandshakeMessage {
         let mut message = Cursor::new(&message_data[4..]);
 
         match handshake_type {
-            HandshakeType::ServerHello => {
-                // https://www.rfc-editor.org/rfc/rfc5246#section-7.4.1.3
-                let server_version = ProtocolVersion::decode(&mut message)?; // message.decode()?;
-                let server_random: [u8; 32] = message.decode()?;
-                let session_id = message.decode()?;
-                let selected_cipher_suite = message.decode()?;
-                let selected_compression_method = message.decode()?;
-
-                let server_hello = Self::ServerHello(ServerHello {
-                    version: server_version,
-                    server_random,
-                    session_id,
-                    selected_cipher_suite,
-                    selected_compression_method,
-                    extensions: vec![],
-                });
-                Ok(server_hello)
-            },
+            HandshakeType::ServerHello => Ok(Self::ServerHello(message.decode()?)),
             HandshakeType::Certificate => {
                 // https://www.rfc-editor.org/rfc/rfc5246#section-7.4.2
                 let certificate_chain_length: usize = message.decode::<U24>()?.into();

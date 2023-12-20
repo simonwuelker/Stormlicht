@@ -3,10 +3,12 @@
 use std::io;
 
 use crate::{
+    cipher_suite::CipherSuiteParameters,
     connection::{TLSError, TLS_VERSION},
     encoding::{Cursor, Decoding},
     enum_encoding,
     handshake::CompressionMethod,
+    random::CryptographicRand,
     Encoding,
 };
 
@@ -38,33 +40,34 @@ pub enum CipherType {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum MACAlgorithm {
-    Null,
-    HMAC_MD5,
-    HMAC_SHA1,
-    HMAC_SHA256,
-    HMAC_SHA384,
-    HMAC_SHA512,
+pub struct SecurityParameters {
+    pub entity: ConnectionEnd,
+    pub prf_algorithm: Option<PRFAlgorithm>,
+    pub cipher_suite: CipherSuiteParameters,
+    pub compression_method: Option<CompressionMethod>,
+    pub master_secret: Option<[u8; 48]>,
+    pub client_random: [u8; 32],
+    pub server_random: Option<[u8; 32]>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SecurityParameters {
-    entity: ConnectionEnd,
-    prf_algorithm: PRFAlgorithm,
-    bulk_cipher_algorithm: BulkCipherAlgorithm,
-    cipher_type: CipherType,
-    enc_key_length: u8,
-    block_length: u8,
-    fixed_iv_length: u8,
-    record_iv_length: u8,
-    mac_algorith: MACAlgorithm,
-    mac_length: u8,
-    mac_key_length: u8,
-    compression_algorithm: CompressionMethod,
-    master_secret: [u8; 48],
-    client_random: [u8; 32],
-    server_random: [u8; 32],
+impl SecurityParameters {
+    #[must_use]
+    pub fn new(entity: ConnectionEnd) -> Self {
+        let mut client_random = [0; 32];
+        let mut rng = CryptographicRand::new().unwrap();
+        client_random[0..16].copy_from_slice(&rng.next_u128().to_ne_bytes());
+        client_random[16..32].copy_from_slice(&rng.next_u128().to_ne_bytes());
+
+        Self {
+            entity,
+            prf_algorithm: None,
+            cipher_suite: CipherSuiteParameters::TLS_NULL_WITH_NULL_NULL,
+            compression_method: None,
+            master_secret: None,
+            client_random,
+            server_random: None,
+        }
+    }
 }
 
 enum_encoding!(

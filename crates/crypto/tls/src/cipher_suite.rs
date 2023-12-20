@@ -1,6 +1,135 @@
 //! TLS Cipher suites as defined in [Appendix A.5](https://www.rfc-editor.org/rfc/rfc5246#appendix-A.5)
 
-use crate::enum_encoding;
+use crate::{
+    encoding::{self, Cursor, Decoding},
+    enum_encoding,
+};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum KeyExchange {
+    Rsa,
+    DiffieHellman,
+
+    /// ECDH
+    EllipticCurveDiffieHellman,
+
+    /// SRP
+    SecureRemotePassword,
+
+    /// PSK
+    PreSharedKey,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum Authentication {
+    Rsa,
+    Dsa,
+    Ecdsa,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum BulkEncryption {
+    Rc4,
+    TripleDes,
+    Aes,
+    Idea,
+    Des,
+    Camellia,
+    ChaCha20,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum Mac {
+    Md5,
+    Sha1,
+    Sha256,
+    Sha384,
+    Sha512,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CipherSuiteParameters {
+    key_exchange: Option<KeyExchange>,
+    authentication: Option<Authentication>,
+    bulk_encryption: Option<BulkEncryption>,
+    mac: Option<Mac>,
+}
+
+impl CipherSuiteParameters {
+    pub const TLS_NULL_WITH_NULL_NULL: Self = Self {
+        key_exchange: None,
+        authentication: None,
+        bulk_encryption: None,
+        mac: None,
+    };
+
+    pub const TLS_RSA_WITH_NULL_MD5: Self = Self {
+        key_exchange: Some(KeyExchange::Rsa),
+        authentication: Some(Authentication::Rsa),
+        bulk_encryption: None,
+        mac: Some(Mac::Md5),
+    };
+
+    pub const TLS_RSA_WITH_NULL_SHA: Self = Self {
+        key_exchange: Some(KeyExchange::Rsa),
+        authentication: Some(Authentication::Rsa),
+        bulk_encryption: None,
+        mac: Some(Mac::Sha1),
+    };
+
+    pub const TLS_RSA_WITH_NULL_SHA256: Self = Self {
+        key_exchange: Some(KeyExchange::Rsa),
+        authentication: Some(Authentication::Rsa),
+        bulk_encryption: None,
+        mac: Some(Mac::Sha256),
+    };
+
+    pub const TLS_RSA_WITH_RC4_128_MD5: Self = Self {
+        key_exchange: Some(KeyExchange::Rsa),
+        authentication: Some(Authentication::Rsa),
+        bulk_encryption: Some(BulkEncryption::Rc4),
+        mac: Some(Mac::Md5),
+    };
+
+    pub const TLS_RSA_WITH_RC4_128_SHA: Self = Self {
+        key_exchange: Some(KeyExchange::Rsa),
+        authentication: Some(Authentication::Rsa),
+        bulk_encryption: Some(BulkEncryption::Rc4),
+        mac: Some(Mac::Sha1),
+    };
+
+    pub const TLS_RSA_WITH_AES_128_CBC_SHA: Self = Self {
+        key_exchange: Some(KeyExchange::Rsa),
+        authentication: Some(Authentication::Rsa),
+        bulk_encryption: Some(BulkEncryption::Aes),
+        mac: Some(Mac::Sha1),
+    };
+}
+
+impl<'a> Decoding<'a> for CipherSuiteParameters {
+    fn decode(cursor: &mut Cursor<'a>) -> encoding::Result<Self> {
+        let id: u16 = cursor.decode()?;
+
+        let cipher_suite = match id {
+            0x0000 => Self::TLS_NULL_WITH_NULL_NULL,
+            0x0001 => Self::TLS_RSA_WITH_NULL_MD5,
+            0x0002 => Self::TLS_RSA_WITH_NULL_SHA,
+            0x003B => Self::TLS_RSA_WITH_NULL_SHA256,
+            0x0004 => Self::TLS_RSA_WITH_RC4_128_MD5,
+            0x0005 => Self::TLS_RSA_WITH_RC4_128_SHA,
+            // ...
+            0x002F => Self::TLS_RSA_WITH_AES_128_CBC_SHA,
+            // ...
+            _ => return Err(encoding::Error),
+        };
+
+        Ok(cipher_suite)
+    }
+}
 
 enum_encoding!(
     pub enum CipherSuite(u16) {
