@@ -1,5 +1,5 @@
 use crate::{
-    alert::{Alert, AlertError, Severity},
+    alert::{Alert, AlertError, Description, Severity},
     encoding::{self, Cursor, Decoding},
     handshake::{self, ClientHello, Extension, HandshakeMessage},
     record_layer::{
@@ -131,6 +131,10 @@ impl TLSConnection {
 
         for i in 0.. {
             if i == MAX_HANDSHAKE_LEN {
+                self.send_alert(Alert {
+                    severity: Severity::Fatal,
+                    description: Description::HandshakeFailure,
+                })?;
                 return Err(TLSError::HandshakeWontStop);
             }
 
@@ -166,6 +170,10 @@ impl TLSConnection {
                             break;
                         },
                         _ => {
+                            self.send_alert(Alert {
+                                severity: Severity::Fatal,
+                                description: Description::HandshakeFailure,
+                            })?;
                             return Err(TLSError::UnexpectedMessage);
                         },
                     }
