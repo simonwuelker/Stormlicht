@@ -3,6 +3,8 @@
 //! Note that this is not entirely spec-compliant. We do not support hashing
 //! data with a length that isn't a multiple of 8 bits.
 
+use crate::{CryptographicHashAlgorithm, HashAlgorithm};
+
 const K: [u32; 64] = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -30,44 +32,50 @@ const SHA256_INITIAL: [u32; 8] = [
 ];
 
 #[inline]
+#[must_use]
 fn ch(x: u32, y: u32, z: u32) -> u32 {
     (x & y) | (!x & z)
 }
 
 #[inline]
+#[must_use]
 fn maj(x: u32, y: u32, z: u32) -> u32 {
     (x & y) ^ (x & z) ^ (y & z)
 }
 
 #[inline]
+#[must_use]
 fn bsig0(x: u32) -> u32 {
     x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22)
 }
 
 #[inline]
+#[must_use]
 fn bsig1(x: u32) -> u32 {
     x.rotate_right(6) ^ x.rotate_right(11) ^ x.rotate_right(25)
 }
 
 #[inline]
+#[must_use]
 fn ssig0(x: u32) -> u32 {
     x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3)
 }
 
 #[inline]
+#[must_use]
 fn ssig1(x: u32) -> u32 {
     x.rotate_right(17) ^ x.rotate_right(19) ^ (x >> 10)
 }
 
 // NOTE: Internally, Sha224 is pretty much the same as SHA-256 so we just wrap
 // a SHA-256 hasher.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 /// SHA-224 Hasher, as defined in [RFC 3874](https://www.rfc-editor.org/rfc/rfc3874)
-pub struct Sha224Hasher(Sha256Hasher);
+pub struct Sha224(Sha256);
 
-impl Default for Sha224Hasher {
+impl Default for Sha224 {
     fn default() -> Self {
-        Self(Sha256Hasher {
+        Self(Sha256 {
             state: SHA224_INITIAL,
             buffer: [0; 64],
             buffer_ptr: 0,
@@ -76,15 +84,15 @@ impl Default for Sha224Hasher {
     }
 }
 
-#[derive(Debug)]
-pub struct Sha256Hasher {
+#[derive(Clone, Copy, Debug)]
+pub struct Sha256 {
     state: [u32; 8],
     buffer: [u8; 64],
     buffer_ptr: usize,
     num_bytes_consumed: u64,
 }
 
-impl Default for Sha256Hasher {
+impl Default for Sha256 {
     fn default() -> Self {
         Self {
             state: SHA256_INITIAL,
@@ -95,19 +103,54 @@ impl Default for Sha256Hasher {
     }
 }
 
-impl Sha224Hasher {
-    pub fn update(&mut self, bytes: &[u8]) {
+impl HashAlgorithm for Sha224 {
+    const BLOCK_SIZE_IN: usize = 64;
+    const BLOCK_SIZE_OUT: usize = 28;
+
+    fn update(&mut self, bytes: &[u8]) {
         self.0.update(bytes);
     }
 
-    pub fn finish(&mut self) -> [u8; 28] {
+    fn finish(self) -> [u8; 28] {
         let sha256_hash = self.0.finish();
-        sha256_hash[..28].try_into().unwrap()
+        sha256_hash[..28].try_into().expect("slice has length 28")
     }
 }
 
-impl Sha256Hasher {
-    fn finish(&mut self) -> [u8; 32] {
+impl CryptographicHashAlgorithm for Sha224 {}
+
+impl HashAlgorithm for Sha256 {
+    const BLOCK_SIZE_IN: usize = 64;
+    const BLOCK_SIZE_OUT: usize = 32;
+
+    fn update(&mut self, data: &[u8]) {
+        let bytes_to_fill = 64 - self.buffer_ptr;
+        if data.len() < bytes_to_fill {
+            // Not enough to get a full chunk of 64 bytes, just update the buffer and call it a day
+            self.buffer[self.buffer_ptr..self.buffer_ptr + data.len()].copy_from_slice(data);
+            self.buffer_ptr += data.len();
+            return;
+        }
+
+        // At this point, we have at least enough bytes to fill the buffer once
+        self.buffer[self.buffer_ptr..].copy_from_slice(&data[..bytes_to_fill]);
+        self.step();
+
+        let chunks = data[bytes_to_fill..].chunks_exact(64);
+        let remaining_bytes = chunks.remainder();
+        for chunk in chunks {
+            // TODO we shouldn't need to copy here (see md5 as well)
+            self.buffer.copy_from_slice(chunk);
+            self.step();
+        }
+
+        // Copy the remaining bytes into the buffer, the next `update()`
+        // call will take care of them
+        self.buffer[..remaining_bytes.len()].copy_from_slice(remaining_bytes);
+        self.buffer_ptr = remaining_bytes.len();
+    }
+
+    fn finish(mut self) -> [u8; Self::BLOCK_SIZE_OUT] {
         // Important to get the length (in bits) now *before* we consume any padding
         let length: u64 = (self.num_bytes_consumed + self.buffer_ptr as u64) * 8;
 
@@ -142,35 +185,11 @@ impl Sha256Hasher {
         hash[28..32].copy_from_slice(&self.state[7].to_be_bytes());
         hash
     }
+}
 
-    fn update(&mut self, bytes: &[u8]) {
-        let bytes_to_fill = 64 - self.buffer_ptr;
-        if bytes.len() < bytes_to_fill {
-            // Not enough to get a full chunk of 64 bytes, just update the buffer and call it a day
-            self.buffer[self.buffer_ptr..self.buffer_ptr + bytes.len()].copy_from_slice(bytes);
-            self.buffer_ptr += bytes.len();
-            return;
-        }
+impl CryptographicHashAlgorithm for Sha256 {}
 
-        // At this point, we have at least enough bytes to fill the buffer once
-        self.buffer[self.buffer_ptr..].copy_from_slice(&bytes[..bytes_to_fill]);
-        self.step();
-
-        let chunks = bytes[bytes_to_fill..].chunks_exact(64);
-        let remaining_bytes = chunks.remainder();
-        for chunk in chunks {
-            // TODO we shouldn't need to copy here (see md5 as well)
-            self.buffer.copy_from_slice(chunk);
-            self.step();
-        }
-
-        // Copy the remaining bytes into the buffer, the next `update()`
-        // call will take care of them
-        self.buffer[..remaining_bytes.len()].copy_from_slice(remaining_bytes);
-        self.buffer_ptr = remaining_bytes.len();
-    }
-
-    // This is the same for SHA-224 and SHA-256
+impl Sha256 {
     fn step(&mut self) {
         let mut w = [0; 64];
         for (index, word_bytes) in self.buffer.chunks_exact(4).enumerate() {
@@ -225,26 +244,14 @@ impl Sha256Hasher {
     }
 }
 
-pub fn sha224(bytes: &[u8]) -> [u8; 28] {
-    let mut hasher = Sha224Hasher::default();
-    hasher.update(bytes);
-    hasher.finish()
-}
-
-pub fn sha256(bytes: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha256Hasher::default();
-    hasher.update(bytes);
-    hasher.finish()
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{sha224, sha256};
+    use super::*;
 
     #[test]
     fn test_sha224() {
         assert_eq!(
-            sha224(b"abc"),
+            Sha224::hash(b"abc"),
             [
                 0x23, 0x09, 0x7d, 0x22, 0x34, 0x05, 0xd8, 0x22, 0x86, 0x42, 0xa4, 0x77, 0xbd, 0xa2,
                 0x55, 0xb3, 0x2a, 0xad, 0xbc, 0xe4, 0xbd, 0xa0, 0xb3, 0xf7, 0xe3, 0x6c, 0x9d, 0xa7
@@ -252,7 +259,7 @@ mod tests {
         );
 
         assert_eq!(
-            sha224(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
+            Sha224::hash(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
             [
                 0x75, 0x38, 0x8b, 0x16, 0x51, 0x27, 0x76, 0xcc, 0x5d, 0xba, 0x5d, 0xa1, 0xfd, 0x89,
                 0x01, 0x50, 0xb0, 0xc6, 0x45, 0x5c, 0xb4, 0xf5, 0x8b, 0x19, 0x52, 0x52, 0x25, 0x25
@@ -263,7 +270,7 @@ mod tests {
     #[test]
     fn test_sha256() {
         assert_eq!(
-            sha256(b"abc"),
+            Sha256::hash(b"abc"),
             [
                 0xBA, 0x78, 0x16, 0xBF, 0x8F, 0x01, 0xCF, 0xEA, 0x41, 0x41, 0x40, 0xDE, 0x5D, 0xAE,
                 0x22, 0x23, 0xB0, 0x03, 0x61, 0xA3, 0x96, 0x17, 0x7A, 0x9C, 0xB4, 0x10, 0xFF, 0x61,
@@ -272,7 +279,7 @@ mod tests {
         );
 
         assert_eq!(
-            sha256(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
+            Sha256::hash(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
             [
                 0x24, 0x8D, 0x6A, 0x61, 0xD2, 0x06, 0x38, 0xB8, 0xE5, 0xC0, 0x26, 0x93, 0x0C, 0x3E,
                 0x60, 0x39, 0xA3, 0x3C, 0xE4, 0x59, 0x64, 0xFF, 0x21, 0x67, 0xF6, 0xEC, 0xED, 0xD4,

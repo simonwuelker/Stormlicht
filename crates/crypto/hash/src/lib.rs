@@ -7,7 +7,7 @@ mod sha;
 
 pub use adler32::{adler32, Adler32Hasher};
 pub use md5::Md5;
-pub use sha::{sha224, sha256, Sha224Hasher, Sha256Hasher};
+pub use sha::{Sha224, Sha256};
 pub use {crc32::crc32, crc32::Crc32Hasher};
 
 /// Something that is able to calculate a checksum over arbitrary bytes.
