@@ -1,5 +1,7 @@
 //! Md5 [RFC 1321](https://datatracker.ietf.org/doc/html/rfc1321) implementation
 
+use crate::{CryptographicHashAlgorithm, HashAlgorithm};
+
 const T: [u32; 64] = [
     0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
     0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821,
@@ -53,7 +55,8 @@ macro_rules! step {
     }};
 }
 
-pub struct Md5Hasher {
+#[derive(Clone, Copy, Debug)]
+pub struct Md5 {
     a: u32,
     b: u32,
     c: u32,
@@ -63,7 +66,7 @@ pub struct Md5Hasher {
     num_bytes_consumed: u64,
 }
 
-impl Default for Md5Hasher {
+impl Default for Md5 {
     fn default() -> Self {
         Self {
             a: u32::from_le_bytes([0x01, 0x23, 0x45, 0x67]),
@@ -77,68 +80,7 @@ impl Default for Md5Hasher {
     }
 }
 
-impl Md5Hasher {
-    pub fn update(&mut self, bytes: &[u8]) {
-        let bytes_to_fill = 64 - self.buffer_ptr;
-        if bytes.len() < bytes_to_fill {
-            // Not enough to get a full chunk of 64 bytes, just update the buffer and call it a day
-            self.buffer[self.buffer_ptr..self.buffer_ptr + bytes.len()].copy_from_slice(bytes);
-            self.buffer_ptr += bytes.len();
-            return;
-        }
-
-        // At this point, we have at least enough bytes to fill the buffer once
-        self.buffer[self.buffer_ptr..].copy_from_slice(&bytes[..bytes_to_fill]);
-        self.step();
-
-        let chunks = bytes[bytes_to_fill..].chunks_exact(64);
-        let remaining_bytes = chunks.remainder();
-        for chunk in chunks {
-            // TODO we shouldn't really need to copy here
-            self.buffer.copy_from_slice(chunk);
-            self.step();
-        }
-
-        // Copy the remaining bytes into the buffer, the next `update()`
-        // call will take care of them
-        self.buffer[..remaining_bytes.len()].copy_from_slice(remaining_bytes);
-        self.buffer_ptr = remaining_bytes.len();
-    }
-
-    pub fn finish(&mut self) -> u128 {
-        // Important to get the length (in bits) now *before* we consume any padding
-        let length: u64 = (self.num_bytes_consumed + self.buffer_ptr as u64) * 8;
-
-        let needed_bytes = 64 - self.buffer_ptr;
-        self.buffer[self.buffer_ptr..].copy_from_slice(&PADDING[..needed_bytes]);
-
-        // We want to pad to be 8 bytes short of a full buffer. If we are currently
-        // *less* than (or equal to) 8 bytes short, we need to fill the buffer, to a step and
-        // fill the buffer *again*
-        if needed_bytes <= 8 {
-            // Need to fill a whole new block
-            self.step();
-            self.buffer[..56].fill(0);
-        }
-
-        // The last 8 bytes in the buffer are the number of bytes consumed
-        // (in weird endianness)
-        // let length_bits = length.to_le_bytes();
-        self.buffer[56..64].copy_from_slice(&length.to_le_bytes());
-
-        // At this point the buffer is completely filled, perform one final step
-        self.step();
-
-        // Build the hash value from a, b, c, d
-        let mut hash_bytes = [0; 16];
-        hash_bytes[0x00..0x04].copy_from_slice(&self.a.to_le_bytes());
-        hash_bytes[0x04..0x08].copy_from_slice(&self.b.to_le_bytes());
-        hash_bytes[0x08..0x0C].copy_from_slice(&self.c.to_le_bytes());
-        hash_bytes[0x0C..0x10].copy_from_slice(&self.d.to_le_bytes());
-
-        u128::from_be_bytes(hash_bytes)
-    }
-
+impl Md5 {
     // Perform the 4-round md5 algorithm once.
     // This assumes that the buffer has been filled.
     fn step(&mut self) {
@@ -247,38 +189,130 @@ impl Md5Hasher {
     }
 }
 
-/// Calculate the MD5 Hash for the given bytes.
-///
-/// This is a convenience function around creating a [Md5Hasher] instance.
-pub fn md5(bytes: &[u8]) -> u128 {
-    let mut hasher = Md5Hasher::default();
-    hasher.update(bytes);
-    hasher.finish()
+impl HashAlgorithm for Md5 {
+    const BLOCK_SIZE_IN: usize = 64;
+    const BLOCK_SIZE_OUT: usize = 16;
+
+    fn update(&mut self, data: &[u8]) {
+        let bytes_to_fill = 64 - self.buffer_ptr;
+        if data.len() < bytes_to_fill {
+            // Not enough to get a full chunk of 64 bytes, just update the buffer and call it a day
+            self.buffer[self.buffer_ptr..self.buffer_ptr + data.len()].copy_from_slice(data);
+            self.buffer_ptr += data.len();
+            return;
+        }
+
+        // At this point, we have at least enough bytes to fill the buffer once
+        self.buffer[self.buffer_ptr..].copy_from_slice(&data[..bytes_to_fill]);
+        self.step();
+
+        let chunks = data[bytes_to_fill..].chunks_exact(64);
+        let remaining_bytes = chunks.remainder();
+        for chunk in chunks {
+            // TODO we shouldn't really need to copy here
+            self.buffer.copy_from_slice(chunk);
+            self.step();
+        }
+
+        // Copy the remaining bytes into the buffer, the next `update()`
+        // call will take care of them
+        self.buffer[..remaining_bytes.len()].copy_from_slice(remaining_bytes);
+        self.buffer_ptr = remaining_bytes.len()
+    }
+
+    fn finish(mut self) -> [u8; Self::BLOCK_SIZE_OUT] {
+        // Important to get the length (in bits) now *before* we consume any padding
+        let length: u64 = (self.num_bytes_consumed + self.buffer_ptr as u64) * 8;
+
+        let needed_bytes = 64 - self.buffer_ptr;
+        self.buffer[self.buffer_ptr..].copy_from_slice(&PADDING[..needed_bytes]);
+
+        // We want to pad to be 8 bytes short of a full buffer. If we are currently
+        // *less* than (or equal to) 8 bytes short, we need to fill the buffer, to a step and
+        // fill the buffer *again*
+        if needed_bytes <= 8 {
+            // Need to fill a whole new block
+            self.step();
+            self.buffer[..56].fill(0);
+        }
+
+        // The last 8 bytes in the buffer are the number of bytes consumed
+        // (in weird endianness)
+        // let length_bits = length.to_le_bytes();
+        self.buffer[56..64].copy_from_slice(&length.to_le_bytes());
+
+        // At this point the buffer is completely filled, perform one final step
+        self.step();
+
+        // Build the hash value from a, b, c, d
+        let mut hash_bytes = [0; 16];
+        hash_bytes[0x00..0x04].copy_from_slice(&self.a.to_le_bytes());
+        hash_bytes[0x04..0x08].copy_from_slice(&self.b.to_le_bytes());
+        hash_bytes[0x08..0x0C].copy_from_slice(&self.c.to_le_bytes());
+        hash_bytes[0x0C..0x10].copy_from_slice(&self.d.to_le_bytes());
+
+        hash_bytes
+    }
 }
+
+impl CryptographicHashAlgorithm for Md5 {}
 
 #[cfg(test)]
 mod tests {
-    use super::md5;
+    use super::*;
 
     #[test]
     fn md5_test_vectors() {
-        assert_eq!(md5(b""), 0xd41d8cd98f00b204e9800998ecf8427e);
-        assert_eq!(md5(b"a"), 0x0cc175b9c0f1b6a831c399e269772661);
-        assert_eq!(md5(b"abc"), 0x900150983cd24fb0d6963f7d28e17f72);
-        assert_eq!(md5(b"message digest"), 0xf96b697d7cb7938d525a2f31aaf161d0);
         assert_eq!(
-            md5(b"abcdefghijklmnopqrstuvwxyz"),
-            0xc3fcd3d76192e4007dfb496cca67e13b
+            &Md5::hash(b""),
+            &[
+                0xd4, 0x1d, 0x8c, 0xd9, 0x8f, 0x00, 0xb2, 0x04, 0xe9, 0x80, 0x09, 0x98, 0xec, 0xf8,
+                0x42, 0x7e
+            ]
         );
         assert_eq!(
-            md5(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"),
-            0xd174ab98d277d9f5a5611c2c9f419d9f
+            &Md5::hash(b"a"),
+            &[
+                0x0c, 0xc1, 0x75, 0xb9, 0xc0, 0xf1, 0xb6, 0xa8, 0x31, 0xc3, 0x99, 0xe2, 0x69, 0x77,
+                0x26, 0x61
+            ]
         );
         assert_eq!(
-            md5(
+            &Md5::hash(b"abc"),
+            &[
+                0x90, 0x01, 0x50, 0x98, 0x3c, 0xd2, 0x4f, 0xb0, 0xd6, 0x96, 0x3f, 0x7d, 0x28, 0xe1,
+                0x7f, 0x72
+            ]
+        );
+        assert_eq!(
+            &Md5::hash(b"message digest"),
+            &[
+                0xf9, 0x6b, 0x69, 0x7d, 0x7c, 0xb7, 0x93, 0x8d, 0x52, 0x5a, 0x2f, 0x31, 0xaa, 0xf1,
+                0x61, 0xd0
+            ]
+        );
+        assert_eq!(
+            &Md5::hash(b"abcdefghijklmnopqrstuvwxyz"),
+            &[
+                0xc3, 0xfc, 0xd3, 0xd7, 0x61, 0x92, 0xe4, 0x00, 0x7d, 0xfb, 0x49, 0x6c, 0xca, 0x67,
+                0xe1, 0x3b
+            ]
+        );
+        assert_eq!(
+            &Md5::hash(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"),
+            &[
+                0xd1, 0x74, 0xab, 0x98, 0xd2, 0x77, 0xd9, 0xf5, 0xa5, 0x61, 0x1c, 0x2c, 0x9f, 0x41,
+                0x9d, 0x9f
+            ]
+        );
+        assert_eq!(
+            &Md5::hash(
                 b"12345678901234567890123456789012345678901234567890123456789012345678901234567890"
             ),
-            0x57edf4a22be3c955ac49da2e2107b67a
+            &[
+                0x57, 0xed, 0xf4, 0xa2, 0x2b, 0xe3, 0xc9, 0x55, 0xac, 0x49, 0xda, 0x2e, 0x21, 0x07,
+                0xb6, 0x7a
+            ]
         );
     }
 }
