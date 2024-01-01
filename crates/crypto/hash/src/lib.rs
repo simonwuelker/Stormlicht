@@ -1,7 +1,9 @@
-#![feature(cfg_match)]
+#![allow(incomplete_features)]
+#![feature(cfg_match, generic_const_exprs)]
 
 mod adler32;
 mod crc32;
+mod hmac;
 mod md5;
 mod sha;
 
@@ -34,4 +36,12 @@ pub trait HashAlgorithm: Default {
 /// cannot trivially be inverted.
 ///
 /// This is a marker trait, no functionality beyond [HashAlgorithm] is required.
-pub trait CryptographicHashAlgorithm: HashAlgorithm {}
+pub trait CryptographicHashAlgorithm: HashAlgorithm {
+    fn hmac(key: &[u8], data: &[u8]) -> [u8; Self::BLOCK_SIZE_OUT]
+    // Refer to the comment on the hmac function itself on why this trait bound is necessary
+    where
+        [(); Self::BLOCK_SIZE_IN]: Sized,
+    {
+        hmac::hmac::<Self>(key, data)
+    }
+}
