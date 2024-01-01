@@ -24,7 +24,10 @@ impl<T: Default + Copy> Texture<T> {
         }
     }
 
-    pub fn resize(&mut self, new_width: usize, new_height: usize) {
+    /// Change the texture buffer size
+    ///
+    /// The contents of the texture are unspecified after this operation
+    pub fn resize_buffer(&mut self, new_width: usize, new_height: usize) {
         self.width = new_width;
         self.height = new_height;
         self.data.resize(new_width * new_height, T::default());

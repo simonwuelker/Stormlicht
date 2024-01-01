@@ -80,7 +80,7 @@ impl glazier::WinHandler for BrowserApplication {
         let width_px = (size.width * dpi.x()).ceil() as usize;
         let height_px = (size.height * dpi.y()).ceil() as usize;
 
-        self.view_buffer.resize(width_px, height_px);
+        self.view_buffer.resize_buffer(width_px, height_px);
         self.repaint_required = RepaintRequired::Yes;
     }
 
