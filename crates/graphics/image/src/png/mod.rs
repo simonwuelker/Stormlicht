@@ -111,6 +111,7 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Texture<u32>, Error> {
     let mut idat = vec![];
     let mut palette = None;
 
+    // Read all the PNG chunks in the fule
     loop {
         let chunk = read_chunk(&mut reader)?;
 
@@ -134,6 +135,7 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Texture<u32>, Error> {
     }
 
     if image_header.image_type == chunks::ihdr::ImageType::IndexedColor && palette.is_none() {
+        log::error!("Cannot decode indexed color image without palette table");
         return Err(Error::IndexedImageWithoutPLTE);
     }
 
@@ -143,7 +145,7 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Texture<u32>, Error> {
 
     // NOTE: need to add 1 here because each scanline also contains a byte specifying a filter type
     if decompressed_body.len() % (scanline_width + 1) != 0 {
-        log::warn!(
+        log::error!(
             "Decompressed data size {} is not a multiple of scanline size {}",
             decompressed_body.len(),
             scanline_width + 1
@@ -205,7 +207,7 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk, Error> {
     let computed_crc = hasher.finish();
 
     if expected_crc != computed_crc {
-        log::warn!(
+        log::error!(
             "Incorrect chunk checksum: expected {expected_crc:0>8x}, found {computed_crc:0>8x}"
         );
         return Err(Error::MismatchedChecksum);
@@ -224,7 +226,7 @@ fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk, Error> {
         },
         b"cHRM" => {
             if length != 32 {
-                log::warn!("cHRM length must be exactly 32 bytes, found {length}");
+                log::error!("cHRM length must be exactly 32 bytes, found {length}");
                 return Err(Error::InvalidcHRMChunk);
             }
 
