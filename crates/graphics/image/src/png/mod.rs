@@ -289,10 +289,11 @@ fn apply_filters(
     from: &[u8],
     to: &mut [u8],
     scanline_width: usize,
-    _pixel_width: usize,
+    pixel_width: usize,
 ) -> Result<(), Error> {
     // For each scanline, apply a filter (which is the first byte) to the scanline data (which is the rest)
     let mut previous_scanline = vec![0; scanline_width];
+
     for (index, scanline_data_and_filter_method) in
         from.chunks_exact(scanline_width + 1).enumerate()
     {
@@ -311,59 +312,58 @@ fn apply_filters(
             Filter::None => current_scanline.copy_from_slice(filtered_data),
             Filter::Sub => {
                 // Unfiltered = Filtered + a
-                let mut a = [0; 3];
+                let mut a = vec![0; pixel_width];
                 for (unfiltered_pixel, filtered_pixel) in current_scanline
-                    .chunks_exact_mut(3)
-                    .zip(filtered_data.chunks_exact(3))
+                    .chunks_exact_mut(pixel_width)
+                    .zip(filtered_data.chunks_exact(pixel_width))
                 {
-                    unfiltered_pixel[0] = filtered_pixel[0].wrapping_add(a[0]);
-                    unfiltered_pixel[1] = filtered_pixel[1].wrapping_add(a[1]);
-                    unfiltered_pixel[2] = filtered_pixel[2].wrapping_add(a[2]);
+                    for i in 0..pixel_width {
+                        unfiltered_pixel[i] = filtered_pixel[i].wrapping_add(a[i]);
+                    }
                     a.copy_from_slice(unfiltered_pixel);
                 }
             },
             Filter::Up => {
                 // Unfiltered = Filtered + b
                 for ((unfiltered_pixel, filtered_pixel), b) in current_scanline
-                    .chunks_exact_mut(3)
-                    .zip(filtered_data.chunks_exact(3))
-                    .zip(previous_scanline.chunks_exact(3))
+                    .chunks_exact_mut(pixel_width)
+                    .zip(filtered_data.chunks_exact(pixel_width))
+                    .zip(previous_scanline.chunks_exact(pixel_width))
                 {
-                    unfiltered_pixel[0] = filtered_pixel[0].wrapping_add(b[0]);
-                    unfiltered_pixel[1] = filtered_pixel[1].wrapping_add(b[1]);
-                    unfiltered_pixel[2] = filtered_pixel[2].wrapping_add(b[2]);
+                    for i in 0..pixel_width {
+                        unfiltered_pixel[i] = filtered_pixel[i].wrapping_add(b[i]);
+                    }
                 }
             },
             Filter::Average => {
                 // Unfiltered = Filtered + (a + b) // 2
-                let mut a = [0; 3];
+                let mut a = vec![0; pixel_width];
                 for ((unfiltered_pixel, filtered_pixel), b) in current_scanline
-                    .chunks_exact_mut(3)
-                    .zip(filtered_data.chunks_exact(3))
-                    .zip(previous_scanline.chunks_exact(3))
+                    .chunks_exact_mut(pixel_width)
+                    .zip(filtered_data.chunks_exact(pixel_width))
+                    .zip(previous_scanline.chunks_exact(pixel_width))
                 {
-                    unfiltered_pixel[0] =
-                        filtered_pixel[0].wrapping_add(((a[0] as u16 + b[0] as u16) / 2) as u8);
-                    unfiltered_pixel[1] =
-                        filtered_pixel[1].wrapping_add(((a[1] as u16 + b[1] as u16) / 2) as u8);
-                    unfiltered_pixel[2] =
-                        filtered_pixel[2].wrapping_add(((a[2] as u16 + b[2] as u16) / 2) as u8);
+                    for i in 0..pixel_width {
+                        let avg = ((a[i] as u16 + b[i] as u16) / 2) as u8;
+                        unfiltered_pixel[i] = filtered_pixel[i].wrapping_add(avg);
+                    }
                     a.copy_from_slice(unfiltered_pixel);
                 }
             },
             Filter::Paeth => {
                 // Unfiltered = Filtered + Unpaeth(a, b, c)
-                let mut a = [0; 3];
-                let mut c = [0; 3];
+                let mut a = vec![0; pixel_width];
+                let mut c = vec![0; pixel_width];
 
                 for ((unfiltered_pixel, filtered_pixel), b) in current_scanline
-                    .chunks_exact_mut(3)
-                    .zip(filtered_data.chunks_exact(3))
-                    .zip(previous_scanline.chunks_exact(3))
+                    .chunks_exact_mut(pixel_width)
+                    .zip(filtered_data.chunks_exact(pixel_width))
+                    .zip(previous_scanline.chunks_exact(pixel_width))
                 {
-                    unfiltered_pixel[0] = filtered_pixel[0].wrapping_add(paeth(a[0], b[0], c[0]));
-                    unfiltered_pixel[1] = filtered_pixel[1].wrapping_add(paeth(a[1], b[1], c[1]));
-                    unfiltered_pixel[2] = filtered_pixel[2].wrapping_add(paeth(a[2], b[2], c[2]));
+                    for i in 0..pixel_width {
+                        let paeth_value = paeth(a[i], b[i], c[i]);
+                        unfiltered_pixel[i] = filtered_pixel[i].wrapping_add(paeth_value);
+                    }
 
                     a.copy_from_slice(unfiltered_pixel);
                     c.copy_from_slice(b);
