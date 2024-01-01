@@ -69,9 +69,9 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                 }
 
                 if computed_style.display().is_inline() {
-                    self.push_inline_box(child.clone(), computed_style);
+                    self.push_inline_box(element, computed_style);
                 } else {
-                    self.push_block_box(element.clone(), computed_style);
+                    self.push_block_box(element, computed_style);
                 }
             } else if let Some(text) = child.try_into_type::<dom_objects::Text>() {
                 // Content that would later be collapsed away according to the white-space property
@@ -110,30 +110,36 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
         }
     }
 
-    fn push_inline_box(&mut self, node: DomPtr<dom_objects::Node>, style: ComputedStyle) {
-        self.inline_stack
-            .push(InlineBox::new(node.clone(), style.clone()));
-
-        // Traverse all children, they will be appended to the inline box we just created
-        self.traverse_subtree(node, &style);
-
-        // Pop the inline box from the stack and append it to its parents list of children
-        // unless the stack of open inline boxes is empty, in which case this was a top level box
-        // and we append it to the ongoing inline formatting context instead
-        let populated_inline_box = InlineLevelBox::InlineBox(
+    fn push_inline_box(&mut self, element: DomPtr<dom_objects::Element>, style: ComputedStyle) {
+        let inline_box = if let Some(replaced_element) =
+            ReplacedElement::try_from(element.clone(), style.clone())
+        {
+            InlineLevelBox::Replaced(replaced_element)
+        } else {
             self.inline_stack
-                .pop()
-                .expect("stack of open inline boxes should not be empty"),
-        );
+                .push(InlineBox::new(element.clone().upcast(), style.clone()));
+
+            // Traverse all children, they will be appended to the inline box we just created
+            self.traverse_subtree(element.upcast(), &style);
+
+            // Pop the inline box from the stack and append it to its parents list of children
+            // unless the stack of open inline boxes is empty, in which case this was a top level box
+            // and we append it to the ongoing inline formatting context instead
+            InlineLevelBox::InlineBox(
+                self.inline_stack
+                    .pop()
+                    .expect("stack of open inline boxes should not be empty"),
+            )
+        };
 
         if let Some(top_box) = self.inline_stack.last_mut() {
-            top_box.push(populated_inline_box);
+            top_box.push(inline_box);
         } else {
             // inline box stack is empty
-            self.current_inline_formatting_context
-                .push(populated_inline_box);
+            self.current_inline_formatting_context.push(inline_box);
         }
     }
+
     fn push_block_box(&mut self, element: DomPtr<dom_objects::Element>, style: ComputedStyle) {
         // Split all currently open inline boxes around the block box
         if !self.inline_stack.is_empty() {

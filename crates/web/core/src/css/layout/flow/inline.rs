@@ -7,7 +7,7 @@ use crate::{
     css::{
         font_metrics::{self, DEFAULT_FONT_SIZE},
         fragment_tree::{BoxFragment, Fragment, TextFragment},
-        layout::{ContainingBlock, Pixels, Sides},
+        layout::{replaced::ReplacedElement, ContainingBlock, Pixels, Sides, Size},
         values::{font_size, length, FontName},
         ComputedStyle, LineBreakIterator,
     },
@@ -20,6 +20,7 @@ use crate::{
 pub enum InlineLevelBox {
     InlineBox(InlineBox),
     TextRun(TextRun),
+    Replaced(ReplacedElement),
 }
 
 #[derive(Clone, Debug)]
@@ -87,7 +88,12 @@ impl TextRun {
         }
     }
 
-    fn layout_into_line_items(&self, state: &mut InlineFormattingContextState<'_>) {
+    fn layout_into_line_items<'state, 'box_tree>(
+        &self,
+        state: &'state mut InlineFormattingContextState<'box_tree>,
+    ) where
+        'box_tree: 'state,
+    {
         // FIXME: use the inherited font size here, not the default one
         let ctx = font_size::ResolutionContext {
             inherited_font_size: DEFAULT_FONT_SIZE,
@@ -132,7 +138,11 @@ impl TextRun {
                 width: text_line.width,
                 style: self.style().get_inherited(),
             });
-            state.push_line_item(line_item, text_line.width, font_metrics.size);
+            let size = Size {
+                width: text_line.width,
+                height: font_metrics.size,
+            };
+            state.push_line_item(line_item, size);
 
             if !lines.is_done() {
                 state.finish_current_line();
@@ -189,14 +199,15 @@ struct LineBoxUnderConstruction {
 
 /// State of an IFC for the current nesting level
 #[derive(Clone, Debug, Default)]
-struct NestingLevelState {
-    line_items: Vec<LineItem>,
+struct NestingLevelState<'box_tree> {
+    /// The list of line items found on this nesting level so far
+    line_items: Vec<LineItem<'box_tree>>,
 }
 
 #[derive(Clone, Debug)]
 struct InlineBoxContainerState<'box_tree> {
     inline_box: &'box_tree InlineBox,
-    nesting_level_state: NestingLevelState,
+    nesting_level_state: NestingLevelState<'box_tree>,
 }
 
 #[derive(Clone, Debug)]
@@ -204,7 +215,7 @@ struct InlineFormattingContextState<'box_tree> {
     /// Information about the line box currently being constructed
     line_box_under_construction: LineBoxUnderConstruction,
 
-    root_nesting_level_state: NestingLevelState,
+    root_nesting_level_state: NestingLevelState<'box_tree>,
 
     /// A stack of inline boxes that were opened within this IFC
     inline_box_stack: Vec<InlineBoxContainerState<'box_tree>>,
@@ -225,9 +236,16 @@ struct InlineFormattingContextState<'box_tree> {
 }
 
 #[derive(Clone, Debug)]
-enum LineItem {
+enum LineItem<'box_tree> {
     TextRun(TextRunItem),
-    InlineBox(InlineBoxItem),
+    InlineBox(InlineBoxItem<'box_tree>),
+    Replaced(ReplacedItem<'box_tree>),
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ReplacedItem<'box_tree> {
+    replaced_element: &'box_tree ReplacedElement,
+    size: Size<Pixels>,
 }
 
 /// A piece of text that takes up at most one line
@@ -240,9 +258,9 @@ struct TextRunItem {
 }
 
 #[derive(Clone, Debug)]
-struct InlineBoxItem {
+struct InlineBoxItem<'box_tree> {
     style: ComputedStyle,
-    children: Vec<LineItem>,
+    children: Vec<LineItem<'box_tree>>,
 }
 
 /// State used during conversion from [LineItems](LineItem) to [Fragments](Fragment)
@@ -269,7 +287,7 @@ impl LineItemLayoutState {
     }
 }
 
-impl InlineBoxItem {
+impl<'box_tree> InlineBoxItem<'box_tree> {
     fn layout(self, state: &mut LineItemLayoutState) -> Option<BoxFragment> {
         // Create a nested layout state that will contain the children
         let box_position = state.position + Vec2D::new(state.current_width, Pixels::ZERO);
@@ -287,8 +305,10 @@ impl InlineBoxItem {
             nested_state.current_height,
         );
 
-        state.current_width += nested_state.current_width;
-        state.current_height = state.current_height.max(nested_state.current_height);
+        state.push_item(Size {
+            width: nested_state.current_width,
+            height: nested_state.current_height,
+        });
 
         let borders = Sides::all(Pixels::ZERO);
         let margin_area = content_area;
@@ -326,13 +346,13 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
         }
     }
 
-    fn push_line_item(&mut self, line_item: LineItem, width: Pixels, height: Pixels) {
-        self.line_box_under_construction.width += width;
+    fn push_line_item(&mut self, line_item: LineItem<'box_tree>, size: Size<Pixels>) {
+        self.line_box_under_construction.width += size.width;
         self.has_seen_relevant_content = true;
         self.at_beginning_of_line = false;
 
-        if self.line_box_under_construction.height < height {
-            self.line_box_under_construction.height = height;
+        if self.line_box_under_construction.height < size.height {
+            self.line_box_under_construction.height = size.height;
         }
 
         self.current_insertion_point().line_items.push(line_item);
@@ -353,11 +373,25 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
                 InlineLevelBox::TextRun(text_run) => {
                     text_run.layout_into_line_items(self);
                 },
+                InlineLevelBox::Replaced(replaced_element) => {
+                    let size = replaced_element.used_size_if_it_was_inline(
+                        self.containing_block,
+                        self.length_resolution_context,
+                    );
+                    let replaced_item = ReplacedItem {
+                        replaced_element,
+                        size,
+                    };
+                    self.push_line_item(replaced_item.into(), size);
+                },
             }
         }
     }
 
-    fn finish_current_line(&mut self) {
+    fn finish_current_line<'a>(&'a mut self)
+    where
+        'box_tree: 'a,
+    {
         // Create LineItems for all boxes on the stack
         let mut inline_box_stack = self.inline_box_stack.iter_mut().rev();
 
@@ -389,7 +423,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
         self.at_beginning_of_line = true;
     }
 
-    fn current_insertion_point(&mut self) -> &mut NestingLevelState {
+    fn current_insertion_point(&mut self) -> &mut NestingLevelState<'box_tree> {
         match self.inline_box_stack.last_mut() {
             Some(last_box) => &mut last_box.nesting_level_state,
             None => &mut self.root_nesting_level_state,
@@ -419,9 +453,9 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
     }
 }
 
-impl LineItemLayoutState {
+impl<'box_tree> LineItemLayoutState {
     /// Returns all the fragments within a line box
-    fn layout(&mut self, line_items: Vec<LineItem>) -> Vec<Fragment> {
+    fn layout(&mut self, line_items: Vec<LineItem<'box_tree>>) -> Vec<Fragment> {
         let mut fragments = Vec::new();
 
         for line_item in line_items {
@@ -435,14 +469,24 @@ impl LineItemLayoutState {
                     let fragment = Fragment::Text(text_run.layout(self));
                     fragments.push(fragment);
                 },
+                LineItem::Replaced(replaced_item) => {
+                    let fragment = replaced_item.layout(self);
+                    fragments.push(fragment);
+                },
             }
         }
 
         fragments
     }
+
+    fn push_item(&mut self, size: Size<Pixels>) {
+        self.current_height = self.current_height.max(size.height);
+        self.current_width += size.width;
+    }
 }
 
 impl<'box_tree> InlineBoxContainerState<'box_tree> {
+    #[must_use]
     fn new(inline_box: &'box_tree InlineBox) -> Self {
         Self {
             inline_box,
@@ -450,7 +494,11 @@ impl<'box_tree> InlineBoxContainerState<'box_tree> {
         }
     }
 
-    fn layout_into_line_item(&mut self) -> InlineBoxItem {
+    #[must_use]
+    fn layout_into_line_item<'a>(&'a mut self) -> InlineBoxItem<'box_tree>
+    where
+        'box_tree: 'a,
+    {
         InlineBoxItem {
             style: self.inline_box.style.clone(),
             children: mem::take(&mut self.nesting_level_state.line_items),
@@ -458,16 +506,30 @@ impl<'box_tree> InlineBoxContainerState<'box_tree> {
     }
 }
 
+impl<'box_tree> ReplacedItem<'box_tree> {
+    #[must_use]
+    fn layout(self, state: &mut LineItemLayoutState) -> Fragment {
+        state.push_item(self.size);
+
+        self.replaced_element
+            .content()
+            .create_fragment(state.position, self.size)
+    }
+}
+
 impl TextRunItem {
+    #[must_use]
     fn layout(self, state: &mut LineItemLayoutState) -> TextFragment {
         // Make the line box high enough to fit the line
         let line_height = self.metrics.size;
-        state.current_height = state.current_height.max(line_height);
 
         let top_left = state.position + Vec2D::new(state.current_width, Pixels::ZERO);
         let area = Rectangle::from_position_and_size(top_left, self.width, line_height);
 
-        state.current_width += self.width;
+        state.push_item(Size {
+            width: self.width,
+            height: line_height,
+        });
 
         TextFragment::new(self.text, area, *self.style.color(), self.metrics)
     }
@@ -481,6 +543,7 @@ impl From<Vec<InlineLevelBox>> for InlineFormattingContext {
 
 impl InlineBox {
     #[inline]
+    #[must_use]
     pub fn new(node: DomPtr<dom_objects::Node>, style: ComputedStyle) -> Self {
         Self {
             node,
@@ -499,6 +562,7 @@ impl InlineBox {
     /// This is necessary when an [InlineBox] needs to be split due to
     /// a [BlockLevelBox](super::BlockLevelBox) inside it.
     #[inline]
+    #[must_use]
     pub fn split_off(&self) -> Self {
         Self {
             node: self.node.clone(),
@@ -543,19 +607,29 @@ impl TreeDebug for InlineLevelBox {
                 }
                 formatter.decrease_indent();
             },
+            Self::Replaced(_) => {
+                formatter.indent()?;
+                writeln!(formatter, "Replaced Element")?;
+            },
         }
         Ok(())
     }
 }
 
-impl From<InlineBoxItem> for LineItem {
-    fn from(value: InlineBoxItem) -> Self {
+impl<'box_tree> From<InlineBoxItem<'box_tree>> for LineItem<'box_tree> {
+    fn from(value: InlineBoxItem<'box_tree>) -> Self {
         Self::InlineBox(value)
     }
 }
 
-impl From<TextRunItem> for LineItem {
+impl<'box_tree> From<TextRunItem> for LineItem<'box_tree> {
     fn from(value: TextRunItem) -> Self {
         Self::TextRun(value)
+    }
+}
+
+impl<'box_tree> From<ReplacedItem<'box_tree>> for LineItem<'box_tree> {
+    fn from(value: ReplacedItem<'box_tree>) -> Self {
+        Self::Replaced(value)
     }
 }
