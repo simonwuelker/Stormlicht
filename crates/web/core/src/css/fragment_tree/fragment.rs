@@ -1,4 +1,4 @@
-use image::Texture;
+use image::DynamicTexture;
 use math::Rectangle;
 
 use crate::{
@@ -36,7 +36,7 @@ pub struct TextFragment {
 
 #[derive(Clone, Debug)]
 pub struct TextureFragment {
-    pub texture: Texture<u32>,
+    pub texture: DynamicTexture,
     pub area: Rectangle<Pixels>,
 }
 

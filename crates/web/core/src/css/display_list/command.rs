@@ -1,4 +1,4 @@
-use image::Texture;
+use image::DynamicTexture;
 
 use crate::css::{layout::Pixels, FontMetrics};
 
@@ -26,5 +26,5 @@ pub struct TextCommand {
 #[derive(Clone, Debug)]
 pub struct ImageCommand {
     pub area: math::Rectangle<Pixels>,
-    pub texture: Texture<u32>,
+    pub texture: DynamicTexture,
 }

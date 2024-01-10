@@ -1,8 +1,8 @@
 use core::{event, BrowsingContext};
-use image::Texture;
+use image::{ColorFormat, Rgba, Texture};
 use url::URL;
 
-use std::process::ExitCode;
+use std::{mem, process::ExitCode};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 enum RepaintRequired {
@@ -12,7 +12,7 @@ enum RepaintRequired {
 }
 
 pub struct BrowserApplication {
-    view_buffer: Texture<u32>,
+    view_buffer: Texture<Rgba<u8>, Vec<u8>>,
     graphics_context: Option<softbuffer::GraphicsContext>,
 
     /// Viewport size, in Display Points (not pixels)
@@ -39,7 +39,8 @@ impl glazier::WinHandler for BrowserApplication {
     }
 
     fn paint(&mut self, _invalid: &glazier::Region) {
-        self.view_buffer.clear(math::Color::WHITE.into());
+        self.view_buffer
+            .clear(Rgba::from_channels(&[255, 255, 255, 255]));
         self.composition.clear();
 
         let dpi = self
@@ -54,8 +55,26 @@ impl glazier::WinHandler for BrowserApplication {
         self.composition.render_to(&mut self.view_buffer);
 
         if let Some(graphics_context) = &mut self.graphics_context {
+            // Convert the RGBA slice (of u8) into 0RGB (of u32)
+            // SAFETY: The size of the view buffer is always known to be a multiple of 4,
+            //         so its safe to manipulate as if it were u32's
+            let rgb_data: &mut [u32] = unsafe {
+                std::slice::from_raw_parts_mut(
+                    self.view_buffer.data_mut().as_mut_ptr() as *mut u32,
+                    self.view_buffer.data().len() / mem::size_of::<u32>(),
+                )
+            };
+            assert!(
+                std::mem::size_of_val(rgb_data) == std::mem::size_of_val(self.view_buffer.data())
+            );
+
+            for pixel in rgb_data.iter_mut() {
+                *pixel = pixel.to_be();
+                *pixel >>= 8;
+            }
+
             graphics_context.set_buffer(
-                self.view_buffer.data(),
+                rgb_data,
                 self.view_buffer.width() as u16,
                 self.view_buffer.height() as u16,
             );

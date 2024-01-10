@@ -1,27 +1,51 @@
-use crate::png;
+use std::{
+    convert::FloatToInt,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
-/// The target surface that content should be drawn to
+use crate::{format::ColorFormat, png, DynamicTexture, Rgba};
+
+/// A texture that holds visual content
 #[derive(Clone, Debug)]
-pub struct Texture<T> {
+pub struct Texture<C, D> {
     width: usize,
     height: usize,
-    data: Vec<T>,
+    data: D,
+    marker: PhantomData<C>,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum AccessMode<T> {
-    Default(T),
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AccessMode {
+    Zero,
     Clamp,
 }
 
-impl<T: Default + Copy> Texture<T> {
+impl<C, D> Texture<C, D> {
     #[must_use]
-    pub fn new(width: usize, height: usize) -> Self {
+    pub const fn from_data(data: D, width: usize, height: usize) -> Self {
         Self {
             width,
             height,
-            data: vec![T::default(); width * height],
+            data,
+            marker: PhantomData,
         }
+    }
+}
+
+impl<C> Texture<C, Vec<C::Channel>>
+where
+    C: ColorFormat,
+    C::Channel: Copy + Default,
+    f32: FloatToInt<C::Channel>,
+{
+    #[must_use]
+    pub fn new(width: usize, height: usize) -> Self {
+        Self::from_data(
+            vec![C::Channel::default(); width * height * C::N_CHANNELS],
+            width,
+            height,
+        )
     }
 
     /// Change the texture buffer size
@@ -30,30 +54,35 @@ impl<T: Default + Copy> Texture<T> {
     pub fn resize_buffer(&mut self, new_width: usize, new_height: usize) {
         self.width = new_width;
         self.height = new_height;
-        self.data.resize(new_width * new_height, T::default());
+        self.data.resize(
+            new_width * new_height * C::N_CHANNELS,
+            C::Channel::default(),
+        );
     }
-}
 
-impl<T> Texture<T> {
     /// Constructs an empty texture
     #[must_use]
     pub fn empty() -> Self {
-        Self {
-            width: 0,
-            height: 0,
-            data: vec![],
-        }
+        Self::from_data(vec![], 0, 0)
+    }
+}
+
+impl<'a, C, D> Texture<C, D>
+where
+    C: ColorFormat,
+    C::Channel: 'a,
+    D: 'a + Deref<Target = [C::Channel]>,
+    f32: FloatToInt<C::Channel>,
+{
+    #[must_use]
+    pub fn data(&self) -> &[C::Channel] {
+        &self.data
     }
 
     #[must_use]
-    pub fn from_data(data: Vec<T>, width: usize, height: usize) -> Self {
-        debug_assert_eq!(data.len(), width * height);
-
-        Self {
-            width,
-            height,
-            data,
-        }
+    pub fn pixel_data(&'a self, x: usize, y: usize) -> &[C::Channel] {
+        let pixel_index = (self.width * y + x) * C::N_CHANNELS;
+        &self.data[pixel_index..pixel_index + C::N_CHANNELS]
     }
 
     #[must_use]
@@ -66,59 +95,10 @@ impl<T> Texture<T> {
         self.height
     }
 
-    /// Set the pixel at the given coordinates to the specified value.
-    ///
-    /// # Panics
-    /// This function panics if the coordinates are outside of the bitmap
-    pub fn set_pixel(&mut self, x: usize, y: usize, pixel: T) {
-        let index = self.index_of_pixel(x, y);
-        self.data[index] = pixel;
-    }
-
-    /// Calculate the index of the pixel data for a given set of coordinates
-    #[must_use]
-    fn index_of_pixel(&self, x: usize, y: usize) -> usize {
-        debug_assert!(self.contains(x, y));
-
-        y * self.width + x
-    }
-
-    #[must_use]
-    pub fn data(&self) -> &[T] {
-        &self.data
-    }
-
     /// Return `true` if the coordinates are inside the bounds of the texutre
     #[must_use]
     pub const fn contains(&self, x: usize, y: usize) -> bool {
         x < self.width() && y < self.height()
-    }
-}
-
-impl<T: Copy> Texture<T> {
-    pub fn clear(&mut self, clear_color: T) {
-        self.data.fill(clear_color);
-    }
-
-    /// Get the pixel value at the given coordinates
-    ///
-    /// # Panics
-    /// This function panics if the coordinates are outside of the bitmap
-    #[must_use]
-    pub fn get_pixel(&self, x: usize, y: usize) -> T {
-        self.data[self.index_of_pixel(x, y)]
-    }
-
-    /// Access a specific pixel in the image
-    ///
-    /// If the coordinates are outside the image, `default` will be returned
-    #[must_use]
-    pub fn get_or(&self, x: usize, y: usize, default: T) -> T {
-        if self.contains(x, y) {
-            self.get_pixel(x, y)
-        } else {
-            default
-        }
     }
 
     /// Access a specific pixel in the image
@@ -129,7 +109,7 @@ impl<T: Copy> Texture<T> {
     /// # Panics
     /// Panics if any of the image dimensions is zero.
     #[must_use]
-    pub fn get_clamped(&self, x: usize, y: usize) -> T {
+    pub fn get_clamped(&'a self, x: usize, y: usize) -> C {
         assert!(self.width() != 0);
         assert!(self.height() != 0);
 
@@ -139,16 +119,109 @@ impl<T: Copy> Texture<T> {
     }
 
     #[must_use]
-    pub fn get(&self, x: usize, y: usize, access_mode: AccessMode<T>) -> T {
+    pub fn get(&'a self, x: usize, y: usize, access_mode: AccessMode) -> C {
         match access_mode {
-            AccessMode::Default(default) => self.get_or(x, y, default),
+            AccessMode::Zero => self.get_or(x, y, C::default()),
             AccessMode::Clamp => self.get_clamped(x, y),
+        }
+    }
+
+    /// Get the pixel value at the given coordinates
+    ///
+    /// # Panics
+    /// This function panics if the coordinates are outside of the bitmap
+    #[must_use]
+    pub fn get_pixel(&'a self, x: usize, y: usize) -> C {
+        C::from_channels(self.pixel_data(x, y))
+    }
+
+    /// Access a specific pixel in the image
+    ///
+    /// If the coordinates are outside the image, `default` will be returned
+    #[must_use]
+    pub fn get_or(&'a self, x: usize, y: usize, default: C) -> C {
+        if self.contains(x, y) {
+            self.get_pixel(x, y)
+        } else {
+            default
         }
     }
 }
 
-impl Texture<u32> {
+impl<C, D> Texture<C, D>
+where
+    C: ColorFormat,
+    D: DerefMut<Target = [C::Channel]>,
+    f32: FloatToInt<C::Channel>,
+{
+    #[must_use]
+    pub fn data_mut(&mut self) -> &mut [C::Channel] {
+        &mut self.data
+    }
+
+    #[must_use]
+    pub fn pixel_data_mut(&mut self, x: usize, y: usize) -> &mut [C::Channel] {
+        let pixel_index = (self.width() * y + x) * C::N_CHANNELS;
+        &mut self.data[pixel_index..pixel_index + C::N_CHANNELS]
+    }
+
+    pub fn pixels_mut(&mut self) -> impl Iterator<Item = &mut [C::Channel]> {
+        self.data.chunks_exact_mut(C::N_CHANNELS)
+    }
+
+    /// Set the pixel at the given coordinates to the specified value.
+    ///
+    /// # Panics
+    /// This function panics if the coordinates are outside of the bitmap
+    pub fn set_pixel(&mut self, x: usize, y: usize, pixel: C) {
+        self.pixel_data_mut(x, y).copy_from_slice(pixel.channels());
+    }
+
+    pub fn clear(&mut self, clear_color: C) {
+        let channels = clear_color.channels();
+        for pixel in self.pixels_mut() {
+            pixel.copy_from_slice(channels)
+        }
+    }
+}
+
+impl DynamicTexture {
     pub fn from_png(bytes: &[u8]) -> Result<Self, png::Error> {
         png::decode(bytes)
+    }
+
+    #[must_use]
+    pub fn empty() -> Self {
+        Self::Rgb8(Texture::empty())
+    }
+
+    #[must_use]
+    pub const fn width(&self) -> usize {
+        match self {
+            Self::Rgb8(t) => t.width(),
+            Self::Rgba8(t) => t.width(),
+            Self::GrayScale8(t) => t.width(),
+            Self::GrayScaleAlpha8(t) => t.width(),
+        }
+    }
+
+    #[must_use]
+    pub const fn height(&self) -> usize {
+        match self {
+            Self::Rgb8(t) => t.height(),
+            Self::Rgba8(t) => t.height(),
+            Self::GrayScale8(t) => t.height(),
+            Self::GrayScaleAlpha8(t) => t.height(),
+        }
+    }
+
+    #[must_use]
+    pub fn get(&self, x: usize, y: usize, access_mode: AccessMode) -> Rgba<u8> {
+        match self {
+            Self::Rgb8(t) => t.get(x, y, access_mode).into(),
+            Self::Rgba8(t) => t.get(x, y, access_mode),
+            Self::GrayScale8(t) => t.get(x, y, access_mode).into(),
+            Self::GrayScaleAlpha8(t) => t.get(x, y, access_mode).into(),
+        }
     }
 }

@@ -1,4 +1,4 @@
-use image::{AccessMode, Texture};
+use image::{AccessMode, DynamicTexture};
 use math::Vec2D;
 use render::{Composition, Path, Source};
 
@@ -31,7 +31,7 @@ impl Painter {
             .push(Command::Rect(RectCommand { area, color }))
     }
 
-    pub fn image(&mut self, area: math::Rectangle<Pixels>, texture: Texture<u32>) {
+    pub fn image(&mut self, area: math::Rectangle<Pixels>, texture: DynamicTexture) {
         self.commands
             .push(Command::Image(ImageCommand { area, texture }))
     }
@@ -88,7 +88,7 @@ impl Painter {
                 Command::Image(image_command) => {
                     let texture_source = Source::Texture {
                         texture: image_command.texture,
-                        access_mode: AccessMode::Default(0),
+                        access_mode: AccessMode::Zero,
                     };
 
                     composition

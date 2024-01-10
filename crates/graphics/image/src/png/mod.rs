@@ -6,6 +6,7 @@
 pub mod chunks;
 
 use std::{
+    convert::FloatToInt,
     fs,
     io::{self, Cursor, Read},
     path::Path,
@@ -15,7 +16,10 @@ use compression::zlib;
 
 use hash::Crc32Hasher;
 
-use crate::Texture;
+use crate::{
+    format::{GrayScale, GrayScaleAlpha},
+    ColorFormat, DynamicTexture, Rgb, Rgba, Texture,
+};
 
 use self::chunks::ihdr::ImageType;
 
@@ -35,11 +39,13 @@ pub enum Error {
     MismatchedDecompressedZlibSize,
     UnknownFilterType,
     IndexedImageWithoutPLTE,
+    NotImplemented,
+    IncorrectLengthOfImageData,
     ZLib(zlib::Error),
     IO(io::Error),
 }
 
-pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Texture<u32>, Error> {
+pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<DynamicTexture, Error> {
     let mut file_contents = vec![];
     fs::File::open(&path)?.read_to_end(&mut file_contents)?;
     decode(&file_contents)
@@ -87,7 +93,7 @@ enum ParserStage {
     AfterIDAT,
 }
 
-pub(crate) fn decode(bytes: &[u8]) -> Result<Texture<u32>, Error> {
+pub(crate) fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
     let mut reader = Cursor::new(bytes);
 
     let mut signature = [0; 8];
@@ -161,29 +167,26 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Texture<u32>, Error> {
         image_header.image_type.pixel_width(),
     )?;
 
-    // Transform to the pixel format we need (0RGBA)
-    let mut image_data_u32 = vec![0; image_width * image_height];
-    for (pixel, pixel_dst) in image_data
-        .chunks_exact(image_header.image_type.pixel_width())
-        .zip(image_data_u32.iter_mut())
-    {
-        *pixel_dst = match image_header.image_type {
-            ImageType::GrayScale => math::Color::rgb(pixel[0], pixel[1], pixel[2]).0,
-            ImageType::GrayScaleWithAlpha => math::Color::rgb(pixel[0], pixel[1], pixel[2]).0, // TODO: figure out alpha values
-            ImageType::TrueColor => math::Color::rgb(pixel[0], pixel[1], pixel[2]).0,
-            ImageType::TrueColorWithAlpha => math::Color::rgb(pixel[0], pixel[1], pixel[2]).0, // TODO: figure out alpha values
-            ImageType::IndexedColor => {
-                log::warn!("FIXME: png implement indexed color");
-                0
-            },
-        }
-    }
+    let dynamic_texture: DynamicTexture = match image_header.image_type {
+        ImageType::GrayScale => {
+            texture_from_bytes::<GrayScale<u8>>(image_data, image_width, image_height)?.into()
+        },
+        ImageType::GrayScaleWithAlpha => {
+            texture_from_bytes::<GrayScaleAlpha<u8>>(image_data, image_width, image_height)?.into()
+        },
+        ImageType::TrueColor => {
+            texture_from_bytes::<Rgb<u8>>(image_data, image_width, image_height)?.into()
+        },
+        ImageType::TrueColorWithAlpha => {
+            texture_from_bytes::<Rgba<u8>>(image_data, image_width, image_height)?.into()
+        },
+        ImageType::IndexedColor => {
+            log::error!("FIXME: png implement indexed color");
+            return Err(Error::NotImplemented);
+        },
+    };
 
-    Ok(Texture::from_data(
-        image_data_u32,
-        image_header.width as usize,
-        image_header.height as usize,
-    ))
+    Ok(dynamic_texture)
 }
 
 fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk, Error> {
@@ -423,6 +426,23 @@ impl TryFrom<u8> for Filter {
             _ => Err(Error::UnknownFilterType),
         }
     }
+}
+
+pub fn texture_from_bytes<C: ColorFormat>(
+    data: Vec<u8>,
+    width: usize,
+    height: usize,
+) -> Result<Texture<C, Vec<u8>>, Error>
+where
+    f32: FloatToInt<C::Channel>,
+{
+    if data.len() != width * height * C::N_CHANNELS {
+        return Err(Error::IncorrectLengthOfImageData);
+    }
+
+    let texture = Texture::from_data(data, width, height);
+
+    Ok(texture)
 }
 
 impl From<zlib::Error> for Error {
