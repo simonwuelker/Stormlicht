@@ -109,6 +109,11 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    #[must_use]
+    pub fn is_done(&self) -> bool {
+        self.source.current().is_none()
+    }
+
     pub fn next_token(&mut self) -> Result<Option<Token>, SyntaxError> {
         if self.source.current().is_none() {
             // At end of input
@@ -116,32 +121,26 @@ impl<'a> Tokenizer<'a> {
         }
 
         if let Ok(private_identifier) = self.attempt(Self::consume_private_identifier) {
-            self.skip_whitespace();
             return Ok(Some(Token::PrivateIdentifier(private_identifier)));
         }
 
         if self.attempt(Self::consume_null_literal).is_ok() {
-            self.skip_whitespace();
             return Ok(Some(Token::NullLiteral));
         }
 
         if let Ok(boolean_literal) = self.attempt(Self::consume_boolean_literal) {
-            self.skip_whitespace();
             return Ok(Some(Token::BooleanLiteral(boolean_literal)));
         }
 
         if let Ok(string_literal) = self.attempt(Self::consume_string_literal) {
-            self.skip_whitespace();
             return Ok(Some(Token::StringLiteral(string_literal)));
         }
 
         if let Ok(identifier) = self.attempt(Self::consume_identifier) {
-            self.skip_whitespace();
             return Ok(Some(Token::Identifier(identifier)));
         }
 
         if let Ok(punctuator) = self.attempt(Self::consume_punctuator) {
-            self.skip_whitespace();
             return Ok(Some(Token::Punctuator(punctuator)));
         }
 
@@ -174,6 +173,7 @@ impl<'a> Tokenizer<'a> {
     pub fn consume_null_literal(&mut self) -> Result<(), SyntaxError> {
         if self.source.remaining().starts_with("null") {
             _ = self.source.advance_by("null".len());
+            self.skip_whitespace();
             Ok(())
         } else {
             Err(SyntaxError)
@@ -182,15 +182,18 @@ impl<'a> Tokenizer<'a> {
 
     pub fn consume_boolean_literal(&mut self) -> Result<bool, SyntaxError> {
         let remaining = self.source.remaining();
-        if remaining.starts_with("true") {
+        let boolean_literal = if remaining.starts_with("true") {
             _ = self.source.advance_by("true".len());
-            Ok(true)
+            true
         } else if remaining.starts_with("false") {
             _ = self.source.advance_by("false".len());
-            Ok(false)
+            false
         } else {
-            Err(SyntaxError)
-        }
+            return Err(SyntaxError);
+        };
+
+        self.skip_whitespace();
+        Ok(boolean_literal)
     }
 
     /// <https://262.ecma-international.org/14.0/#prod-IdentifierName>
@@ -213,6 +216,7 @@ impl<'a> Tokenizer<'a> {
             identifier.push(c);
         }
 
+        self.skip_whitespace();
         Ok(identifier)
     }
 
@@ -245,6 +249,8 @@ impl<'a> Tokenizer<'a> {
             Some(c @ ('"' | '\'')) => consume_string_literal_until(self, c)?,
             _ => return Err(SyntaxError),
         };
+
+        self.skip_whitespace();
         Ok(string_literal)
     }
 
@@ -448,6 +454,7 @@ impl<'a> Tokenizer<'a> {
             _ => return Err(SyntaxError),
         };
 
+        self.skip_whitespace();
         Ok(punctuator)
     }
 }
