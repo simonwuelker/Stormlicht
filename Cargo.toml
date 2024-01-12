@@ -27,6 +27,7 @@ members = [
     "tests/runners/text-rendering",
     "tests/runners/html5lib",
     "crates/util/buildutils",
+    "crates/js",
 ]
 resolver = "2"
 
