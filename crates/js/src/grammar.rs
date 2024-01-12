@@ -229,7 +229,101 @@ pub enum AssignmentExpression {
 /// <https://262.ecma-international.org/14.0/#prod-ConditionalExpression>
 // FIXME: incorrect
 #[derive(Clone, Debug)]
-pub struct ConditionalExpression(LeftHandSideExpression);
+pub struct ConditionalExpression(LogicalOrExpression);
+
+macro_rules! binary_op {
+    ($docs: expr, $name: ident, $next: ident, $op: ident, $symbol: pat) => {
+        #[doc = $docs]
+        #[derive(Clone, Debug)]
+        pub struct $name {
+            pub previous: Option<Box<Self>>,
+            pub expression: $next,
+        }
+
+        impl $name {
+            #[must_use]
+            const fn new(expression: $next) -> Self {
+                Self {
+                    previous: None,
+                    expression,
+                }
+            }
+
+            #[must_use]
+            fn $op(self, expression: $next) -> Self {
+                Self {
+                    previous: Some(Box::new(self)),
+                    expression,
+                }
+            }
+
+            #[doc = $docs]
+            fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
+                tokenizer: &mut Tokenizer<'_>,
+            ) -> Result<Self, SyntaxError> {
+                let first_term = $next::parse::<IN, YIELD, AWAIT>(tokenizer)?;
+                let mut expression = Self::new(first_term);
+
+                let parse_or_term = |tokenizer: &mut Tokenizer<'_>| {
+                    if !matches!(
+                        tokenizer.attempt(Tokenizer::consume_punctuator),
+                        Ok($symbol)
+                    ) {
+                        return Err(tokenizer.syntax_error());
+                    }
+
+                    tokenizer.attempt($next::parse::<IN, YIELD, AWAIT>)
+                };
+
+                while let Ok(next_term) = tokenizer.attempt(parse_or_term) {
+                    expression = expression.$op(next_term);
+                }
+
+                Ok(expression)
+            }
+        }
+    };
+}
+
+binary_op!(
+    "<https://262.ecma-international.org/14.0/#prod-LogicalORExpression>",
+    LogicalOrExpression,
+    LogicalAndExpression,
+    logical_or,
+    Punctuator::DoubleVerticalBar
+);
+
+binary_op!(
+    "<https://262.ecma-international.org/14.0/#prod-LogicalANDExpression>",
+    LogicalAndExpression,
+    BitwiseORExpression,
+    logical_and,
+    Punctuator::DoubleAmpersand
+);
+
+binary_op!(
+    "<https://262.ecma-international.org/14.0/#prod-BitwiseORExpression>",
+    BitwiseORExpression,
+    BitwiseXorExpression,
+    bitwise_or,
+    Punctuator::VerticalBar
+);
+
+binary_op!(
+    "<https://262.ecma-international.org/14.0/#prod-BitwiseXORExpression>",
+    BitwiseXorExpression,
+    BitwiseAndExpression,
+    bitwise_xor,
+    Punctuator::Caret
+);
+
+binary_op!(
+    "<https://262.ecma-international.org/14.0/#prod-BitwiseANDExpression>",
+    BitwiseAndExpression,
+    LeftHandSideExpression,
+    bitwise_and,
+    Punctuator::Ampersand
+);
 
 /// <https://262.ecma-international.org/14.0/#prod-LeftHandSideExpression>
 #[derive(Clone, Debug)]
@@ -275,8 +369,8 @@ impl ConditionalExpression {
     fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
-        let lhs_expression = LeftHandSideExpression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
-        Ok(Self(lhs_expression))
+        let logical_or_expression = LogicalOrExpression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
+        Ok(Self(logical_or_expression))
     }
 }
 
