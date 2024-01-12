@@ -1,4 +1,4 @@
-use crate::{error::SyntaxError, Tokenizer};
+use crate::{SyntaxError, Tokenizer};
 
 const RESERVED_WORDS: [&str; 37] = [
     "await",
@@ -57,7 +57,7 @@ impl BindingIdentifier {
             if matches!(identifier_name.as_str(), "yield" | "await") {
                 identifier_name
             } else {
-                return Err(SyntaxError);
+                return Err(tokenizer.syntax_error());
             }
         };
 
@@ -74,7 +74,7 @@ impl Identifier {
     pub(crate) fn parse(tokenizer: &mut Tokenizer<'_>) -> Result<Self, SyntaxError> {
         let identifier_name = dbg!(tokenizer.consume_identifier())?;
         if RESERVED_WORDS.contains(&identifier_name.as_str()) {
-            return Err(SyntaxError);
+            return Err(tokenizer.syntax_error());
         }
 
         Ok(Self(identifier_name))

@@ -1,5 +1,5 @@
 use crate::{
-    error::SyntaxError, identifiers::BindingIdentifier, literals::Literal, tokenizer::Punctuator,
+    identifiers::BindingIdentifier, literals::Literal, tokenizer::Punctuator, SyntaxError,
     Tokenizer,
 };
 
@@ -60,7 +60,7 @@ impl StatementListItem {
             } else if let Ok(declaration) = tokenizer.attempt(Declaration::parse::<YIELD, AWAIT>) {
                 Self::Declaration(declaration)
             } else {
-                return Err(SyntaxError);
+                return Err(tokenizer.syntax_error());
             };
 
         Ok(statement_list_item)
@@ -93,7 +93,7 @@ impl Statement {
     ) -> Result<Self, SyntaxError> {
         // TODO
         _ = tokenizer;
-        Err(SyntaxError)
+        Err(tokenizer.syntax_error())
     }
 }
 
@@ -115,7 +115,7 @@ impl Declaration {
         {
             Self::LexicalDeclaration(lexical_declaration)
         } else {
-            return Err(SyntaxError);
+            return Err(tokenizer.syntax_error());
         };
 
         Ok(declaration)
@@ -152,7 +152,7 @@ impl LetOrConst {
         let let_or_const = match tokenizer.attempt(Tokenizer::consume_identifier)?.as_str() {
             "let" => Self::Let,
             "const" => Self::Const,
-            _ => return Err(SyntaxError),
+            _ => return Err(tokenizer.syntax_error()),
         };
 
         Ok(let_or_const)
@@ -208,7 +208,7 @@ impl Initializer {
             tokenizer.attempt(Tokenizer::consume_punctuator)?,
             Punctuator::Equal
         ) {
-            return Err(SyntaxError);
+            return Err(tokenizer.syntax_error());
         }
 
         let assignment_expression = AssignmentExpression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
@@ -331,7 +331,7 @@ impl PrimaryExpression {
         } else if let Ok(literal) = Literal::parse(tokenizer) {
             Ok(Self::Literal(literal))
         } else {
-            Err(SyntaxError)
+            Err(tokenizer.syntax_error())
         }
     }
 }

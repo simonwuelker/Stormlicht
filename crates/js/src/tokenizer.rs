@@ -1,6 +1,7 @@
 use sl_std::chars::ReversibleCharIterator;
 
-use crate::error::SyntaxError;
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SyntaxError(usize);
 
 /// <https://262.ecma-international.org/14.0/#sec-tokens>
 #[derive(Clone, Debug)]
@@ -110,6 +111,11 @@ impl<'a> Tokenizer<'a> {
     }
 
     #[must_use]
+    pub fn syntax_error(&self) -> SyntaxError {
+        SyntaxError(self.source.position())
+    }
+
+    #[must_use]
     pub fn is_done(&self) -> bool {
         self.source.current().is_none()
     }
@@ -145,7 +151,7 @@ impl<'a> Tokenizer<'a> {
         }
 
         // Cannot parse input stream as a valid token
-        Err(SyntaxError)
+        Err(self.syntax_error())
     }
 
     pub fn attempt<F, T, E>(&mut self, f: F) -> Result<T, E>
@@ -176,7 +182,7 @@ impl<'a> Tokenizer<'a> {
             self.skip_whitespace();
             Ok(())
         } else {
-            Err(SyntaxError)
+            Err(self.syntax_error())
         }
     }
 
@@ -189,7 +195,7 @@ impl<'a> Tokenizer<'a> {
             _ = self.source.advance_by("false".len());
             false
         } else {
-            return Err(SyntaxError);
+            return Err(self.syntax_error());
         };
 
         self.skip_whitespace();
@@ -198,10 +204,10 @@ impl<'a> Tokenizer<'a> {
 
     /// <https://262.ecma-international.org/14.0/#prod-IdentifierName>
     pub fn consume_identifier(&mut self) -> Result<String, SyntaxError> {
-        let c = self.source.next().ok_or(SyntaxError)?;
+        let c = self.source.next().ok_or(self.syntax_error())?;
 
         if !is_valid_identifier_start(c) {
-            return Err(SyntaxError);
+            return Err(self.syntax_error());
         }
 
         let mut identifier = c.to_string();
@@ -223,7 +229,7 @@ impl<'a> Tokenizer<'a> {
     /// <https://262.ecma-international.org/14.0/#prod-PrivateIdentifier>
     pub fn consume_private_identifier(&mut self) -> Result<String, SyntaxError> {
         if !matches!(self.source.next(), Some('#')) {
-            return Err(SyntaxError);
+            return Err(self.syntax_error());
         }
 
         self.consume_identifier()
@@ -231,23 +237,24 @@ impl<'a> Tokenizer<'a> {
 
     /// <https://262.ecma-international.org/14.0/#prod-StringLiteral>
     pub fn consume_string_literal(&mut self) -> Result<String, SyntaxError> {
-        let consume_string_literal_until = |tokenizer: &mut Tokenizer<'_>, terminator| {
-            // FIXME: this isn't correct
-            let mut literal = String::new();
-            for c in tokenizer.source.by_ref() {
-                if c == terminator {
-                    return Ok(literal);
-                } else {
-                    literal.push(c);
+        let consume_string_literal_until =
+            |tokenizer: &mut Tokenizer<'_>, terminator| -> Result<String, SyntaxError> {
+                // FIXME: this isn't correct
+                let mut literal = String::new();
+                for c in tokenizer.source.by_ref() {
+                    if c == terminator {
+                        return Ok(literal);
+                    } else {
+                        literal.push(c);
+                    }
                 }
-            }
-            // Unterminated string literal
-            Err(SyntaxError)
-        };
+                // Unterminated string literal
+                Err(tokenizer.syntax_error())
+            };
 
         let string_literal = match self.source.next() {
             Some(c @ ('"' | '\'')) => consume_string_literal_until(self, c)?,
-            _ => return Err(SyntaxError),
+            _ => return Err(self.syntax_error()),
         };
 
         self.skip_whitespace();
@@ -451,7 +458,7 @@ impl<'a> Tokenizer<'a> {
             Some('~') => Punctuator::Tilde,
             Some(':') => Punctuator::Colon,
             Some('}') => Punctuator::CurlyBraceClose,
-            _ => return Err(SyntaxError),
+            _ => return Err(self.syntax_error()),
         };
 
         self.skip_whitespace();

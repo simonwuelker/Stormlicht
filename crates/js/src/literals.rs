@@ -1,4 +1,4 @@
-use crate::{error::SyntaxError, Tokenizer};
+use crate::{SyntaxError, Tokenizer};
 
 /// <https://262.ecma-international.org/14.0/#prod-Literal>
 #[derive(Clone, Debug)]
@@ -19,7 +19,7 @@ impl Literal {
         } else if let Ok(string_literal) = tokenizer.attempt(Tokenizer::consume_string_literal) {
             Ok(Self::StringLiteral(string_literal))
         } else {
-            Err(SyntaxError)
+            Err(tokenizer.syntax_error())
         }
     }
 }

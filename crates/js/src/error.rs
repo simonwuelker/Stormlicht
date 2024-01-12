@@ -1,2 +1,2 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SyntaxError;
+pub struct SyntaxError(usize);
