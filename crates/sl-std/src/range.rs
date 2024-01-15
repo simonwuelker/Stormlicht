@@ -45,6 +45,12 @@ impl<I: PartialEq> Range<I> {
 }
 
 impl<I: Ord + Copy> Range<I> {
+    #[inline]
+    #[must_use]
+    pub fn contains(&self, value: I) -> bool {
+        self.start <= value && value < self.end
+    }
+
     /// Clamp the range to a lower bound
     ///
     /// It is guaranteed that both the start and the end of the returned range
