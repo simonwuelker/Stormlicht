@@ -1,4 +1,4 @@
-use crate::{
+use super::{
     identifiers::BindingIdentifier, literals::Literal, tokenizer::Punctuator, SyntaxError,
     Tokenizer,
 };

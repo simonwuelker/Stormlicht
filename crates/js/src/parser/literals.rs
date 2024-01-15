@@ -1,4 +1,4 @@
-use crate::{SyntaxError, Tokenizer};
+use super::{SyntaxError, Tokenizer};
 
 /// <https://262.ecma-international.org/14.0/#prod-Literal>
 #[derive(Clone, Debug)]

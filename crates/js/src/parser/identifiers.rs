@@ -1,4 +1,4 @@
-use crate::{SyntaxError, Tokenizer};
+use super::{SyntaxError, Tokenizer};
 
 const RESERVED_WORDS: [&str; 37] = [
     "await",
