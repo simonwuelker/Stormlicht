@@ -1,7 +1,6 @@
 use sl_std::chars::ReversibleCharIterator;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SyntaxError(usize);
+use super::SyntaxError;
 
 /// <https://262.ecma-international.org/14.0/#sec-tokens>
 #[derive(Clone, Debug)]
@@ -112,7 +111,7 @@ impl<'a> Tokenizer<'a> {
 
     #[must_use]
     pub fn syntax_error(&self) -> SyntaxError {
-        SyntaxError(self.source.position())
+        SyntaxError::from_position(self.source.position())
     }
 
     #[must_use]
