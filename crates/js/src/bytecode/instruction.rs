@@ -48,6 +48,11 @@ pub enum Instruction {
         rhs: Register,
         dst: Register,
     },
+    Modulo {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
     BitwiseOr {
         lhs: Register,
         rhs: Register,
@@ -69,6 +74,61 @@ pub enum Instruction {
         dst: Register,
     },
     LogicalOr {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
+    Equal {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
+    StrictEqual {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
+    NotEqual {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
+    StrictNotEqual {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
+    LessThan {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
+    GreaterThan {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
+    LessThanOrEqual {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
+    GreaterThanOrEqual {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
+    ShiftLeft {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
+    ShiftRight {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
+    ShiftRightZeros {
         lhs: Register,
         rhs: Register,
         dst: Register,

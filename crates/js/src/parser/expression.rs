@@ -270,15 +270,33 @@ impl CompileToBytecode for Expression {
                     BinaryOp::Arithmetic(ArithmeticOp::Subtract) => builder.subtract(lhs, rhs),
                     BinaryOp::Arithmetic(ArithmeticOp::Multiply) => builder.multiply(lhs, rhs),
                     BinaryOp::Arithmetic(ArithmeticOp::Divide) => builder.divide(lhs, rhs),
-                    BinaryOp::Arithmetic(ArithmeticOp::Modulo) => todo!(),
+                    BinaryOp::Arithmetic(ArithmeticOp::Modulo) => builder.modulo(lhs, rhs),
                     BinaryOp::Bitwise(BitwiseOp::And) => builder.bitwise_and(lhs, rhs),
                     BinaryOp::Bitwise(BitwiseOp::Or) => builder.bitwise_or(lhs, rhs),
                     BinaryOp::Bitwise(BitwiseOp::Xor) => builder.bitwise_xor(lhs, rhs),
                     BinaryOp::Logical(LogicalOp::And) => builder.logical_and(lhs, rhs),
                     BinaryOp::Logical(LogicalOp::Or) => builder.logical_or(lhs, rhs),
-                    BinaryOp::Equality(_) => todo!(),
-                    BinaryOp::Relational(_) => todo!(),
-                    BinaryOp::Shift(_) => todo!(),
+                    BinaryOp::Equality(EqualityOp::Equal) => builder.equal(lhs, rhs),
+                    BinaryOp::Equality(EqualityOp::NotEqual) => builder.equal(lhs, rhs),
+                    BinaryOp::Equality(EqualityOp::StrictEqual) => builder.strict_equal(lhs, rhs),
+                    BinaryOp::Equality(EqualityOp::StrictNotEqual) => {
+                        builder.strict_not_equal(lhs, rhs)
+                    },
+                    BinaryOp::Relational(RelationalOp::LessThan) => builder.less_than(lhs, rhs),
+                    BinaryOp::Relational(RelationalOp::GreaterThan) => {
+                        builder.greater_than(lhs, rhs)
+                    },
+                    BinaryOp::Relational(RelationalOp::LessThanOrEqual) => {
+                        builder.less_than_or_equal(lhs, rhs)
+                    },
+                    BinaryOp::Relational(RelationalOp::GreaterThanOrEqual) => {
+                        builder.greater_than_or_equal(lhs, rhs)
+                    },
+                    BinaryOp::Shift(ShiftOp::ShiftLeft) => builder.shift_left(lhs, rhs),
+                    BinaryOp::Shift(ShiftOp::ShiftRight) => builder.shift_right(lhs, rhs),
+                    BinaryOp::Shift(ShiftOp::ShiftRightZeros) => {
+                        builder.shift_right_zeros(lhs, rhs)
+                    },
                 };
 
                 dst

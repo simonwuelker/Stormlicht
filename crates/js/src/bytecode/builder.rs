@@ -102,6 +102,14 @@ impl Builder {
     }
 
     #[must_use]
+    pub fn modulo(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::Modulo { lhs, rhs, dst };
+        self.instructions.push(instruction);
+        dst
+    }
+
+    #[must_use]
     pub fn bitwise_or(&mut self, lhs: Register, rhs: Register) -> Register {
         let dst = self.allocate_register();
         let instruction = Instruction::BitwiseOr { lhs, rhs, dst };
@@ -137,6 +145,94 @@ impl Builder {
     pub fn logical_or(&mut self, lhs: Register, rhs: Register) -> Register {
         let dst = self.allocate_register();
         let instruction = Instruction::LogicalOr { lhs, rhs, dst };
+        self.instructions.push(instruction);
+        dst
+    }
+
+    #[must_use]
+    pub fn equal(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::Equal { lhs, rhs, dst };
+        self.instructions.push(instruction);
+        dst
+    }
+
+    #[must_use]
+    pub fn strict_equal(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::StrictEqual { lhs, rhs, dst };
+        self.instructions.push(instruction);
+        dst
+    }
+
+    #[must_use]
+    pub fn not_equal(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::NotEqual { lhs, rhs, dst };
+        self.instructions.push(instruction);
+        dst
+    }
+
+    #[must_use]
+    pub fn strict_not_equal(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::StrictNotEqual { lhs, rhs, dst };
+        self.instructions.push(instruction);
+        dst
+    }
+
+    #[must_use]
+    pub fn less_than(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::LessThan { lhs, rhs, dst };
+        self.instructions.push(instruction);
+        dst
+    }
+
+    #[must_use]
+    pub fn greater_than(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::GreaterThan { lhs, rhs, dst };
+        self.instructions.push(instruction);
+        dst
+    }
+
+    #[must_use]
+    pub fn less_than_or_equal(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::LessThanOrEqual { lhs, rhs, dst };
+        self.instructions.push(instruction);
+        dst
+    }
+
+    #[must_use]
+    pub fn greater_than_or_equal(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::GreaterThanOrEqual { lhs, rhs, dst };
+        self.instructions.push(instruction);
+        dst
+    }
+
+    #[must_use]
+    pub fn shift_left(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::ShiftLeft { lhs, rhs, dst };
+        self.instructions.push(instruction);
+        dst
+    }
+
+    #[must_use]
+    pub fn shift_right(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::ShiftRight { lhs, rhs, dst };
+        self.instructions.push(instruction);
+        dst
+    }
+
+    #[must_use]
+    pub fn shift_right_zeros(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::ShiftRightZeros { lhs, rhs, dst };
         self.instructions.push(instruction);
         dst
     }
