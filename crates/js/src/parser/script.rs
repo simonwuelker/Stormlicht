@@ -1,3 +1,5 @@
+use crate::bytecode::{self, CompileToBytecode};
+
 use super::{Declaration, SyntaxError, Tokenizer};
 
 /// <https://262.ecma-international.org/14.0/#prod-ScriptBody>
@@ -65,5 +67,28 @@ impl Statement {
         // TODO
         _ = tokenizer;
         Err(tokenizer.syntax_error())
+    }
+}
+
+impl CompileToBytecode for Script {
+    fn compile(&self, builder: &mut bytecode::Builder) {
+        for statement in &self.0 {
+            statement.compile(builder);
+        }
+    }
+}
+
+impl CompileToBytecode for StatementListItem {
+    fn compile(&self, builder: &mut bytecode::Builder) {
+        match self {
+            Self::Statement(statement) => statement.compile(builder),
+            Self::Declaration(declaration) => declaration.compile(builder),
+        }
+    }
+}
+
+impl CompileToBytecode for Statement {
+    fn compile(&self, builder: &mut bytecode::Builder) -> Self::Result {
+        todo!()
     }
 }

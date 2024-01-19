@@ -1,3 +1,5 @@
+use crate::bytecode::Value;
+
 use super::{SyntaxError, Tokenizer};
 
 /// <https://262.ecma-international.org/14.0/#prod-Literal>
@@ -20,6 +22,17 @@ impl Literal {
             Ok(Self::StringLiteral(string_literal))
         } else {
             Err(tokenizer.syntax_error())
+        }
+    }
+}
+
+impl From<Literal> for Value {
+    fn from(value: Literal) -> Self {
+        match value {
+            Literal::NullLiteral => Self::Null,
+            Literal::BooleanLiteral(bool) => Self::Boolean(bool),
+            Literal::NumericLiteral => todo!(),
+            Literal::StringLiteral(s) => Self::String(s),
         }
     }
 }

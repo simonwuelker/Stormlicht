@@ -1,3 +1,5 @@
+use crate::bytecode::{self, CompileToBytecode};
+
 use super::{literals::Literal, tokenizer::Punctuator, SyntaxError, Tokenizer};
 
 #[derive(Clone, Debug)]
@@ -182,6 +184,36 @@ impl Expression {
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
         parse_logical_or_expression::<IN, YIELD, AWAIT>(tokenizer)
+    }
+}
+
+impl CompileToBytecode for Expression {
+    type Result = bytecode::Register;
+
+    fn compile(&self, builder: &mut bytecode::Builder) -> Self::Result {
+        match self {
+            Self::Binary(binary_expression) => {
+                let lhs = binary_expression.lhs.compile(builder);
+                let rhs = binary_expression.rhs.compile(builder);
+
+                let dst = match binary_expression.op {
+                    BinaryOp::Arithmetic(ArithmeticOp::Add) => builder.add(lhs, rhs),
+                    BinaryOp::Arithmetic(ArithmeticOp::Subtract) => builder.subtract(lhs, rhs),
+                    BinaryOp::Arithmetic(ArithmeticOp::Multiply) => builder.multiply(lhs, rhs),
+                    BinaryOp::Arithmetic(ArithmeticOp::Divide) => builder.divide(lhs, rhs),
+                    BinaryOp::Bitwise(BitwiseOp::And) => builder.bitwise_and(lhs, rhs),
+                    BinaryOp::Bitwise(BitwiseOp::Or) => builder.bitwise_or(lhs, rhs),
+                    BinaryOp::Bitwise(BitwiseOp::Xor) => builder.bitwise_xor(lhs, rhs),
+                    BinaryOp::Logical(LogicalOp::And) => builder.logical_and(lhs, rhs),
+                    BinaryOp::Logical(LogicalOp::Or) => builder.logical_or(lhs, rhs),
+                };
+
+                dst
+            },
+            Self::Literal(literal) => builder.allocate_register_with_value(literal.clone().into()),
+            Self::New(_) => todo!(),
+            Self::This => todo!(),
+        }
     }
 }
 

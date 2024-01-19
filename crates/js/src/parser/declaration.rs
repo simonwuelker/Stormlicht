@@ -1,6 +1,6 @@
-use super::{
-    identifiers::BindingIdentifier, tokenizer::Punctuator, Expression, SyntaxError, Tokenizer,
-};
+use crate::bytecode::{self, CompileToBytecode};
+
+use super::{identifiers, tokenizer::Punctuator, Expression, SyntaxError, Tokenizer};
 
 /// <https://262.ecma-international.org/14.0/#prod-Declaration>
 #[derive(Clone, Debug)]
@@ -73,8 +73,8 @@ impl LexicalDeclaration {
 #[derive(Clone, Debug)]
 pub enum LexicalBinding {
     WithIdentifier {
-        identifier: BindingIdentifier,
-        initializer: Option<Initializer>,
+        identifier: String,
+        initializer: Option<Expression>,
     },
     BindingPattern,
 }
@@ -85,9 +85,10 @@ impl LexicalBinding {
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
         let with_identifier = |tokenizer: &mut Tokenizer<'_>| {
-            let identifier = tokenizer.attempt(BindingIdentifier::parse::<IN, YIELD>)?;
+            let identifier =
+                tokenizer.attempt(identifiers::parse_binding_identifier::<IN, YIELD>)?;
             let initializer = tokenizer
-                .attempt(Initializer::parse::<IN, YIELD, AWAIT>)
+                .attempt(parse_initializer::<IN, YIELD, AWAIT>)
                 .ok();
             Ok(Self::WithIdentifier {
                 identifier,
@@ -100,23 +101,47 @@ impl LexicalBinding {
 }
 
 /// <https://262.ecma-international.org/14.0/#prod-Initializer>
-#[derive(Clone, Debug)]
-pub struct Initializer(Expression);
+fn parse_initializer<const IN: bool, const YIELD: bool, const AWAIT: bool>(
+    tokenizer: &mut Tokenizer<'_>,
+) -> Result<Expression, SyntaxError> {
+    if !matches!(
+        tokenizer.attempt(Tokenizer::consume_punctuator)?,
+        Punctuator::Equal
+    ) {
+        return Err(tokenizer.syntax_error());
+    }
 
-impl Initializer {
-    fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
-        tokenizer: &mut Tokenizer<'_>,
-    ) -> Result<Self, SyntaxError> {
-        if !matches!(
-            tokenizer.attempt(Tokenizer::consume_punctuator)?,
-            Punctuator::Equal
-        ) {
-            return Err(tokenizer.syntax_error());
+    // FIXME: This should be an AssignmentExpression, not an Expression
+    let assignment_expression = Expression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
+
+    Ok(assignment_expression)
+}
+
+impl CompileToBytecode for Declaration {
+    fn compile(&self, builder: &mut bytecode::Builder) {
+        match self {
+            Self::Lexical(lexical_declaration) => lexical_declaration.compile(builder),
         }
+    }
+}
 
-        // FIXME: This should be an AssignmentExpression, not an Expression
-        let assignment_expression = Expression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
+impl CompileToBytecode for LexicalDeclaration {
+    fn compile(&self, builder: &mut bytecode::Builder) -> Self::Result {
+        for lexical_binding in &self.binding_list {
+            match lexical_binding {
+                LexicalBinding::WithIdentifier {
+                    identifier,
+                    initializer,
+                } => {
+                    let handle = builder.create_variable(&identifier);
 
-        Ok(Self(assignment_expression))
+                    if let Some(expression) = initializer {
+                        let result = expression.compile(builder);
+                        builder.update_variable(handle, result);
+                    }
+                },
+                LexicalBinding::BindingPattern => todo!(),
+            }
+        }
     }
 }

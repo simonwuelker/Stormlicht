@@ -41,28 +41,22 @@ const RESERVED_WORDS: [&str; 37] = [
 ];
 
 /// <https://262.ecma-international.org/14.0/#prod-BindingIdentifier>
-#[derive(Clone, Debug)]
-pub struct BindingIdentifier(String);
+pub(crate) fn parse_binding_identifier<const YIELD: bool, const AWAIT: bool>(
+    tokenizer: &mut Tokenizer<'_>,
+) -> Result<String, SyntaxError> {
+    let binding_identifier = if let Ok(identifier) = tokenizer.attempt(Identifier::parse) {
+        identifier.0
+    } else {
+        let identifier_name = tokenizer.consume_identifier()?;
 
-impl BindingIdentifier {
-    /// <https://262.ecma-international.org/14.0/#prod-BindingIdentifier>
-    pub(crate) fn parse<const YIELD: bool, const AWAIT: bool>(
-        tokenizer: &mut Tokenizer<'_>,
-    ) -> Result<Self, SyntaxError> {
-        let binding_identifier = if let Ok(identifier) = tokenizer.attempt(Identifier::parse) {
-            identifier.0
+        if matches!(identifier_name.as_str(), "yield" | "await") {
+            identifier_name
         } else {
-            let identifier_name = tokenizer.consume_identifier()?;
+            return Err(tokenizer.syntax_error());
+        }
+    };
 
-            if matches!(identifier_name.as_str(), "yield" | "await") {
-                identifier_name
-            } else {
-                return Err(tokenizer.syntax_error());
-            }
-        };
-
-        Ok(Self(binding_identifier))
-    }
+    Ok(binding_identifier)
 }
 
 /// <https://262.ecma-international.org/14.0/#prod-Identifier>
