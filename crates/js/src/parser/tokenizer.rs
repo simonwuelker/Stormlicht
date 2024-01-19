@@ -175,14 +175,18 @@ impl<'a> Tokenizer<'a> {
         self.source.go_back()
     }
 
-    pub fn consume_null_literal(&mut self) -> Result<(), SyntaxError> {
-        if self.source.remaining().starts_with("null") {
-            _ = self.source.advance_by("null".len());
+    pub fn consume_keyword(&mut self, keyword: &str) -> Result<(), SyntaxError> {
+        if self.source.remaining().starts_with(keyword) {
+            _ = self.source.advance_by(keyword.len());
             self.skip_whitespace();
             Ok(())
         } else {
             Err(self.syntax_error())
         }
+    }
+
+    pub fn consume_null_literal(&mut self) -> Result<(), SyntaxError> {
+        self.consume_keyword("null")
     }
 
     pub fn consume_boolean_literal(&mut self) -> Result<bool, SyntaxError> {

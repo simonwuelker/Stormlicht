@@ -207,10 +207,10 @@ pub struct NewExpression {
 fn parse_primary_expression<const YIELD: bool, const AWAIT: bool>(
     tokenizer: &mut Tokenizer<'_>,
 ) -> Result<Expression, SyntaxError> {
-    if matches!(
-        tokenizer.attempt(Tokenizer::consume_identifier).as_deref(),
-        Ok("this")
-    ) {
+    if tokenizer
+        .attempt(|tokenizer| tokenizer.consume_keyword("this"))
+        .is_ok()
+    {
         Ok(Expression::This)
     } else if let Ok(literal) = Literal::parse(tokenizer) {
         Ok(Expression::Literal(literal))
