@@ -50,9 +50,9 @@ pub enum Punctuator {
     LessThanEqual,
     GreaterThanEqual,
     DoubleEqual,
-    NotEqual,
+    ExclamationMarkEqual,
     TripleEqual,
-    NotDoubleEqual,
+    ExclamationMarkDoubleEqual,
     Plus,
     Minus,
     Asterisk,
@@ -360,9 +360,9 @@ impl<'a> Tokenizer<'a> {
                     self.source.next();
                     if self.source.current() == Some('=') {
                         self.source.next();
-                        Punctuator::NotDoubleEqual
+                        Punctuator::ExclamationMarkDoubleEqual
                     } else {
-                        Punctuator::NotEqual
+                        Punctuator::ExclamationMarkEqual
                     }
                 } else {
                     Punctuator::ExclamationMark
