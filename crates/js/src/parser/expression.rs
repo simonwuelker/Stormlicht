@@ -23,6 +23,8 @@ pub enum BinaryOp {
     Logical(LogicalOp),
     Bitwise(BitwiseOp),
     Equality(EqualityOp),
+    Relational(RelationalOp),
+    Shift(ShiftOp),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,6 +33,7 @@ pub enum ArithmeticOp {
     Subtract,
     Multiply,
     Divide,
+    Modulo,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -54,30 +57,46 @@ pub enum EqualityOp {
     StrictNotEqual,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RelationalOp {
+    LessThan,
+    GreaterThan,
+    LessThanOrEqual,
+    GreaterThanOrEqual,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShiftOp {
+    ShiftLeft,
+    ShiftRight,
+    ShiftRightZeros,
+}
+
 macro_rules! binary_op {
-    ($docs: expr, $name: ident, $next: path, $op: path, $symbol: pat) => {
+    ($docs: expr, $name: ident<$(const $const_ident: ident:$const_type:ty,)*>, $next: path, $($symbol: pat => $op: path,)*) => {
         #[doc = $docs]
-        fn $name<const IN: bool, const YIELD: bool, const AWAIT: bool>(
+        fn $name<$(const $const_ident: $const_type,)*>(
             tokenizer: &mut Tokenizer<'_>,
         ) -> Result<Expression, SyntaxError> {
             let mut expression: Expression = $next(tokenizer)?.into();
 
             let parse_or_term = |tokenizer: &mut Tokenizer<'_>| {
-                if !matches!(
-                    tokenizer.attempt(Tokenizer::consume_punctuator),
-                    Ok($symbol)
-                ) {
-                    return Err(tokenizer.syntax_error());
-                }
+                let punctuator = tokenizer.attempt(Tokenizer::consume_punctuator)?;
 
-                tokenizer.attempt($next)
+                let operator = match punctuator {
+                    $($symbol => $op,)*
+                    _ => return Err(tokenizer.syntax_error()),
+                };
+
+                let rhs = tokenizer.attempt($next)?;
+                Ok((operator, rhs))
             };
 
-            while let Ok(next_term) = tokenizer.attempt(parse_or_term) {
+            while let Ok((operator, rhs)) = tokenizer.attempt(parse_or_term) {
                 expression = BinaryExpression {
-                    op: $op.into(),
+                    op: operator.into(),
                     lhs: Box::new(expression),
-                    rhs: Box::new(next_term.into()),
+                    rhs: Box::new(rhs.into()),
                 }
                 .into();
             }
@@ -89,81 +108,84 @@ macro_rules! binary_op {
 
 binary_op!(
     "<https://262.ecma-international.org/14.0/#prod-LogicalORExpression>",
-    parse_logical_or_expression,
+    parse_logical_or_expression<const IN: bool, const YIELD: bool, const AWAIT: bool,>,
     parse_logical_and_expression::<IN, YIELD, AWAIT>,
-    LogicalOp::Or,
-    Punctuator::DoubleVerticalBar
+    Punctuator::DoubleVerticalBar => LogicalOp::Or,
 );
 
 binary_op!(
     "<https://262.ecma-international.org/14.0/#prod-LogicalANDExpression>",
-    parse_logical_and_expression,
+    parse_logical_and_expression<const IN: bool, const YIELD: bool, const AWAIT: bool,>,
     parse_bitwise_or_expression::<IN, YIELD, AWAIT>,
-    LogicalOp::And,
-    Punctuator::DoubleAmpersand
+    Punctuator::DoubleAmpersand => LogicalOp::And,
 );
 
 binary_op!(
     "<https://262.ecma-international.org/14.0/#prod-BitwiseORExpression>",
-    parse_bitwise_or_expression,
+    parse_bitwise_or_expression<const IN: bool, const YIELD: bool, const AWAIT: bool,>,
     parse_bitwise_xor_expression::<IN, YIELD, AWAIT>,
-    BitwiseOp::Or,
-    Punctuator::VerticalBar
+    Punctuator::VerticalBar => BitwiseOp::Or,
 );
 
 binary_op!(
     "<https://262.ecma-international.org/14.0/#prod-BitwiseXORExpression>",
-    parse_bitwise_xor_expression,
+    parse_bitwise_xor_expression<const IN: bool, const YIELD: bool, const AWAIT: bool,>,
     parse_bitwise_and_expression::<IN, YIELD, AWAIT>,
-    BitwiseOp::Xor,
-    Punctuator::Caret
+    Punctuator::Caret => BitwiseOp::Xor,
 );
 
 binary_op!(
     "<https://262.ecma-international.org/14.0/#prod-BitwiseANDExpression>",
-    parse_bitwise_and_expression,
+    parse_bitwise_and_expression<const IN: bool, const YIELD: bool, const AWAIT: bool,>,
     parse_equality_expression::<IN, YIELD, AWAIT>,
-    BitwiseOp::And,
-    Punctuator::Ampersand
+    Punctuator::Ampersand => BitwiseOp::And,
 );
 
-/// <https://262.ecma-international.org/14.0/#prod-EqualityExpression>
-fn parse_equality_expression<const IN: bool, const YIELD: bool, const AWAIT: bool>(
-    tokenizer: &mut Tokenizer<'_>,
-) -> Result<Expression, SyntaxError> {
-    let mut expression = parse_relational_expression::<IN, YIELD, AWAIT>(tokenizer)?;
+binary_op!(
+    "<https://262.ecma-international.org/14.0/#prod-EqualityExpression>",
+    parse_equality_expression<const IN: bool, const YIELD: bool, const AWAIT: bool,>,
+    parse_relational_expression::<IN, YIELD, AWAIT>,
+    Punctuator::DoubleEqual => EqualityOp::Equal,
+    Punctuator::TripleEqual => EqualityOp::StrictEqual,
+    Punctuator::ExclamationMarkEqual => EqualityOp::NotEqual,
+    Punctuator::ExclamationMarkDoubleEqual => EqualityOp::StrictEqual,
+);
 
-    let parse_or_term = |tokenizer: &mut Tokenizer<'_>| {
-        let operator = match tokenizer.attempt(Tokenizer::consume_punctuator)? {
-            Punctuator::DoubleEqual => EqualityOp::Equal,
-            Punctuator::TripleEqual => EqualityOp::StrictEqual,
-            Punctuator::ExclamationMarkEqual => EqualityOp::NotEqual,
-            Punctuator::ExclamationMarkDoubleEqual => EqualityOp::StrictEqual,
-            _ => return Err(tokenizer.syntax_error()),
-        };
+binary_op!(
+    "<https://262.ecma-international.org/14.0/#prod-RelationalExpression>",
+    parse_relational_expression<const IN: bool, const YIELD: bool, const AWAIT: bool,>,
+    parse_shift_expression::<YIELD, AWAIT>,
+    Punctuator::LessThan => RelationalOp::LessThan,
+    Punctuator::GreaterThan => RelationalOp::GreaterThan,
+    Punctuator::LessThanEqual => RelationalOp::LessThanOrEqual,
+    Punctuator::GreaterThanEqual => RelationalOp::GreaterThanOrEqual,
+);
 
-        let rhs = tokenizer.attempt(parse_relational_expression::<IN, YIELD, AWAIT>)?;
+binary_op!(
+    "<https://262.ecma-international.org/14.0/#prod-RelationalExpression>",
+    parse_shift_expression<const YIELD: bool, const AWAIT: bool,>,
+    parse_additive_expression::<YIELD, AWAIT>,
+    Punctuator::DoubleLessThan => ShiftOp::ShiftLeft,
+    Punctuator::DoubleGreaterThan => ShiftOp::ShiftRight,
+    Punctuator::DoubleGreaterThanEqual => ShiftOp::ShiftRightZeros,
+);
 
-        Ok((operator, rhs))
-    };
+binary_op!(
+    "<https://262.ecma-international.org/14.0/#prod-AdditiveExpression>",
+    parse_additive_expression<const YIELD: bool, const AWAIT: bool,>,
+    parse_multiplicative_expression::<YIELD, AWAIT>,
+    Punctuator::Plus => ArithmeticOp::Add,
+    Punctuator::Minus => ArithmeticOp::Subtract,
+);
 
-    while let Ok((operator, next_term)) = tokenizer.attempt(parse_or_term) {
-        expression = BinaryExpression {
-            op: operator.into(),
-            lhs: Box::new(expression),
-            rhs: Box::new(next_term.into()),
-        }
-        .into();
-    }
-
-    Ok(expression)
-}
-
-fn parse_relational_expression<const IN: bool, const YIELD: bool, const AWAIT: bool>(
-    tokenizer: &mut Tokenizer<'_>,
-) -> Result<Expression, SyntaxError> {
-    parse_primary_expression::<IN, YIELD, AWAIT>(tokenizer)
-}
+binary_op!(
+    "<https://262.ecma-international.org/14.0/#prod-MultiplicativeExpression>",
+    parse_multiplicative_expression<const YIELD: bool, const AWAIT: bool,>,
+    parse_primary_expression::<YIELD, AWAIT>,
+    Punctuator::Asterisk => ArithmeticOp::Multiply,
+    Punctuator::Slash => ArithmeticOp::Divide,
+    Punctuator::Percent => ArithmeticOp::Modulo,
+);
 
 /// <https://262.ecma-international.org/14.0/#prod-LeftHandSideExpression>
 #[derive(Clone, Debug)]
@@ -182,7 +204,7 @@ pub struct NewExpression {
 }
 
 /// <https://262.ecma-international.org/14.0/#prod-PrimaryExpression>
-fn parse_primary_expression<const IN: bool, const YIELD: bool, const AWAIT: bool>(
+fn parse_primary_expression<const YIELD: bool, const AWAIT: bool>(
     tokenizer: &mut Tokenizer<'_>,
 ) -> Result<Expression, SyntaxError> {
     if matches!(
@@ -212,7 +234,7 @@ impl NewExpression {
         }
 
         // FIXME: This should be a MemberExpression instead of a PrimaryExpression
-        let member_expression = parse_primary_expression::<IN, YIELD, AWAIT>(tokenizer)?;
+        let member_expression = parse_primary_expression::<YIELD, AWAIT>(tokenizer)?;
 
         if nest_level == 0 {
             Ok(member_expression)
@@ -248,12 +270,15 @@ impl CompileToBytecode for Expression {
                     BinaryOp::Arithmetic(ArithmeticOp::Subtract) => builder.subtract(lhs, rhs),
                     BinaryOp::Arithmetic(ArithmeticOp::Multiply) => builder.multiply(lhs, rhs),
                     BinaryOp::Arithmetic(ArithmeticOp::Divide) => builder.divide(lhs, rhs),
+                    BinaryOp::Arithmetic(ArithmeticOp::Modulo) => todo!(),
                     BinaryOp::Bitwise(BitwiseOp::And) => builder.bitwise_and(lhs, rhs),
                     BinaryOp::Bitwise(BitwiseOp::Or) => builder.bitwise_or(lhs, rhs),
                     BinaryOp::Bitwise(BitwiseOp::Xor) => builder.bitwise_xor(lhs, rhs),
                     BinaryOp::Logical(LogicalOp::And) => builder.logical_and(lhs, rhs),
                     BinaryOp::Logical(LogicalOp::Or) => builder.logical_or(lhs, rhs),
                     BinaryOp::Equality(_) => todo!(),
+                    BinaryOp::Relational(_) => todo!(),
+                    BinaryOp::Shift(_) => todo!(),
                 };
 
                 dst
@@ -304,5 +329,17 @@ impl From<BitwiseOp> for BinaryOp {
 impl From<EqualityOp> for BinaryOp {
     fn from(value: EqualityOp) -> Self {
         Self::Equality(value)
+    }
+}
+
+impl From<RelationalOp> for BinaryOp {
+    fn from(value: RelationalOp) -> Self {
+        Self::Relational(value)
+    }
+}
+
+impl From<ShiftOp> for BinaryOp {
+    fn from(value: ShiftOp) -> Self {
+        Self::Shift(value)
     }
 }
