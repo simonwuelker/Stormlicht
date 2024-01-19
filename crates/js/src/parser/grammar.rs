@@ -1,41 +1,14 @@
 use super::{
-    identifiers::BindingIdentifier, literals::Literal, tokenizer::Punctuator, SyntaxError,
-    Tokenizer,
+    identifiers::BindingIdentifier, tokenizer::Punctuator, Expression, SyntaxError, Tokenizer,
 };
 
 /// <https://262.ecma-international.org/14.0/#prod-ScriptBody>
 #[derive(Clone, Debug)]
-pub struct Script(Option<ScriptBody>);
+pub struct Script(Vec<StatementListItem>);
 
 impl Script {
     pub fn parse(tokenizer: &mut Tokenizer<'_>) -> Result<Self, SyntaxError> {
-        let script_body = tokenizer.attempt(ScriptBody::parse).ok();
-        Ok(Self(script_body))
-    }
-}
-
-/// <https://262.ecma-international.org/14.0/#prod-ScriptBody>
-#[derive(Clone, Debug)]
-pub struct ScriptBody(StatementList);
-
-impl ScriptBody {
-    /// <https://262.ecma-international.org/14.0/#prod-ScriptBody>
-    pub fn parse(tokenizer: &mut Tokenizer<'_>) -> Result<Self, SyntaxError> {
-        let statement_list = StatementList::parse::<true, true, true>(tokenizer)?;
-        Ok(Self(statement_list))
-    }
-}
-
-/// <https://262.ecma-international.org/14.0/#prod-StatementList>
-#[derive(Clone, Debug)]
-pub struct StatementList(Vec<StatementListItem>);
-
-impl StatementList {
-    /// <https://262.ecma-international.org/14.0/#prod-StatementList>
-    fn parse<const YIELD: bool, const AWAIT: bool, const RETURN: bool>(
-        tokenizer: &mut Tokenizer<'_>,
-    ) -> Result<Self, SyntaxError> {
-        let statements = vec![StatementListItem::parse::<YIELD, AWAIT, RETURN>(tokenizer)?];
+        let statements = vec![StatementListItem::parse::<true, true, true>(tokenizer)?];
 
         // FIXME: parse more than one statement here
         Ok(Self(statements))
@@ -198,7 +171,7 @@ impl LexicalBinding {
 
 /// <https://262.ecma-international.org/14.0/#prod-Initializer>
 #[derive(Clone, Debug)]
-pub struct Initializer(AssignmentExpression);
+pub struct Initializer(Expression);
 
 impl Initializer {
     fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
@@ -211,221 +184,9 @@ impl Initializer {
             return Err(tokenizer.syntax_error());
         }
 
-        let assignment_expression = AssignmentExpression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
+        // FIXME: This should be an AssignmentExpression, not an Expression
+        let assignment_expression = Expression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
 
         Ok(Self(assignment_expression))
-    }
-}
-
-/// <https://262.ecma-international.org/14.0/#prod-AssignmentExpression>
-#[derive(Clone, Debug)]
-pub enum AssignmentExpression {
-    ConditionalExpression(ConditionalExpression),
-    YIELDExpression,
-    ArrowFunction,
-    AsyncArrowFunction,
-}
-
-/// <https://262.ecma-international.org/14.0/#prod-ConditionalExpression>
-// FIXME: incorrect
-#[derive(Clone, Debug)]
-pub struct ConditionalExpression(LogicalOrExpression);
-
-macro_rules! binary_op {
-    ($docs: expr, $name: ident, $next: ident, $op: ident, $symbol: pat) => {
-        #[doc = $docs]
-        #[derive(Clone, Debug)]
-        pub struct $name {
-            pub previous: Option<Box<Self>>,
-            pub expression: $next,
-        }
-
-        impl $name {
-            #[must_use]
-            const fn new(expression: $next) -> Self {
-                Self {
-                    previous: None,
-                    expression,
-                }
-            }
-
-            #[must_use]
-            fn $op(self, expression: $next) -> Self {
-                Self {
-                    previous: Some(Box::new(self)),
-                    expression,
-                }
-            }
-
-            #[doc = $docs]
-            fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
-                tokenizer: &mut Tokenizer<'_>,
-            ) -> Result<Self, SyntaxError> {
-                let first_term = $next::parse::<IN, YIELD, AWAIT>(tokenizer)?;
-                let mut expression = Self::new(first_term);
-
-                let parse_or_term = |tokenizer: &mut Tokenizer<'_>| {
-                    if !matches!(
-                        tokenizer.attempt(Tokenizer::consume_punctuator),
-                        Ok($symbol)
-                    ) {
-                        return Err(tokenizer.syntax_error());
-                    }
-
-                    tokenizer.attempt($next::parse::<IN, YIELD, AWAIT>)
-                };
-
-                while let Ok(next_term) = tokenizer.attempt(parse_or_term) {
-                    expression = expression.$op(next_term);
-                }
-
-                Ok(expression)
-            }
-        }
-    };
-}
-
-binary_op!(
-    "<https://262.ecma-international.org/14.0/#prod-LogicalORExpression>",
-    LogicalOrExpression,
-    LogicalAndExpression,
-    logical_or,
-    Punctuator::DoubleVerticalBar
-);
-
-binary_op!(
-    "<https://262.ecma-international.org/14.0/#prod-LogicalANDExpression>",
-    LogicalAndExpression,
-    BitwiseORExpression,
-    logical_and,
-    Punctuator::DoubleAmpersand
-);
-
-binary_op!(
-    "<https://262.ecma-international.org/14.0/#prod-BitwiseORExpression>",
-    BitwiseORExpression,
-    BitwiseXorExpression,
-    bitwise_or,
-    Punctuator::VerticalBar
-);
-
-binary_op!(
-    "<https://262.ecma-international.org/14.0/#prod-BitwiseXORExpression>",
-    BitwiseXorExpression,
-    BitwiseAndExpression,
-    bitwise_xor,
-    Punctuator::Caret
-);
-
-binary_op!(
-    "<https://262.ecma-international.org/14.0/#prod-BitwiseANDExpression>",
-    BitwiseAndExpression,
-    LeftHandSideExpression,
-    bitwise_and,
-    Punctuator::Ampersand
-);
-
-/// <https://262.ecma-international.org/14.0/#prod-LeftHandSideExpression>
-#[derive(Clone, Debug)]
-pub enum LeftHandSideExpression {
-    NewExpression(NewExpression),
-    CallExpression,
-    OptionalExpression,
-}
-
-/// <https://262.ecma-international.org/14.0/#prod-NewExpression>
-#[derive(Clone, Debug)]
-pub struct NewExpression {
-    /// The number of `new` keywords before the expression
-    pub nest_level: usize,
-    pub member_expression: MemberExpression,
-}
-
-/// <https://262.ecma-international.org/14.0/#prod-MemberExpression>
-#[derive(Clone, Debug)]
-pub enum MemberExpression {
-    PrimaryExpression(PrimaryExpression),
-    // FIXME: incomplete
-}
-
-/// <https://262.ecma-international.org/14.0/#prod-PrimaryExpression>
-#[derive(Clone, Debug)]
-pub enum PrimaryExpression {
-    This,
-    Literal(Literal),
-    // FIXME: Incomplete
-}
-
-impl AssignmentExpression {
-    fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
-        tokenizer: &mut Tokenizer<'_>,
-    ) -> Result<Self, SyntaxError> {
-        let conditional_expression = ConditionalExpression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
-        Ok(Self::ConditionalExpression(conditional_expression))
-    }
-}
-
-impl ConditionalExpression {
-    fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
-        tokenizer: &mut Tokenizer<'_>,
-    ) -> Result<Self, SyntaxError> {
-        let logical_or_expression = LogicalOrExpression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
-        Ok(Self(logical_or_expression))
-    }
-}
-
-impl LeftHandSideExpression {
-    fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
-        tokenizer: &mut Tokenizer<'_>,
-    ) -> Result<Self, SyntaxError> {
-        let new_expression = NewExpression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
-        Ok(Self::NewExpression(new_expression))
-    }
-}
-
-impl NewExpression {
-    fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
-        tokenizer: &mut Tokenizer<'_>,
-    ) -> Result<Self, SyntaxError> {
-        let mut nest_level = 0;
-
-        while matches!(
-            tokenizer.attempt(Tokenizer::consume_identifier).as_deref(),
-            Ok("new")
-        ) {
-            nest_level += 1;
-        }
-
-        let member_expression = MemberExpression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
-        Ok(Self {
-            nest_level,
-            member_expression,
-        })
-    }
-}
-
-impl MemberExpression {
-    fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
-        tokenizer: &mut Tokenizer<'_>,
-    ) -> Result<Self, SyntaxError> {
-        let primary_expression = PrimaryExpression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
-        Ok(Self::PrimaryExpression(primary_expression))
-    }
-}
-
-impl PrimaryExpression {
-    fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
-        tokenizer: &mut Tokenizer<'_>,
-    ) -> Result<Self, SyntaxError> {
-        if matches!(
-            tokenizer.attempt(Tokenizer::consume_identifier).as_deref(),
-            Ok("this")
-        ) {
-            Ok(Self::This)
-        } else if let Ok(literal) = Literal::parse(tokenizer) {
-            Ok(Self::Literal(literal))
-        } else {
-            Err(tokenizer.syntax_error())
-        }
     }
 }

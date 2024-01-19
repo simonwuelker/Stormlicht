@@ -72,7 +72,7 @@ pub struct Identifier(String);
 impl Identifier {
     /// <https://262.ecma-international.org/14.0/#prod-Identifier>
     pub(crate) fn parse(tokenizer: &mut Tokenizer<'_>) -> Result<Self, SyntaxError> {
-        let identifier_name = dbg!(tokenizer.consume_identifier())?;
+        let identifier_name = tokenizer.consume_identifier()?;
         if RESERVED_WORDS.contains(&identifier_name.as_str()) {
             return Err(tokenizer.syntax_error());
         }
