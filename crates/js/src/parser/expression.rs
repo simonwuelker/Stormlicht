@@ -56,7 +56,7 @@ macro_rules! binary_op {
             let parse_or_term = |tokenizer: &mut Tokenizer<'_>| {
                 if !matches!(
                     tokenizer.attempt(Tokenizer::consume_punctuator),
-                    Ok(Punctuator::DoubleVerticalBar)
+                    Ok($symbol)
                 ) {
                     return Err(tokenizer.syntax_error());
                 }
