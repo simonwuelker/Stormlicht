@@ -1,8 +1,11 @@
-use crate::bytecode::{self, CompileToBytecode};
+//! <https://262.ecma-international.org/14.0/#sec-declarations-and-the-variable-statement>
 
-use super::{
-    functions_and_classes::FunctionDeclaration, identifiers, tokenizer::Punctuator, Expression,
-    SyntaxError, Tokenizer,
+use crate::{
+    bytecode::{self, CompileToBytecode},
+    parser::{
+        functions_and_classes::FunctionDeclaration, identifiers, tokenizer::Punctuator, Expression,
+        SyntaxError, Tokenizer,
+    },
 };
 
 /// <https://262.ecma-international.org/14.0/#prod-Declaration>
