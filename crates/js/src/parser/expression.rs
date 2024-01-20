@@ -1,12 +1,16 @@
 use crate::bytecode::{self, CompileToBytecode};
 
-use super::{literals::Literal, tokenizer::Punctuator, SyntaxError, Tokenizer};
+use super::{
+    identifiers::parse_identifier_reference, literals::Literal, tokenizer::Punctuator, SyntaxError,
+    Tokenizer,
+};
 
 #[derive(Clone, Debug)]
 pub enum Expression {
     This,
     Literal(Literal),
     Binary(BinaryExpression),
+    IdentifierReference(String),
     New(NewExpression),
 }
 
@@ -212,6 +216,8 @@ fn parse_primary_expression<const YIELD: bool, const AWAIT: bool>(
         .is_ok()
     {
         Ok(Expression::This)
+    } else if let Ok(identifier) = tokenizer.attempt(parse_identifier_reference::<YIELD, AWAIT>) {
+        Ok(Expression::IdentifierReference(identifier))
     } else if let Ok(literal) = Literal::parse(tokenizer) {
         Ok(Expression::Literal(literal))
     } else {
@@ -301,6 +307,7 @@ impl CompileToBytecode for Expression {
 
                 dst
             },
+            Self::IdentifierReference(_) => todo!(),
             Self::Literal(literal) => builder.allocate_register_with_value(literal.clone().into()),
             Self::New(_) => todo!(),
             Self::This => todo!(),

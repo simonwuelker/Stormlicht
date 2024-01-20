@@ -18,6 +18,7 @@ impl Vm {
             println!("\t{index}. {var:?}");
         }
     }
+
     pub fn execute_basic_block(&mut self, block: &BasicBlock) {
         self.registers
             .resize_with(block.registers_required, Default::default);

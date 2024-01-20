@@ -74,3 +74,22 @@ impl Identifier {
         Ok(Self(identifier_name))
     }
 }
+
+/// <https://262.ecma-international.org/14.0/#prod-IdentifierReference>
+pub(crate) fn parse_identifier_reference<const YIELD: bool, const AWAIT: bool>(
+    tokenizer: &mut Tokenizer<'_>,
+) -> Result<String, SyntaxError> {
+    if let Ok(identifier) = tokenizer.attempt(Identifier::parse) {
+        return Ok(identifier.0);
+    }
+
+    if YIELD && tokenizer.consume_keyword("yield").is_ok() {
+        return Ok("yield".to_string());
+    }
+
+    if AWAIT && tokenizer.consume_keyword("await").is_ok() {
+        return Ok("await".to_string());
+    }
+
+    Err(tokenizer.syntax_error())
+}
