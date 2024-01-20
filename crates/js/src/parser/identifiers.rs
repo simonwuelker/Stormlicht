@@ -1,6 +1,6 @@
 //! <https://262.ecma-international.org/14.0/#sec-identifiers>
 
-use super::{SyntaxError, Tokenizer};
+use super::{tokenizer::GoalSymbol, SyntaxError, Tokenizer};
 
 const RESERVED_WORDS: [&str; 37] = [
     "await",
@@ -47,11 +47,17 @@ pub(crate) fn parse_binding_identifier<const YIELD: bool, const AWAIT: bool>(
     tokenizer: &mut Tokenizer<'_>,
 ) -> Result<String, SyntaxError> {
     let binding_identifier = if let Ok(identifier) = tokenizer.attempt(Identifier::parse) {
+        if tokenizer.is_strict() && matches!(identifier.0.as_str(), "arguments" | "eval") {
+            return Err(tokenizer.syntax_error());
+        }
+
         identifier.0
     } else {
         let identifier_name = tokenizer.consume_identifier()?;
 
-        if matches!(identifier_name.as_str(), "yield" | "await") {
+        if !YIELD && identifier_name.as_str() == "yield" {
+            identifier_name
+        } else if !AWAIT && identifier_name.as_str() == "await" {
             identifier_name
         } else {
             return Err(tokenizer.syntax_error());
@@ -65,11 +71,33 @@ pub(crate) fn parse_binding_identifier<const YIELD: bool, const AWAIT: bool>(
 #[derive(Clone, Debug)]
 pub struct Identifier(String);
 
+const DISALLOWED_IDENTIFIERS_IN_STRICT_MODE: [&str; 9] = [
+    "implements",
+    "interface",
+    "let",
+    "package",
+    "private",
+    "protected",
+    "public",
+    "static",
+    "yield",
+];
+
 impl Identifier {
     /// <https://262.ecma-international.org/14.0/#prod-Identifier>
     pub(crate) fn parse(tokenizer: &mut Tokenizer<'_>) -> Result<Self, SyntaxError> {
         let identifier_name = tokenizer.consume_identifier()?;
         if RESERVED_WORDS.contains(&identifier_name.as_str()) {
+            return Err(tokenizer.syntax_error());
+        }
+
+        if tokenizer.is_strict()
+            && DISALLOWED_IDENTIFIERS_IN_STRICT_MODE.contains(&identifier_name.as_str())
+        {
+            return Err(tokenizer.syntax_error());
+        }
+
+        if tokenizer.goal_symbol() == GoalSymbol::Module && identifier_name.as_str() == "await" {
             return Err(tokenizer.syntax_error());
         }
 

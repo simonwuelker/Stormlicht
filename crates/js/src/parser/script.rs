@@ -89,6 +89,7 @@ impl CompileToBytecode for StatementListItem {
 
 impl CompileToBytecode for Statement {
     fn compile(&self, builder: &mut bytecode::Builder) -> Self::Result {
+        _ = builder;
         todo!()
     }
 }

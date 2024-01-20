@@ -96,17 +96,41 @@ pub enum Punctuator {
     CurlyBraceClose,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GoalSymbol {
+    Script,
+    Module,
+}
+
 #[derive(Clone, Copy)]
 pub struct Tokenizer<'a> {
     source: ReversibleCharIterator<&'a str>,
+    strict: bool,
+    goal_symbol: GoalSymbol,
 }
 
 impl<'a> Tokenizer<'a> {
     #[must_use]
-    pub fn new(source_text: &'a str) -> Self {
+    pub fn new(source_text: &'a str, goal_symbol: GoalSymbol) -> Self {
         Self {
             source: ReversibleCharIterator::new(source_text),
+            strict: false,
+            goal_symbol,
         }
+    }
+
+    #[must_use]
+    pub const fn is_strict(&self) -> bool {
+        self.strict
+    }
+
+    #[must_use]
+    pub const fn goal_symbol(&self) -> GoalSymbol {
+        self.goal_symbol
+    }
+
+    pub fn set_strict(&mut self, strict: bool) {
+        self.strict = strict;
     }
 
     #[must_use]
@@ -493,12 +517,12 @@ mod tests {
     #[test]
     fn tokenize_punctuator() {
         assert_eq!(
-            Tokenizer::new("?.").consume_punctuator(),
+            Tokenizer::new("?.", GoalSymbol::Script).consume_punctuator(),
             Ok(Punctuator::OptionalChaining)
         );
 
         assert_ne!(
-            Tokenizer::new("?.5").consume_punctuator(),
+            Tokenizer::new("?.5", GoalSymbol::Script).consume_punctuator(),
             Ok(Punctuator::OptionalChaining)
         );
     }
@@ -506,14 +530,14 @@ mod tests {
     #[test]
     fn tokenize_string_literal() {
         assert_eq!(
-            Tokenizer::new("\"foobar\"")
+            Tokenizer::new("\"foobar\"", GoalSymbol::Script)
                 .consume_string_literal()
                 .as_deref(),
             Ok("foobar")
         );
 
         assert_eq!(
-            Tokenizer::new("'foobar'")
+            Tokenizer::new("'foobar'", GoalSymbol::Script)
                 .consume_string_literal()
                 .as_deref(),
             Ok("foobar")
