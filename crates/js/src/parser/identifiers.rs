@@ -1,3 +1,5 @@
+//! <https://262.ecma-international.org/14.0/#sec-identifiers>
+
 use super::{SyntaxError, Tokenizer};
 
 const RESERVED_WORDS: [&str; 37] = [
@@ -83,11 +85,11 @@ pub(crate) fn parse_identifier_reference<const YIELD: bool, const AWAIT: bool>(
         return Ok(identifier.0);
     }
 
-    if YIELD && tokenizer.consume_keyword("yield").is_ok() {
+    if YIELD && tokenizer.expect_keyword("yield").is_ok() {
         return Ok("yield".to_string());
     }
 
-    if AWAIT && tokenizer.consume_keyword("await").is_ok() {
+    if AWAIT && tokenizer.expect_keyword("await").is_ok() {
         return Ok("await".to_string());
     }
 

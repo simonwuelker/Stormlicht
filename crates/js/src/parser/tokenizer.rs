@@ -175,7 +175,17 @@ impl<'a> Tokenizer<'a> {
         self.source.go_back()
     }
 
-    pub fn consume_keyword(&mut self, keyword: &str) -> Result<(), SyntaxError> {
+    pub fn expect_punctuator(&mut self, expected: Punctuator) -> Result<(), SyntaxError> {
+        let punctuator = self.consume_punctuator()?;
+
+        if punctuator == expected {
+            Ok(())
+        } else {
+            Err(self.syntax_error())
+        }
+    }
+
+    pub fn expect_keyword(&mut self, keyword: &str) -> Result<(), SyntaxError> {
         if self.source.remaining().starts_with(keyword) {
             _ = self.source.advance_by(keyword.len());
             self.skip_whitespace();
@@ -186,7 +196,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     pub fn consume_null_literal(&mut self) -> Result<(), SyntaxError> {
-        self.consume_keyword("null")
+        self.expect_keyword("null")
     }
 
     pub fn consume_boolean_literal(&mut self) -> Result<bool, SyntaxError> {

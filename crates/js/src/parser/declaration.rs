@@ -1,10 +1,14 @@
 use crate::bytecode::{self, CompileToBytecode};
 
-use super::{identifiers, tokenizer::Punctuator, Expression, SyntaxError, Tokenizer};
+use super::{
+    functions_and_classes::FunctionDeclaration, identifiers, tokenizer::Punctuator, Expression,
+    SyntaxError, Tokenizer,
+};
 
 /// <https://262.ecma-international.org/14.0/#prod-Declaration>
 #[derive(Clone, Debug)]
 pub enum Declaration {
+    Function(FunctionDeclaration),
     Lexical(LexicalDeclaration),
 }
 
@@ -13,7 +17,11 @@ impl Declaration {
     pub fn parse<const YIELD: bool, const AWAIT: bool>(
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
-        let declaration = if let Ok(lexical_declaration) =
+        let declaration = if let Ok(function_declaration) =
+            tokenizer.attempt(FunctionDeclaration::parse::<YIELD, AWAIT, true>)
+        {
+            Self::Function(function_declaration)
+        } else if let Ok(lexical_declaration) =
             tokenizer.attempt(LexicalDeclaration::parse::<true, YIELD, AWAIT>)
         {
             Self::Lexical(lexical_declaration)
@@ -121,6 +129,7 @@ impl CompileToBytecode for Declaration {
     fn compile(&self, builder: &mut bytecode::Builder) {
         match self {
             Self::Lexical(lexical_declaration) => lexical_declaration.compile(builder),
+            Self::Function(function_declaration) => function_declaration.compile(builder),
         }
     }
 }

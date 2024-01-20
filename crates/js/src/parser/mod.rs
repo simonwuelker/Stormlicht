@@ -1,6 +1,7 @@
 mod declaration;
 mod error;
 mod expression;
+mod functions_and_classes;
 pub mod identifiers;
 pub mod literals;
 pub mod script;

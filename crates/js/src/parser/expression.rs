@@ -212,7 +212,7 @@ fn parse_primary_expression<const YIELD: bool, const AWAIT: bool>(
     tokenizer: &mut Tokenizer<'_>,
 ) -> Result<Expression, SyntaxError> {
     if tokenizer
-        .attempt(|tokenizer| tokenizer.consume_keyword("this"))
+        .attempt(|tokenizer| tokenizer.expect_keyword("this"))
         .is_ok()
     {
         Ok(Expression::This)
