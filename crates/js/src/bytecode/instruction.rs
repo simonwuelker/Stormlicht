@@ -1,4 +1,4 @@
-use super::{vm::Value, Register};
+use super::{Register, Value};
 
 #[derive(Clone, Copy, Debug)]
 pub struct VariableHandle(usize);
