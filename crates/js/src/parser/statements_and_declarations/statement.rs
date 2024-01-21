@@ -6,7 +6,7 @@ use crate::{
 use super::{
     block_statement::{self, BlockStatement},
     if_statement::IfStatement,
-    Declaration,
+    Declaration, WhileStatement,
 };
 
 /// <https://262.ecma-international.org/14.0/#prod-StatementListItem>
@@ -42,7 +42,7 @@ pub(crate) enum Statement {
     EmptyStatement,
     ExpressionStatement,
     IfStatement(IfStatement),
-    BreakableStatement,
+    WhileStatement(WhileStatement),
     ContinueStatement,
     BreakStatement,
     RETURNStatement,
@@ -66,6 +66,10 @@ impl Statement {
             tokenizer.attempt(IfStatement::parse::<YIELD, AWAIT, RETURN>)
         {
             Ok(Self::IfStatement(if_statement))
+        } else if let Ok(while_statement) =
+            tokenizer.attempt(WhileStatement::parse::<YIELD, AWAIT, RETURN>)
+        {
+            Ok(Self::WhileStatement(while_statement))
         } else if tokenizer.attempt(parse_empty_statement).is_ok() {
             Ok(Self::EmptyStatement)
         } else {
@@ -88,6 +92,7 @@ impl CompileToBytecode for Statement {
         match self {
             Self::BlockStatement(block_statement) => block_statement.compile(builder),
             Self::IfStatement(if_statement) => if_statement.compile(builder),
+            Self::WhileStatement(while_statement) => while_statement.compile(builder),
             Self::EmptyStatement => {},
             _ => todo!(),
         }
