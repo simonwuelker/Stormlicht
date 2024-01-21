@@ -1,9 +1,9 @@
 use crate::{
     bytecode::{self, CompileToBytecode},
-    parser::{SyntaxError, Tokenizer},
+    parser::{tokenizer::Punctuator, SyntaxError, Tokenizer},
 };
 
-use super::Declaration;
+use super::{if_statement::IfStatement, Declaration};
 
 /// <https://262.ecma-international.org/14.0/#prod-StatementListItem>
 #[derive(Clone, Debug)]
@@ -37,7 +37,7 @@ pub(crate) enum Statement {
     VariableStatement,
     EmptyStatement,
     ExpressionStatement,
-    IfStatement,
+    IfStatement(IfStatement),
     BreakableStatement,
     ContinueStatement,
     BreakStatement,
@@ -51,12 +51,16 @@ pub(crate) enum Statement {
 
 impl Statement {
     /// <https://262.ecma-international.org/14.0/#prod-Statement>
-    fn parse<const YIELD: bool, const AWAIT: bool, const RETURN: bool>(
+    pub fn parse<const YIELD: bool, const AWAIT: bool, const RETURN: bool>(
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
-        // TODO
-        _ = tokenizer;
-        Err(tokenizer.syntax_error())
+        if let Ok(if_statement) = tokenizer.attempt(IfStatement::parse::<YIELD, AWAIT, RETURN>) {
+            Ok(Self::IfStatement(if_statement))
+        } else if tokenizer.attempt(parse_empty_statement).is_ok() {
+            Ok(Self::EmptyStatement)
+        } else {
+            Err(tokenizer.syntax_error())
+        }
     }
 }
 
@@ -70,8 +74,15 @@ impl CompileToBytecode for StatementListItem {
 }
 
 impl CompileToBytecode for Statement {
-    fn compile(&self, builder: &mut bytecode::Builder) -> Self::Result {
-        _ = builder;
-        todo!()
+    fn compile(&self, builder: &mut bytecode::Builder) {
+        match self {
+            Self::IfStatement(if_statement) => if_statement.compile(builder),
+            Self::EmptyStatement => {},
+            _ => todo!(),
+        }
     }
+}
+
+fn parse_empty_statement(tokenizer: &mut Tokenizer<'_>) -> Result<(), SyntaxError> {
+    tokenizer.expect_punctuator(Punctuator::Semicolon)
 }
