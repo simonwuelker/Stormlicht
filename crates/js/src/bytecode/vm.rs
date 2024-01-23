@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use super::{BasicBlock, Exception, Instruction, Program, Register, ThrowCompletionOr, Value};
+use super::{
+    BasicBlock, BasicBlockExit, Exception, Instruction, Program, Register, ThrowCompletionOr, Value,
+};
 
 #[derive(Clone, Debug, Default)]
 pub struct Vm {
@@ -22,7 +24,27 @@ impl Vm {
     }
 
     pub fn execute_program(&mut self, program: &Program) {
-        self.execute_basic_block(&program.basic_blocks[0])
+        let mut basic_block_index = 0;
+        loop {
+            let block_to_execute = &program.basic_blocks[basic_block_index];
+            self.execute_basic_block(block_to_execute);
+
+            match block_to_execute.exit {
+                BasicBlockExit::Terminate => break,
+                BasicBlockExit::GoTo(index) => basic_block_index = index,
+                BasicBlockExit::Branch {
+                    branch_on,
+                    if_true,
+                    if_false,
+                } => {
+                    if self.register(branch_on).to_boolean() {
+                        basic_block_index = if_true;
+                    } else {
+                        basic_block_index = if_false;
+                    }
+                },
+            }
+        }
     }
 
     fn execute_basic_block(&mut self, block: &BasicBlock) {
