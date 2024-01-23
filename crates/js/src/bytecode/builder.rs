@@ -106,6 +106,11 @@ impl<'a> BasicBlockBuilder<'a> {
         self.push_instruction(instruction);
     }
 
+    pub fn load_variable(&mut self, name: String, dst: Register) {
+        let instruction = Instruction::LoadVariable { name, dst };
+        self.push_instruction(instruction);
+    }
+
     #[must_use]
     pub fn add(&mut self, lhs: Register, rhs: Register) -> Register {
         let dst = self.allocate_register();

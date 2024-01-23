@@ -1,3 +1,5 @@
+use std::thread::current;
+
 use crate::bytecode::{self, CompileToBytecode};
 
 use super::{
@@ -316,7 +318,12 @@ impl CompileToBytecode for Expression {
 
                 dst
             },
-            Self::IdentifierReference(_) => todo!(),
+            Self::IdentifierReference(identifier_reference) => {
+                let mut current_block = builder.get_current_block();
+                let dst = current_block.allocate_register();
+                current_block.load_variable(identifier_reference.clone(), dst);
+                dst
+            },
             Self::Literal(literal) => builder
                 .get_current_block()
                 .allocate_register_with_value(literal.clone().into()),

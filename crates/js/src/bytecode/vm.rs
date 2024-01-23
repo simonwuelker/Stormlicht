@@ -90,6 +90,14 @@ impl Vm {
             Instruction::UpdateVariable { name, src } => {
                 self.set_variable(name, self.register(*src).clone());
             },
+            Instruction::LoadVariable { name, dst } => {
+                let value = self
+                    .variables
+                    .get(name)
+                    .expect("Variable not defined")
+                    .clone();
+                self.set_register(*dst, value);
+            },
             Instruction::Add { lhs, rhs, dst } => {
                 // <https://262.ecma-international.org/14.0/#sec-applystringornumericbinaryoperator>
                 let lprim = self.register(*lhs).to_primitive(None)?;

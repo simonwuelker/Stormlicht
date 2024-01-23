@@ -28,6 +28,10 @@ pub enum Instruction {
         name: String,
         src: Register,
     },
+    LoadVariable {
+        name: String,
+        dst: Register,
+    },
     Add {
         lhs: Register,
         rhs: Register,
