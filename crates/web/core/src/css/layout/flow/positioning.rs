@@ -160,7 +160,10 @@ impl AbsolutelyPositionedBox {
 
         // Absolute elements establish a new formatting context for their elements
         let fragments = match &self.content {
-            IndependentFormattingContext::Replaced(_) => todo!(),
+            IndependentFormattingContext::Replaced(replaced_element) => {
+                _ = replaced_element;
+                todo!("implement absolutely positioned replaced elements");
+            },
             IndependentFormattingContext::NonReplaced(bfc) => {
                 bfc.layout(containing_block, length_resolution_context)
                     .fragments

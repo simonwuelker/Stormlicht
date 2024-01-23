@@ -109,7 +109,10 @@ impl FloatingBox {
 
         // Layout the floats contents to determine its size
         let content_info = match &self.contents {
-            IndependentFormattingContext::Replaced(_) => todo!(),
+            IndependentFormattingContext::Replaced(replaced_element) => {
+                _ = replaced_element;
+                todo!("implement floating replaced elements");
+            },
             IndependentFormattingContext::NonReplaced(bfc) => {
                 // FIXME: This should be the elements font size
                 bfc.layout(containing_block, ctx.with_font_size(DEFAULT_FONT_SIZE))
