@@ -100,43 +100,8 @@ impl Vm {
                 self.set_register(*dst, value);
             },
             Instruction::Add { lhs, rhs, dst } => {
-                // <https://262.ecma-international.org/14.0/#sec-applystringornumericbinaryoperator>
-                let lprim = self.register(*lhs).to_primitive(None)?;
-                let rprim = self.register(*rhs).to_primitive(None)?;
-
-                if lprim.is_string() || rprim.is_string() {
-                    // i. Let lstr be ? ToString(lprim).
-                    let lstr = lprim.to_string()?;
-
-                    // ii. Let rstr be ? ToString(rprim).
-                    let rstr = rprim.to_string()?;
-
-                    // iii. Return the string-concatenation of lstr and rstr.
-                    self.set_register(*dst, format!("{lstr}{rstr}").into());
-                    return Ok(());
-                }
-
-                let lval = lprim;
-                let rval = rprim;
-
-                // 3. Let lnum be ? ToNumeric(lval).
-                let lnum = lval.to_numeric()?;
-
-                // 4. Let rnum be ? ToNumeric(rval).
-                let rnum = rval.to_numeric()?;
-
-                // 5. If Type(lnum) is not Type(rnum), throw a TypeError exception.
-                if lnum.type_tag() != rnum.type_tag() {
-                    return Err(Exception::TypeError);
-                }
-
-                match (lnum, rnum) {
-                    (Value::Number(lhs), Value::Number(rhs)) => {
-                        self.set_register(*dst, lhs.add(rhs).into());
-                    },
-                    (Value::BigInt, Value::BigInt) => todo!(),
-                    _ => unreachable!(),
-                }
+                let result = Value::add(self.register(*lhs).clone(), self.register(*rhs).clone())?;
+                self.set_register(*dst, result);
             },
             _ => todo!(),
         }
