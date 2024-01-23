@@ -2,6 +2,8 @@ use std::process::Command;
 
 fn main() {
     get_environment_info();
+
+    #[cfg(feature = "chrome-gtk")]
     compile_glib_resources();
 }
 
@@ -23,6 +25,7 @@ fn get_environment_info() {
     );
 }
 
+#[cfg(feature = "chrome-gtk")]
 fn compile_glib_resources() {
     glib_build_tools::compile_resources(
         &["resources"],
