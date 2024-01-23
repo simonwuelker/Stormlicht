@@ -76,6 +76,8 @@ impl LexicalDeclaration {
             binding_list: vec![lexical_binding],
         };
 
+        tokenizer.expect_punctuator(Punctuator::Semicolon)?;
+
         Ok(lexical_declaration)
     }
 }
