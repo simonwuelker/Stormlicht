@@ -4,9 +4,7 @@ use crate::{
 };
 
 use super::{
-    block_statement::{self, BlockStatement},
-    if_statement::IfStatement,
-    Declaration, WhileStatement,
+    block_statement::BlockStatement, if_statement::IfStatement, Declaration, WhileStatement,
 };
 
 /// <https://262.ecma-international.org/14.0/#prod-StatementListItem>

@@ -10,10 +10,14 @@ use crate::{
 pub(crate) fn parse_statement_list<const YIELD: bool, const AWAIT: bool, const RETURN: bool>(
     tokenizer: &mut Tokenizer<'_>,
 ) -> Result<Vec<StatementListItem>, SyntaxError> {
-    // FIXME: parse more than one statement here
-    Ok(vec![StatementListItem::parse::<true, true, true>(
-        tokenizer,
-    )?])
+    let first_item = StatementListItem::parse::<true, true, true>(tokenizer)?;
+    let mut items = vec![first_item];
+
+    while let Ok(item) = tokenizer.attempt(StatementListItem::parse::<YIELD, AWAIT, RETURN>) {
+        items.push(item);
+    }
+
+    Ok(items)
 }
 
 /// <https://262.ecma-international.org/14.0/#prod-BlockStatement>
