@@ -33,6 +33,8 @@ struct ObjectIdentifier {
 }
 
 #[derive(Debug)]
+// Dead code analysis ignores debug impls (which are called when the error is returned from main)
+#[allow(dead_code)]
 enum Error {
     IO(io::Error),
     Deserialization(JsonError),
