@@ -1,4 +1,8 @@
-use super::{Instruction, Register};
+use std::str::FromStr;
+
+use crate::parser::{tokenizer::GoalSymbol, Script, SyntaxError, Tokenizer};
+
+use super::{CompileToBytecode, Instruction, ProgramBuilder, Register};
 
 #[derive(Clone, Debug, Default)]
 pub struct BasicBlock {
@@ -27,4 +31,18 @@ pub enum BasicBlockExit {
 #[derive(Clone, Debug, Default)]
 pub struct Program {
     pub(crate) basic_blocks: Vec<BasicBlock>,
+}
+
+impl FromStr for Program {
+    type Err = SyntaxError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut tokenizer = Tokenizer::new(s, GoalSymbol::Script);
+        let script = Script::parse(&mut tokenizer)?;
+        let mut builder = ProgramBuilder::default();
+        script.compile(&mut builder);
+        let program = builder.finish();
+
+        Ok(program)
+    }
 }
