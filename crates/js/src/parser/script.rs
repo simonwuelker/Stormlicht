@@ -18,7 +18,7 @@ impl Script {
 }
 
 impl CompileToBytecode for Script {
-    fn compile(&self, builder: &mut bytecode::Builder) {
+    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
         for statement in &self.0 {
             statement.compile(builder);
         }

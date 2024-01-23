@@ -35,7 +35,7 @@ impl WhileStatement {
 }
 
 impl CompileToBytecode for WhileStatement {
-    fn compile(&self, builder: &mut bytecode::Builder) -> Self::Result {
+    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
         let _ = builder;
         todo!()
     }

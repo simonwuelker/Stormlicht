@@ -265,50 +265,61 @@ impl Expression {
 impl CompileToBytecode for Expression {
     type Result = bytecode::Register;
 
-    fn compile(&self, builder: &mut bytecode::Builder) -> Self::Result {
+    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
         match self {
             Self::Binary(binary_expression) => {
                 let lhs = binary_expression.lhs.compile(builder);
                 let rhs = binary_expression.rhs.compile(builder);
+                let mut current_block = builder.get_current_block();
 
                 let dst = match binary_expression.op {
-                    BinaryOp::Arithmetic(ArithmeticOp::Add) => builder.add(lhs, rhs),
-                    BinaryOp::Arithmetic(ArithmeticOp::Subtract) => builder.subtract(lhs, rhs),
-                    BinaryOp::Arithmetic(ArithmeticOp::Multiply) => builder.multiply(lhs, rhs),
-                    BinaryOp::Arithmetic(ArithmeticOp::Divide) => builder.divide(lhs, rhs),
-                    BinaryOp::Arithmetic(ArithmeticOp::Modulo) => builder.modulo(lhs, rhs),
-                    BinaryOp::Bitwise(BitwiseOp::And) => builder.bitwise_and(lhs, rhs),
-                    BinaryOp::Bitwise(BitwiseOp::Or) => builder.bitwise_or(lhs, rhs),
-                    BinaryOp::Bitwise(BitwiseOp::Xor) => builder.bitwise_xor(lhs, rhs),
-                    BinaryOp::Logical(LogicalOp::And) => builder.logical_and(lhs, rhs),
-                    BinaryOp::Logical(LogicalOp::Or) => builder.logical_or(lhs, rhs),
-                    BinaryOp::Equality(EqualityOp::Equal) => builder.equal(lhs, rhs),
-                    BinaryOp::Equality(EqualityOp::NotEqual) => builder.equal(lhs, rhs),
-                    BinaryOp::Equality(EqualityOp::StrictEqual) => builder.strict_equal(lhs, rhs),
-                    BinaryOp::Equality(EqualityOp::StrictNotEqual) => {
-                        builder.strict_not_equal(lhs, rhs)
+                    BinaryOp::Arithmetic(ArithmeticOp::Add) => current_block.add(lhs, rhs),
+                    BinaryOp::Arithmetic(ArithmeticOp::Subtract) => {
+                        current_block.subtract(lhs, rhs)
                     },
-                    BinaryOp::Relational(RelationalOp::LessThan) => builder.less_than(lhs, rhs),
+                    BinaryOp::Arithmetic(ArithmeticOp::Multiply) => {
+                        current_block.multiply(lhs, rhs)
+                    },
+                    BinaryOp::Arithmetic(ArithmeticOp::Divide) => current_block.divide(lhs, rhs),
+                    BinaryOp::Arithmetic(ArithmeticOp::Modulo) => current_block.modulo(lhs, rhs),
+                    BinaryOp::Bitwise(BitwiseOp::And) => current_block.bitwise_and(lhs, rhs),
+                    BinaryOp::Bitwise(BitwiseOp::Or) => current_block.bitwise_or(lhs, rhs),
+                    BinaryOp::Bitwise(BitwiseOp::Xor) => current_block.bitwise_xor(lhs, rhs),
+                    BinaryOp::Logical(LogicalOp::And) => current_block.logical_and(lhs, rhs),
+                    BinaryOp::Logical(LogicalOp::Or) => current_block.logical_or(lhs, rhs),
+                    BinaryOp::Equality(EqualityOp::Equal) => current_block.equal(lhs, rhs),
+                    BinaryOp::Equality(EqualityOp::NotEqual) => current_block.equal(lhs, rhs),
+                    BinaryOp::Equality(EqualityOp::StrictEqual) => {
+                        current_block.strict_equal(lhs, rhs)
+                    },
+                    BinaryOp::Equality(EqualityOp::StrictNotEqual) => {
+                        current_block.strict_not_equal(lhs, rhs)
+                    },
+                    BinaryOp::Relational(RelationalOp::LessThan) => {
+                        current_block.less_than(lhs, rhs)
+                    },
                     BinaryOp::Relational(RelationalOp::GreaterThan) => {
-                        builder.greater_than(lhs, rhs)
+                        current_block.greater_than(lhs, rhs)
                     },
                     BinaryOp::Relational(RelationalOp::LessThanOrEqual) => {
-                        builder.less_than_or_equal(lhs, rhs)
+                        current_block.less_than_or_equal(lhs, rhs)
                     },
                     BinaryOp::Relational(RelationalOp::GreaterThanOrEqual) => {
-                        builder.greater_than_or_equal(lhs, rhs)
+                        current_block.greater_than_or_equal(lhs, rhs)
                     },
-                    BinaryOp::Shift(ShiftOp::ShiftLeft) => builder.shift_left(lhs, rhs),
-                    BinaryOp::Shift(ShiftOp::ShiftRight) => builder.shift_right(lhs, rhs),
+                    BinaryOp::Shift(ShiftOp::ShiftLeft) => current_block.shift_left(lhs, rhs),
+                    BinaryOp::Shift(ShiftOp::ShiftRight) => current_block.shift_right(lhs, rhs),
                     BinaryOp::Shift(ShiftOp::ShiftRightZeros) => {
-                        builder.shift_right_zeros(lhs, rhs)
+                        current_block.shift_right_zeros(lhs, rhs)
                     },
                 };
 
                 dst
             },
             Self::IdentifierReference(_) => todo!(),
-            Self::Literal(literal) => builder.allocate_register_with_value(literal.clone().into()),
+            Self::Literal(literal) => builder
+                .get_current_block()
+                .allocate_register_with_value(literal.clone().into()),
             Self::New(_) => todo!(),
             Self::This => todo!(),
         }

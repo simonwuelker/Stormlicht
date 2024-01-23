@@ -37,7 +37,7 @@ impl FunctionDeclaration {
 }
 
 impl CompileToBytecode for FunctionDeclaration {
-    fn compile(&self, builder: &mut bytecode::Builder) {
+    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
         _ = builder;
         todo!()
     }

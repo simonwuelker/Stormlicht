@@ -175,6 +175,38 @@ impl Value {
         }
     }
 
+    /// <https://262.ecma-international.org/14.0/#sec-toboolean>
+    #[must_use]
+    pub fn to_boolean(&self) -> bool {
+        match self {
+            Self::Boolean(b) => {
+                // 1. If argument is a Boolean, return argument.
+                *b
+            },
+            Self::Undefined | Self::Null => {
+                // 2. If argument is one of undefined, null, +0𝔽, -0𝔽, NaN, 0ℤ, or the empty String, return false.
+                false
+            },
+            Self::Number(n)
+                if n == &Number::NEG_ZERO || n == &Number::ZERO || n == &Number::NAN =>
+            {
+                // 2. If argument is one of undefined, null, +0𝔽, -0𝔽, NaN, 0ℤ, or the empty String, return false.
+                false
+            },
+            Self::String(s) if s.is_empty() => {
+                // 2. If argument is one of undefined, null, +0𝔽, -0𝔽, NaN, 0ℤ, or the empty String, return false.
+                false
+            },
+            _ => {
+                // 3. NOTE: This step is replaced in section B.3.6.1.
+                //          (https://262.ecma-international.org/14.0/#sec-IsHTMLDDA-internal-slot-to-boolean)
+
+                // 4. Return true.
+                true
+            },
+        }
+    }
+
     /// <https://262.ecma-international.org/14.0/#sec-tostring>
     #[must_use]
     pub fn to_string(self) -> ThrowCompletionOr<String> {

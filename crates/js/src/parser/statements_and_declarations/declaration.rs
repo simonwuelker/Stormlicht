@@ -129,7 +129,7 @@ fn parse_initializer<const IN: bool, const YIELD: bool, const AWAIT: bool>(
 }
 
 impl CompileToBytecode for Declaration {
-    fn compile(&self, builder: &mut bytecode::Builder) {
+    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
         match self {
             Self::Lexical(lexical_declaration) => lexical_declaration.compile(builder),
             Self::Function(function_declaration) => function_declaration.compile(builder),
@@ -138,18 +138,24 @@ impl CompileToBytecode for Declaration {
 }
 
 impl CompileToBytecode for LexicalDeclaration {
-    fn compile(&self, builder: &mut bytecode::Builder) -> Self::Result {
+    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
+        let current_block = builder.current_block();
+
         for lexical_binding in &self.binding_list {
             match lexical_binding {
                 LexicalBinding::WithIdentifier {
                     identifier,
                     initializer,
                 } => {
-                    let handle = builder.create_variable(&identifier);
+                    builder
+                        .get_block(current_block)
+                        .create_variable(&identifier);
 
                     if let Some(expression) = initializer {
                         let result = expression.compile(builder);
-                        builder.update_variable(handle, result);
+                        builder
+                            .get_block(current_block)
+                            .update_variable(identifier.clone(), result);
                     }
                 },
                 LexicalBinding::BindingPattern => todo!(),

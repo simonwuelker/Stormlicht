@@ -22,10 +22,10 @@ pub enum Instruction {
         immediate: Value,
     },
     CreateVariable {
-        handle: VariableHandle,
+        name: String,
     },
     UpdateVariable {
-        handle: VariableHandle,
+        name: String,
         src: Register,
     },
     Add {

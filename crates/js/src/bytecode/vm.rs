@@ -1,8 +1,10 @@
-use super::{Exception, Instruction, Register, ThrowCompletionOr, Value, VariableHandle};
+use std::collections::HashMap;
+
+use super::{BasicBlock, Exception, Instruction, Program, Register, ThrowCompletionOr, Value};
 
 #[derive(Clone, Debug, Default)]
 pub struct Vm {
-    variables: Vec<Value>,
+    variables: HashMap<String, Value>,
     registers: Vec<Value>,
 }
 
@@ -14,12 +16,16 @@ impl Vm {
         }
 
         println!("Variables:");
-        for (index, var) in self.variables.iter().enumerate() {
-            println!("\t{index}. {var:?}");
+        for (index, (key, value)) in self.variables.iter().enumerate() {
+            println!("\t{index}. {key:?} -> {value:?}");
         }
     }
 
-    pub fn execute_basic_block(&mut self, block: &BasicBlock) {
+    pub fn execute_program(&mut self, program: &Program) {
+        self.execute_basic_block(&program.basic_blocks[0])
+    }
+
+    fn execute_basic_block(&mut self, block: &BasicBlock) {
         self.registers
             .resize_with(block.registers_required, Default::default);
 
@@ -40,8 +46,8 @@ impl Vm {
         self.registers[register.index()] = value;
     }
 
-    fn set_variable(&mut self, handle: VariableHandle, value: Value) {
-        self.variables[handle.index()] = value;
+    fn set_variable(&mut self, name: &str, value: Value) {
+        *self.variables.get_mut(name).expect("Variable not defined") = value;
     }
 
     fn report_unhandled_exception(&self, exception: Exception) {
@@ -56,14 +62,11 @@ impl Vm {
             } => {
                 self.set_register(*destination, immediate.clone());
             },
-            Instruction::CreateVariable { handle } => {
-                if self.variables.len() <= handle.index() {
-                    self.variables
-                        .resize_with(handle.index() + 1, Default::default);
-                }
+            Instruction::CreateVariable { name } => {
+                self.variables.insert(name.clone(), Value::default());
             },
-            Instruction::UpdateVariable { handle, src } => {
-                self.set_variable(*handle, self.register(*src).clone());
+            Instruction::UpdateVariable { name, src } => {
+                self.set_variable(name, self.register(*src).clone());
             },
             Instruction::Add { lhs, rhs, dst } => {
                 // <https://262.ecma-international.org/14.0/#sec-applystringornumericbinaryoperator>
@@ -109,10 +112,4 @@ impl Vm {
 
         Ok(())
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct BasicBlock {
-    pub registers_required: usize,
-    pub instructions: Vec<Instruction>,
 }

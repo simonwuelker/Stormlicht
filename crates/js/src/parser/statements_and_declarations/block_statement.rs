@@ -36,8 +36,9 @@ impl BlockStatement {
 }
 
 impl CompileToBytecode for BlockStatement {
-    fn compile(&self, builder: &mut bytecode::Builder) {
-        _ = builder;
-        todo!()
+    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
+        for statement in &self.statements {
+            statement.compile(builder);
+        }
     }
 }

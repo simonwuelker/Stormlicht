@@ -79,7 +79,7 @@ impl Statement {
 }
 
 impl CompileToBytecode for StatementListItem {
-    fn compile(&self, builder: &mut bytecode::Builder) {
+    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
         match self {
             Self::Statement(statement) => statement.compile(builder),
             Self::Declaration(declaration) => declaration.compile(builder),
@@ -88,7 +88,7 @@ impl CompileToBytecode for StatementListItem {
 }
 
 impl CompileToBytecode for Statement {
-    fn compile(&self, builder: &mut bytecode::Builder) {
+    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
         match self {
             Self::BlockStatement(block_statement) => block_statement.compile(builder),
             Self::IfStatement(if_statement) => if_statement.compile(builder),
