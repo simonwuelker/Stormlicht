@@ -1,4 +1,5 @@
-use super::{BasicBlock, BasicBlockExit, Instruction, Program, Value};
+use super::{BasicBlock, BasicBlockExit, Instruction, Program};
+use crate::Value;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Register(usize);

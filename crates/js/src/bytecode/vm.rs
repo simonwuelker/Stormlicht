@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use super::{
-    BasicBlock, BasicBlockExit, Exception, Instruction, Program, Register, ThrowCompletionOr, Value,
+    BasicBlock, BasicBlockExit, Exception, Instruction, Program, Register, ThrowCompletionOr,
 };
+use crate::Value;
 
 #[derive(Clone, Debug, Default)]
 pub struct Vm {

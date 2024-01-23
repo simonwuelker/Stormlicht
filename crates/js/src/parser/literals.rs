@@ -1,4 +1,4 @@
-use crate::bytecode::Value;
+use crate::{Number, Value};
 
 use super::{SyntaxError, Tokenizer};
 
@@ -7,7 +7,7 @@ use super::{SyntaxError, Tokenizer};
 pub enum Literal {
     NullLiteral,
     BooleanLiteral(bool),
-    NumericLiteral,
+    NumericLiteral(Number),
     StringLiteral(String),
 }
 
@@ -20,6 +20,8 @@ impl Literal {
             Ok(Self::BooleanLiteral(bool_literal))
         } else if let Ok(string_literal) = tokenizer.attempt(Tokenizer::consume_string_literal) {
             Ok(Self::StringLiteral(string_literal))
+        } else if let Ok(numeric_literal) = tokenizer.attempt(Tokenizer::consume_numeric_literal) {
+            Ok(Self::NumericLiteral(numeric_literal))
         } else {
             Err(tokenizer.syntax_error())
         }
@@ -31,7 +33,7 @@ impl From<Literal> for Value {
         match value {
             Literal::NullLiteral => Self::Null,
             Literal::BooleanLiteral(bool) => Self::Boolean(bool),
-            Literal::NumericLiteral => todo!(),
+            Literal::NumericLiteral(number) => Self::Number(number),
             Literal::StringLiteral(s) => Self::String(s),
         }
     }

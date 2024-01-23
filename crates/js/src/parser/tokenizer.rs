@@ -1,5 +1,7 @@
 use sl_std::chars::ReversibleCharIterator;
 
+use crate::Number;
+
 use super::SyntaxError;
 
 /// <https://262.ecma-international.org/14.0/#sec-tokens>
@@ -296,6 +298,39 @@ impl<'a> Tokenizer<'a> {
 
         self.skip_whitespace();
         Ok(string_literal)
+    }
+
+    /// <https://262.ecma-international.org/14.0/#prod-NumericLiteral>
+    pub fn consume_numeric_literal(&mut self) -> Result<Number, SyntaxError> {
+        match self.source.next() {
+            Some('0') => Ok(Number::ZERO),
+            Some(c @ ('1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9')) => {
+                let mut n = c.to_digit(10).expect("Characters 1-9 are decimal digits");
+
+                loop {
+                    match self.source.next() {
+                        Some('_') => continue,
+                        Some(c) => {
+                            if let Some(digit) = c.to_digit(10) {
+                                n *= 10;
+                                n += digit;
+                            } else {
+                                self.source.go_back();
+                                break;
+                            }
+                        },
+                        _ => {
+                            self.source.go_back();
+                            break;
+                        },
+                    }
+                }
+
+                let parsed_number = Number::new(f64::from(n));
+                Ok(parsed_number)
+            },
+            _ => Err(self.syntax_error()),
+        }
     }
 
     /// <https://262.ecma-international.org/14.0/#sec-punctuators>

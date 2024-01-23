@@ -2,3 +2,6 @@
 
 pub mod bytecode;
 pub mod parser;
+mod value;
+
+pub use value::{Number, Value};

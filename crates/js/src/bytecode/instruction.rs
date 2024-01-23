@@ -1,4 +1,5 @@
-use super::{Register, Value};
+use super::Register;
+use crate::Value;
 
 #[derive(Clone, Copy, Debug)]
 pub struct VariableHandle(usize);
