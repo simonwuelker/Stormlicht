@@ -83,7 +83,7 @@ pub enum Instruction {
         rhs: Register,
         dst: Register,
     },
-    Equal {
+    LooselyEqual {
         lhs: Register,
         rhs: Register,
         dst: Register,

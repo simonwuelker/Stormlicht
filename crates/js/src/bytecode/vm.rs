@@ -103,7 +103,11 @@ impl Vm {
                 let result = Value::add(self.register(*lhs).clone(), self.register(*rhs).clone())?;
                 self.set_register(*dst, result);
             },
-            _ => todo!(),
+            Instruction::LooselyEqual { lhs, rhs, dst } => {
+                let result = Value::is_loosely_equal(self.register(*lhs), self.register(*rhs))?;
+                self.set_register(*dst, result.into());
+            },
+            other => todo!("Implement instruction {other:?}"),
         }
 
         Ok(())

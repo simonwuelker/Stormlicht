@@ -289,8 +289,10 @@ impl CompileToBytecode for Expression {
                     BinaryOp::Bitwise(BitwiseOp::Xor) => current_block.bitwise_xor(lhs, rhs),
                     BinaryOp::Logical(LogicalOp::And) => current_block.logical_and(lhs, rhs),
                     BinaryOp::Logical(LogicalOp::Or) => current_block.logical_or(lhs, rhs),
-                    BinaryOp::Equality(EqualityOp::Equal) => current_block.equal(lhs, rhs),
-                    BinaryOp::Equality(EqualityOp::NotEqual) => current_block.equal(lhs, rhs),
+                    BinaryOp::Equality(EqualityOp::Equal) => current_block.loosely_equal(lhs, rhs),
+                    BinaryOp::Equality(EqualityOp::NotEqual) => {
+                        current_block.loosely_equal(lhs, rhs)
+                    },
                     BinaryOp::Equality(EqualityOp::StrictEqual) => {
                         current_block.strict_equal(lhs, rhs)
                     },

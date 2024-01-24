@@ -1,5 +1,8 @@
 use crate::bytecode::{Exception, ThrowCompletionOr};
 
+const SPEC_CANNOT_FAIL: &str =
+    "This operation cannot fail according to the specification (indicated by '!')";
+
 #[derive(Clone, Debug, Default)]
 pub enum Value {
     /// <https://262.ecma-international.org/14.0/#sec-ecmascript-language-types-undefined-type>
@@ -66,6 +69,38 @@ impl Number {
     pub fn add(&self, other: Self) -> Self {
         Self(self.0 + other.0)
     }
+
+    /// <https://262.ecma-international.org/#sec-numeric-types-number-equal>
+    #[must_use]
+    pub fn equal(x: Self, y: Self) -> bool {
+        // 1. If x is NaN, return false.
+        if x.is_nan() {
+            return false;
+        }
+
+        // 2. If y is NaN, return false.
+        if y.is_nan() {
+            return false;
+        }
+
+        // 3. If x is y, return true.
+        if x == y {
+            return true;
+        }
+
+        // 4. If x is +0𝔽 and y is -0𝔽, return true.
+        if x == Number::ZERO && y == Number::NEG_ZERO {
+            return true;
+        }
+
+        // 5. If x is -0𝔽 and y is +0𝔽, return true.
+        if x == Number::NEG_ZERO && y == Number::ZERO {
+            return true;
+        }
+
+        // 6. Return false.
+        return false;
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -102,6 +137,130 @@ impl Value {
     #[must_use]
     pub const fn is_object(&self) -> bool {
         matches!(self, Self::Object)
+    }
+
+    /// <https://262.ecma-international.org/#sec-isstrictlyequal>
+    pub fn is_strictly_equal(x: &Self, y: &Self) -> ThrowCompletionOr<bool> {
+        // 1. If Type(x) is not Type(y), return false.
+        if x.type_tag() != y.type_tag() {
+            return Ok(false);
+        }
+
+        // 2. If x is a Number, then
+        if let (Value::Number(x), Value::Number(y)) = (x, y) {
+            // a. Return Number::equal(x, y).
+            return Ok(Number::equal(*x, *y));
+        }
+
+        // 3. Return SameValueNonNumber(x, y).
+        Ok(Self::same_value_non_number(x, y))
+    }
+
+    /// <https://262.ecma-international.org/#sec-samevaluenonnumber>
+    fn same_value_non_number(x: &Self, y: &Self) -> bool {
+        // 1. Assert: Type(x) is Type(y).
+        assert_eq!(x.type_tag(), y.type_tag());
+
+        match (x, y) {
+            (Self::Null, Self::Null) | (Self::Undefined, Self::Undefined) => {
+                // 2. If x is either null or undefined, return true.
+                true
+            },
+            (Self::BigInt, Self::BigInt) => {
+                // 3. If x is a BigInt, then
+                todo!()
+            },
+            (Self::String(x), Self::String(y)) => {
+                // 4. If x is a String, then
+                //    a. If x and y have the same length and the same code units in the same positions, return true; otherwise, return false.
+                return x == y;
+            },
+            (Self::Boolean(x), Self::Boolean(y)) => {
+                // 5. If x is a Boolean, then
+                //    a. If x and y are both true or both false, return true; otherwise, return false.
+                return x == y;
+            },
+            _ => {
+                // 6. NOTE: All other ECMAScript language values are compared by identity.
+                // 7. If x is y, return true; otherwise, return false.
+                todo!()
+            },
+        }
+    }
+
+    /// <https://262.ecma-international.org/#sec-islooselyequal>
+    pub fn is_loosely_equal(x: &Self, y: &Self) -> ThrowCompletionOr<bool> {
+        // 1. 1. 1. If Type(x) is Type(y), then
+        if x.type_tag() == y.type_tag() {
+            // a. Return IsStrictlyEqual(x, y).
+            return Self::is_strictly_equal(x, y);
+        }
+
+        match (x.type_tag(), y.type_tag()) {
+            (TypeTag::Null, TypeTag::Undefined) => {
+                // 2. If x is null and y is undefined, return true.
+                return Ok(true);
+            },
+            (TypeTag::Undefined, TypeTag::Null) => {
+                // 3. If x is undefined and y is null, return true.
+                return Ok(true);
+            },
+            (TypeTag::Number, TypeTag::String) => {
+                // 5. If x is a Number and y is a String, return ! IsLooselyEqual(x, ! ToNumber(y)).
+                let y_numeric = y.to_number().expect(SPEC_CANNOT_FAIL).into();
+                let is_equal = Self::is_loosely_equal(x, &y_numeric).expect(SPEC_CANNOT_FAIL);
+                return Ok(is_equal);
+            },
+            (TypeTag::String, TypeTag::Number) => {
+                // 6. If x is a String and y is a Number, return ! IsLooselyEqual(! ToNumber(x), y).
+                let x_numeric = x.to_number().expect(SPEC_CANNOT_FAIL).into();
+                let is_equal = Self::is_loosely_equal(&x_numeric, y).expect(SPEC_CANNOT_FAIL);
+                return Ok(is_equal);
+            },
+            (TypeTag::BigInt, TypeTag::String) => {
+                // 7. If x is a BigInt and y is a String, then
+                todo!()
+            },
+            (TypeTag::String, TypeTag::BigInt) => {
+                // 8. If x is a String and y is a BigInt, return ! IsLooselyEqual(y, x).
+                let is_equal = Self::is_loosely_equal(y, x).expect(SPEC_CANNOT_FAIL);
+                Ok(is_equal)
+            },
+            (TypeTag::Boolean, _) => {
+                // 9. If x is a Boolean, return ! IsLooselyEqual(! ToNumber(x), y).
+                let x_number = x.to_number().expect(SPEC_CANNOT_FAIL).into();
+                let is_equal = Self::is_loosely_equal(&x_number, y).expect(SPEC_CANNOT_FAIL);
+                Ok(is_equal)
+            },
+            (_, TypeTag::Boolean) => {
+                // 10. If y is a Boolean, return ! IsLooselyEqual(x, ! ToNumber(y)).
+                let y_number = y.to_number().expect(SPEC_CANNOT_FAIL).into();
+                let is_equal = Self::is_loosely_equal(x, &y_number).expect(SPEC_CANNOT_FAIL);
+                Ok(is_equal)
+            },
+            (
+                TypeTag::String | TypeTag::Number | TypeTag::BigInt | TypeTag::Symbol,
+                TypeTag::Object,
+            ) => {
+                // 11. If x is either a String, a Number, a BigInt, or a Symbol and y is an Object, return ! IsLooselyEqual(x, ? ToPrimitive(y)).
+                todo!()
+            },
+            (
+                TypeTag::Object,
+                TypeTag::String | TypeTag::Number | TypeTag::BigInt | TypeTag::Symbol,
+            ) => {
+                // 12. If x is an Object and y is either a String, a Number, a BigInt, or a Symbol, return ! IsLooselyEqual(? ToPrimitive(x), y).
+                todo!()
+            },
+            (TypeTag::BigInt, TypeTag::Number) | (TypeTag::Number, TypeTag::BigInt) => {
+                // 13. If x is a BigInt and y is a Number, or if x is a Number and y is a BigInt, then
+                todo!()
+            },
+            _ => {
+                // 14. Return false.
+                Ok(false)
+            },
+        }
     }
 
     #[must_use]

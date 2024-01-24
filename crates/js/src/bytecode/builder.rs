@@ -193,9 +193,9 @@ impl<'a> BasicBlockBuilder<'a> {
     }
 
     #[must_use]
-    pub fn equal(&mut self, lhs: Register, rhs: Register) -> Register {
+    pub fn loosely_equal(&mut self, lhs: Register, rhs: Register) -> Register {
         let dst = self.allocate_register();
-        let instruction = Instruction::Equal { lhs, rhs, dst };
+        let instruction = Instruction::LooselyEqual { lhs, rhs, dst };
         self.push_instruction(instruction);
         dst
     }
