@@ -107,6 +107,10 @@ impl Vm {
                 let result = Value::is_loosely_equal(self.register(*lhs), self.register(*rhs))?;
                 self.set_register(*dst, result.into());
             },
+            Instruction::NotLooselyEqual { lhs, rhs, dst } => {
+                let result = !Value::is_loosely_equal(self.register(*lhs), self.register(*rhs))?;
+                self.set_register(*dst, result.into());
+            },
             other => todo!("Implement instruction {other:?}"),
         }
 

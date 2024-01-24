@@ -291,7 +291,7 @@ impl CompileToBytecode for Expression {
                     BinaryOp::Logical(LogicalOp::Or) => current_block.logical_or(lhs, rhs),
                     BinaryOp::Equality(EqualityOp::Equal) => current_block.loosely_equal(lhs, rhs),
                     BinaryOp::Equality(EqualityOp::NotEqual) => {
-                        current_block.loosely_equal(lhs, rhs)
+                        current_block.not_loosely_equal(lhs, rhs)
                     },
                     BinaryOp::Equality(EqualityOp::StrictEqual) => {
                         current_block.strict_equal(lhs, rhs)

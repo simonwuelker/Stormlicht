@@ -209,9 +209,9 @@ impl<'a> BasicBlockBuilder<'a> {
     }
 
     #[must_use]
-    pub fn not_equal(&mut self, lhs: Register, rhs: Register) -> Register {
+    pub fn not_loosely_equal(&mut self, lhs: Register, rhs: Register) -> Register {
         let dst = self.allocate_register();
-        let instruction = Instruction::NotEqual { lhs, rhs, dst };
+        let instruction = Instruction::NotLooselyEqual { lhs, rhs, dst };
         self.push_instruction(instruction);
         dst
     }

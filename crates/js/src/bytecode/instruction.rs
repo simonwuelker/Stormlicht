@@ -93,7 +93,7 @@ pub enum Instruction {
         rhs: Register,
         dst: Register,
     },
-    NotEqual {
+    NotLooselyEqual {
         lhs: Register,
         rhs: Register,
         dst: Register,
