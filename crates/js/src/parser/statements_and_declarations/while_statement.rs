@@ -2,7 +2,7 @@
 
 use crate::{
     bytecode::{self, CompileToBytecode},
-    parser::{tokenizer::Punctuator, Expression, SyntaxError, Tokenizer},
+    parser::{expressions::Expression, tokenizer::Punctuator, SyntaxError, Tokenizer},
 };
 
 use super::Statement;

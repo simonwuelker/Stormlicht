@@ -3,8 +3,8 @@
 use crate::{
     bytecode::{self, CompileToBytecode},
     parser::{
-        functions_and_classes::FunctionDeclaration, identifiers, tokenizer::Punctuator, Expression,
-        SyntaxError, Tokenizer,
+        expressions::Expression, functions_and_classes::FunctionDeclaration, identifiers,
+        tokenizer::Punctuator, SyntaxError, Tokenizer,
     },
 };
 
