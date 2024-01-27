@@ -1,10 +1,13 @@
 //! <https://262.ecma-international.org/14.0/#sec-ecmascript-language-expressions>
 
 mod binary_expression;
+mod object;
 
 pub use binary_expression::BinaryExpression;
 
 use crate::bytecode::{self, CompileToBytecode};
+
+use self::object::ObjectLiteral;
 
 use super::{identifiers::parse_identifier_reference, literals::Literal, SyntaxError, Tokenizer};
 
@@ -12,6 +15,7 @@ use super::{identifiers::parse_identifier_reference, literals::Literal, SyntaxEr
 pub enum Expression {
     This,
     Literal(Literal),
+    ObjectLiteral(ObjectLiteral),
     Binary(BinaryExpression),
     IdentifierReference(String),
     New(NewExpression),
@@ -37,18 +41,22 @@ pub struct NewExpression {
 fn parse_primary_expression<const YIELD: bool, const AWAIT: bool>(
     tokenizer: &mut Tokenizer<'_>,
 ) -> Result<Expression, SyntaxError> {
-    if tokenizer
+    let primary_expression = if tokenizer
         .attempt(|tokenizer| tokenizer.expect_keyword("this"))
         .is_ok()
     {
-        Ok(Expression::This)
+        Expression::This
     } else if let Ok(identifier) = tokenizer.attempt(parse_identifier_reference::<YIELD, AWAIT>) {
-        Ok(Expression::IdentifierReference(identifier))
+        Expression::IdentifierReference(identifier)
     } else if let Ok(literal) = Literal::parse(tokenizer) {
-        Ok(Expression::Literal(literal))
+        Expression::Literal(literal)
+    } else if let Ok(object_literal) = ObjectLiteral::parse::<YIELD, AWAIT>(tokenizer) {
+        Expression::ObjectLiteral(object_literal)
     } else {
-        Err(tokenizer.syntax_error())
-    }
+        return Err(tokenizer.syntax_error());
+    };
+
+    Ok(primary_expression)
 }
 
 impl NewExpression {
@@ -93,6 +101,7 @@ impl CompileToBytecode for Expression {
 
     fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
         match self {
+            Self::This => todo!(),
             Self::Binary(binary_expression) => binary_expression.compile(builder),
             Self::IdentifierReference(identifier_reference) => {
                 let mut current_block = builder.get_current_block();
@@ -103,8 +112,8 @@ impl CompileToBytecode for Expression {
             Self::Literal(literal) => builder
                 .get_current_block()
                 .allocate_register_with_value(literal.clone().into()),
+            Self::ObjectLiteral(object_literal) => object_literal.compile(builder),
             Self::New(_) => todo!(),
-            Self::This => todo!(),
         }
     }
 }
