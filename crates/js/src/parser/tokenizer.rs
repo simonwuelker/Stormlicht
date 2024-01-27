@@ -179,6 +179,33 @@ impl<'a> Tokenizer<'a> {
         Err(self.syntax_error())
     }
 
+    /// Apply a parse function as often as possible, separated by comma tokens
+    ///
+    /// After the end of the list, the tokenizer will attempt to consume another `,`.
+    pub fn parse_comma_separated_list<F, T>(&mut self, f: F) -> Vec<T>
+    where
+        F: Fn(&mut Self) -> Result<T, SyntaxError>,
+    {
+        match f(self) {
+            Ok(item) => {
+                let mut items = vec![item];
+
+                let parse_item = |t: &mut Self| -> Result<T, SyntaxError> {
+                    t.expect_punctuator(Punctuator::Comma)?;
+                    f(t)
+                };
+
+                while let Ok(item) = self.attempt(parse_item) {
+                    items.push(item);
+                }
+
+                let _ = self.attempt(|t| t.expect_punctuator(Punctuator::Comma));
+                items
+            },
+            Err(_) => vec![],
+        }
+    }
+
     pub fn attempt<F, T, E>(&mut self, f: F) -> Result<T, E>
     where
         F: FnOnce(&mut Self) -> Result<T, E>,
