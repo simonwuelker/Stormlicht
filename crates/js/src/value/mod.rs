@@ -1,8 +1,10 @@
 mod number;
 pub mod object;
+mod symbol;
 
 pub use number::Number;
 pub use object::Object;
+pub use symbol::Symbol;
 
 use crate::bytecode::{Exception, ThrowCompletionOr};
 
@@ -27,7 +29,7 @@ pub enum Value {
 
     Number(Number),
 
-    Symbol,
+    Symbol(Symbol),
     BigInt,
     Object(Object),
 }
@@ -71,7 +73,7 @@ impl Value {
             Self::Boolean(_) => TypeTag::Boolean,
             Self::String(_) => TypeTag::String,
             Self::Number(_) => TypeTag::Number,
-            Self::Symbol => TypeTag::Symbol,
+            Self::Symbol(_) => TypeTag::Symbol,
             Self::Object(_) => TypeTag::Object,
             Self::BigInt => TypeTag::BigInt,
         }
@@ -288,7 +290,7 @@ impl Value {
                 // 1. If argument is a Number, return argument.
                 Ok(*n)
             },
-            Self::Symbol | Self::BigInt => {
+            Self::Symbol(_) | Self::BigInt => {
                 // 2. If argument is either a Symbol or a BigInt, throw a TypeError exception.
                 Err(Exception::TypeError)
             },
@@ -365,7 +367,7 @@ impl Value {
                 // 1. If argument is a String, return argument.
                 Ok(s)
             },
-            Self::Symbol => {
+            Self::Symbol(_) => {
                 // 2. If argument is a Symbol, throw a TypeError exception.
                 Err(Exception::TypeError)
             },
