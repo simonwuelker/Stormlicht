@@ -1,6 +1,8 @@
 mod number;
+pub mod object;
 
 pub use number::Number;
+pub use object::Object;
 
 use crate::bytecode::{Exception, ThrowCompletionOr};
 
@@ -27,7 +29,7 @@ pub enum Value {
 
     Symbol,
     BigInt,
-    Object,
+    Object(Object),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -49,6 +51,18 @@ pub enum PreferredType {
 }
 
 impl Value {
+    /// Assume the value to be an object and return a reference to it
+    ///
+    /// ## Panics
+    /// Panics if the value is not an object.
+    #[must_use]
+    pub fn as_object(&self) -> &Object {
+        match self {
+            Self::Object(o) => &o,
+            _ => unreachable!("Value is not an object"),
+        }
+    }
+
     #[must_use]
     pub fn type_tag(&self) -> TypeTag {
         match self {
@@ -58,7 +72,7 @@ impl Value {
             Self::String(_) => TypeTag::String,
             Self::Number(_) => TypeTag::Number,
             Self::Symbol => TypeTag::Symbol,
-            Self::Object => TypeTag::Object,
+            Self::Object(_) => TypeTag::Object,
             Self::BigInt => TypeTag::BigInt,
         }
     }
@@ -75,7 +89,7 @@ impl Value {
 
     #[must_use]
     pub const fn is_object(&self) -> bool {
-        matches!(self, Self::Object)
+        matches!(self, Self::Object(_))
     }
 
     /// <https://262.ecma-international.org/#sec-isstrictlyequal>
@@ -295,7 +309,7 @@ impl Value {
                 _ = s;
                 todo!()
             },
-            Self::Object => {
+            Self::Object(_) => {
                 // 7. Assert: argument is an Object.
                 //    NOTE: Pointless if we're in this match arm
 
@@ -379,7 +393,7 @@ impl Value {
                 // 8. If argument is a BigInt, return BigInt::toString(argument, 10).
                 todo!()
             },
-            Self::Object => {
+            Self::Object(_) => {
                 // 9. Assert: argument is an Object.
                 //    NOTE: Pointless if we're in this match arm
 
@@ -411,5 +425,11 @@ impl From<bool> for Value {
 impl From<String> for Value {
     fn from(value: String) -> Self {
         Self::String(value)
+    }
+}
+
+impl From<Object> for Value {
+    fn from(value: Object) -> Self {
+        Self::Object(value)
     }
 }
