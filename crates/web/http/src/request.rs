@@ -136,6 +136,7 @@ impl Request {
         // Finish request with an extra newline
         write!(writer, "{HTTP_NEWLINE}")?;
 
+        writer.flush()?;
         Ok(())
     }
 
