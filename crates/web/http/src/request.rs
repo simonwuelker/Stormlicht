@@ -5,10 +5,9 @@ use std::{
 
 use compression::{brotli, gzip, zlib};
 use dns::DNSError;
-use tls::TLSConnection;
 use url::{Host, URL};
 
-use crate::{response::Response, Headers, StatusCode};
+use crate::{https, response::Response, Headers, StatusCode};
 
 const USER_AGENT: &str = "Stormlicht";
 pub(crate) const HTTP_NEWLINE: &str = "\r\n";
@@ -115,10 +114,10 @@ impl Request {
         &mut self.headers
     }
 
-    /// Serialize the request to the given [Writer](std::io::Write)
+    /// Serialize the request to the given [Writer](io::Write)
     fn write_to<W>(&self, mut writer: W) -> Result<(), io::Error>
     where
-        W: std::io::Write,
+        W: io::Write,
     {
         // Send request header
         write!(writer, "{method} ", method = self.method.as_str(),)?;
@@ -158,13 +157,13 @@ impl Request {
                 self.send_on_stream(stream)
             },
             "https" => {
-                let server_name = match host {
+                let stream = match host {
                     Host::Domain(host) | Host::OpaqueHost(host) => {
-                        tls::ServerName::Domain(host.to_string())
+                        https::establish_connection(host.to_string())
+                            .expect("Establishing connection failed")
                     },
                     _ => todo!(),
                 };
-                let stream = TLSConnection::establish(server_name).map_err(HTTPError::TLS)?;
                 self.send_on_stream(stream)
             },
             _ => Err(HTTPError::NonHTTPURl),
@@ -200,7 +199,7 @@ impl Request {
                     status_code = response.status()
                 );
 
-                if relocation.scheme().as_str() != "http" {
+                if !matches!(relocation.scheme().as_str(), "http" | "https") {
                     log::error!(
                         "Cannot load non-http redirect url: {redirect_url}",
                         redirect_url = relocation.serialize(url::ExcludeFragment::Yes)

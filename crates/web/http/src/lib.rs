@@ -5,6 +5,7 @@
 #![feature(exclusive_range_pattern)]
 
 mod headers;
+mod https;
 pub mod request;
 mod response;
 mod status_code;
