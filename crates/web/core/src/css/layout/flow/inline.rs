@@ -76,7 +76,9 @@ impl TextRun {
         let properties = font::Properties {
             style: font::Style::Normal,
             weight: font::Weight::NORMAL,
+            language: font::Language::English,
         };
+
         let font = font::SYSTEM_FONTS
             .lookup(family, properties)
             .try_load()

@@ -21,7 +21,7 @@ mod stream;
 pub mod ttf;
 pub mod ttf_tables;
 
-pub use description::{Family, Properties, Style, Weight};
+pub use description::{Family, Language, Properties, Style, Weight};
 pub use manager::{FontManager, SystemFont, SYSTEM_FONTS};
 pub use stream::{Readable, Stream};
 pub use ttf::Font;

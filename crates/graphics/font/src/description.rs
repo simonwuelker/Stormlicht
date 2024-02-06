@@ -14,6 +14,12 @@ struct FontCacheKey {
 pub struct Properties {
     pub style: Style,
     pub weight: Weight,
+    pub language: Language,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Language {
+    English,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

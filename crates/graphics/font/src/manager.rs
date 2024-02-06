@@ -5,18 +5,22 @@ use std::{fs, io, path::PathBuf, sync::LazyLock};
 use crate::{
     sources::{FontStore, SystemSource},
     ttf::TTFParseError,
-    Family, Font, Properties, Weight,
+    Family, Font, Language, Properties, Weight,
 };
 
 #[derive(Clone, Debug)]
 pub struct SystemFont {
-    pub path: PathBuf,
-    pub name: String,
+    pub(crate) path: PathBuf,
+    pub(crate) name: String,
+
+    /// The languages targeted by this font
+    pub(crate) languages: Vec<Language>,
+
     /// The range of weights supported by the font.
     ///
     /// The font might only support a single weight, in which case
     /// both values are identical
-    pub weight_range: (Weight, Weight),
+    pub(crate) weight_range: (Weight, Weight),
 }
 
 pub struct FontManager {
@@ -66,6 +70,10 @@ impl SystemFont {
 
         if self.weight_range.0 <= properties.weight && properties.weight <= self.weight_range.1 {
             score += 5;
+        }
+
+        if self.languages.contains(&properties.language) {
+            score += 10;
         }
 
         score

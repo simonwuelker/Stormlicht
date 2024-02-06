@@ -1,4 +1,4 @@
-use crate::{SystemFont, Weight};
+use crate::{Language, SystemFont, Weight};
 
 use super::FontStore;
 
@@ -20,6 +20,7 @@ impl FontStore for FontConfig {
         os.add_object(fontconfig::objects::FC_STYLE);
         os.add_object(fontconfig::objects::FC_FILE);
         os.add_object(fontconfig::objects::FC_WEIGHT);
+        os.add_object(fontconfig::objects::FC_LANG);
 
         let system_base_path = config.system_root().unwrap_or_default();
 
@@ -36,6 +37,11 @@ impl FontStore for FontConfig {
                     .get_string(fontconfig::objects::FC_FAMILY)
                     .expect("Could not read FC_FAMILY key")
                     .to_owned();
+
+                let lang_set = pattern
+                    .get_lang_set(fontconfig::objects::FC_LANG)
+                    .expect("Could not read FC_LANG key");
+                let languages = fontconfig_lang_to_languages(lang_set);
 
                 let weight = pattern
                     .get(fontconfig::objects::FC_WEIGHT)
@@ -59,9 +65,24 @@ impl FontStore for FontConfig {
                 SystemFont {
                     path,
                     name,
+                    languages,
                     weight_range,
                 }
             })
             .collect()
     }
+}
+
+fn fontconfig_lang_to_languages(lang_set: fontconfig::LangSet) -> Vec<Language> {
+    let mut languages = vec![];
+
+    // FIXME: This is very ad-hoc, we probably want to use a binding for
+    //        https://fontconfig.pages.freedesktop.org/fontconfig/fontconfig-devel/fcgetlangs.html
+    //        here
+
+    if lang_set.contains_language("en") {
+        languages.push(Language::English);
+    }
+
+    languages
 }
