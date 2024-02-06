@@ -93,6 +93,15 @@ pub enum FcSetName {
     FcSetApplication,
 }
 
+#[repr(C)]
+#[derive(Debug, PartialEq, Eq)]
+pub enum FcLangResult {
+    FcLangEqual,
+    FcLangDifferentCountry,
+    FcLangDifferentTerritory,
+    FcLangDifferentLang,
+}
+
 #[allow(non_camel_case_types)]
 pub type FT_Face = *mut FT_FaceRec_;
 
@@ -101,7 +110,6 @@ pub type FT_Face = *mut FT_FaceRec_;
 extern "C" {
     pub type FcCharSet;
     pub type FcLangSet;
-    pub type FcLangResult;
     pub type FcConfig;
     pub type FcPattern;
     pub type FcPatternIter;
@@ -444,7 +452,17 @@ extern "C" {
     /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcobjectsetbuild.html>
     pub fn FcObjectSetBuild(first: *const ffi::c_char, ...) -> *mut FcObjectSet;
 
-    // MISSING METHODS HERE
+    /// <https://fontconfig.pages.freedesktop.org/fontconfig/fontconfig-devel/fclangsetcreate.html>
+    pub fn FcLangSetCreate() -> *mut FcLangSet;
+
+    /// <https://fontconfig.pages.freedesktop.org/fontconfig/fontconfig-devel/fclangsetdestroy.html>
+    pub fn FcLangSetDestroy(fc: *const FcLangSet);
+
+    /// <https://fontconfig.pages.freedesktop.org/fontconfig/fontconfig-devel/fclangsetcopy.html>
+    pub fn FcLangSetCopy(fc: *const FcLangSet) -> *mut FcLangSet;
+
+    /// <https://fontconfig.pages.freedesktop.org/fontconfig/fontconfig-devel/fclangsethaslang.html>
+    pub fn FcLangSetHasLang(fc: *const FcLangSet, lang: *const FcChar8) -> FcLangResult;
 
     /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcrangecopy.html>
     pub fn FcRangeCopy(range: *const FcRange) -> *mut FcRange;

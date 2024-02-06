@@ -2,7 +2,7 @@ use std::{ffi, mem::MaybeUninit, ptr};
 
 use crate::{
     bindings::{self, fcbool},
-    Object, Value,
+    LangSet, Object, Value,
 };
 
 #[repr(transparent)]
@@ -62,6 +62,15 @@ impl Pattern {
             unsafe { bindings::FcPatternGetInteger(self.ptr, key.as_ptr(), 0, &mut result) };
 
         return_code.to_rust_result(|| result)
+    }
+
+    pub fn get_lang_set(&self, key: Object) -> Result<LangSet, bindings::LookupError> {
+        let mut result_ptr = std::ptr::null_mut();
+        let return_code = unsafe {
+            bindings::FcPatternGetLangSet(self.ptr, key.as_ptr(), 0, ptr::addr_of_mut!(result_ptr))
+        };
+
+        return_code.to_rust_result(|| LangSet::from_ptr(result_ptr))
     }
 
     pub fn add_string(&self, key: Object, value: &str) {
