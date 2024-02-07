@@ -135,6 +135,7 @@ impl Response {
         let mut body: Vec<u8> = if let Some(transfer_encoding) = headers.get("Transfer-encoding") {
             match transfer_encoding {
                 "chunked" => {
+                    // https://datatracker.ietf.org/doc/html/rfc9112#name-chunked-transfer-coding
                     let mut buffer = vec![];
                     loop {
                         let size_bytes_with_newline = read_until(reader, HTTP_NEWLINE.as_bytes())?;
@@ -156,6 +157,15 @@ impl Response {
 
                         // Read the chunk into the response buffer
                         reader.read_exact(&mut buffer[current_buffer_len..])?;
+
+                        // Chunks are followed by a CRLF sequence
+                        let mut c = [0; 2];
+                        reader.read_exact(&mut c)?;
+
+                        if c != HTTP_NEWLINE.as_bytes() {
+                            log::warn!("Http chunk not followed by CRLF");
+                            return Err(HTTPError::InvalidResponse);
+                        }
                     }
                     buffer
                 },
