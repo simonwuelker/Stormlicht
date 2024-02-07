@@ -142,14 +142,15 @@ impl Response {
                         let size_bytes = &size_bytes_with_newline
                             [..size_bytes_with_newline.len() - HTTP_NEWLINE.len()];
 
-                        if size_bytes.is_empty() {
-                            break;
-                        }
-
                         let size = std::str::from_utf8(size_bytes)
                             .map_err(|_| HTTPError::InvalidResponse)?;
                         let size = usize::from_str_radix(size, 16)
                             .map_err(|_| HTTPError::InvalidResponse)?;
+
+                        if size == 0 {
+                            // > The chunked transfer coding is complete when a chunk with a chunk-size of zero is received.
+                            break;
+                        }
 
                         // Reserve enough space in the response buffer for this chunk
                         let current_buffer_len = buffer.len();
