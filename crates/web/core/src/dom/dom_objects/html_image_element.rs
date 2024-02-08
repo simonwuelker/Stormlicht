@@ -66,7 +66,7 @@ fn load_texture_for_img_element(html_element: &HtmlElement) -> Option<DynamicTex
         return None;
     }
 
-    let texture = match DynamicTexture::from_png(&resource.data) {
+    let texture = match DynamicTexture::from_bytes(&resource.data) {
         Ok(texture) => texture,
         Err(error) => {
             log::error!(
