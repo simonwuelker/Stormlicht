@@ -4,14 +4,6 @@ use std::ffi;
 
 use crate::{bindings, Range};
 
-#[derive(Clone, Copy, Debug)]
-pub struct Matrix {
-    pub xx: f32,
-    pub xy: f32,
-    pub yx: f32,
-    pub yy: f32,
-}
-
 #[derive(Clone, Debug)]
 pub enum Value {
     Void,
