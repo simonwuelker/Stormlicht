@@ -68,7 +68,7 @@ impl<'a> Decoder<'a> {
             texture,
         } = self.stage
         else {
-            log::error!("Decoder did not terminate with a complete decoded image");
+            log::error!("Decoder diard not terminate with a complete decoded image");
             return Err(Error::IncompleteImage);
         };
 

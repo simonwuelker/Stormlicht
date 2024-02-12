@@ -4,7 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::{format::ColorFormat, jpeg, png, DynamicTexture, Rgba};
+use crate::{bmp, format::ColorFormat, jpeg, png, DynamicTexture, Rgba};
 
 /// A texture that holds visual content
 #[derive(Clone, Debug)]
@@ -187,6 +187,7 @@ where
 
 #[derive(Debug)]
 pub enum Error {
+    Bmp(bmp::Error),
     Png(png::Error),
     Jpeg(jpeg::Error),
 }
@@ -195,9 +196,15 @@ impl DynamicTexture {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.starts_with(&png::PNG_HEADER) {
             Self::from_png(bytes).map_err(Error::from)
+        } else if bytes.starts_with(&bmp::BMP_MAGIC) {
+            Self::from_bmp(bytes).map_err(Error::from)
         } else {
             Self::from_jpeg(bytes).map_err(Error::from)
         }
+    }
+
+    pub fn from_bmp(bytes: &[u8]) -> Result<Self, bmp::Error> {
+        bmp::decode(bytes)
     }
 
     pub fn from_jpeg(bytes: &[u8]) -> Result<Self, jpeg::Error> {
@@ -241,6 +248,12 @@ impl DynamicTexture {
             Self::GrayScale8(t) => t.get(x, y, access_mode).into(),
             Self::GrayScaleAlpha8(t) => t.get(x, y, access_mode).into(),
         }
+    }
+}
+
+impl From<bmp::Error> for Error {
+    fn from(value: bmp::Error) -> Self {
+        Self::Bmp(value)
     }
 }
 

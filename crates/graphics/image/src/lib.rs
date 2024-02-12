@@ -1,5 +1,6 @@
 #![feature(convert_float_to_int)]
 
+pub mod bmp;
 mod format;
 pub mod jpeg;
 pub mod png;
