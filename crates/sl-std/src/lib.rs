@@ -18,6 +18,7 @@ pub mod ascii;
 mod assert;
 pub mod base64;
 pub mod big_num;
+pub mod bytestream;
 pub mod chars;
 pub mod datetime;
 pub mod iter;
