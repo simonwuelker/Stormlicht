@@ -11,24 +11,20 @@ use syn::{
 };
 
 struct InputData {
-    _const_token: Token![const],
     ident: Ident,
-    _eq: Token![=],
+    _comma: Token![,],
     _brackets: token::Bracket,
     items: Punctuated<LitStr, Token![,]>,
-    _semicolon: Token![;],
 }
 
 impl Parse for InputData {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let content;
         Ok(InputData {
-            _const_token: input.parse()?,
             ident: input.parse()?,
-            _eq: input.parse()?,
+            _comma: input.parse()?,
             _brackets: bracketed!(content in input),
             items: content.parse_terminated(<LitStr as Parse>::parse, Token![,])?,
-            _semicolon: input.parse()?,
         })
     }
 }

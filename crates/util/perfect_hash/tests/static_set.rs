@@ -1,8 +1,6 @@
 use perfect_hash::perfect_set;
 
-perfect_set!(
-    const EXAMPLE_SET: _ = ["foo", "bar", "baz", "foo-bar"];
-);
+perfect_set!(EXAMPLE_SET, ["foo", "bar", "baz", "foo-bar",]);
 
 #[test]
 fn test_static_set() {
