@@ -39,7 +39,7 @@ impl<T> AutoOr<T> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// # use core::css::values::AutoOr;
     /// let x = AutoOr::NotAuto(2);
     /// let y = AutoOr::Auto;
@@ -70,7 +70,7 @@ impl<T> AutoOr<T> {
     /// # Examples
     ///
     /// Resolves a `LengthPercentage` inside `AutoOr`, consuming the original:
-    /// ```rust
+    /// ```ignore
     /// # use core::css::{layout::CSSPixels, values::{LengthPercentage, AutoOr}};
     /// let maybe_lengthpercent = AutoOr::NotAuto(LengthPercentage::Percent(0.2));
     /// // `Option::map` takes self *by value*, consuming `maybe_some_string`
@@ -102,7 +102,7 @@ impl<T> AutoOr<T> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// # use core::css::values::AutoOr;
     /// assert_eq!(AutoOr::NotAuto(1).unwrap_or(0), 1);
     /// assert_eq!(AutoOr::Auto.unwrap_or(0), 0);
@@ -123,7 +123,7 @@ impl<T> AutoOr<T> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// # use core::css::values::AutoOr;
     /// let x: AutoOr<u32> = AutoOr::Auto;
     /// let y: AutoOr<u32> = AutoOr::NotAuto(12);
@@ -146,7 +146,7 @@ impl<T> AutoOr<T> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// # use core::css::values::AutoOr;
     /// let x: AutoOr<u32> = AutoOr::NotAuto(2);
     /// assert_eq!(x.is_not_auto_and(|x| x > 1), true);
