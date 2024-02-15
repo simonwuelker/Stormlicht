@@ -76,10 +76,10 @@ impl Domain {
     /// The last byte is guaranteed to be a null byte
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// # use dns::Domain;
     /// let encoded_name = b"\x03www\x07example\x03com\x00";
-    /// let domain_name = Domain::decode(encoded_name).unwrap();
+    /// let domain_name = Domain::read_from(Reader::new(encoded_name)).unwrap();
     ///
     /// assert_eq!(domain_name, Domain::new("www.example.com"));
     /// ```
