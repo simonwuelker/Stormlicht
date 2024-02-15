@@ -110,7 +110,7 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
     let (colorformat, palette_size) = match bits_per_pixel {
         1 => (BmpColorFormat::Monochrome, 1),
         4 => (BmpColorFormat::Palletized4Bit, 16),
-        8 => (BmpColorFormat::Palletized8Bit, 24),
+        8 => (BmpColorFormat::Palletized8Bit, 256),
         16 => (BmpColorFormat::Rgb16, 0),
         24 => (BmpColorFormat::Rgb24, 0),
         other => {
