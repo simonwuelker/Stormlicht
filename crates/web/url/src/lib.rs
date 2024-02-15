@@ -5,7 +5,7 @@
 //! The preferred way to obtain a [URL] is to parse it like this:
 //! ```
 //! # use crate::url::URL;
-//! let url: URL = "https://google.com".try_into().unwrap();
+//! let url: URL = "https://google.com".parse().unwrap();
 //!
 //! assert_eq!(url.scheme(), "https");
 //! ```
