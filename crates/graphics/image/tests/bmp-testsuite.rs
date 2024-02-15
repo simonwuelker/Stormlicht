@@ -2,14 +2,17 @@ use std::fs;
 
 use image::DynamicTexture;
 
-const VALID: &str = concat!(env!("TEST_DIR"), "/bmp-testsuite/valid");
-const CORRUPT: &str = concat!(env!("TEST_DIR"), "/bmp-testsuite/corrupt");
-const QUESTIONABLE: &str = concat!(env!("TEST_DIR"), "/bmp-testsuite/questionable");
+#[cfg(test)]
+mod images {
+    pub const VALID: &str = concat!(env!("TEST_DIR"), "/bmp-testsuite/valid");
+    pub const CORRUPT: &str = concat!(env!("TEST_DIR"), "/bmp-testsuite/corrupt");
+    pub const QUESTIONABLE: &str = concat!(env!("TEST_DIR"), "/bmp-testsuite/questionable");
+}
 
 #[test]
 fn valid_images() {
     // Assert that all valid images can be parsed
-    for entry in fs::read_dir(VALID).expect("Cannot read dir") {
+    for entry in fs::read_dir(images::VALID).expect("Cannot read dir") {
         let entry = entry.expect("Cannot read entry");
         let path = entry.path();
         if path.is_file() {
@@ -24,7 +27,7 @@ fn valid_images() {
 #[test]
 fn corrupt_images() {
     // Assert that all corrupt images fail to parse without crashing
-    for entry in fs::read_dir(CORRUPT).expect("Cannot read dir") {
+    for entry in fs::read_dir(images::CORRUPT).expect("Cannot read dir") {
         let entry = entry.expect("Cannot read entry");
         let path = entry.path();
         if path.is_file() {
@@ -40,7 +43,7 @@ fn corrupt_images() {
 fn questionable_images() {
     // Assert that no questionable images cause crashes
     // (Whether or not parsing succeeds is not specified)
-    for entry in fs::read_dir(QUESTIONABLE).expect("Cannot read dir") {
+    for entry in fs::read_dir(images::QUESTIONABLE).expect("Cannot read dir") {
         let entry = entry.expect("Cannot read entry");
         let path = entry.path();
         if path.is_file() {

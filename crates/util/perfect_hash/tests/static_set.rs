@@ -1,12 +1,7 @@
 use perfect_hash::perfect_set;
 
 perfect_set!(
-    const EXAMPLE_SET = [
-        "foo",
-        "bar",
-        "baz",
-        "foo-bar",
-    ];
+    const EXAMPLE_SET: _ = ["foo", "bar", "baz", "foo-bar"];
 );
 
 #[test]
