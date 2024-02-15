@@ -2,5 +2,6 @@
 rustflags = ["-Ctarget-cpu=native"]
 
 [env]
-DOWNLOAD_DIR = { value = "downloads", relative = true }
 BASE_DIR = { value = ".", relative = true }
+DOWNLOAD_DIR = { value = "downloads", relative = true }
+TEST_DIR = { value = "tests", relative = true }
