@@ -9,6 +9,8 @@ use sl_std::bytestream::ByteStream;
 
 pub(crate) const BMP_MAGIC: [u8; 2] = [0x42, 0x4d];
 
+const MAX_ACCEPTABLE_SIZE: u32 = 8096;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
     NotABmp,
@@ -16,6 +18,11 @@ pub enum Error {
     UnknownColorFormat,
     UnknownCompression,
     NonPalletizedCompression,
+
+    /// This image contains extreme values and cannot be parsed
+    ///
+    /// For example, the image might be too large to fit in memory.
+    RefuseToParse,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -130,6 +137,11 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
     {
         log::error!("Non-palletized images cannot be compressed (got compression {compression:?} and color format {colorformat:?}");
         return Err(Error::NonPalletizedCompression);
+    }
+
+    if width > MAX_ACCEPTABLE_SIZE || height > MAX_ACCEPTABLE_SIZE {
+        log::error!("Refusing to allocate image of size {width}x{height}");
+        return Err(Error::RefuseToParse);
     }
 
     let compressed_image_size = byte_stream
