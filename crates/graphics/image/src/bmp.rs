@@ -18,6 +18,7 @@ pub enum Error {
     UnknownColorFormat,
     UnknownCompression,
     NonPalletizedCompression,
+    PaletteTooSmall,
 
     /// This image contains extreme values and cannot be parsed
     ///
@@ -193,11 +194,16 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
         colors_used,
         important_colors,
     };
-    log::debug!("bmp info header: {info_header:#?}");
 
     // Read the palette, if any
-    let mut palette = Vec::with_capacity(palette_size);
-    for _ in 0..palette_size {
+    let used_palette_size = if colorformat == BmpColorFormat::Monochrome {
+        2
+    } else {
+        palette_size
+    };
+
+    let mut palette = Vec::with_capacity(used_palette_size);
+    for _ in 0..used_palette_size {
         let [red, green, blue, reserved] =
             byte_stream.next_chunk().ok_or(Error::UnexpectedEndOfFile)?;
 
@@ -230,7 +236,7 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
             todo!("implement .bmp rgb16 format")
         },
         BmpColorFormat::Rgb24 => {
-            let scanline_width = align_to_4_byte_boundary(3 * width as usize);
+            let scanline_width = align_up::<4>(3 * width as usize);
 
             let scanlines = image_data.chunks_exact(scanline_width);
             if !scanlines.remainder().is_empty() {
@@ -253,6 +259,33 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
             Texture::<Rgb<u8>, Vec<u8>>::from_data(texture_data, width as usize, height as usize)
                 .into()
         },
+        BmpColorFormat::Monochrome => {
+            let bytes_per_scanline = align_up::<8>(width as usize) / 8;
+            let scanline_width = align_up::<4>(bytes_per_scanline);
+
+            let scanlines = image_data.chunks_exact(scanline_width);
+            if !scanlines.remainder().is_empty() {
+                log::warn!("Trailing bytes after last scanline");
+            }
+
+            let mut texture_data = Vec::with_capacity(width as usize * height as usize * 3);
+            for scanline in scanlines.rev() {
+                for i in 0..width as usize {
+                    let byte_index = i / 8;
+                    let bit_index = i % 8;
+                    let palette_index = (scanline[byte_index] >> bit_index) & 1;
+
+                    let pixel = palette
+                        .get(palette_index as usize)
+                        .ok_or(Error::PaletteTooSmall)?;
+
+                    texture_data.extend(pixel.channels());
+                }
+            }
+
+            Texture::<Rgb<u8>, Vec<u8>>::from_data(texture_data, width as usize, height as usize)
+                .into()
+        },
         _ => todo!("implement palletized bmp images"),
     };
 
@@ -260,6 +293,6 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
 }
 
 #[must_use]
-fn align_to_4_byte_boundary(x: usize) -> usize {
-    (x + 4 - 1) & !(4 - 1)
+fn align_up<const N: usize>(x: usize) -> usize {
+    (x + N - 1) & !(N - 1)
 }
