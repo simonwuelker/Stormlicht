@@ -11,6 +11,13 @@ pub(crate) const BMP_MAGIC: [u8; 2] = [0x42, 0x4d];
 
 const MAX_ACCEPTABLE_SIZE: u32 = 8096;
 
+const BI_RGB: u32 = 0;
+const BI_RLE8: u32 = 1;
+const BI_RLE4: u32 = 2;
+const BI_BITFIELDS: u32 = 3;
+const BI_JPEG: u32 = 4;
+const BI_PNG: u32 = 5;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
     NotABmp,
@@ -20,6 +27,7 @@ pub enum Error {
     NonPalletizedCompression,
     PaletteTooSmall,
     NegativeWidth,
+    InvalidCompressionForFormat,
 
     /// This image contains extreme values and cannot be parsed
     ///
@@ -28,19 +36,23 @@ pub enum Error {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum BmpColorFormat {
+enum ImageType {
+    Jpeg,
+    Png,
     Monochrome,
-    Palletized4Bit,
-    Palletized8Bit,
+    Palette4Bit(RunLengthEncoded),
+    Palette8Bit(RunLengthEncoded),
     Rgb16,
     Rgb24,
+    Rgb32,
+    BitFields16,
+    BitFields32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Compression {
-    None,
-    Rle8Bit,
-    Rle4Bit,
+enum RunLengthEncoded {
+    Yes,
+    No,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -54,7 +66,7 @@ enum Direction {
 struct InfoHeader {
     width: u32,
     height: u32,
-    bits_per_pixel: BmpColorFormat,
+    image_type: ImageType,
     compressed_image_size: u32,
     direction: Direction,
 }
@@ -62,26 +74,26 @@ struct InfoHeader {
 impl InfoHeader {
     #[must_use]
     fn palette_size(&self) -> usize {
-        match self.bits_per_pixel {
-            BmpColorFormat::Monochrome => 2,
-            BmpColorFormat::Palletized4Bit => 16,
-            BmpColorFormat::Palletized8Bit => 256,
+        match self.image_type {
+            ImageType::Monochrome => 2,
+            ImageType::Palette4Bit(_) => 16,
+            ImageType::Palette8Bit(_) => 256,
             _ => 0,
         }
     }
 
     #[must_use]
     fn scanline_width(&self) -> usize {
-        let bytes_per_scanline = match self.bits_per_pixel {
-            BmpColorFormat::Monochrome => {
+        let bytes_per_scanline = match self.image_type {
+            ImageType::Monochrome => {
                 // 1 bit per pixel
                 align_up::<8>(self.width as usize) / 8
             },
-            BmpColorFormat::Rgb16 => {
+            ImageType::Rgb16 => {
                 // 16 bits per pixel
                 2 * self.width as usize
             },
-            BmpColorFormat::Rgb24 => {
+            ImageType::Rgb24 => {
                 // 24 bits per pixel
                 3 * self.width as usize
             },
@@ -138,6 +150,11 @@ impl InfoHeader {
             Err(_) => (Direction::TopDown, height.abs() as u32),
         };
 
+        if width > MAX_ACCEPTABLE_SIZE || height > MAX_ACCEPTABLE_SIZE {
+            log::error!("Refusing to allocate image of size {width}x{height}");
+            return Err(Error::RefuseToParse);
+        }
+
         let planes = byte_stream
             .next_le_u16()
             .ok_or(Error::UnexpectedEndOfFile)?;
@@ -150,43 +167,69 @@ impl InfoHeader {
             .next_le_u16()
             .ok_or(Error::UnexpectedEndOfFile)?;
 
-        let colorformat = match bits_per_pixel {
-            1 => BmpColorFormat::Monochrome,
-            4 => BmpColorFormat::Palletized4Bit,
-            8 => BmpColorFormat::Palletized8Bit,
-            16 => BmpColorFormat::Rgb16,
-            24 => BmpColorFormat::Rgb24,
+        let compression = byte_stream
+            .next_le_u32()
+            .ok_or(Error::UnexpectedEndOfFile)?;
+
+        let image_type = match bits_per_pixel {
+            0 => {
+                // Bits per pixel are specified by the jpeg/png image
+                match compression {
+                    BI_JPEG => ImageType::Jpeg,
+                    BI_PNG => ImageType::Png,
+                    _ => return Err(Error::InvalidCompressionForFormat),
+                }
+            },
+            1 => {
+                // Monochrome images cannot be compressed
+                if compression != BI_RGB {
+                    return Err(Error::InvalidCompressionForFormat);
+                }
+
+                ImageType::Monochrome
+            },
+            4 => {
+                // Palletized 4 bit per pixel
+                let run_length_encoded = match compression {
+                    BI_RGB => RunLengthEncoded::No,
+                    BI_RLE4 => RunLengthEncoded::Yes,
+                    _ => return Err(Error::InvalidCompressionForFormat),
+                };
+
+                ImageType::Palette4Bit(run_length_encoded)
+            },
+            8 => {
+                // Palletized 8 bit per pixel
+                let run_length_encoded = match compression {
+                    BI_RGB => RunLengthEncoded::No,
+                    BI_RLE8 => RunLengthEncoded::Yes,
+                    _ => return Err(Error::InvalidCompressionForFormat),
+                };
+
+                ImageType::Palette8Bit(run_length_encoded)
+            },
+            16 => match compression {
+                BI_RGB => ImageType::Rgb16,
+                BI_BITFIELDS => ImageType::BitFields16,
+                _ => return Err(Error::InvalidCompressionForFormat),
+            },
+            24 => {
+                if compression != BI_RGB {
+                    return Err(Error::InvalidCompressionForFormat);
+                }
+
+                ImageType::Rgb24
+            },
+            32 => match compression {
+                BI_RGB => ImageType::Rgb32,
+                BI_BITFIELDS => ImageType::BitFields32,
+                _ => return Err(Error::InvalidCompressionForFormat),
+            },
             other => {
                 log::error!("No format known for the given number of bits per pixel: {other:?}");
                 return Err(Error::UnknownColorFormat);
             },
         };
-
-        let compression = byte_stream
-            .next_le_u32()
-            .ok_or(Error::UnexpectedEndOfFile)?;
-
-        let compression = match compression {
-            0 => Compression::None,
-            1 => Compression::Rle8Bit,
-            2 => Compression::Rle4Bit,
-            other => {
-                log::error!("Unknown compression format: {other:?}");
-                return Err(Error::UnknownCompression);
-            },
-        };
-
-        if compression != Compression::None
-            && matches!(colorformat, BmpColorFormat::Rgb16 | BmpColorFormat::Rgb24)
-        {
-            log::error!("Non-palletized images cannot be compressed (got compression {compression:?} and color format {colorformat:?}");
-            return Err(Error::NonPalletizedCompression);
-        }
-
-        if width > MAX_ACCEPTABLE_SIZE || height > MAX_ACCEPTABLE_SIZE {
-            log::error!("Refusing to allocate image of size {width}x{height}");
-            return Err(Error::RefuseToParse);
-        }
 
         let compressed_image_size = byte_stream
             .next_le_u32()
@@ -211,7 +254,7 @@ impl InfoHeader {
         let info_header = Self {
             width,
             height,
-            bits_per_pixel: colorformat,
+            image_type,
             compressed_image_size,
             direction,
         };
@@ -292,11 +335,11 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
         );
     }
 
-    let texture = match info_header.bits_per_pixel {
-        BmpColorFormat::Rgb16 => {
+    let texture = match info_header.image_type {
+        ImageType::Rgb16 => {
             todo!("implement .bmp rgb16 format")
         },
-        BmpColorFormat::Rgb24 => {
+        ImageType::Rgb24 => {
             let mut texture_data =
                 Vec::with_capacity(info_header.width as usize * info_header.height as usize * 3);
 
@@ -321,7 +364,7 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
             )
             .into()
         },
-        BmpColorFormat::Monochrome => {
+        ImageType::Monochrome => {
             let mut texture_data =
                 Vec::with_capacity(info_header.width as usize * info_header.height as usize * 3);
 
