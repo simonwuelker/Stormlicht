@@ -29,6 +29,7 @@ pub enum Error {
     PaletteTooLarge,
     NegativeWidth,
     InvalidCompressionForFormat,
+    MultiplePlanes,
 
     /// This image contains extreme values and cannot be parsed
     ///
@@ -166,7 +167,8 @@ impl InfoHeader {
             .ok_or(Error::UnexpectedEndOfFile)?;
 
         if planes != 1 {
-            log::warn!("Unexpected number of planes, expected 1, got {planes:?}");
+            log::error!("Unexpected number of planes, expected 1, got {planes:?}");
+            return Err(Error::MultiplePlanes);
         }
 
         let bits_per_pixel = byte_stream
