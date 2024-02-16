@@ -74,7 +74,14 @@ impl<'a> ByteStream<'a> {
     }
 
     next_int!(u16, 2, next_be_u16, next_le_u16);
+    next_int!(i16, 2, next_be_i16, next_le_i16);
+
     next_int!(u32, 4, next_be_u32, next_le_u32);
+    next_int!(i32, 4, next_be_i32, next_le_i32);
+
     next_int!(u64, 8, next_be_u64, next_le_u64);
+    next_int!(i64, 8, next_be_i64, next_le_i64);
+
     next_int!(u128, 16, next_be_u128, next_le_u128);
+    next_int!(i128, 16, next_be_i128, next_le_i128);
 }
