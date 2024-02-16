@@ -104,6 +104,10 @@ impl InfoHeader {
                 // 24 bits per pixel
                 3 * self.width as usize
             },
+            ImageType::Rgb32 => {
+                // 32 bits per pixel
+                4 * self.width as usize
+            },
             _ => todo!(),
         };
 
@@ -295,35 +299,7 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
         );
     }
 
-    let texture = match info_header.image_type {
-        ImageType::Rgb16 => {
-            todo!("implement .bmp rgb16 format")
-        },
-        ImageType::Rgb24 => {
-            let mut texture_data =
-                Vec::with_capacity(info_header.width as usize * info_header.height as usize * 3);
-
-            info_header.for_each_scanline(image_data, |scanline| {
-                for pixel in scanline.chunks_exact(3).take(info_header.width as usize) {
-                    let blue = pixel[0];
-                    let green = pixel[1];
-                    let red = pixel[2];
-
-                    texture_data.push(red);
-                    texture_data.push(green);
-                    texture_data.push(blue);
-                }
-
-                Ok(())
-            })?;
-
-            Texture::<Rgb<u8>, Vec<u8>>::from_data(
-                texture_data,
-                info_header.width as usize,
-                info_header.height as usize,
-            )
-            .into()
-        },
+    let texture: DynamicTexture = match info_header.image_type {
         ImageType::Monochrome => {
             let mut texture_data =
                 Vec::with_capacity(info_header.width as usize * info_header.height as usize * 3);
@@ -339,6 +315,43 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
                         .ok_or(Error::PaletteTooSmall)?;
 
                     texture_data.extend(pixel.channels());
+                }
+
+                Ok(())
+            })?;
+
+            Texture::<Rgb<u8>, Vec<u8>>::from_data(
+                texture_data,
+                info_header.width as usize,
+                info_header.height as usize,
+            )
+            .into()
+        },
+        ImageType::Rgb16 => {
+            todo!("implement .bmp rgb16 format")
+        },
+        ImageType::Rgb24 | ImageType::Rgb32 => {
+            let pixel_width = if info_header.image_type == ImageType::Rgb24 {
+                3
+            } else {
+                4
+            };
+
+            let mut texture_data =
+                Vec::with_capacity(info_header.width as usize * info_header.height as usize * 3);
+
+            info_header.for_each_scanline(image_data, |scanline| {
+                for pixel in scanline
+                    .chunks_exact(pixel_width)
+                    .take(info_header.width as usize)
+                {
+                    let blue = pixel[0];
+                    let green = pixel[1];
+                    let red = pixel[2];
+
+                    texture_data.push(red);
+                    texture_data.push(green);
+                    texture_data.push(blue);
                 }
 
                 Ok(())
