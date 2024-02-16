@@ -118,6 +118,10 @@ impl InfoHeader {
     where
         F: FnMut(&[u8]) -> Result<(), Error>,
     {
+        if self.width == 0 || self.height == 0 {
+            return Ok(());
+        }
+
         let scanlines = scanline_data.chunks_exact(self.scanline_width());
         if !scanlines.remainder().is_empty() {
             log::warn!("Trailing bytes after last scanline");
