@@ -96,6 +96,7 @@ impl InfoHeader {
                 // 1 bit per pixel
                 align_up::<8>(self.width as usize) / 8
             },
+            ImageType::Palette8Bit(_) => self.width as usize,
             ImageType::Rgb16 => {
                 // 16 bits per pixel
                 2 * self.width as usize
@@ -318,6 +319,32 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
                         .get(palette_index as usize)
                         .ok_or(Error::PaletteTooSmall)?;
 
+                    texture_data.extend(pixel.channels());
+                }
+
+                Ok(())
+            })?;
+
+            Texture::<Rgb<u8>, Vec<u8>>::from_data(
+                texture_data,
+                info_header.width as usize,
+                info_header.height as usize,
+            )
+            .into()
+        },
+        ImageType::Palette8Bit(run_length_encoded) => {
+            if run_length_encoded == RunLengthEncoded::Yes {
+                todo!("implement run length encoding");
+            }
+
+            let mut texture_data =
+                Vec::with_capacity(info_header.width as usize * info_header.height as usize * 3);
+
+            info_header.for_each_scanline(image_data, |scanline| {
+                for palette_index in scanline.iter().take(info_header.width as usize) {
+                    let pixel = palette
+                        .get(*palette_index as usize)
+                        .ok_or(Error::PaletteTooSmall)?;
                     texture_data.extend(pixel.channels());
                 }
 
