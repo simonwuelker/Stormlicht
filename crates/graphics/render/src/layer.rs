@@ -132,7 +132,6 @@ impl Layer {
             .for_each(|p| p.coordinates = self.transform.apply_to(p.coordinates));
 
         // Compute extents of the transformed outline
-
         self.flattened_outline
             .iter()
             .map(|p| p.coordinates)
@@ -169,12 +168,17 @@ impl Layer {
             // colored and which should not be.
             let outline_offset = outline_extent.top_left();
             let outline_extent = outline_extent.snap_to_grid();
+
             let mut rasterizer = Rasterizer::new(outline_extent, outline_offset);
             rasterizer.fill(&self.flattened_outline);
             let mask = rasterizer.into_mask();
 
+            let resized_source = self
+                .source
+                .resize(outline_extent.width(), outline_extent.height());
+
             // Compose the mask onto the buffer
-            compose(texture, mask, &self.source, outline_extent.top_left());
+            compose(texture, mask, &resized_source, outline_extent.top_left());
         }
     }
 }
@@ -192,6 +196,20 @@ impl Default for Layer {
     }
 }
 
+impl Source {
+    fn resize(&self, width: usize, height: usize) -> Self {
+        match self {
+            Self::Solid(color) => Self::Solid(*color),
+            Self::Texture {
+                texture,
+                access_mode,
+            } => Self::Texture {
+                texture: texture.resize(width, height),
+                access_mode: *access_mode,
+            },
+        }
+    }
+}
 fn compose<D>(
     destination: &mut Texture<Rgba<u8>, D>,
     mask: Mask,
