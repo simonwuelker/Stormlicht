@@ -65,12 +65,30 @@ where
     pub fn empty() -> Self {
         Self::from_data(vec![], 0, 0)
     }
+
+    pub fn resize(&self, width: usize, height: usize) -> Self {
+        // Nearest neighbor
+        let mut result = Self::new(width, height);
+
+        let height_ratio = self.height as f32 / height as f32;
+        let width_ratio = self.width as f32 / width as f32;
+
+        for y in 0..height {
+            let nearest_y = (y as f32 * height_ratio).floor() as usize;
+            for x in 0..width {
+                let nearest_x = (x as f32 * width_ratio).floor() as usize;
+                result.set_pixel(x, y, self.get_pixel(nearest_x, nearest_y));
+            }
+        }
+
+        result
+    }
 }
 
 impl<'a, C, D> Texture<C, D>
 where
     C: ColorFormat,
-    C::Channel: 'a,
+    C::Channel: 'a + Copy + Default,
     D: 'a + Deref<Target = [C::Channel]>,
     f32: FloatToInt<C::Channel>,
 {
@@ -247,6 +265,15 @@ impl DynamicTexture {
             Self::Rgba8(t) => t.get(x, y, access_mode),
             Self::GrayScale8(t) => t.get(x, y, access_mode).into(),
             Self::GrayScaleAlpha8(t) => t.get(x, y, access_mode).into(),
+        }
+    }
+
+    pub fn resize(&self, width: usize, height: usize) -> Self {
+        match self {
+            Self::Rgb8(t) => t.resize(width, height).into(),
+            Self::Rgba8(t) => t.resize(width, height).into(),
+            Self::GrayScale8(t) => t.resize(width, height).into(),
+            Self::GrayScaleAlpha8(t) => t.resize(width, height).into(),
         }
     }
 }
