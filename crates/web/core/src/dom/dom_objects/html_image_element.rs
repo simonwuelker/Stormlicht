@@ -40,23 +40,17 @@ fn load_texture_for_img_element(html_element: &HtmlElement) -> Option<DynamicTex
 
     let source_url = source_url.to_string();
 
-    let source_url = match source_url.parse() {
-        Ok(source_url) => source_url,
-        Err(error) => {
-            log::error!("Failed to load <img> content: \"src\" attribute ({source_url}) cannot be parsed as a URL ({error:?}");
-            return None;
-        },
-    };
+    let source_url = source_url.parse()
+        .inspect_err(|error| {
+            log::error!("Failed to load <img> content: \"src\" attribute ({source_url}) cannot be parsed as a URL ({error:?}")
+        })
+        .ok()?;
 
-    let resource = match mime::Resource::load(&source_url) {
-        Ok(resource) => resource,
-        Err(error) => {
-            log::error!(
-                "Failed to load <img> content: {source_url} could not be loaded ({error:?}"
-            );
-            return None;
-        },
-    };
+    let resource = mime::Resource::load(&source_url)
+        .inspect_err(|error| {
+            log::error!("Failed to load <img> content: {source_url} could not be loaded ({error:?}")
+        })
+        .ok()?;
 
     if !resource.metadata.computed_mime_type.is_image() {
         log::error!(
@@ -66,15 +60,13 @@ fn load_texture_for_img_element(html_element: &HtmlElement) -> Option<DynamicTex
         return None;
     }
 
-    let texture = match DynamicTexture::from_bytes(&resource.data) {
-        Ok(texture) => texture,
-        Err(error) => {
+    let texture = DynamicTexture::from_bytes(&resource.data)
+        .inspect_err(|error| {
             log::error!(
                 "Failed to load <img> content: Failed to load {source_url} as an image ({error:?})",
-            );
-            return None;
-        },
-    };
+            )
+        })
+        .ok()?;
 
     Some(texture)
 }
