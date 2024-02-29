@@ -55,6 +55,7 @@ fontconfig = { path = "crates/sys/fontconfig" }
 ciphers = { path = "crates/crypto/ciphers" }
 hash = { path = "crates/crypto/hash" }
 tls = { path = "crates/crypto/tls" }
+js = { path = "crates/js" }
 
 log = "0.4"
 criterion = { version = "0.4", features = ["html_reports"] }
