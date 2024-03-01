@@ -502,6 +502,18 @@ impl<P: ParseErrorHandler> Parser<P> {
         while !self.open_elements.is_empty() {
             self.pop_from_open_elements();
         }
+
+        // 5. While the list of scripts that will execute when the document has finished parsing is not empty:
+        while let Some(script) = self
+            .document
+            .borrow_mut()
+            .pop_next_script_to_execute_when_the_document_has_finished_parsing()
+        {
+            // 1. Spin the event loop until the first script in the list of scripts that will execute when the document
+            //    has finished parsing has its ready to be parser-executed set to true and the parser's Document
+            //    has no style sheet that is blocking scripts.
+            todo!()
+        }
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#reset-the-insertion-mode-appropriately>

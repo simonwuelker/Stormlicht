@@ -20,6 +20,7 @@ url = { workspace = true }
 sl-std = { workspace = true }
 perfect_hash = { workspace = true }
 image = { workspace = true }
+js = { workspace = true }
 
 [build-dependencies]
 buildutils = { workspace = true }

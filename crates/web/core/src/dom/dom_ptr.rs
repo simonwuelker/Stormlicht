@@ -2,7 +2,7 @@ use std::{
     cell::RefCell,
     fmt::Write,
     ops::Deref,
-    rc::{Rc, Weak},
+    sync::{Arc, Weak},
 };
 
 use crate::TreeDebug;
@@ -18,7 +18,7 @@ use super::{
 /// of its supertypes.
 /// The internal objects are reference counted and inside a `RefCell`.
 pub struct DomPtr<T: DomTyped> {
-    inner: Rc<RefCell<T>>,
+    inner: Arc<RefCell<T>>,
 
     /// The actual type pointed to by inner.
     underlying_type: DomType,
@@ -32,7 +32,7 @@ pub struct WeakDomPtr<T: DomTyped> {
 }
 
 impl<T: DomTyped> Deref for DomPtr<T> {
-    type Target = Rc<RefCell<T>>;
+    type Target = Arc<RefCell<T>>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -50,7 +50,7 @@ impl<T: DomTyped> Deref for WeakDomPtr<T> {
 impl<T: DomTyped> DomPtr<T> {
     pub fn new(inner: T) -> Self {
         Self {
-            inner: Rc::new(RefCell::new(inner)),
+            inner: Arc::new(RefCell::new(inner)),
             underlying_type: T::as_type(),
         }
     }
@@ -119,7 +119,7 @@ impl<T: DomTyped> DomPtr<T> {
 
     pub fn downgrade(&self) -> WeakDomPtr<T> {
         WeakDomPtr {
-            inner: Rc::downgrade(&self.inner),
+            inner: Arc::downgrade(&self.inner),
             underlying_type: self.underlying_type,
         }
     }
