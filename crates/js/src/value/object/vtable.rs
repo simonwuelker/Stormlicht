@@ -1,8 +1,5 @@
 use super::{Object, PropertyDescriptor, PropertyKey};
-use crate::{
-    value::{object::validate_and_apply_property_descriptor, Value},
-    ThrowCompletionOr,
-};
+use crate::value::{object::validate_and_apply_property_descriptor, ThrowCompletionOr, Value};
 
 #[derive(Clone, Copy)]
 pub struct ObjectMethods {
