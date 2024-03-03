@@ -28,6 +28,7 @@ members = [
     "tests/runners/html5lib",
     "crates/util/buildutils",
     "crates/js",
+    "crates/gc",
 ]
 resolver = "2"
 
@@ -56,6 +57,7 @@ ciphers = { path = "crates/crypto/ciphers" }
 hash = { path = "crates/crypto/hash" }
 tls = { path = "crates/crypto/tls" }
 js = { path = "crates/js" }
+gc = { path = "crates/gc" }
 
 log = "0.4"
 criterion = { version = "0.4", features = ["html_reports"] }
