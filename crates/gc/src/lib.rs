@@ -1,11 +1,11 @@
 //! A mark-and-sweep garbage collection
 
-mod cell;
 mod heap;
+mod node;
 mod trace;
 
-use cell::GcCell;
 pub use heap::collect_garbage;
+use node::HeapNode;
 pub use trace::Trace;
 
 use std::{cell::Cell, fmt, ops::Deref, ptr::NonNull};
@@ -25,9 +25,9 @@ where
 
     /// The value stored
     ///
-    /// It is a invariant of this type that `cell` must always point to a valid
-    /// `GcCell<T>` (ie. it may never be dangling).
-    referenced_cell: Cell<NonNull<GcCell<T>>>,
+    /// It is a invariant of this type that `referenced_node` must always point to a valid
+    /// [HeapNode<T>] (ie. it may never be dangling).
+    referenced_node: Cell<NonNull<HeapNode<T>>>,
 }
 
 impl<T> Gc<T>
@@ -39,12 +39,12 @@ where
     /// The new pointer starts out rooted.
     #[must_use]
     pub fn new(value: T) -> Self {
-        // Allocate a new cell on the thread-local heap for this value
-        let gc_cell = GcCell::new(value);
+        // Allocate a new node on the thread-local heap for this value
+        let node = HeapNode::new(value);
 
-        let mut gc = Self {
+        let gc = Self {
             is_rooted: true,
-            referenced_cell: Cell::new(gc_cell),
+            referenced_node: Cell::new(node),
         };
 
         gc
@@ -53,33 +53,33 @@ where
     fn make_root(value: &mut Self) {
         debug_assert!(!value.is_rooted);
 
-        Self::cell_mut(value).increment_root_count();
+        Self::node_mut(value).increment_root_count();
         value.is_rooted = true;
     }
 
     fn unroot(value: &mut Self) {
         debug_assert!(value.is_rooted);
 
-        Self::cell_mut(value).decrement_root_count();
+        Self::node_mut(value).decrement_root_count();
         value.is_rooted = false;
     }
 
-    fn cell(value: &Self) -> &GcCell<T> {
-        let raw_ptr = value.referenced_cell.get();
+    fn node(value: &Self) -> &HeapNode<T> {
+        let raw_ptr = value.referenced_node.get();
 
         // SAFETY: self.cell must always point to a GcCell
         unsafe { raw_ptr.as_ref() }
     }
 
-    fn cell_mut(value: &mut Self) -> &mut GcCell<T> {
-        let raw_ptr = value.referenced_cell.get_mut();
+    fn node_mut(value: &mut Self) -> &mut HeapNode<T> {
+        let raw_ptr = value.referenced_node.get_mut();
 
         // SAFETY: self.cell must always point to a GcCell
         unsafe { raw_ptr.as_mut() }
     }
 
     pub fn mark(value: &Self) {
-        Self::cell(value).mark()
+        Self::node(value).mark()
     }
 }
 
@@ -88,7 +88,7 @@ where
     T: 'static + Trace + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Self::cell(self).value().fmt(f)
+        Self::node(self).value().fmt(f)
     }
 }
 
@@ -97,7 +97,7 @@ where
     T: 'static + Trace + fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Self::cell(self).value().fmt(f)
+        Self::node(self).value().fmt(f)
     }
 }
 
@@ -107,7 +107,7 @@ where
 {
     fn drop(&mut self) {
         if self.is_rooted {
-            Self::cell_mut(self).decrement_root_count();
+            Self::node_mut(self).decrement_root_count();
         }
     }
 }
@@ -120,6 +120,6 @@ where
 
     #[inline]
     fn deref(&self) -> &T {
-        Gc::cell(self).value()
+        Gc::node(self).value()
     }
 }

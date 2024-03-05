@@ -4,7 +4,7 @@ use std::{
     ptr::{self, NonNull},
 };
 
-use crate::{cell::GcCell, Trace};
+use crate::{node::HeapNode, Trace};
 
 const COLLECT_IF_MEMORY_USAGE_ABOVE: usize = 0x1000;
 
@@ -27,19 +27,19 @@ pub(crate) struct Heap {
     bytes_allocated: usize,
     collect_if_memory_usage_above: usize,
 
-    /// The most recently allocated gc cell
-    head: Option<NonNull<GcCell<dyn Trace>>>,
+    /// The most recently allocated gc node
+    head: Option<NonNull<HeapNode<dyn Trace>>>,
 }
 
 impl Heap {
-    pub(crate) unsafe fn register_cell(&mut self, cell: NonNull<GcCell<dyn Trace>>) {
-        debug_assert!(cell.as_ref().next.get().is_none());
+    pub(crate) unsafe fn register_node(&mut self, node: NonNull<HeapNode<dyn Trace>>) {
+        debug_assert!(node.as_ref().next.get().is_none());
 
-        // Make the new cell the head in the linked list of allocated cells
-        let old_head = self.head.replace(cell);
-        cell.as_ref().next.set(old_head);
+        // Make the new cell the head in the linked list of allocated nodes
+        let old_head = self.head.replace(node);
+        node.as_ref().next.set(old_head);
 
-        self.bytes_allocated += mem::size_of_val(&cell);
+        self.bytes_allocated += mem::size_of_val(&node);
 
         if self.bytes_allocated > self.collect_if_memory_usage_above {
             self.collect_garbage();
@@ -56,52 +56,52 @@ impl Heap {
         let mut next = self.head;
         while let Some(next_cell) = next {
             // SAFETY: All the pointers in the chain are guaranteed to point to
-            //         valid GcCells
-            let cell = unsafe { next_cell.as_ref() };
+            //         valid HeapNodes
+            let node = unsafe { next_cell.as_ref() };
 
-            if cell.num_roots() > 0 {
-                cell.mark();
+            if node.num_roots() > 0 {
+                node.mark();
             }
-            next = cell.next.get();
+            next = node.next.get();
         }
 
         // Collect all unmarked nodes
-        struct UnmarkedCell<'a> {
-            cell: NonNull<GcCell<dyn Trace>>,
-            linked_by: &'a Cell<Option<NonNull<GcCell<dyn Trace>>>>,
+        struct UnmarkedNode<'a> {
+            node: NonNull<HeapNode<dyn Trace>>,
+            linked_by: &'a Cell<Option<NonNull<HeapNode<dyn Trace>>>>,
         }
 
-        let mut unmarked_cells = vec![];
+        let mut unmarked_nodes = vec![];
         let mut next = Cell::from_mut(&mut self.head);
-        while let Some(next_cell) = next.get() {
+        while let Some(next_node) = next.get() {
             // SAFETY: All the pointers in the chain are guaranteed to point to
-            //         valid GcCells
-            let cell = unsafe { next_cell.as_ref() };
+            //         valid HeapNodes
+            let node = unsafe { next_node.as_ref() };
 
-            if cell.is_marked() {
-                cell.unmark();
+            if node.is_marked() {
+                node.unmark();
             } else {
-                let unmarked_cell = UnmarkedCell {
-                    cell: next_cell,
+                let unmarked_cell = UnmarkedNode {
+                    node: next_node,
                     linked_by: next,
                 };
-                unmarked_cells.push(unmarked_cell);
+                unmarked_nodes.push(unmarked_cell);
             }
-            next = &cell.next;
+            next = &node.next;
         }
 
         // Sweep Phase
         let mut total_freed_size = 0;
-        for mut unmarked_cell in unmarked_cells {
-            total_freed_size += mem::size_of_val(&unmarked_cell.cell);
+        for mut unmarked_node in unmarked_nodes {
+            total_freed_size += mem::size_of_val(&unmarked_node.node);
 
-            // Remove the unmarked cell from the linked list
-            // SAFETY: The cell ptr is guaranteed to point to a valid cell
-            let cell_to_be_dropped = unsafe { unmarked_cell.cell.as_mut() };
-            unmarked_cell.linked_by.set(cell_to_be_dropped.next.get());
+            // Remove the unmarked node from the linked list
+            // SAFETY: The node ptr is guaranteed to point to a valid node
+            let node_to_be_dropped = unsafe { unmarked_node.node.as_mut() };
+            unmarked_node.linked_by.set(node_to_be_dropped.next.get());
 
-            // SAFETY: The cell ptr is guaranteed to point to a valid cell
-            unsafe { ptr::drop_in_place(ptr::from_mut(cell_to_be_dropped)) };
+            // SAFETY: The node ptr is guaranteed to point to a valid node
+            unsafe { ptr::drop_in_place(ptr::from_mut(node_to_be_dropped)) };
         }
 
         self.bytes_allocated -= total_freed_size;

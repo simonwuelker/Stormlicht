@@ -5,40 +5,40 @@ use crate::{heap::HEAP, Trace};
 const MARKED_BIT: usize = 1 << (usize::BITS - 1);
 const ROOTS_MASK: usize = !MARKED_BIT;
 
-pub(crate) struct GcCell<T: ?Sized> {
-    /// Contains root count and whether or not the cell is marked
+pub(crate) struct HeapNode<T: ?Sized> {
+    /// Contains root count and whether or not the node is marked
     ///
     /// Highest bit indicates mark state, lower bits are the root count.
     pub(crate) flags: Cell<usize>,
 
-    /// `GcCell`s make up a linked list, to keep track of all allocated objects
-    pub(crate) next: Cell<Option<NonNull<GcCell<dyn Trace>>>>,
+    /// [HeapNodes](HeapNode) make up a linked list, to keep track of all allocated objects
+    pub(crate) next: Cell<Option<NonNull<HeapNode<dyn Trace>>>>,
 
     /// The actual value allocated
     pub(crate) value: T,
 }
 
-impl<T> GcCell<T>
+impl<T> HeapNode<T>
 where
     T: Trace + 'static,
 {
     pub fn new(value: T) -> NonNull<Self> {
-        let cell = Self {
+        let node = Self {
             flags: Cell::new(0x1), // Not marked, one root
             next: Cell::new(None),
             value,
         };
 
-        let cell = NonNull::from(Box::leak(Box::new(cell)));
+        let node = NonNull::from(Box::leak(Box::new(node)));
 
         // SAFETY: The ptr is valid, as we just constructed it
-        unsafe { HEAP.with(|heap| heap.borrow_mut().register_cell(cell)) }
+        unsafe { HEAP.with(|heap| heap.borrow_mut().register_node(node)) }
 
-        cell
+        node
     }
 }
 
-impl<T> GcCell<T>
+impl<T> HeapNode<T>
 where
     T: ?Sized + Trace,
 {
