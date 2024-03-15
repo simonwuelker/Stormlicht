@@ -246,7 +246,7 @@ impl Value {
 
         // 5. If Type(lnum) is not Type(rnum), throw a TypeError exception.
         if lnum.type_tag() != rnum.type_tag() {
-            return Err(Exception::TypeError);
+            return Err(Exception::type_error());
         }
 
         match (lnum, rnum) {
@@ -292,7 +292,7 @@ impl Value {
             },
             Self::Symbol(_) | Self::BigInt => {
                 // 2. If argument is either a Symbol or a BigInt, throw a TypeError exception.
-                Err(Exception::TypeError)
+                Err(Exception::type_error())
             },
             Self::Undefined => {
                 // 3. If argument is undefined, return NaN.
@@ -369,7 +369,7 @@ impl Value {
             },
             Self::Symbol(_) => {
                 // 2. If argument is a Symbol, throw a TypeError exception.
-                Err(Exception::TypeError)
+                Err(Exception::type_error())
             },
             Self::Undefined => {
                 // 3. If argument is undefined, return "undefined".

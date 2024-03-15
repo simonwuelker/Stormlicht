@@ -136,7 +136,7 @@ impl Object {
 
         // 2. If success is false, throw a TypeError exception.
         if !success {
-            return Err(Exception::TypeError);
+            return Err(Exception::type_error());
         }
 
         // 3. Return unused.

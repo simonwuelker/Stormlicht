@@ -112,9 +112,8 @@ impl Vm {
                 self.set_register(*dst, result.into());
             },
             Instruction::Throw { value } => {
-                // FIXME: Actually use the value.
-                _ = value;
-                return Err(Exception::TypeError);
+                let value = self.register(*value).clone();
+                return Err(Exception::new(value));
             },
             other => todo!("Implement instruction {other:?}"),
         }
