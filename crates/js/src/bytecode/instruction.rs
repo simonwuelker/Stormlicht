@@ -138,4 +138,7 @@ pub enum Instruction {
         rhs: Register,
         dst: Register,
     },
+    Throw {
+        value: Register,
+    },
 }

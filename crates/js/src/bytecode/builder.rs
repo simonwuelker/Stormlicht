@@ -280,6 +280,11 @@ impl<'a> BasicBlockBuilder<'a> {
         dst
     }
 
+    pub fn throw(&mut self, value: Register) {
+        let instruction = Instruction::Throw { value };
+        self.push_instruction(instruction);
+    }
+
     pub fn unconditionally_jump_to(&mut self, branch_to: usize) {
         self.basic_block.exit = BasicBlockExit::GoTo(branch_to);
     }

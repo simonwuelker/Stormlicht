@@ -38,7 +38,6 @@ impl CompileToBytecode for ThrowStatement {
         let expr_value = expr_ref;
 
         // 3. Return ThrowCompletion(exprValue).
-        _ = expr_value;
-        todo!()
+        builder.get_current_block().throw(expr_value);
     }
 }

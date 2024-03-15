@@ -111,6 +111,11 @@ impl Vm {
                 let result = !Value::is_loosely_equal(self.register(*lhs), self.register(*rhs))?;
                 self.set_register(*dst, result.into());
             },
+            Instruction::Throw { value } => {
+                // FIXME: Actually use the value.
+                _ = value;
+                return Err(Exception::TypeError);
+            },
             other => todo!("Implement instruction {other:?}"),
         }
 
