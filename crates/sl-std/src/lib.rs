@@ -11,7 +11,8 @@
     round_char_boundary,
     cfg_match,
     bigint_helper_methods,
-    array_chunks
+    array_chunks,
+    maybe_uninit_uninit_array
 )]
 
 pub mod ascii;
@@ -26,4 +27,5 @@ pub mod punycode;
 pub mod rand;
 pub mod range;
 pub mod read;
+pub mod ring_buffer;
 pub mod slice;
