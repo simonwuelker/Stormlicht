@@ -9,4 +9,3 @@ pub mod zlib;
 pub mod bitreader;
 pub mod gzip;
 pub mod huffman;
-pub mod ringbuffer;

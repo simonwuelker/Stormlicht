@@ -5,8 +5,9 @@ pub mod dictionary;
 use crate::{
     bitreader::{self, BitReader},
     huffman::{Bits, HuffmanBitTree, HuffmanTree},
-    ringbuffer::RingBuffer,
 };
+
+use sl_std::ring_buffer::RingBuffer;
 
 use std::cmp::min;
 
@@ -149,7 +150,7 @@ pub fn decompress(source: &[u8]) -> Result<Vec<u8>, Error> {
     };
 
     let window_size = (1 << wbits) - 16;
-    let mut past_distances = RingBuffer::new([16, 15, 11, 4]);
+    let mut past_distances = RingBuffer::from([16, 15, 11, 4]);
 
     let mut is_last = false;
     while !is_last {
@@ -364,7 +365,7 @@ pub fn decompress(source: &[u8]) -> Result<Vec<u8>, Error> {
 
                 // Dictionary references, 0 distances and a few transformations are not pushed
                 if distance_code != 0 && distance < max_distance + 1 {
-                    past_distances.push(distance);
+                    past_distances.push_overwriting(distance);
                 }
                 distance
             };
