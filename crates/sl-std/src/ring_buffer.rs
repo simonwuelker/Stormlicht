@@ -31,6 +31,20 @@ impl<T, const N: usize> Default for RingBuffer<T, N> {
 }
 
 impl<T, const N: usize> RingBuffer<T, N> {
+    // Return the number of elements currently stored in the buffer
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        if self.is_full() {
+            return self.max_size();
+        }
+
+        if self.read_head <= self.write_head {
+            self.write_head - self.read_head
+        } else {
+            N - self.read_head + self.write_head
+        }
+    }
+
     #[must_use]
     #[inline]
     pub const fn max_size(&self) -> usize {
@@ -72,6 +86,22 @@ impl<T, const N: usize> RingBuffer<T, N> {
         self.is_full = false;
 
         Some(item)
+    }
+
+    /// Peek `n` elements ahead of the current one
+    #[must_use]
+    pub fn peek_front(&mut self, n: usize) -> Option<&T> {
+        if self.len() <= n {
+            return None;
+        }
+
+        let index = self.read_head.wrapping_add(n) % self.max_size();
+
+        // SAFETY:
+        // Due to the length check above, we know that the element at the given index must be initialized
+        let element = unsafe { self.elements[index].assume_init_ref() };
+
+        Some(element)
     }
 
     /// Push an element to the buffer
@@ -157,11 +187,25 @@ impl<T, const N: usize> From<[T; N]> for RingBuffer<T, N> {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches::assert_matches;
+
     use super::RingBuffer;
+
+    /// Creates a empty ringbuffer whose read/write heads aren't aligned to
+    /// the start element.
+    /// This should help cover some edge cases.
+    fn unaligned_ringbuf() -> RingBuffer<i32, 3> {
+        let mut buffer: RingBuffer<i32, 3> = RingBuffer::default();
+
+        buffer.push(1);
+        let _ = buffer.pop_front();
+
+        buffer
+    }
 
     #[test]
     fn fill_buffer() {
-        let mut buffer: RingBuffer<i32, 3> = RingBuffer::default();
+        let mut buffer = unaligned_ringbuf();
 
         // Fill the buffer
         buffer.push(1);
@@ -170,6 +214,46 @@ mod tests {
 
         // Further push operations will fail
         assert!(buffer.try_push(4).is_err());
+    }
+
+    #[test]
+    fn peek() {
+        let mut buffer = unaligned_ringbuf();
+
+        // Peeking on an empty buffer fails
+        assert!(buffer.peek_front(0).is_none());
+
+        buffer.push(1);
+
+        assert_matches!(buffer.peek_front(0), Some(1));
+        assert!(buffer.peek_front(1).is_none());
+
+        buffer.push(2);
+        buffer.push(3);
+
+        // Test peeking multiple elements ahead
+        assert_matches!(buffer.peek_front(1), Some(2));
+        assert_matches!(buffer.peek_front(2), Some(3));
+
+        // Peeking to an index larger than the end of the buffer always fails,
+        // even if the buffer is completely full
+        assert!(buffer.peek_front(4).is_none());
+    }
+
+    #[test]
+    fn len() {
+        let mut buffer = unaligned_ringbuf();
+
+        assert_eq!(buffer.len(), 0);
+
+        buffer.push(1);
+        buffer.push(2);
+
+        assert_eq!(buffer.len(), 2);
+
+        _ = buffer.pop_front();
+
+        assert_eq!(buffer.len(), 1);
     }
 
     #[test]
