@@ -333,7 +333,9 @@ pub fn decompress(source: &[u8]) -> Result<Vec<u8>, Error> {
             // We subtract two because the output contains two leading 0 bytes which are not part of the stream
             let max_distance = min(window_size, output_stream.len() - 2);
             let distance = if distance_is_implicit_zero {
-                *past_distances.nth_last(0)
+                *past_distances
+                    .peek_back(0)
+                    .expect("past distance buffer cannot be empty")
             } else {
                 if blen_d == 0 {
                     update_block_type_and_count!(
@@ -902,23 +904,24 @@ fn distance_short_code_substitution(
 ) -> Result<usize, Error> {
     let postfix_mask = (1 << npostfix) - 1;
 
+    const ERR_MSG: &str = "Buffer of past distances is too short";
     let distance = match distance_code {
-        0 => *past_distances.nth_last(0),
-        1 => *past_distances.nth_last(1),
-        2 => *past_distances.nth_last(2),
-        3 => *past_distances.nth_last(3),
-        4 => *past_distances.nth_last(0) - 1,
-        5 => *past_distances.nth_last(0) + 1,
-        6 => *past_distances.nth_last(0) - 2,
-        7 => *past_distances.nth_last(0) + 2,
-        8 => *past_distances.nth_last(0) - 3,
-        9 => *past_distances.nth_last(0) + 3,
-        10 => *past_distances.nth_last(1) - 1,
-        11 => *past_distances.nth_last(1) + 1,
-        12 => *past_distances.nth_last(1) - 2,
-        13 => *past_distances.nth_last(1) + 2,
-        14 => *past_distances.nth_last(1) - 3,
-        15 => *past_distances.nth_last(1) + 3,
+        0 => *past_distances.peek_back(0).expect(ERR_MSG),
+        1 => *past_distances.peek_back(1).expect(ERR_MSG),
+        2 => *past_distances.peek_back(2).expect(ERR_MSG),
+        3 => *past_distances.peek_back(3).expect(ERR_MSG),
+        4 => *past_distances.peek_back(0).expect(ERR_MSG) - 1,
+        5 => *past_distances.peek_back(0).expect(ERR_MSG) + 1,
+        6 => *past_distances.peek_back(0).expect(ERR_MSG) - 2,
+        7 => *past_distances.peek_back(0).expect(ERR_MSG) + 2,
+        8 => *past_distances.peek_back(0).expect(ERR_MSG) - 3,
+        9 => *past_distances.peek_back(0).expect(ERR_MSG) + 3,
+        10 => *past_distances.peek_back(1).expect(ERR_MSG) - 1,
+        11 => *past_distances.peek_back(1).expect(ERR_MSG) + 1,
+        12 => *past_distances.peek_back(1).expect(ERR_MSG) - 2,
+        13 => *past_distances.peek_back(1).expect(ERR_MSG) + 2,
+        14 => *past_distances.peek_back(1).expect(ERR_MSG) - 3,
+        15 => *past_distances.peek_back(1).expect(ERR_MSG) + 3,
         d @ 16.. => {
             if d < 16 + ndirect {
                 d - 15

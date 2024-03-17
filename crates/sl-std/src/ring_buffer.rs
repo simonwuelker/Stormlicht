@@ -149,19 +149,20 @@ impl<T, const N: usize> RingBuffer<T, N> {
     ///
     /// Note that the index is 0-based, so `nth_last(0)` returns the element that was
     /// last pushed. However, you may not retrieve more than `size` previous elements.
-    ///
-    /// # Panics
-    /// This function panics if `index >=  buffer size`
     #[inline]
     #[must_use]
-    pub fn nth_last(&self, index: usize) -> &T {
-        assert!(index < self.max_size());
+    pub fn peek_back(&self, index: usize) -> Option<&T> {
+        if self.len() <= index {
+            return None;
+        }
+
         let index = (self.write_head + self.max_size() - index - 1) % self.max_size();
 
-        // SAFETY: elements[index] is initialized, since it is between the read head and the write head
+        // SAFETY:
+        // We can be sure that elements[index] is initialized due to the range check above
         let element = unsafe { self.elements[index].assume_init_ref() };
 
-        element
+        Some(element)
     }
 }
 
@@ -257,38 +258,41 @@ mod tests {
     }
 
     #[test]
-    fn test_ringbuffer() {
+    fn peek_back() {
         let mut buffer = RingBuffer::from([3, 2, 1]);
 
-        assert_eq!(*buffer.nth_last(0), 1);
-        assert_eq!(*buffer.nth_last(1), 2);
-        assert_eq!(*buffer.nth_last(2), 3);
+        assert_matches!(buffer.peek_back(0), Some(1));
+        assert_matches!(buffer.peek_back(1), Some(2));
+        assert_matches!(buffer.peek_back(2), Some(3));
 
         buffer.push_overwriting(4);
         // Internal buffer should now look like this:
         // [4, 2, 1]
         //     ^_ self.ptr
 
-        assert_eq!(*buffer.nth_last(0), 4);
-        assert_eq!(*buffer.nth_last(1), 1);
-        assert_eq!(*buffer.nth_last(2), 2);
+        assert_matches!(buffer.peek_back(0), Some(4));
+        assert_matches!(buffer.peek_back(1), Some(1));
+        assert_matches!(buffer.peek_back(2), Some(2));
 
         buffer.push_overwriting(5);
         // Internal buffer should now look like this:
         // [5, 4, 1]
         //        ^_ self.ptr
 
-        assert_eq!(*buffer.nth_last(0), 5);
-        assert_eq!(*buffer.nth_last(1), 4);
-        assert_eq!(*buffer.nth_last(2), 1);
+        assert_matches!(buffer.peek_back(0), Some(5));
+        assert_matches!(buffer.peek_back(1), Some(4));
+        assert_matches!(buffer.peek_back(2), Some(1));
 
         buffer.push_overwriting(6);
         // Internal buffer should now look like this:
         // [5, 4, 6]
         //  ^_ self.ptr
 
-        assert_eq!(*buffer.nth_last(0), 6);
-        assert_eq!(*buffer.nth_last(1), 5);
-        assert_eq!(*buffer.nth_last(2), 4);
+        assert_matches!(buffer.peek_back(0), Some(6));
+        assert_matches!(buffer.peek_back(1), Some(5));
+        assert_matches!(buffer.peek_back(2), Some(4));
+
+        // Peeking back outside of the buffer should always fail
+        assert!(buffer.peek_back(3).is_none());
     }
 }
