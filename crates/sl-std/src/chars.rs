@@ -22,7 +22,7 @@ where
 {
     #[inline]
     #[must_use]
-    pub fn new(source: T) -> Self {
+    pub const fn new(source: T) -> Self {
         Self {
             source,
             pos: 0,
@@ -32,7 +32,7 @@ where
 
     #[inline]
     #[must_use]
-    pub fn position(&self) -> usize {
+    pub const fn position(&self) -> usize {
         self.pos
     }
 
@@ -44,7 +44,7 @@ where
 
     #[inline]
     #[must_use]
-    pub fn state(&self) -> State {
+    pub const fn state(&self) -> State {
         self.state
     }
 
