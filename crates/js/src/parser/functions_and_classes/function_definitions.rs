@@ -4,8 +4,8 @@ use crate::{
     bytecode::{self, CompileToBytecode},
     parser::{
         identifiers::parse_binding_identifier,
-        statements_and_declarations::Statement,
-        tokenization::{Punctuator, Tokenizer},
+        statements_and_declarations::StatementListItem,
+        tokenization::{Punctuator, SkipLineTerminators, Tokenizer},
         SyntaxError,
     },
 };
@@ -14,7 +14,7 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct FunctionDeclaration {
     pub identifier: String,
-    pub body: Vec<Statement>,
+    pub body: Vec<StatementListItem>,
 }
 
 impl FunctionDeclaration {
@@ -28,9 +28,18 @@ impl FunctionDeclaration {
         tokenizer.expect_punctuator(Punctuator::ParenthesisOpen)?;
         tokenizer.expect_punctuator(Punctuator::ParenthesisClose)?;
         tokenizer.expect_punctuator(Punctuator::CurlyBraceOpen)?;
-        tokenizer.expect_punctuator(Punctuator::CurlyBraceClose)?;
 
-        let body = vec![];
+        let mut body = vec![];
+        while !tokenizer
+            .peek(0, SkipLineTerminators::Yes)?
+            .is_some_and(|t| t.is_punctuator(Punctuator::CurlyBraceClose))
+        {
+            let statement_list_item = StatementListItem::parse::<YIELD, AWAIT, true>(tokenizer)?;
+            body.push(statement_list_item);
+        }
+
+        // Skip the closing curly brace
+        tokenizer.advance(1);
 
         let function_declaration = Self { identifier, body };
 
