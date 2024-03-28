@@ -52,15 +52,6 @@ impl IfStatement {
     }
 }
 
-fn parse_else_branch<const YIELD: bool, const AWAIT: bool, const RETURN: bool>(
-    tokenizer: &mut Tokenizer<'_>,
-) -> Result<Statement, SyntaxError> {
-    tokenizer.expect_keyword("else")?;
-    let else_branch = Statement::parse::<YIELD, AWAIT, RETURN>(tokenizer)?;
-
-    Ok(else_branch)
-}
-
 impl CompileToBytecode for IfStatement {
     fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
         let condition_register = self.condition.compile(builder);
