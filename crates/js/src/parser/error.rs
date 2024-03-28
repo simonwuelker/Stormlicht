@@ -17,7 +17,7 @@ impl SyntaxError {
             let byte_range = context
                 .subslice_range(line)
                 .expect("Line is not a reference to the source string");
-            println!("{:?}", byte_range);
+
             if byte_range.contains(self.0) {
                 return ErrorContext {
                     line,

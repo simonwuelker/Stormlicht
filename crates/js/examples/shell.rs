@@ -1,24 +1,36 @@
 use std::{
     env, fs,
     io::{self, Write},
+    process::ExitCode,
 };
 
-fn main() -> io::Result<()> {
+fn main() -> ExitCode {
     if let Some(filename) = env::args().nth(1) {
-        let script = fs::read_to_string(&filename)?;
+        let Ok(script) = fs::read_to_string(&filename) else {
+            return ExitCode::FAILURE;
+        };
 
-        let program: js::bytecode::Program = script.parse().unwrap();
+        let program = match script.parse::<js::bytecode::Program>() {
+            Ok(program) => program,
+            Err(error) => {
+                error.get_context(&script).dump();
+                return ExitCode::FAILURE;
+            },
+        };
 
         println!("{program:#?}");
 
         let mut vm = js::bytecode::Vm::default();
         vm.execute_program(&program);
         vm.dump();
-    } else {
-        run_shell()?;
-    }
 
-    Ok(())
+        ExitCode::SUCCESS
+    } else {
+        match run_shell() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(_) => ExitCode::FAILURE,
+        }
+    }
 }
 
 fn run_shell() -> io::Result<()> {
