@@ -21,6 +21,9 @@ pub struct Tokenizer<'a, const BUFFER_SIZE: usize = TOKEN_BUFFER_SIZE> {
     lexer: Lexer<'a>,
     strict: bool,
     goal_symbol: GoalSymbol,
+
+    /// Needed for [automatic semicolon insertion](https://262.ecma-international.org/14.0/#sec-rules-of-automatic-semicolon-insertion)
+    last_token_was_line_terminator: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -37,6 +40,7 @@ impl<'a, const BUFFER_SIZE: usize> Tokenizer<'a, BUFFER_SIZE> {
             lexer: Lexer::new(source_text),
             strict: false,
             goal_symbol,
+            last_token_was_line_terminator: false,
         }
     }
 
@@ -81,6 +85,33 @@ impl<'a, const BUFFER_SIZE: usize> Tokenizer<'a, BUFFER_SIZE> {
         }
     }
 
+    /// Expect a semicolon and perform [automatic semicolon insertion](https://262.ecma-international.org/14.0/#sec-rules-of-automatic-semicolon-insertion) if necessary
+    ///
+    /// There are some special cases, for example semicolons will never be inserted inside the header of a for loop.
+    /// These special cases require additional parsing context and are not handled by this function, they should instead
+    /// be implemented in the specific parser section directly.
+    pub fn expect_semicolon(&mut self) -> Result<(), SyntaxError> {
+        let Some(next_token) = self.peek(0, SkipLineTerminators::No)? else {
+            // Rule 2: Automatic semicolon insertion at the end of file
+            return Ok(());
+        };
+
+        if matches!(next_token, Token::Punctuator(Punctuator::Semicolon)) {
+            // Nothing to do
+            return Ok(());
+        }
+
+        // Rule 1
+        if matches!(next_token, Token::Punctuator(Punctuator::CurlyBraceOpen))
+            || self.last_token_was_line_terminator
+        {
+            return Ok(());
+        }
+
+        // No semicolon will be inserted at this position
+        Err(self.syntax_error())
+    }
+
     /// Make sure there is at least one more token in the buffer which is not a newline
     fn tokenize_next(&mut self) -> Result<(), SyntaxError> {
         if self.buffered_tokens.is_full() {
@@ -109,8 +140,17 @@ impl<'a, const BUFFER_SIZE: usize> Tokenizer<'a, BUFFER_SIZE> {
 
     pub fn advance(&mut self, n: usize) {
         for _ in 0..n {
-            _ = self.buffered_tokens.pop_front();
+            _ = self.pop_next_token();
         }
+    }
+
+    fn pop_next_token(&mut self) -> Option<Token> {
+        let next_token = self.buffered_tokens.pop_front();
+
+        self.last_token_was_line_terminator =
+            next_token.as_ref().is_some_and(Token::is_line_terminator);
+
+        next_token
     }
 
     /// Peek `n` tokens ahead of the current one

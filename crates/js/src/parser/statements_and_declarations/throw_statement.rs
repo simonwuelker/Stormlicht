@@ -23,6 +23,8 @@ impl ThrowStatement {
 
         let throw_statement = Self { expression };
 
+        tokenizer.expect_semicolon()?;
+
         Ok(throw_statement)
     }
 }
