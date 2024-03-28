@@ -17,6 +17,7 @@ impl SyntaxError {
             let byte_range = context
                 .subslice_range(line)
                 .expect("Line is not a reference to the source string");
+            println!("{:?}", byte_range);
             if byte_range.contains(self.0) {
                 return ErrorContext {
                     line,
@@ -25,9 +26,12 @@ impl SyntaxError {
             }
         }
 
-        // If we reach this point then no line in the context
-        // contains the syntax error
-        panic!("Context does not contain source reference")
+        // If we reach this point then the syntax error must be at the end of the input
+        let last_line = context.lines().last().unwrap_or_default();
+        ErrorContext {
+            line: last_line,
+            offset_in_line: last_line.len(),
+        }
     }
 }
 
@@ -39,7 +43,8 @@ pub struct ErrorContext<'a> {
 
 impl<'a> ErrorContext<'a> {
     pub fn dump(&self) {
-        println!("{:?}", self.line);
-        println!("{}^", " ".repeat(self.offset_in_line))
+        println!("Error Context:");
+        println!("* {}", self.line);
+        println!("* {}^", " ".repeat(self.offset_in_line))
     }
 }
