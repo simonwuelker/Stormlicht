@@ -25,6 +25,7 @@ fn run_shell() -> io::Result<()> {
     let mut buffer = String::new();
     let stdin = io::stdin();
 
+    let mut vm = js::bytecode::Vm::default();
     loop {
         buffer.clear();
         let mut stdout = io::stdout();
@@ -37,7 +38,6 @@ fn run_shell() -> io::Result<()> {
             Ok(program) => {
                 writeln!(stdout, "{program:#?}")?;
 
-                let mut vm = js::bytecode::Vm::default();
                 vm.execute_program(&program);
                 vm.dump();
             },
