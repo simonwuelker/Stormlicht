@@ -52,7 +52,7 @@ pub enum LetOrConst {
 #[derive(Clone, Debug)]
 pub struct LexicalDeclaration {
     pub let_or_const: LetOrConst,
-    pub binding_list: Vec<LexicalBinding>,
+    pub lexical_bindings: Vec<LexicalBinding>,
 }
 
 impl LetOrConst {
@@ -74,11 +74,22 @@ impl LexicalDeclaration {
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
         let let_or_const = LetOrConst::parse(tokenizer)?;
-        let lexical_binding = LexicalBinding::parse::<IN, YIELD, AWAIT>(tokenizer)?;
+        let first_lexical_binding = LexicalBinding::parse::<IN, YIELD, AWAIT>(tokenizer)?;
+        let mut lexical_bindings = vec![first_lexical_binding];
+
+        while matches!(
+            tokenizer.peek(0, SkipLineTerminators::Yes)?,
+            Some(Token::Punctuator(Punctuator::Comma))
+        ) {
+            tokenizer.advance(1);
+
+            let lexical_binding = LexicalBinding::parse::<IN, YIELD, AWAIT>(tokenizer)?;
+            lexical_bindings.push(lexical_binding);
+        }
 
         let lexical_declaration = Self {
             let_or_const,
-            binding_list: vec![lexical_binding],
+            lexical_bindings,
         };
 
         tokenizer.expect_semicolon()?;
@@ -165,7 +176,7 @@ impl CompileToBytecode for LexicalDeclaration {
     fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
         let current_block = builder.current_block();
 
-        for lexical_binding in &self.binding_list {
+        for lexical_binding in &self.lexical_bindings {
             match lexical_binding {
                 LexicalBinding::WithIdentifier {
                     identifier,
