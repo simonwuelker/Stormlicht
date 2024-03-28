@@ -1,5 +1,5 @@
 use super::{BasicBlock, BasicBlockExit, Instruction, Program};
-use crate::Value;
+use crate::{value::object, Value};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Register(usize);
@@ -295,5 +295,19 @@ impl<'a> BasicBlockBuilder<'a> {
             if_true,
             if_false,
         }
+    }
+
+    pub fn create_data_property_or_throw(
+        &mut self,
+        object: Register,
+        property_key: object::PropertyKey,
+        property_value: Register,
+    ) {
+        let instruction = Instruction::CreateDataPropertyOrThrow {
+            object,
+            property_key,
+            property_value,
+        };
+        self.push_instruction(instruction);
     }
 }

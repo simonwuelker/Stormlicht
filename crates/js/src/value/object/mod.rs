@@ -4,6 +4,8 @@ mod vtable;
 
 use crate::bytecode::{Exception, ThrowCompletionOr};
 
+use self::vtable::ObjectMethods;
+
 use super::Value;
 
 use std::{collections::HashMap, fmt, ptr};
@@ -237,5 +239,15 @@ impl fmt::Debug for Object {
             .field("is_extensible", &self.extensible)
             .field("properties", &self.properties)
             .finish()
+    }
+}
+
+impl Default for Object {
+    fn default() -> Self {
+        Self {
+            extensible: true,
+            properties: HashMap::default(),
+            methods: ObjectMethods::ORDINARY,
+        }
     }
 }

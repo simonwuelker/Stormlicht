@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{
     BasicBlock, BasicBlockExit, Exception, Instruction, Program, Register, ThrowCompletionOr,
 };
-use crate::Value;
+use crate::{value::Object, Value};
 
 #[derive(Clone, Debug, Default)]
 pub struct Vm {
@@ -65,6 +65,11 @@ impl Vm {
         &self.registers[register.index()]
     }
 
+    #[must_use]
+    fn register_mut(&mut self, register: Register) -> &mut Value {
+        &mut self.registers[register.index()]
+    }
+
     fn set_register(&mut self, register: Register, value: Value) {
         self.registers[register.index()] = value;
     }
@@ -114,6 +119,27 @@ impl Vm {
             Instruction::Throw { value } => {
                 let value = self.register(*value).clone();
                 return Err(Exception::new(value));
+            },
+            Instruction::CreateDataPropertyOrThrow {
+                object,
+                property_key,
+                property_value,
+            } => {
+                // https://262.ecma-international.org/14.0/#sec-createdatapropertyorthrow
+                let property_value = self.register(*property_value).clone();
+
+                let Value::Object(object) = self.register_mut(*object) else {
+                    panic!("Cannot create property on non-object");
+                };
+
+                // 1. Let success be ? CreateDataProperty(O, P, V).
+                let success = Object::create_data_property(object, property_key, property_value)?;
+
+                // 2. If success is false, throw a TypeError exception.
+                if !success {
+                    // FIXME: This should be a TypeError
+                    return Err(Exception::new(Value::Null));
+                }
             },
             other => todo!("Implement instruction {other:?}"),
         }

@@ -1,5 +1,5 @@
 use super::Register;
-use crate::Value;
+use crate::{value::object, Value};
 
 #[derive(Clone, Copy, Debug)]
 pub struct VariableHandle(usize);
@@ -140,5 +140,10 @@ pub enum Instruction {
     },
     Throw {
         value: Register,
+    },
+    CreateDataPropertyOrThrow {
+        object: Register,
+        property_key: object::PropertyKey,
+        property_value: Register,
     },
 }
