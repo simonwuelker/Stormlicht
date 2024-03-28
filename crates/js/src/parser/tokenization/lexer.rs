@@ -1,138 +1,29 @@
 use sl_std::chars::ReversibleCharIterator;
 
-use crate::Number;
+use crate::parser::SyntaxError;
 
-use super::SyntaxError;
-
-/// <https://262.ecma-international.org/14.0/#sec-tokens>
-#[derive(Clone, Debug)]
-pub enum Token {
-    /// <https://262.ecma-international.org/14.0/#prod-IdentifierName>
-    Identifier(String),
-
-    /// <https://262.ecma-international.org/14.0/#prod-PrivateIdentifier>
-    PrivateIdentifier(String),
-
-    /// <https://262.ecma-international.org/14.0/#prod-Punctuator>
-    Punctuator(Punctuator),
-
-    /// <https://262.ecma-international.org/14.0/#prod-NullLiteral>
-    NullLiteral,
-
-    /// <https://262.ecma-international.org/14.0/#prod-BooleanLiteral>
-    BooleanLiteral(bool),
-
-    /// <https://262.ecma-international.org/14.0/#prod-NumericLiteral>
-    NumericLiteral(u32),
-
-    /// <https://262.ecma-international.org/14.0/#prod-StringLiteral>
-    StringLiteral(String),
-
-    /// <https://262.ecma-international.org/14.0/#prod-Template>
-    Template,
-}
-
-/// <https://262.ecma-international.org/14.0/#sec-punctuators>
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Punctuator {
-    /// <https://262.ecma-international.org/14.0/#prod-OptionalChainingPunctuator>
-    OptionalChaining,
-
-    CurlyBraceOpen,
-    ParenthesisOpen,
-    ParenthesisClose,
-    BracketOpen,
-    BracketClose,
-    Dot,
-    TripleDot,
-    Semicolon,
-    Comma,
-    LessThan,
-    GreaterThan,
-    LessThanEqual,
-    GreaterThanEqual,
-    DoubleEqual,
-    ExclamationMarkEqual,
-    TripleEqual,
-    ExclamationMarkDoubleEqual,
-    Plus,
-    Minus,
-    Asterisk,
-    Percent,
-    DoubleAsterisk,
-    DoublePlus,
-    DoubleMinus,
-    DoubleLessThan,
-    DoubleGreaterThan,
-    TripleGreaterThan,
-    Ampersand,
-    VerticalBar,
-    Caret,
-    ExclamationMark,
-    Tilde,
-    DoubleAmpersand,
-    DoubleVerticalBar,
-    DoubleQuestionMark,
-    QuestionMark,
-    Colon,
-    Equal,
-    PlusEqual,
-    MinusEqual,
-    AsteriskEqual,
-    PercentEqual,
-    DoubleAsteriskEqual,
-    DoubleLessThanEqual,
-    DoubleGreaterThanEqual,
-    TripleGreaterThanEqual,
-    AmpersandEqual,
-    VerticalBarEqual,
-    CaretEqual,
-    DoubleAmpersandEqual,
-    DoubleVerticalBarEqual,
-    DoubleQuestionMarkEqual,
-    EqualGreaterThan,
-
-    Slash,
-    SlashEqual,
-
-    CurlyBraceClose,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum GoalSymbol {
-    Script,
-    Module,
-}
+use super::{Punctuator, Token};
 
 #[derive(Clone, Copy)]
-pub struct Tokenizer<'a> {
+pub struct Lexer<'a> {
     source: ReversibleCharIterator<&'a str>,
-    strict: bool,
-    goal_symbol: GoalSymbol,
 }
 
-impl<'a> Tokenizer<'a> {
+/// Check if a character is an [ECMAScript line terminator](https://262.ecma-international.org/14.0/#sec-line-terminators)
+///
+/// The full list of line-terminating characters can be found [here](https://262.ecma-international.org/14.0/#table-line-terminator-code-points)
+#[inline]
+#[must_use]
+const fn is_line_terminator(c: char) -> bool {
+    matches!(c, '\u{000A}' | '\u{000D}' | '\u{2028}' | '\u{2029}')
+}
+
+impl<'a> Lexer<'a> {
     #[must_use]
-    pub fn new(source_text: &'a str, goal_symbol: GoalSymbol) -> Self {
+    pub const fn new(source_text: &'a str) -> Self {
         Self {
             source: ReversibleCharIterator::new(source_text),
-            strict: false,
-            goal_symbol,
         }
-    }
-
-    #[must_use]
-    pub const fn is_strict(&self) -> bool {
-        self.strict
-    }
-
-    #[must_use]
-    pub const fn goal_symbol(&self) -> GoalSymbol {
-        self.goal_symbol
-    }
-
-    pub fn set_strict(&mut self, strict: bool) {
-        self.strict = strict;
     }
 
     #[must_use]
@@ -140,70 +31,58 @@ impl<'a> Tokenizer<'a> {
         SyntaxError::from_position(self.source.position())
     }
 
-    #[must_use]
-    pub fn is_done(&self) -> bool {
-        self.source.current().is_none()
-    }
-
     pub fn next_token(&mut self) -> Result<Option<Token>, SyntaxError> {
-        if self.source.current().is_none() {
-            // At end of input
-            return Ok(None);
-        }
+        // Skip any leading whitespace characters
+        let current_char = loop {
+            let Some(current_char) = self.source.current() else {
+                // At end of input
+                return Ok(None);
+            };
 
-        if let Ok(private_identifier) = self.attempt(Self::consume_private_identifier) {
-            return Ok(Some(Token::PrivateIdentifier(private_identifier)));
-        }
+            // FIXME: This is not correct, we should skip characters as listed in
+            //        https://262.ecma-international.org/14.0/#table-white-space-code-points
+            if !current_char.is_whitespace() {
+                break current_char;
+            }
+            self.source.next();
+        };
 
-        if self.attempt(Self::consume_null_literal).is_ok() {
-            return Ok(Some(Token::NullLiteral));
-        }
-
-        if let Ok(boolean_literal) = self.attempt(Self::consume_boolean_literal) {
-            return Ok(Some(Token::BooleanLiteral(boolean_literal)));
-        }
-
-        if let Ok(string_literal) = self.attempt(Self::consume_string_literal) {
-            return Ok(Some(Token::StringLiteral(string_literal)));
-        }
-
-        if let Ok(identifier) = self.attempt(Self::consume_identifier) {
-            return Ok(Some(Token::Identifier(identifier)));
-        }
-
-        if let Ok(punctuator) = self.attempt(Self::consume_punctuator) {
-            return Ok(Some(Token::Punctuator(punctuator)));
-        }
-
-        // Cannot parse input stream as a valid token
-        Err(self.syntax_error())
-    }
-
-    /// Apply a parse function as often as possible, separated by comma tokens
-    ///
-    /// After the end of the list, the tokenizer will attempt to consume another `,`.
-    pub fn parse_comma_separated_list<F, T>(&mut self, f: F) -> Vec<T>
-    where
-        F: Fn(&mut Self) -> Result<T, SyntaxError>,
-    {
-        match f(self) {
-            Ok(item) => {
-                let mut items = vec![item];
-
-                let parse_item = |t: &mut Self| -> Result<T, SyntaxError> {
-                    t.expect_punctuator(Punctuator::Comma)?;
-                    f(t)
-                };
-
-                while let Ok(item) = self.attempt(parse_item) {
-                    items.push(item);
-                }
-
-                let _ = self.attempt(|t| t.expect_punctuator(Punctuator::Comma));
-                items
+        let token = match current_char {
+            c if is_line_terminator(c) => {
+                self.source.next();
+                Token::LineTerminator
             },
-            Err(_) => vec![],
-        }
+            '#' => {
+                self.source.next();
+
+                let private_identifier = self.consume_identifier()?;
+                Token::PrivateIdentifier(private_identifier)
+            },
+            '0'..='9' => {
+                let numeric_literal = self.consume_numeric_literal()?;
+                Token::NumericLiteral(numeric_literal)
+            },
+            '"' | '\'' => {
+                let string_literal = self.consume_string_literal()?;
+                Token::StringLiteral(string_literal)
+            },
+            _ => {
+                if self.attempt(Self::consume_null_literal).is_ok() {
+                    Token::NullLiteral
+                } else if let Ok(boolean_literal) = self.attempt(Self::consume_boolean_literal) {
+                    Token::BooleanLiteral(boolean_literal)
+                } else if let Ok(identifier) = self.attempt(Self::consume_identifier) {
+                    Token::Identifier(identifier)
+                } else if let Ok(punctuator) = self.attempt(Self::consume_punctuator) {
+                    Token::Punctuator(punctuator)
+                } else {
+                    // Cannot parse input stream as a valid token
+                    return Err(self.syntax_error());
+                }
+            },
+        };
+
+        Ok(Some(token))
     }
 
     pub fn attempt<F, T, E>(&mut self, f: F) -> Result<T, E>
@@ -226,16 +105,6 @@ impl<'a> Tokenizer<'a> {
         //        https://262.ecma-international.org/14.0/#table-white-space-code-points
         while self.source.next().is_some_and(char::is_whitespace) {}
         self.source.go_back()
-    }
-
-    pub fn expect_punctuator(&mut self, expected: Punctuator) -> Result<(), SyntaxError> {
-        let punctuator = self.consume_punctuator()?;
-
-        if punctuator == expected {
-            Ok(())
-        } else {
-            Err(self.syntax_error())
-        }
     }
 
     pub fn expect_keyword(&mut self, keyword: &str) -> Result<(), SyntaxError> {
@@ -292,19 +161,10 @@ impl<'a> Tokenizer<'a> {
         Ok(identifier)
     }
 
-    /// <https://262.ecma-international.org/14.0/#prod-PrivateIdentifier>
-    pub fn consume_private_identifier(&mut self) -> Result<String, SyntaxError> {
-        if !matches!(self.source.next(), Some('#')) {
-            return Err(self.syntax_error());
-        }
-
-        self.consume_identifier()
-    }
-
     /// <https://262.ecma-international.org/14.0/#prod-StringLiteral>
     pub fn consume_string_literal(&mut self) -> Result<String, SyntaxError> {
         let consume_string_literal_until =
-            |tokenizer: &mut Tokenizer<'_>, terminator| -> Result<String, SyntaxError> {
+            |tokenizer: &mut Lexer<'_>, terminator| -> Result<String, SyntaxError> {
                 // FIXME: this isn't correct
                 let mut literal = String::new();
                 for c in tokenizer.source.by_ref() {
@@ -328,12 +188,11 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// <https://262.ecma-international.org/14.0/#prod-NumericLiteral>
-    pub fn consume_numeric_literal(&mut self) -> Result<Number, SyntaxError> {
+    pub fn consume_numeric_literal(&mut self) -> Result<u32, SyntaxError> {
         match self.source.next() {
-            Some('0') => Ok(Number::ZERO),
+            Some('0') => Ok(0),
             Some(c @ ('1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9')) => {
                 let mut n = c.to_digit(10).expect("Characters 1-9 are decimal digits");
-
                 loop {
                     match self.source.next() {
                         Some('_') => continue,
@@ -353,8 +212,7 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
 
-                let parsed_number = Number::new(f64::from(n));
-                Ok(parsed_number)
+                Ok(n)
             },
             _ => Err(self.syntax_error()),
         }
@@ -567,6 +425,7 @@ impl<'a> Tokenizer<'a> {
 
 #[inline]
 #[must_use]
+/// Check if a character can be the start of an [ECMAScript identifier](https://262.ecma-international.org/14.0/#prod-IdentifierStart)
 fn is_valid_identifier_start(c: char) -> bool {
     // FIXME: this is the IdentifierStart production and its not right
     matches!(c, '$' | '_' | 'a'..='z' | 'A'..='Z')
@@ -579,12 +438,12 @@ mod tests {
     #[test]
     fn tokenize_punctuator() {
         assert_eq!(
-            Tokenizer::new("?.", GoalSymbol::Script).consume_punctuator(),
+            Lexer::new("?.").consume_punctuator(),
             Ok(Punctuator::OptionalChaining)
         );
 
         assert_ne!(
-            Tokenizer::new("?.5", GoalSymbol::Script).consume_punctuator(),
+            Lexer::new("?.5").consume_punctuator(),
             Ok(Punctuator::OptionalChaining)
         );
     }
@@ -592,16 +451,12 @@ mod tests {
     #[test]
     fn tokenize_string_literal() {
         assert_eq!(
-            Tokenizer::new("\"foobar\"", GoalSymbol::Script)
-                .consume_string_literal()
-                .as_deref(),
+            Lexer::new("\"foobar\"").consume_string_literal().as_deref(),
             Ok("foobar")
         );
 
         assert_eq!(
-            Tokenizer::new("'foobar'", GoalSymbol::Script)
-                .consume_string_literal()
-                .as_deref(),
+            Lexer::new("'foobar'").consume_string_literal().as_deref(),
             Ok("foobar")
         );
     }

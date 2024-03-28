@@ -1,6 +1,9 @@
 //! <https://262.ecma-international.org/14.0/#sec-identifiers>
 
-use super::{tokenizer::GoalSymbol, SyntaxError, Tokenizer};
+use super::{
+    tokenization::{GoalSymbol, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
+};
 
 const RESERVED_WORDS: [&str; 37] = [
     "await",
@@ -46,25 +49,23 @@ const RESERVED_WORDS: [&str; 37] = [
 pub(crate) fn parse_binding_identifier<const YIELD: bool, const AWAIT: bool>(
     tokenizer: &mut Tokenizer<'_>,
 ) -> Result<String, SyntaxError> {
-    let binding_identifier = if let Ok(identifier) = tokenizer.attempt(Identifier::parse) {
-        if tokenizer.is_strict() && matches!(identifier.0.as_str(), "arguments" | "eval") {
-            return Err(tokenizer.syntax_error());
-        }
-
-        identifier.0
-    } else {
-        let identifier_name = tokenizer.consume_identifier()?;
-
-        if !YIELD && identifier_name.as_str() == "yield" {
-            identifier_name
-        } else if !AWAIT && identifier_name.as_str() == "await" {
-            identifier_name
-        } else {
-            return Err(tokenizer.syntax_error());
-        }
+    let Some(Token::Identifier(identifier)) = tokenizer.next(SkipLineTerminators::Yes)? else {
+        return Err(tokenizer.syntax_error());
     };
 
-    Ok(binding_identifier)
+    if !YIELD && identifier.as_str() == "yield" {
+        return Err(tokenizer.syntax_error());
+    }
+
+    if !AWAIT && identifier.as_str() == "await" {
+        return Err(tokenizer.syntax_error());
+    }
+
+    if tokenizer.is_strict() && matches!(identifier.as_str(), "arguments" | "eval") {
+        return Err(tokenizer.syntax_error());
+    }
+
+    Ok(identifier)
 }
 
 /// <https://262.ecma-international.org/14.0/#prod-Identifier>
@@ -86,7 +87,11 @@ const DISALLOWED_IDENTIFIERS_IN_STRICT_MODE: [&str; 9] = [
 impl Identifier {
     /// <https://262.ecma-international.org/14.0/#prod-Identifier>
     pub(crate) fn parse(tokenizer: &mut Tokenizer<'_>) -> Result<Self, SyntaxError> {
-        let identifier_name = tokenizer.consume_identifier()?;
+        let Some(Token::Identifier(identifier_name)) = tokenizer.next(SkipLineTerminators::Yes)?
+        else {
+            return Err(tokenizer.syntax_error());
+        };
+
         if RESERVED_WORDS.contains(&identifier_name.as_str()) {
             return Err(tokenizer.syntax_error());
         }
@@ -109,17 +114,21 @@ impl Identifier {
 pub(crate) fn parse_identifier_reference<const YIELD: bool, const AWAIT: bool>(
     tokenizer: &mut Tokenizer<'_>,
 ) -> Result<String, SyntaxError> {
-    if let Ok(identifier) = tokenizer.attempt(Identifier::parse) {
-        return Ok(identifier.0);
-    }
+    let next_token = tokenizer.peek(0, SkipLineTerminators::Yes)?;
 
-    if YIELD && tokenizer.expect_keyword("yield").is_ok() {
-        return Ok("yield".to_string());
-    }
+    if let Some(Token::Identifier(ident)) = next_token {
+        if YIELD && ident == "yield" {
+            tokenizer.advance(1);
+            return Ok("yield".to_string());
+        }
 
-    if AWAIT && tokenizer.expect_keyword("await").is_ok() {
-        return Ok("await".to_string());
-    }
+        if AWAIT && ident == "await" {
+            tokenizer.advance(1);
+            return Ok("await".to_string());
+        }
 
-    Err(tokenizer.syntax_error())
+        Identifier::parse(tokenizer).map(|i| i.0)
+    } else {
+        Err(tokenizer.syntax_error())
+    }
 }

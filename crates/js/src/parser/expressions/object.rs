@@ -3,7 +3,9 @@
 use crate::{
     bytecode::{self, CompileToBytecode},
     parser::{
-        identifiers::parse_identifier_reference, tokenizer::Punctuator, SyntaxError, Tokenizer,
+        identifiers::parse_identifier_reference,
+        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+        SyntaxError,
     },
 };
 
@@ -42,9 +44,25 @@ impl ObjectLiteral {
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
         tokenizer.expect_punctuator(Punctuator::CurlyBraceOpen)?;
-        let property_definitions =
-            tokenizer.parse_comma_separated_list(PropertyDefinition::parse::<YIELD, AWAIT>);
-        tokenizer.expect_punctuator(Punctuator::CurlyBraceClose)?;
+
+        let mut property_definitions = vec![];
+
+        while !matches!(
+            tokenizer.peek(0, SkipLineTerminators::Yes)?,
+            Some(Token::Punctuator(Punctuator::CurlyBraceClose))
+        ) {
+            let property_definition = PropertyDefinition::parse::<YIELD, AWAIT>(tokenizer)?;
+            property_definitions.push(property_definition);
+
+            if let Some(Token::Punctuator(Punctuator::Comma)) =
+                tokenizer.peek(0, SkipLineTerminators::Yes)?
+            {
+                tokenizer.advance(1);
+            }
+        }
+
+        // Discard the closing brace
+        tokenizer.advance(1);
 
         let object_literal = Self {
             property_definitions,

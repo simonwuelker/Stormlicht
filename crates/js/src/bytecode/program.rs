@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use crate::parser::{tokenizer::GoalSymbol, Script, SyntaxError, Tokenizer};
+use crate::parser::{
+    tokenization::{GoalSymbol, Tokenizer},
+    Script, SyntaxError,
+};
 
 use super::{CompileToBytecode, Instruction, ProgramBuilder, Register};
 

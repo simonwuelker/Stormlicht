@@ -2,7 +2,7 @@
 
 use crate::{
     bytecode::{self, CompileToBytecode},
-    parser::{expressions::Expression, SyntaxError, Tokenizer},
+    parser::{expressions::Expression, tokenization::Tokenizer, SyntaxError},
 };
 
 /// <https://262.ecma-international.org/14.0/#sec-throw-statement>
@@ -18,7 +18,7 @@ impl ThrowStatement {
     ) -> Result<Self, SyntaxError> {
         tokenizer.expect_keyword("throw")?;
 
-        // FIXME: No line terminator here
+        tokenizer.expect_no_line_terminator()?;
         let expression = Expression::parse::<true, YIELD, AWAIT>(tokenizer)?;
 
         let throw_statement = Self { expression };

@@ -5,11 +5,19 @@ mod object;
 
 pub use binary_expression::BinaryExpression;
 
-use crate::bytecode::{self, CompileToBytecode};
+use crate::{
+    bytecode::{self, CompileToBytecode},
+    Number,
+};
 
 use self::object::ObjectLiteral;
 
-use super::{identifiers::parse_identifier_reference, literals::Literal, SyntaxError, Tokenizer};
+use super::{
+    identifiers::parse_identifier_reference,
+    literals::Literal,
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
+};
 
 #[derive(Clone, Debug)]
 pub enum Expression {
@@ -41,19 +49,47 @@ pub struct NewExpression {
 fn parse_primary_expression<const YIELD: bool, const AWAIT: bool>(
     tokenizer: &mut Tokenizer<'_>,
 ) -> Result<Expression, SyntaxError> {
-    let primary_expression = if tokenizer
-        .attempt(|tokenizer| tokenizer.expect_keyword("this"))
-        .is_ok()
-    {
-        Expression::This
-    } else if let Ok(identifier) = tokenizer.attempt(parse_identifier_reference::<YIELD, AWAIT>) {
-        Expression::IdentifierReference(identifier)
-    } else if let Ok(literal) = Literal::parse(tokenizer) {
-        Expression::Literal(literal)
-    } else if let Ok(object_literal) = ObjectLiteral::parse::<YIELD, AWAIT>(tokenizer) {
-        Expression::ObjectLiteral(object_literal)
-    } else {
+    let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
         return Err(tokenizer.syntax_error());
+    };
+
+    let primary_expression = match next_token {
+        Token::Identifier(ident) if ident == "this" => {
+            tokenizer.advance(1);
+            Expression::This
+        },
+        Token::Identifier(ident) if ident == "true" => {
+            tokenizer.advance(1);
+            Literal::BooleanLiteral(true).into()
+        },
+        Token::Identifier(ident) if ident == "false" => {
+            tokenizer.advance(1);
+            Literal::BooleanLiteral(false).into()
+        },
+        Token::Identifier(ident) if ident == "null" => {
+            tokenizer.advance(1);
+            Literal::NullLiteral.into()
+        },
+        Token::NumericLiteral(n) => {
+            let n = Number::new(*n as f64);
+            tokenizer.advance(1);
+            Literal::NumericLiteral(n).into()
+        },
+        Token::StringLiteral(s) => {
+            // FIXME: avoiding a clone here would be nice
+            let s = s.clone();
+            tokenizer.advance(1);
+            Literal::StringLiteral(s.clone()).into()
+        },
+        Token::Identifier(_) => {
+            let identifier_reference = parse_identifier_reference::<YIELD, AWAIT>(tokenizer)?;
+            Expression::IdentifierReference(identifier_reference)
+        },
+        Token::Punctuator(Punctuator::CurlyBraceOpen) => {
+            let object_literal = ObjectLiteral::parse::<YIELD, AWAIT>(tokenizer)?;
+            object_literal.into()
+        },
+        _ => return Err(tokenizer.syntax_error()),
     };
 
     Ok(primary_expression)
@@ -66,25 +102,28 @@ impl NewExpression {
     ) -> Result<Expression, SyntaxError> {
         let mut nest_level = 0;
 
-        while matches!(
-            tokenizer.attempt(Tokenizer::consume_identifier).as_deref(),
-            Ok("new")
-        ) {
+        while tokenizer
+            .peek(0, SkipLineTerminators::Yes)?
+            .is_some_and(|t| t.is_identifier("new"))
+        {
+            tokenizer.advance(1);
             nest_level += 1;
         }
 
         // FIXME: This should be a MemberExpression instead of a PrimaryExpression
         let member_expression = parse_primary_expression::<YIELD, AWAIT>(tokenizer)?;
 
-        if nest_level == 0 {
-            Ok(member_expression)
+        let new_expression = if nest_level == 0 {
+            member_expression
         } else {
-            Ok(Self {
+            Self {
                 nest_level,
                 expression: Box::new(member_expression),
             }
-            .into())
-        }
+            .into()
+        };
+
+        Ok(new_expression)
     }
 }
 
@@ -133,5 +172,11 @@ impl From<BinaryExpression> for Expression {
 impl From<NewExpression> for Expression {
     fn from(value: NewExpression) -> Self {
         Self::New(value)
+    }
+}
+
+impl From<ObjectLiteral> for Expression {
+    fn from(value: ObjectLiteral) -> Self {
+        Self::ObjectLiteral(value)
     }
 }

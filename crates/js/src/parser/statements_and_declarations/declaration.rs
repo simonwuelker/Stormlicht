@@ -3,8 +3,11 @@
 use crate::{
     bytecode::{self, CompileToBytecode},
     parser::{
-        expressions::Expression, functions_and_classes::FunctionDeclaration, identifiers,
-        tokenizer::Punctuator, SyntaxError, Tokenizer,
+        expressions::Expression,
+        functions_and_classes::FunctionDeclaration,
+        identifiers::parse_binding_identifier,
+        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+        SyntaxError,
     },
 };
 
@@ -20,16 +23,18 @@ impl Declaration {
     pub fn parse<const YIELD: bool, const AWAIT: bool>(
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
-        let declaration = if let Ok(function_declaration) =
-            tokenizer.attempt(FunctionDeclaration::parse::<YIELD, AWAIT, true>)
-        {
-            Self::Function(function_declaration)
-        } else if let Ok(lexical_declaration) =
-            tokenizer.attempt(LexicalDeclaration::parse::<true, YIELD, AWAIT>)
-        {
-            Self::Lexical(lexical_declaration)
-        } else {
+        let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
             return Err(tokenizer.syntax_error());
+        };
+
+        let declaration = match next_token {
+            Token::Identifier(ident) if ident == "function" => {
+                FunctionDeclaration::parse::<YIELD, AWAIT, true>(tokenizer)?.into()
+            },
+            Token::Identifier(ident) if matches!(ident.as_str(), "let" | "const") => {
+                LexicalDeclaration::parse::<true, YIELD, AWAIT>(tokenizer)?.into()
+            },
+            _ => return Err(tokenizer.syntax_error()),
         };
 
         Ok(declaration)
@@ -53,9 +58,9 @@ pub struct LexicalDeclaration {
 impl LetOrConst {
     /// <https://262.ecma-international.org/14.0/#prod-LetOrConst>
     fn parse(tokenizer: &mut Tokenizer<'_>) -> Result<Self, SyntaxError> {
-        let let_or_const = match tokenizer.attempt(Tokenizer::consume_identifier)?.as_str() {
-            "let" => Self::Let,
-            "const" => Self::Const,
+        let let_or_const = match tokenizer.next(SkipLineTerminators::Yes)? {
+            Some(Token::Identifier(ident)) if ident == "let" => Self::Let,
+            Some(Token::Identifier(ident)) if ident == "const" => Self::Const,
             _ => return Err(tokenizer.syntax_error()),
         };
 
@@ -97,19 +102,41 @@ impl LexicalBinding {
     fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
-        let with_identifier = |tokenizer: &mut Tokenizer<'_>| {
-            let identifier =
-                tokenizer.attempt(identifiers::parse_binding_identifier::<IN, YIELD>)?;
-            let initializer = tokenizer
-                .attempt(parse_initializer::<IN, YIELD, AWAIT>)
-                .ok();
-            Ok(Self::WithIdentifier {
-                identifier,
-                initializer,
-            })
+        let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
+            return Err(tokenizer.syntax_error());
         };
 
-        tokenizer.attempt(with_identifier)
+        let lexical_binding = match next_token {
+            Token::Identifier(_) => {
+                let identifier = parse_binding_identifier::<YIELD, AWAIT>(tokenizer)?;
+
+                let has_initializer = matches!(
+                    tokenizer.peek(0, SkipLineTerminators::Yes)?,
+                    Some(Token::Punctuator(Punctuator::Equal))
+                );
+                let initializer = if has_initializer {
+                    Some(parse_initializer::<IN, YIELD, AWAIT>(tokenizer)?)
+                } else {
+                    None
+                };
+
+                Self::WithIdentifier {
+                    identifier,
+                    initializer,
+                }
+            },
+            Token::Punctuator(Punctuator::BracketOpen) => {
+                log::error!("Unimplemented: ArrayBindingPattern in LexicalBinding");
+                return Err(tokenizer.syntax_error());
+            },
+            Token::Punctuator(Punctuator::CurlyBraceOpen) => {
+                log::error!("Unimplemented: ObjectBindingPattern in LexicalBinding");
+                return Err(tokenizer.syntax_error());
+            },
+            _ => return Err(tokenizer.syntax_error()),
+        };
+
+        Ok(lexical_binding)
     }
 }
 
@@ -117,12 +144,7 @@ impl LexicalBinding {
 fn parse_initializer<const IN: bool, const YIELD: bool, const AWAIT: bool>(
     tokenizer: &mut Tokenizer<'_>,
 ) -> Result<Expression, SyntaxError> {
-    if !matches!(
-        tokenizer.attempt(Tokenizer::consume_punctuator)?,
-        Punctuator::Equal
-    ) {
-        return Err(tokenizer.syntax_error());
-    }
+    tokenizer.expect_punctuator(Punctuator::Equal)?;
 
     // FIXME: This should be an AssignmentExpression, not an Expression
     let assignment_expression = Expression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
@@ -163,5 +185,17 @@ impl CompileToBytecode for LexicalDeclaration {
                 LexicalBinding::BindingPattern => todo!(),
             }
         }
+    }
+}
+
+impl From<FunctionDeclaration> for Declaration {
+    fn from(value: FunctionDeclaration) -> Self {
+        Self::Function(value)
+    }
+}
+
+impl From<LexicalDeclaration> for Declaration {
+    fn from(value: LexicalDeclaration) -> Self {
+        Self::Lexical(value)
     }
 }

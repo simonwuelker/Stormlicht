@@ -1,6 +1,9 @@
 use crate::{
     bytecode::{self, CompileToBytecode},
-    parser::{tokenizer::Punctuator, SyntaxError, Tokenizer},
+    parser::{
+        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+        SyntaxError,
+    },
 };
 
 use super::{parse_primary_expression, Expression};
@@ -75,23 +78,21 @@ macro_rules! binary_op {
         ) -> Result<Expression, SyntaxError> {
             let mut expression: Expression = $next(tokenizer)?.into();
 
-            let parse_or_term = |tokenizer: &mut Tokenizer<'_>| {
-                let punctuator = tokenizer.attempt(Tokenizer::consume_punctuator)?;
-
-                let operator = match punctuator {
-                    $($symbol => $op,)*
-                    _ => return Err(tokenizer.syntax_error()),
+            loop {
+                let operator = match tokenizer.peek(0, SkipLineTerminators::Yes)? {
+                    $(Some(Token::Punctuator($symbol)) => {
+                        tokenizer.advance(1);
+                        $op
+                    },)*
+                    _ => break
                 };
 
-                let rhs = tokenizer.attempt($next)?;
-                Ok((operator, rhs))
-            };
+                let rhs = $next(tokenizer)?.into();
 
-            while let Ok((operator, rhs)) = tokenizer.attempt(parse_or_term) {
                 expression = BinaryExpression {
                     op: operator.into(),
                     lhs: Box::new(expression),
-                    rhs: Box::new(rhs.into()),
+                    rhs: Box::new(rhs),
                 }
                 .into();
             }

@@ -2,7 +2,11 @@
 
 use crate::{
     bytecode::{self, CompileToBytecode},
-    parser::{expressions::Expression, tokenizer::Punctuator, SyntaxError, Tokenizer},
+    parser::{
+        expressions::Expression,
+        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+        SyntaxError,
+    },
 };
 
 use super::Statement;
@@ -27,9 +31,16 @@ impl IfStatement {
 
         let if_branch = Statement::parse::<YIELD, AWAIT, RETURN>(tokenizer)?;
 
-        let else_branch = tokenizer
-            .attempt(parse_else_branch::<YIELD, AWAIT, RETURN>)
-            .ok();
+        let else_branch = match tokenizer.peek(0, SkipLineTerminators::Yes)? {
+            Some(Token::Identifier(ident)) if ident == "else" => {
+                tokenizer.advance(1);
+
+                // There is an else branch following
+                let else_branch = Statement::parse::<YIELD, AWAIT, RETURN>(tokenizer)?;
+                Some(else_branch)
+            },
+            _ => None,
+        };
 
         let if_statement = Self {
             condition,

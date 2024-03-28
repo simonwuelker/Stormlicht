@@ -1,6 +1,9 @@
 use crate::{
     bytecode::{self, CompileToBytecode},
-    parser::{tokenizer::Punctuator, SyntaxError, Tokenizer},
+    parser::{
+        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+        SyntaxError,
+    },
 };
 
 use super::{
@@ -20,14 +23,22 @@ impl StatementListItem {
     pub(crate) fn parse<const YIELD: bool, const AWAIT: bool, const RETURN: bool>(
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
-        let statement_list_item =
-            if let Ok(statement) = tokenizer.attempt(Statement::parse::<YIELD, AWAIT, RETURN>) {
-                Self::Statement(statement)
-            } else if let Ok(declaration) = tokenizer.attempt(Declaration::parse::<YIELD, AWAIT>) {
-                Self::Declaration(declaration)
-            } else {
-                return Err(tokenizer.syntax_error());
-            };
+        let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
+            return Err(tokenizer.syntax_error());
+        };
+
+        let statement_list_item = match next_token {
+            Token::Identifier(ident) if matches!(ident.as_str(), "function" | "let" | "const") => {
+                Declaration::parse::<YIELD, AWAIT>(tokenizer)?.into()
+            },
+            Token::Punctuator(Punctuator::CurlyBraceOpen | Punctuator::Semicolon) => {
+                Statement::parse::<YIELD, AWAIT, RETURN>(tokenizer)?.into()
+            },
+            Token::Identifier(ident) if matches!(ident.as_str(), "if" | "while" | "throw") => {
+                Statement::parse::<YIELD, AWAIT, RETURN>(tokenizer)?.into()
+            },
+            _ => return Err(tokenizer.syntax_error()),
+        };
 
         Ok(statement_list_item)
     }
@@ -57,26 +68,36 @@ impl Statement {
     pub fn parse<const YIELD: bool, const AWAIT: bool, const RETURN: bool>(
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
-        if let Ok(block_statement) =
-            tokenizer.attempt(BlockStatement::parse::<YIELD, AWAIT, RETURN>)
-        {
-            Ok(Self::BlockStatement(block_statement))
-        } else if let Ok(if_statement) =
-            tokenizer.attempt(IfStatement::parse::<YIELD, AWAIT, RETURN>)
-        {
-            Ok(Self::IfStatement(if_statement))
-        } else if let Ok(while_statement) =
-            tokenizer.attempt(WhileStatement::parse::<YIELD, AWAIT, RETURN>)
-        {
-            Ok(Self::WhileStatement(while_statement))
-        } else if tokenizer.attempt(parse_empty_statement).is_ok() {
-            Ok(Self::EmptyStatement)
-        } else if let Ok(throw_statement) = tokenizer.attempt(ThrowStatement::parse::<YIELD, AWAIT>)
-        {
-            Ok(Self::ThrowStatement(throw_statement))
-        } else {
-            Err(tokenizer.syntax_error())
-        }
+        let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
+            return Err(tokenizer.syntax_error());
+        };
+
+        let statement = match next_token {
+            Token::Punctuator(Punctuator::CurlyBraceOpen) => {
+                let block_statement = BlockStatement::parse::<YIELD, AWAIT, RETURN>(tokenizer)?;
+                block_statement.into()
+            },
+            Token::Identifier(ident) if ident == "if" => {
+                let if_statement = IfStatement::parse::<YIELD, AWAIT, RETURN>(tokenizer)?;
+                if_statement.into()
+            },
+            Token::Identifier(ident) if ident == "while" => {
+                let while_statement = WhileStatement::parse::<YIELD, AWAIT, RETURN>(tokenizer)?;
+                while_statement.into()
+            },
+            Token::Identifier(ident) if ident == "throw" => {
+                let throw_statement = ThrowStatement::parse::<YIELD, AWAIT>(tokenizer)?;
+                throw_statement.into()
+            },
+            Token::Punctuator(Punctuator::Semicolon) => {
+                // https://262.ecma-international.org/14.0/#prod-EmptyStatement
+                tokenizer.advance(1);
+                Self::EmptyStatement
+            },
+            _ => return Err(tokenizer.syntax_error()),
+        };
+
+        Ok(statement)
     }
 }
 
@@ -102,6 +123,38 @@ impl CompileToBytecode for Statement {
     }
 }
 
-fn parse_empty_statement(tokenizer: &mut Tokenizer<'_>) -> Result<(), SyntaxError> {
-    tokenizer.expect_punctuator(Punctuator::Semicolon)
+impl From<Statement> for StatementListItem {
+    fn from(value: Statement) -> Self {
+        Self::Statement(value)
+    }
+}
+
+impl From<Declaration> for StatementListItem {
+    fn from(value: Declaration) -> Self {
+        Self::Declaration(value)
+    }
+}
+
+impl From<ThrowStatement> for Statement {
+    fn from(value: ThrowStatement) -> Self {
+        Self::ThrowStatement(value)
+    }
+}
+
+impl From<WhileStatement> for Statement {
+    fn from(value: WhileStatement) -> Self {
+        Self::WhileStatement(value)
+    }
+}
+
+impl From<IfStatement> for Statement {
+    fn from(value: IfStatement) -> Self {
+        Self::IfStatement(value)
+    }
+}
+
+impl From<BlockStatement> for Statement {
+    fn from(value: BlockStatement) -> Self {
+        Self::BlockStatement(value)
+    }
 }
