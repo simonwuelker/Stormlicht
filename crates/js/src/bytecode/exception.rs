@@ -14,6 +14,10 @@ impl Exception {
         Self { value }
     }
 
+    pub const fn value(&self) -> &Value {
+        &self.value
+    }
+
     #[must_use]
     pub fn type_error() -> Self {
         // FIXME: This should be a "typeerror" object, but we don't

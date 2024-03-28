@@ -74,7 +74,7 @@ impl Vm {
     }
 
     fn report_unhandled_exception(&self, exception: Exception) {
-        println!("Unhandled Exception: {exception:?}");
+        println!("Unhandled Exception: {:?}", exception.value());
     }
 
     fn execute_instruction(&mut self, instruction: &Instruction) -> ThrowCompletionOr<()> {
