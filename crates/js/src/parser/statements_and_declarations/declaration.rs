@@ -66,6 +66,11 @@ impl LetOrConst {
 
         Ok(let_or_const)
     }
+
+    #[must_use]
+    fn is_const(&self) -> bool {
+        matches!(self, Self::Const)
+    }
 }
 
 impl LexicalDeclaration {
@@ -87,12 +92,21 @@ impl LexicalDeclaration {
             lexical_bindings.push(lexical_binding);
         }
 
+        tokenizer.expect_semicolon()?;
+
+        // <https://262.ecma-international.org/14.0/#sec-let-and-const-declarations-static-semantics-early-errors>
+        if let_or_const.is_const()
+            && lexical_bindings
+                .iter()
+                .any(LexicalBinding::has_no_initializer)
+        {
+            return Err(tokenizer.syntax_error());
+        }
+
         let lexical_declaration = Self {
             let_or_const,
             lexical_bindings,
         };
-
-        tokenizer.expect_semicolon()?;
 
         Ok(lexical_declaration)
     }
@@ -148,6 +162,17 @@ impl LexicalBinding {
         };
 
         Ok(lexical_binding)
+    }
+
+    #[must_use]
+    fn has_no_initializer(&self) -> bool {
+        matches!(
+            self,
+            Self::WithIdentifier {
+                identifier: _,
+                initializer: None
+            }
+        )
     }
 }
 
