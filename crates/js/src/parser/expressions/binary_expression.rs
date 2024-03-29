@@ -146,7 +146,7 @@ binary_op!(
     Punctuator::DoubleEqual => EqualityOp::Equal,
     Punctuator::TripleEqual => EqualityOp::StrictEqual,
     Punctuator::ExclamationMarkEqual => EqualityOp::NotEqual,
-    Punctuator::ExclamationMarkDoubleEqual => EqualityOp::StrictEqual,
+    Punctuator::ExclamationMarkDoubleEqual => EqualityOp::StrictNotEqual,
 );
 
 binary_op!(
