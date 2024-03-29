@@ -1,12 +1,13 @@
 use crate::{
     bytecode::{self, CompileToBytecode},
     parser::{
+        expressions::UpdateExpression,
         tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
         SyntaxError,
     },
 };
 
-use super::{parse_primary_expression, Expression};
+use super::{Expression, UnaryExpression};
 
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
@@ -184,14 +185,50 @@ binary_op!(
     Punctuator::Percent => ArithmeticOp::Modulo,
 );
 
-binary_op!(
-    "<https://262.ecma-international.org/14.0/#prod-ExponentiationExpression>",
-    parse_exponentiation_expression<const YIELD: bool, const AWAIT: bool,>,
-    parse_primary_expression::<YIELD, AWAIT>,
-    Punctuator::DoubleAsterisk => ArithmeticOp::Exponentiation,
-    Punctuator::Slash => ArithmeticOp::Divide,
-    Punctuator::Percent => ArithmeticOp::Modulo,
-);
+/// <https://262.ecma-international.org/14.0/#prod-ExponentiationExpression>
+pub fn parse_exponentiation_expression<const YIELD: bool, const AWAIT: bool>(
+    tokenizer: &mut Tokenizer<'_>,
+) -> Result<Expression, SyntaxError> {
+    // NOTE: This function cannot be defined with the macro above since it can contain either UpdateExpressions
+    //       or UnaryExpressions
+    let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
+        return Err(tokenizer.syntax_error());
+    };
+
+    let is_unary_expression = match next_token {
+        Token::Punctuator(
+            Punctuator::Plus | Punctuator::Minus | Punctuator::Tilde | Punctuator::ExclamationMark,
+        ) => true,
+        Token::Identifier(ident) if matches!(ident.as_str(), "delete" | "void" | "typeof") => true,
+        _ => false,
+    };
+
+    let exponentiation_expression = if is_unary_expression {
+        UnaryExpression::parse::<YIELD, AWAIT>(tokenizer)?
+    } else {
+        let mut expression = UpdateExpression::parse::<YIELD, AWAIT>(tokenizer)?;
+
+        if tokenizer
+            .peek(0, SkipLineTerminators::Yes)?
+            .is_some_and(|t| t.is_punctuator(Punctuator::DoubleAsterisk))
+        {
+            tokenizer.advance(1);
+
+            let exponentiation_expression =
+                parse_exponentiation_expression::<YIELD, AWAIT>(tokenizer)?;
+            expression = BinaryExpression {
+                op: BinaryOp::Arithmetic(ArithmeticOp::Exponentiation),
+                lhs: Box::new(expression),
+                rhs: Box::new(exponentiation_expression),
+            }
+            .into();
+        }
+
+        expression
+    };
+
+    Ok(exponentiation_expression)
+}
 
 impl CompileToBytecode for BinaryExpression {
     type Result = bytecode::Register;

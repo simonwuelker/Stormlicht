@@ -1,16 +1,22 @@
 //! <https://262.ecma-international.org/14.0/#sec-ecmascript-language-expressions>
 
 mod binary_expression;
+mod left_hand_side_expression;
 mod object;
+mod unary_expression;
+mod update_expression;
 
 pub use binary_expression::BinaryExpression;
+pub use left_hand_side_expression::LeftHandSideExpression;
+pub use unary_expression::UnaryExpression;
+pub use update_expression::UpdateExpression;
 
 use crate::{
     bytecode::{self, CompileToBytecode},
     Number,
 };
 
-use self::object::ObjectLiteral;
+use self::{left_hand_side_expression::NewExpression, object::ObjectLiteral};
 
 use super::{
     identifiers::parse_identifier_reference,
@@ -25,24 +31,10 @@ pub enum Expression {
     Literal(Literal),
     ObjectLiteral(ObjectLiteral),
     Binary(BinaryExpression),
+    Unary(UnaryExpression),
+    Update(UpdateExpression),
     IdentifierReference(String),
     New(NewExpression),
-}
-
-/// <https://262.ecma-international.org/14.0/#prod-LeftHandSideExpression>
-#[derive(Clone, Debug)]
-pub enum LeftHandSideExpression {
-    NewExpression(NewExpression),
-    CallExpression,
-    OptionalExpression,
-}
-
-/// <https://262.ecma-international.org/14.0/#prod-NewExpression>
-#[derive(Clone, Debug)]
-pub struct NewExpression {
-    /// The number of `new` keywords before the expression
-    pub nest_level: usize,
-    pub expression: Box<Expression>,
 }
 
 /// <https://262.ecma-international.org/14.0/#prod-PrimaryExpression>
@@ -95,38 +87,6 @@ fn parse_primary_expression<const YIELD: bool, const AWAIT: bool>(
     Ok(primary_expression)
 }
 
-impl NewExpression {
-    /// <https://262.ecma-international.org/14.0/#prod-NewExpression>
-    fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
-        tokenizer: &mut Tokenizer<'_>,
-    ) -> Result<Expression, SyntaxError> {
-        let mut nest_level = 0;
-
-        while tokenizer
-            .peek(0, SkipLineTerminators::Yes)?
-            .is_some_and(|t| t.is_identifier("new"))
-        {
-            tokenizer.advance(1);
-            nest_level += 1;
-        }
-
-        // FIXME: This should be a MemberExpression instead of a PrimaryExpression
-        let member_expression = parse_primary_expression::<YIELD, AWAIT>(tokenizer)?;
-
-        let new_expression = if nest_level == 0 {
-            member_expression
-        } else {
-            Self {
-                nest_level,
-                expression: Box::new(member_expression),
-            }
-            .into()
-        };
-
-        Ok(new_expression)
-    }
-}
-
 impl Expression {
     pub fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
         tokenizer: &mut Tokenizer<'_>,
@@ -142,6 +102,8 @@ impl CompileToBytecode for Expression {
         match self {
             Self::This => todo!(),
             Self::Binary(binary_expression) => binary_expression.compile(builder),
+            Self::Unary(unary_expression) => unary_expression.compile(builder),
+            Self::Update(update_expression) => update_expression.compile(builder),
             Self::IdentifierReference(identifier_reference) => {
                 let mut current_block = builder.get_current_block();
                 let dst = current_block.allocate_register();
@@ -178,5 +140,17 @@ impl From<NewExpression> for Expression {
 impl From<ObjectLiteral> for Expression {
     fn from(value: ObjectLiteral) -> Self {
         Self::ObjectLiteral(value)
+    }
+}
+
+impl From<UnaryExpression> for Expression {
+    fn from(value: UnaryExpression) -> Self {
+        Self::Unary(value)
+    }
+}
+
+impl From<UpdateExpression> for Expression {
+    fn from(value: UpdateExpression) -> Self {
+        Self::Update(value)
     }
 }
