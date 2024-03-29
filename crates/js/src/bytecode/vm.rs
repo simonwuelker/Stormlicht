@@ -141,6 +141,11 @@ impl Vm {
                     return Err(Exception::new(Value::Null));
                 }
             },
+            Instruction::ToNumber { src, dst } => {
+                let value = self.register(*src);
+                let result = value.to_number()?.into();
+                self.set_register(*dst, result);
+            },
             other => todo!("Implement instruction {other:?}"),
         }
 

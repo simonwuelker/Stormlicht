@@ -151,4 +151,8 @@ pub enum Instruction {
         property_key: object::PropertyKey,
         property_value: Register,
     },
+    ToNumber {
+        src: Register,
+        dst: Register,
+    },
 }

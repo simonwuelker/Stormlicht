@@ -318,4 +318,13 @@ impl<'a> BasicBlockBuilder<'a> {
         };
         self.push_instruction(instruction);
     }
+
+    /// <https://262.ecma-international.org/14.0/#sec-tonumber>
+    pub fn to_number(&mut self, src: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::ToNumber { src, dst };
+        self.push_instruction(instruction);
+
+        dst
+    }
 }
