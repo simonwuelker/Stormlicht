@@ -107,4 +107,12 @@ impl Token {
             _ => false,
         }
     }
+
+    #[must_use]
+    pub fn is_punctuator(&self, want: Punctuator) -> bool {
+        match self {
+            Self::Punctuator(p) if *p == want => true,
+            _ => false,
+        }
+    }
 }
