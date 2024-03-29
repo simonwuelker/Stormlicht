@@ -153,6 +153,14 @@ impl<'a> BasicBlockBuilder<'a> {
     }
 
     #[must_use]
+    pub fn exponentiate(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::Exponentiate { lhs, rhs, dst };
+        self.push_instruction(instruction);
+        dst
+    }
+
+    #[must_use]
     pub fn bitwise_or(&mut self, lhs: Register, rhs: Register) -> Register {
         let dst = self.allocate_register();
         let instruction = Instruction::BitwiseOr { lhs, rhs, dst };

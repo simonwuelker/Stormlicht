@@ -58,6 +58,11 @@ pub enum Instruction {
         rhs: Register,
         dst: Register,
     },
+    Exponentiate {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
     BitwiseOr {
         lhs: Register,
         rhs: Register,

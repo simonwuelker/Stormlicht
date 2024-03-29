@@ -32,6 +32,7 @@ pub enum ArithmeticOp {
     Multiply,
     Divide,
     Modulo,
+    Exponentiation,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -177,8 +178,17 @@ binary_op!(
 binary_op!(
     "<https://262.ecma-international.org/14.0/#prod-MultiplicativeExpression>",
     parse_multiplicative_expression<const YIELD: bool, const AWAIT: bool,>,
-    parse_primary_expression::<YIELD, AWAIT>,
+    parse_exponentiation_expression::<YIELD, AWAIT>,
     Punctuator::Asterisk => ArithmeticOp::Multiply,
+    Punctuator::Slash => ArithmeticOp::Divide,
+    Punctuator::Percent => ArithmeticOp::Modulo,
+);
+
+binary_op!(
+    "<https://262.ecma-international.org/14.0/#prod-ExponentiationExpression>",
+    parse_exponentiation_expression<const YIELD: bool, const AWAIT: bool,>,
+    parse_primary_expression::<YIELD, AWAIT>,
+    Punctuator::DoubleAsterisk => ArithmeticOp::Exponentiation,
     Punctuator::Slash => ArithmeticOp::Divide,
     Punctuator::Percent => ArithmeticOp::Modulo,
 );
@@ -197,6 +207,9 @@ impl CompileToBytecode for BinaryExpression {
             BinaryOp::Arithmetic(ArithmeticOp::Multiply) => current_block.multiply(lhs, rhs),
             BinaryOp::Arithmetic(ArithmeticOp::Divide) => current_block.divide(lhs, rhs),
             BinaryOp::Arithmetic(ArithmeticOp::Modulo) => current_block.modulo(lhs, rhs),
+            BinaryOp::Arithmetic(ArithmeticOp::Exponentiation) => {
+                current_block.exponentiate(lhs, rhs)
+            },
             BinaryOp::Bitwise(BitwiseOp::And) => current_block.bitwise_and(lhs, rhs),
             BinaryOp::Bitwise(BitwiseOp::Or) => current_block.bitwise_or(lhs, rhs),
             BinaryOp::Bitwise(BitwiseOp::Xor) => current_block.bitwise_xor(lhs, rhs),
