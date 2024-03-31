@@ -2659,7 +2659,7 @@ impl<P: ParseErrorHandler> Parser<P> {
             // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intable>
             InsertionMode::InTable => {
                 match token {
-                    Token::Character(c) => {
+                    Token::Character(_) => {
                         // FIXME: there is another condition to this branch
                         // Let the pending table character tokens be an empty list of tokens.
                         self.pending_table_character_tokens.clear();
@@ -2675,7 +2675,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Insert a comment.
                         self.insert_comment(comment);
                     },
-                    Token::DOCTYPE(doctype) => {
+                    Token::DOCTYPE(_) => {
                         // Parse error. Ignore the token.
                     },
                     Token::Tag(tag) if tag.opening && tag.name == static_interned!("caption") => {
