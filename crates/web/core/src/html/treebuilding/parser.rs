@@ -1,5 +1,7 @@
 //! Implements the [Tree Construction Stage](https://html.spec.whatwg.org/multipage/parsing.html#tree-construction)
 
+use std::mem;
+
 use crate::{
     css::{self, Stylesheet},
     dom::{
@@ -2869,6 +2871,50 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.is_foster_parenting_enabled = true;
                         self.consume_in_mode(InsertionMode::InBody, token);
                         self.is_foster_parenting_enabled = false;
+                    },
+                }
+            },
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intabletext
+            InsertionMode::InTableText => {
+                match token {
+                    Token::Character('\x00') => {
+                        // Parse error. Ignore the token.
+                    },
+                    Token::Character(c) => {
+                        // Append the character token to the pending table character tokens list.
+                        self.pending_table_character_tokens.push(c);
+                    },
+                    _ => {
+                        // If any of the tokens in the pending table character tokens list are character tokens
+                        // that are not ASCII whitespace, then this is a parse error: reprocess the character tokens
+                        // in the pending table character tokens list using the rules given in the
+                        // "anything else" entry in the "in table" insertion mode.
+                        if self
+                            .pending_table_character_tokens
+                            .iter()
+                            .any(|&c| c != ' ')
+                        {
+                            // NOTE: This empties the list of pending table characters, which shouldn't be a problem
+                            let pending_table_character_tokens =
+                                mem::take(&mut self.pending_table_character_tokens);
+                            for c in pending_table_character_tokens {
+                                self.is_foster_parenting_enabled = true;
+                                self.consume_in_mode(InsertionMode::InBody, Token::Character(c));
+                                self.is_foster_parenting_enabled = false;
+                            }
+                        } else {
+                            // Otherwise, insert the characters given by the pending table character tokens list.
+                            for c in &self.pending_table_character_tokens {
+                                self.insert_character(*c);
+                            }
+                        }
+
+                        // Switch the insertion mode to the original insertion mode and reprocess the token.
+                        self.insertion_mode = self
+                            .original_insertion_mode
+                            .take()
+                            .expect("Original insertion mode not set");
+                        self.consume(token);
                     },
                 }
             },
