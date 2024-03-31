@@ -330,17 +330,23 @@ impl<P: ParseErrorHandler> Parser<P> {
     ) -> DomPtr<Node> {
         // If there was an override target specified, then let target be the override target.
         // Otherwise, let target be the current node.
-        override_target.unwrap_or_else(|| self.current_node().upcast())
+        let target = override_target.unwrap_or_else(|| self.current_node().upcast());
 
-        // TODO: the specificaiton  talks about foster parenting here, which we don't support
-
-        // Let adjusted insertion location be inside target, after its last child (if any).
+        let adjusted_insertion_location = if self.is_foster_parenting_enabled {
+            // If foster parenting is enabled and target is a table, tbody, tfoot, thead, or tr element
+            log::warn!("FIXME: implement foster parenting in appropriate_place_for_inserting_node");
+            target
+        } else {
+            // Let adjusted insertion location be inside target, after its last child (if any).
+            target
+        };
 
         // TODO:
         // If the adjusted insertion location is inside a template element, let it instead be
         // inside the template element's template contents, after its last child (if any).
 
         // Return the adjusted insertion location.
+        adjusted_insertion_location
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-a-comment>
