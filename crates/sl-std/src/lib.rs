@@ -23,6 +23,7 @@ pub mod big_num;
 pub mod bytestream;
 pub mod chars;
 pub mod datetime;
+pub mod fixed;
 pub mod iter;
 pub mod punycode;
 pub mod rand;
