@@ -3,6 +3,7 @@
 mod binary_expression;
 mod left_hand_side_expression;
 mod object;
+mod short_circuit;
 mod unary_expression;
 mod update_expression;
 
