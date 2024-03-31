@@ -1934,7 +1934,26 @@ impl<P: ParseErrorHandler> Parser<P> {
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("button") =>
                     {
-                        todo!()
+                        // 1. If the stack of open elements has a button element in scope, then run these substeps:
+                        if self.is_element_in_scope(static_interned!("button")) {
+                            // 1. Parse error.
+                            // 2. Generate implied end tags.
+                            self.generate_implied_end_tags();
+
+                            // 3. Pop elements from the stack of open elements until a button element has been popped from the stack.
+                            self.pop_from_open_elements_until(|elem| {
+                                elem.borrow().local_name() == static_interned!("button")
+                            });
+                        }
+
+                        // 2. Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // 3. Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+
+                        // 4. Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
                     },
                     Token::Tag(ref tagdata)
                         if tagdata.opening
