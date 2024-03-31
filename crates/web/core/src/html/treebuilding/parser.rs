@@ -1991,7 +1991,24 @@ impl<P: ParseErrorHandler> Parser<P> {
                                 || tagdata.name == static_interned!("summary")
                                 || tagdata.name == static_interned!("ul")) =>
                     {
-                        todo!()
+                        // If the stack of open elements does not have an element in scope that is an HTML element with
+                        // the same tag name as that of the token, then this is a parse error; ignore the token.
+                        if self.is_element_in_scope(tagdata.name) {
+                            return;
+                        }
+
+                        // Otherwise, run these steps:
+                        // 1. Generate implied end tags.
+                        self.generate_implied_end_tags();
+
+                        // 2. If the current node is not an HTML element with the same tag name as that of the token,
+                        //    then this is a parse error.
+
+                        // 3. Pop elements from the stack of open elements until an HTML element
+                        //    with the same tag name as the token has been popped from the stack.
+                        self.pop_from_open_elements_until(|elem| {
+                            elem.borrow().local_name() == tagdata.name
+                        });
                     },
                     Token::Tag(ref tagdata)
                         if !tagdata.opening && tagdata.name == static_interned!("form") =>
