@@ -2921,7 +2921,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 }
 
-/// </// <https://html.spec.whatwg.org/multipage/parsing.html#special>
+/// <https://html.spec.whatwg.org/multipage/parsing.html#special>
 fn is_element_in_special_category(tagname: InternedString) -> bool {
     matches!(
         tagname,
