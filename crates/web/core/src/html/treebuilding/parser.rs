@@ -2752,7 +2752,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                             attributes: vec![],
                         };
                         self.insert_html_element_for_token(&fake_tag);
-                        self.insertion_mode = InsertionMode::InTable;
+                        self.insertion_mode = InsertionMode::InTableBody;
 
                         // Reprocess the current token.
                         self.consume(token);
