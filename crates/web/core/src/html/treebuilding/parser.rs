@@ -1929,7 +1929,16 @@ impl<P: ParseErrorHandler> Parser<P> {
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("plaintext") =>
                     {
-                        todo!()
+                        // If the stack of open elements has a p element in button scope, then close a p element.
+                        if self.is_element_in_button_scope(static_interned!("p")) {
+                            self.close_p_element();
+                        }
+
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+
+                        // Switch the tokenizer to the PLAINTEXT state.
+                        self.tokenizer.switch_to(TokenizerState::PLAINTEXT);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("button") =>
