@@ -18,7 +18,7 @@ pub use dom_ptr::{DomPtr, WeakDomPtr};
 
 use crate::{infra::Namespace, static_interned, InternedString};
 
-use self::dom_objects::HtmlImageElement;
+use self::dom_objects::{HtmlImageElement, HtmlTableElement};
 
 /// <https://dom.spec.whatwg.org/#concept-element-custom-element-state>
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -171,6 +171,9 @@ fn create_element_for_interface(
         },
         static_interned!("style") => {
             DomPtr::new(HtmlStyleElement::new(HtmlElement::new(element_data))).upcast()
+        },
+        static_interned!("table") => {
+            DomPtr::new(HtmlTableElement::new(HtmlElement::new(element_data))).upcast()
         },
         static_interned!("template") => {
             DomPtr::new(HtmlTemplateElement::new(HtmlElement::new(element_data))).upcast()

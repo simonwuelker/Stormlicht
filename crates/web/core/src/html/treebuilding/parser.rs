@@ -7,8 +7,8 @@ use crate::{
         dom_objects::{
             Comment, Document, DocumentType, Element, HtmlBodyElement, HtmlDdElement,
             HtmlDivElement, HtmlElement, HtmlFormElement, HtmlHeadElement, HtmlHtmlElement,
-            HtmlLiElement, HtmlParagraphElement, HtmlScriptElement, HtmlTemplateElement, Node,
-            Text,
+            HtmlLiElement, HtmlParagraphElement, HtmlScriptElement, HtmlTableElement,
+            HtmlTemplateElement, Node, Text,
         },
         DomPtr, DomType, DomTyped,
     },
@@ -63,6 +63,13 @@ const LIST_ITEM_SCOPE: &[InternedString] = &[
     static_interned!("template"),
     static_interned!("ol"),
     static_interned!("ul"),
+];
+
+/// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-table-scope>
+const TABLE_SCOPE: &[InternedString] = &[
+    static_interned!("html"),
+    static_interned!("template"),
+    static_interned!("table"),
 ];
 
 #[derive(Clone, Copy, Debug)]
@@ -137,6 +144,12 @@ pub struct Parser<P: ParseErrorHandler> {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#scripting-flag>
     execute_script: bool,
 
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#concept-pending-table-char-tokens>
+    pending_table_character_tokens: Vec<char>,
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#foster-parent>
+    is_foster_parenting_enabled: bool,
+
     done: bool,
 
     stylesheets: Vec<Stylesheet>,
@@ -163,6 +176,8 @@ impl<P: ParseErrorHandler> Parser<P> {
             frameset_ok: FramesetOkFlag::default(),
             active_formatting_elements: ActiveFormattingElements::default(),
             execute_script: false,
+            pending_table_character_tokens: vec![],
+            is_foster_parenting_enabled: false,
             done: false,
             stylesheets: vec![Stylesheet::user_agent_rules()],
         }
@@ -394,6 +409,11 @@ impl<P: ParseErrorHandler> Parser<P> {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-list-item-scope>
     fn is_element_in_list_item_scope(&self, element_name: InternedString) -> bool {
         self.is_element_in_specific_scope(element_name, LIST_ITEM_SCOPE)
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#has-an-element-in-table-scope>
+    fn is_element_in_table_scope(&self, element_name: InternedString) -> bool {
+        self.is_element_in_specific_scope(element_name, TABLE_SCOPE)
     }
 
     fn elements_in_scope<'open_elements, 'scope, 'iterator>(
@@ -686,6 +706,13 @@ impl<P: ParseErrorHandler> Parser<P> {
 
         // Return element.
         element
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#clear-the-stack-back-to-a-table-context>
+    fn clear_the_stack_back_to_a_table_context(&mut self) {
+        while !TABLE_SCOPE.contains(&self.current_node().borrow().local_name()) {
+            self.open_elements.pop();
+        }
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#reconstruct-the-active-formatting-elements>
@@ -2621,6 +2648,222 @@ impl<P: ParseErrorHandler> Parser<P> {
                             .expect("original insertion mode has not been set");
                     },
                     _ => todo!(),
+                }
+            },
+            // <https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intable>
+            InsertionMode::InTable => {
+                match token {
+                    Token::Character(c) => {
+                        // FIXME: there is another condition to this branch
+                        // Let the pending table character tokens be an empty list of tokens.
+                        self.pending_table_character_tokens.clear();
+
+                        // Let the original insertion mode be the current insertion mode.
+                        self.original_insertion_mode = Some(self.insertion_mode);
+
+                        // Switch the insertion mode to "in table text" and reprocess the token.
+                        self.insertion_mode = InsertionMode::InTableText;
+                        self.consume(token);
+                    },
+                    Token::Comment(comment) => {
+                        // Insert a comment.
+                        self.insert_comment(comment);
+                    },
+                    Token::DOCTYPE(doctype) => {
+                        // Parse error. Ignore the token.
+                    },
+                    Token::Tag(tag) if tag.opening && tag.name == static_interned!("caption") => {
+                        // Clear the stack back to a table context.
+                        self.clear_the_stack_back_to_a_table_context();
+
+                        // Insert a marker at the end of the list of active formatting elements.
+                        self.active_formatting_elements.push_marker();
+
+                        // Insert an HTML element for the token, then switch the insertion mode to "in caption".
+                        self.insert_html_element_for_token(&tag);
+                        self.insertion_mode = InsertionMode::InCaption;
+                    },
+                    Token::Tag(tag) if tag.opening && tag.name == static_interned!("colgroup") => {
+                        // Clear the stack back to a table context.
+                        self.clear_the_stack_back_to_a_table_context();
+
+                        // Insert an HTML element for the token, then switch the insertion mode to "in column group".
+                        self.insert_html_element_for_token(&tag);
+                        self.insertion_mode = InsertionMode::InColumnGroup;
+                    },
+                    Token::Tag(ref tag) if tag.opening && tag.name == static_interned!("col") => {
+                        // Clear the stack back to a table context.
+                        self.clear_the_stack_back_to_a_table_context();
+
+                        // Insert an HTML element for a "colgroup" start tag token with no attributes,
+                        // then switch the insertion mode to "in column group".
+                        let fake_tag = TagData {
+                            opening: true,
+                            name: static_interned!("colgroup"),
+                            self_closing: false,
+                            attributes: vec![],
+                        };
+                        self.insert_html_element_for_token(&fake_tag);
+                        self.insertion_mode = InsertionMode::InColumnGroup;
+
+                        // Reprocess the current token.
+                        self.consume(token);
+                    },
+                    Token::Tag(tag)
+                        if tag.opening
+                            && matches!(
+                                tag.name,
+                                static_interned!("tbody")
+                                    | static_interned!("tfoot")
+                                    | static_interned!("thead")
+                            ) =>
+                    {
+                        // Clear the stack back to a table context.
+                        self.clear_the_stack_back_to_a_table_context();
+
+                        // Insert an HTML element for the token, then switch the insertion mode to "in table body".
+                        self.insert_html_element_for_token(&tag);
+                        self.insertion_mode = InsertionMode::InTableBody;
+                    },
+                    Token::Tag(ref tag)
+                        if tag.opening
+                            && matches!(
+                                tag.name,
+                                static_interned!("td")
+                                    | static_interned!("th")
+                                    | static_interned!("tr")
+                            ) =>
+                    {
+                        // Clear the stack back to a table context.
+                        self.clear_the_stack_back_to_a_table_context();
+
+                        // Insert an HTML element for a "tbody" start tag token with no attributes,
+                        // then switch the insertion mode to "in table body".
+                        let fake_tag = TagData {
+                            opening: true,
+                            name: static_interned!("tbody"),
+                            self_closing: false,
+                            attributes: vec![],
+                        };
+                        self.insert_html_element_for_token(&fake_tag);
+                        self.insertion_mode = InsertionMode::InTable;
+
+                        // Reprocess the current token.
+                        self.consume(token);
+                    },
+                    Token::Tag(ref tag) if tag.opening && tag.name == static_interned!("table") => {
+                        // Parse error.
+                        // If the stack of open elements does not have a table element in table scope, ignore the token.
+                        if !self.is_element_in_table_scope(static_interned!("table")) {
+                            return;
+                        }
+
+                        // Otherwise:
+                        // Pop elements from this stack until a table element has been popped from the stack.
+                        self.pop_from_open_elements_until(|node| node.is_a::<HtmlTableElement>());
+
+                        // Reset the insertion mode appropriately.
+                        self.reset_insertion_mode_appropriately();
+
+                        // Reprocess the token.
+                        self.consume(token);
+                    },
+                    Token::Tag(tag) if !tag.opening && tag.name == static_interned!("table") => {
+                        // If the stack of open elements does not have a table element in table scope,
+                        // this is a parse error; ignore the token.
+                        if !self.is_element_in_table_scope(static_interned!("table")) {
+                            return;
+                        }
+
+                        // Otherwise:
+                        // Pop elements from this stack until a table element has been popped from the stack.
+                        self.pop_from_open_elements_until(|node| node.is_a::<HtmlTableElement>());
+
+                        // Reset the insertion mode appropriately.
+                        self.reset_insertion_mode_appropriately();
+                    },
+                    Token::Tag(tag)
+                        if !tag.opening
+                            && matches!(
+                                tag.name,
+                                static_interned!("body")
+                                    | static_interned!("caption")
+                                    | static_interned!("col")
+                                    | static_interned!("colgroup")
+                                    | static_interned!("html")
+                                    | static_interned!("tbody")
+                                    | static_interned!("td")
+                                    | static_interned!("tfoot")
+                                    | static_interned!("th")
+                                    | static_interned!("thead")
+                                    | static_interned!("tr")
+                            ) =>
+                    {
+                        // Parse error. Ignore the token.
+                    },
+                    Token::Tag(ref tag)
+                        if tag.opening
+                            && matches!(
+                                tag.name,
+                                static_interned!("style")
+                                    | static_interned!("script")
+                                    | static_interned!("template")
+                            ) =>
+                    {
+                        // Process the token using the rules for the "in head" insertion mode.
+                        self.consume_in_mode(InsertionMode::InHead, token);
+                    },
+                    Token::Tag(tag) if tag.opening && tag.name == static_interned!("input") => {
+                        // FIXME:
+                        // If the token does not have an attribute with the name "type", or if it does,
+                        // but that attribute's value is not an ASCII case-insensitive match for the string "hidden",
+                        // then: act as described in the "anything else" entry below.
+
+                        // Otherwise:
+                        // Parse error.
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tag);
+
+                        // Pop that input element off the stack of open elements.
+                        self.open_elements.pop();
+
+                        // Acknowledge the token's self-closing flag, if it is set.
+                        self.acknowledge_self_closing_flag_if_set(&tag);
+                    },
+                    Token::Tag(tag) if tag.opening && tag.name == static_interned!("form") => {
+                        // Parse error.
+                        // If there is a template element on the stack of open elements, or if the form element pointer is not null, ignore the token.
+                        if self
+                            .open_elements
+                            .iter()
+                            .any(|elem| elem.is_a::<HtmlTemplateElement>())
+                            || self.form.is_some()
+                        {
+                            return;
+                        }
+
+                        // Otherwise:
+                        // Insert an HTML element for the token, and set the form element pointer to point to the element created.
+                        let element = self.insert_html_element_for_token(&tag);
+                        let form_element = element
+                            .try_into_type()
+                            .expect("No form element was created");
+                        self.form = Some(form_element);
+
+                        // Pop that form element off the stack of open elements.
+                        self.open_elements.pop();
+                    },
+                    Token::EOF => {
+                        // Process the token using the rules for the "in body" insertion mode.
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                    },
+                    _ => {
+                        // Parse error.
+                        // Enable foster parenting, process the token using the rules for the "in body" insertion mode, and then disable foster parenting.
+                        self.is_foster_parenting_enabled = true;
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                        self.is_foster_parenting_enabled = false;
+                    },
                 }
             },
             _ => todo!("Implement '{mode:?}' state"),
