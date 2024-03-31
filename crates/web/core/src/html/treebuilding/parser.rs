@@ -1809,7 +1809,19 @@ impl<P: ParseErrorHandler> Parser<P> {
                             && (tagdata.name == static_interned!("pre")
                                 || tagdata.name == static_interned!("listing")) =>
                     {
-                        todo!()
+                        // If the stack of open elements has a p element in button scope, then close a p element.
+                        if self.is_element_in_scope(static_interned!("p")) {
+                            self.close_p_element();
+                        }
+
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+
+                        // FIXME: If the next token is a U+000A LINE FEED (LF) character token, then ignore that token
+                        // and move on to the next one. (Newlines at the start of pre blocks are ignored as an authoring convenience.)
+
+                        // Set the frameset-ok flag to "not ok".
+                        self.frameset_ok = FramesetOkFlag::NotOk;
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("form") =>
