@@ -201,6 +201,14 @@ impl<'a> BasicBlockBuilder<'a> {
     }
 
     #[must_use]
+    pub fn coalesce(&mut self, lhs: Register, rhs: Register) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::Coalesce { lhs, rhs, dst };
+        self.push_instruction(instruction);
+        dst
+    }
+
+    #[must_use]
     pub fn loosely_equal(&mut self, lhs: Register, rhs: Register) -> Register {
         let dst = self.allocate_register();
         let instruction = Instruction::LooselyEqual { lhs, rhs, dst };
@@ -319,6 +327,7 @@ impl<'a> BasicBlockBuilder<'a> {
         self.push_instruction(instruction);
     }
 
+    #[must_use]
     /// <https://262.ecma-international.org/14.0/#sec-tonumber>
     pub fn to_number(&mut self, src: Register) -> Register {
         let dst = self.allocate_register();

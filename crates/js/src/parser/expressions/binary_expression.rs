@@ -40,6 +40,7 @@ pub enum ArithmeticOp {
 pub enum LogicalOp {
     Or,
     And,
+    Coalesce,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -230,6 +231,35 @@ pub fn parse_exponentiation_expression<const YIELD: bool, const AWAIT: bool>(
     Ok(exponentiation_expression)
 }
 
+/// <https://262.ecma-international.org/14.0/#prod-CoalesceExpression>
+fn parse_coalesce_expression<const IN: bool, const YIELD: bool, const AWAIT: bool>(
+    tokenizer: &mut Tokenizer<'_>,
+) -> Result<Expression, SyntaxError> {
+    let mut coalesce_expression = parse_bitwise_or_expression::<IN, YIELD, AWAIT>(tokenizer)?;
+
+    let mut got_at_least_one_rhs = false;
+    while tokenizer
+        .peek(0, SkipLineTerminators::Yes)?
+        .is_some_and(|t| t.is_punctuator(Punctuator::DoubleQuestionMark))
+    {
+        got_at_least_one_rhs = true;
+        let rhs = parse_bitwise_or_expression::<IN, YIELD, AWAIT>(tokenizer)?;
+        coalesce_expression = BinaryExpression {
+            op: BinaryOp::Logical(LogicalOp::Coalesce),
+            lhs: Box::new(coalesce_expression),
+            rhs: Box::new(rhs),
+        }
+        .into();
+    }
+
+    if !got_at_least_one_rhs {
+        // Unlike other binary expressions, the coalesce expression requires at least two operands
+        return Err(tokenizer.syntax_error());
+    }
+
+    Ok(coalesce_expression)
+}
+
 impl CompileToBytecode for BinaryExpression {
     type Result = bytecode::Register;
 
@@ -252,6 +282,7 @@ impl CompileToBytecode for BinaryExpression {
             BinaryOp::Bitwise(BitwiseOp::Xor) => current_block.bitwise_xor(lhs, rhs),
             BinaryOp::Logical(LogicalOp::And) => current_block.logical_and(lhs, rhs),
             BinaryOp::Logical(LogicalOp::Or) => current_block.logical_or(lhs, rhs),
+            BinaryOp::Logical(LogicalOp::Coalesce) => current_block.coalesce(lhs, rhs),
             BinaryOp::Equality(EqualityOp::Equal) => current_block.loosely_equal(lhs, rhs),
             BinaryOp::Equality(EqualityOp::NotEqual) => current_block.not_loosely_equal(lhs, rhs),
             BinaryOp::Equality(EqualityOp::StrictEqual) => current_block.strict_equal(lhs, rhs),

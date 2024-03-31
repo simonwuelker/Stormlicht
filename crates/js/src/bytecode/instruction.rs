@@ -88,6 +88,11 @@ pub enum Instruction {
         rhs: Register,
         dst: Register,
     },
+    Coalesce {
+        lhs: Register,
+        rhs: Register,
+        dst: Register,
+    },
     LooselyEqual {
         lhs: Register,
         rhs: Register,
