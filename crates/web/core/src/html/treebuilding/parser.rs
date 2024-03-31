@@ -2918,6 +2918,117 @@ impl<P: ParseErrorHandler> Parser<P> {
                     },
                 }
             },
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intbody
+            InsertionMode::InTableBody => {
+                match token {
+                    Token::Tag(ref tag) if tag.opening && tag.name == static_interned!("tr") => {
+                        // Clear the stack back to a table body context.
+                        self.clear_the_stack_back_to_a_table_context();
+
+                        // Insert an HTML element for the token, then switch the insertion mode to "in row".
+                        self.insert_html_element_for_token(tag);
+
+                        self.insertion_mode = InsertionMode::InRow;
+                    },
+                    Token::Tag(ref tag)
+                        if tag.opening
+                            && matches!(
+                                tag.name,
+                                static_interned!("th") | static_interned!("td")
+                            ) =>
+                    {
+                        // Parse error.
+                        // Clear the stack back to a table body context.
+                        self.clear_the_stack_back_to_a_table_context();
+
+                        // Insert an HTML element for a "tr" start tag token with no attributes, then switch the insertion mode to "in row".
+                        let fake_tag = TagData {
+                            opening: true,
+                            name: static_interned!("tr"),
+                            self_closing: false,
+                            attributes: vec![],
+                        };
+                        self.insert_html_element_for_token(&fake_tag);
+                        self.insertion_mode = InsertionMode::InRow;
+
+                        // Reprocess the current token.
+                        self.consume(token);
+                    },
+                    Token::Tag(ref tag)
+                        if !tag.opening
+                            && matches!(
+                                tag.name,
+                                static_interned!("tbody")
+                                    | static_interned!("tfoot")
+                                    | static_interned!("thead")
+                            ) =>
+                    {
+                        // If the stack of open elements does not have an element in table scope that is an
+                        // HTML element with the same tag name as the token, this is a parse error; ignore the token.
+                        if !self.is_element_in_table_scope(tag.name) {
+                            return;
+                        }
+
+                        // Otherwise:
+                        // Clear the stack back to a table body context.
+                        self.clear_the_stack_back_to_a_table_context();
+
+                        // Pop the current node from the stack of open elements.
+                        // Switch the insertion mode to "in table".
+                        self.pop_from_open_elements();
+
+                        self.insertion_mode = InsertionMode::InTable;
+                    },
+                    Token::Tag(ref tag)
+                        if (tag.opening
+                            && matches!(
+                                tag.name,
+                                static_interned!("caption")
+                                    | static_interned!("col")
+                                    | static_interned!("colgroup")
+                                    | static_interned!("tbody")
+                                    | static_interned!("tfoot")
+                                    | static_interned!("thead")
+                            ))
+                            || (!tag.opening && tag.name == static_interned!("table")) =>
+                    {
+                        // FIXME: If the stack of open elements does not have a tbody, thead, or tfoot element in table scope,
+                        // this is a parse error; ignore the token.
+
+                        // Otherwise:
+                        // Clear the stack back to a table body context.
+                        self.clear_the_stack_back_to_a_table_context();
+
+                        // Pop the current node from the stack of open elements.
+                        // Switch the insertion mode to "in table".
+                        self.pop_from_open_elements();
+                        self.insertion_mode = InsertionMode::InTable;
+
+                        // Reprocess the token.
+                        self.consume(token);
+                    },
+                    Token::Tag(tag)
+                        if !tag.opening
+                            && matches!(
+                                tag.name,
+                                static_interned!("body")
+                                    | static_interned!("caption")
+                                    | static_interned!("col")
+                                    | static_interned!("colgroup")
+                                    | static_interned!("html")
+                                    | static_interned!("td")
+                                    | static_interned!("th")
+                                    | static_interned!("tr")
+                            ) =>
+                    {
+                        // Parse error. Ignore the token.
+                    },
+                    _ => {
+                        // Process the token using the rules for the "in table" insertion mode.
+                        self.consume_in_mode(InsertionMode::InTable, token);
+                    },
+                }
+            },
             _ => todo!("Implement '{mode:?}' state"),
         }
     }
