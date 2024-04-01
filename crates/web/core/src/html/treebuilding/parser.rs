@@ -2579,6 +2579,19 @@ impl<P: ParseErrorHandler> Parser<P> {
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("rb")
+                            || tagdata.name == static_interned!("rtc") =>
+                    {
+                        // If the stack of open elements has a ruby element in scope, then generate implied end tags.
+                        // If the current node is not now a ruby element, this is a parse error.
+                        if !self.is_element_in_scope(static_interned!("ruby")) {
+                            self.generate_implied_end_tags()
+                        }
+
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
+                    },
+                    Token::Tag(tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("rp")
                             || tagdata.name == static_interned!("rt") =>
                     {
                         // If the stack of open elements has a ruby element in scope, then generate implied end tags,
