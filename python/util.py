@@ -1,6 +1,7 @@
 from . import log
 import shutil
 import subprocess
+import os
 
 class ExecutableStore:
     known_executables = {}
@@ -25,11 +26,16 @@ class Command:
         cmd = Command()
         cmd.binary = ExecutableStore.get(name)
         cmd.args = []
+        cmd.env = os.environ.copy()
         cmd.forwarded_args = []
         return cmd
     
     def with_arguments(self, args: list):
         self.args = args
+        return self
+
+    def with_environment(self, env: dict):
+        self.env = env
         return self
 
     def with_forwarded_arguments(self, forwarded_args: list):
@@ -50,7 +56,7 @@ class Command:
         if len(self.forwarded_args) != 0:
             cmd += ["--"] + self.forwarded_args
 
-        result = subprocess.run(cmd, **kwargs)
+        result = subprocess.run(cmd, env=self.env, **kwargs)
         if result.returncode != 0 and not ignore_failure:
             log.error(f"Failed to run {cmd}: Process exited with exit code {result.returncode}")
         

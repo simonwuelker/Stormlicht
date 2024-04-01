@@ -31,7 +31,11 @@ def run_stormlicht(args, unknown_args):
     if args.chrome == "gtk":
         build_gtk_blueprints()
 
-    cmd = util.Command.create("cargo").with_arguments(["run"]).with_forwarded_arguments(unknown_args)
+    environment = os.environ.copy()
+    if not args.no_backtrace:
+        environment["RUST_BACKTRACE"] = "1"
+
+    cmd = util.Command.create("cargo").with_environment(environment).with_arguments(["run"]).with_forwarded_arguments(unknown_args)
 
     if args.release:
         cmd.append_argument("--release")
@@ -111,6 +115,11 @@ def run():
         "--release",
         action="store_true",
         help="Build in release mode",
+    )
+    parser_run.add_argument(
+        "--no-backtrace",
+        action="store_true",
+        help="Don't include a backtrace in crash messages"
     )
     parser_run.add_argument(
         "--chrome",
