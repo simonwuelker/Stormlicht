@@ -20,6 +20,8 @@ pub enum Error {
     IncorrectDataChecksum,
 }
 
+const FLAG_DICT_BIT: u8 = 1 << 5;
+
 /// Minimum length for a zlib archive
 ///
 /// Consists of:
@@ -42,7 +44,7 @@ pub fn decompress(bytes: &[u8]) -> Result<Vec<u8>, Error> {
 
     // Parse compression flags (FLG)
     let flags = bytes[1];
-    let flag_dict = ((flags & 1) << 5) != 0;
+    let flag_dict = flags & FLAG_DICT_BIT != 0;
     let _flag_level = flags >> 6; // compression level, not needed for decompression
 
     let header_checksum = u16::from_be_bytes(bytes[..2].try_into().unwrap());
