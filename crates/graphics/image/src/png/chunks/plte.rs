@@ -1,20 +1,20 @@
 //! [PLTE](https://www.w3.org/TR/png/#11PLTE) chunk
 
+use std::ops::Index;
+
+const PALETTE_MAX_SIZE: usize = 256 * 3;
+
 #[derive(Clone, Copy, Debug)]
 pub enum PaletteError {
     InvalidPaletteSize,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Color {
-    pub red: u8,
-    pub green: u8,
-    pub blue: u8,
+    TooLong,
 }
 
 #[derive(Clone, Debug)]
 pub struct Palette {
-    pub colors: Vec<Color>,
+    /// We always store 256 colors (the maximum), even if the actual
+    /// size of the palette is less, to not have to worry about out of bounds errors
+    colors: [u8; PALETTE_MAX_SIZE],
 }
 
 impl Palette {
@@ -23,17 +23,25 @@ impl Palette {
             return Err(PaletteError::InvalidPaletteSize);
         }
 
-        let n_colors = bytes.len() / 3;
-
-        let mut colors = Vec::with_capacity(n_colors);
-        for i in 0..n_colors {
-            colors.push(Color {
-                red: bytes[i * 3],
-                green: bytes[i * 3 + 1],
-                blue: bytes[i * 3 + 2],
-            })
+        if bytes.len() > PALETTE_MAX_SIZE {
+            return Err(PaletteError::TooLong);
         }
 
-        Ok(Self { colors })
+        let mut colors = [0; PALETTE_MAX_SIZE];
+        colors[..bytes.len()].copy_from_slice(bytes);
+
+        let palette = Self { colors };
+        Ok(palette)
+    }
+}
+
+impl Index<u8> for Palette {
+    type Output = [u8];
+
+    fn index(&self, index: u8) -> &Self::Output {
+        self.colors
+            .chunks_exact(3)
+            .nth(index as usize)
+            .expect("Palette index out of bounds")
     }
 }

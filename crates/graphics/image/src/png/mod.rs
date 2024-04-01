@@ -38,7 +38,7 @@ pub enum Error {
     /// Expected the length of the decompressed zlib stream to be a multiple of the scanline width plus the filter byte
     MismatchedDecompressedZlibSize,
     UnknownFilterType,
-    IndexedImageWithoutPLTE,
+    IndexedImageWithoutPalette,
     NotImplemented,
     IncorrectLengthOfImageData,
     ZLib(zlib::Error),
@@ -140,11 +140,6 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
         }
     }
 
-    if image_header.image_type == chunks::ihdr::ImageType::IndexedColor && palette.is_none() {
-        log::error!("Cannot decode indexed color image without palette table");
-        return Err(Error::IndexedImageWithoutPLTE);
-    }
-
     let decompressed_body = zlib::decompress(&idat)?;
 
     let scanline_width = image_width * image_header.image_type.pixel_width();
@@ -181,8 +176,17 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
             texture_from_bytes::<Rgba<u8>>(image_data, image_width, image_height)?.into()
         },
         ImageType::IndexedColor => {
-            log::error!("FIXME: png implement indexed color");
-            return Err(Error::NotImplemented);
+            let Some(palette) = palette else {
+                log::error!("Cannot decode indexed color image without palette table");
+                return Err(Error::IndexedImageWithoutPalette);
+            };
+
+            let mut decoded_buffer = Vec::with_capacity(image_width * image_height * 3);
+            for byte in image_data {
+                decoded_buffer.extend_from_slice(&palette[byte]);
+            }
+
+            texture_from_bytes::<Rgb<u8>>(decoded_buffer, image_width, image_height)?.into()
         },
     };
 
