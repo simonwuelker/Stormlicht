@@ -12,8 +12,8 @@ use crate::{
 /// <https://drafts.csswg.org/selectors-4/#type-selectors>
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeSelector {
-    /// <https://drafts.csswg.org/selectors-4/#type-nmsp>
-    NSPrefix(Option<NSPrefix>),
+    /// <https://drafts.csswg.org/selectors-4/#the-universal-selector>
+    Universal(Option<NSPrefix>),
     WQName(WQName),
 }
 
@@ -29,7 +29,7 @@ impl<'a> CSSParse<'a> for TypeSelector {
         let ns_prefix = parser.parse_optional_value(NSPrefix::parse);
         parser.skip_whitespace();
         if matches!(parser.next_token(), Some(Token::Delim('*'))) {
-            Ok(TypeSelector::NSPrefix(ns_prefix))
+            Ok(TypeSelector::Universal(ns_prefix))
         } else {
             Err(ParseError)
         }
@@ -39,7 +39,7 @@ impl<'a> CSSParse<'a> for TypeSelector {
 impl CSSValidateSelector for TypeSelector {
     fn is_valid(&self) -> bool {
         match self {
-            Self::NSPrefix(ns_prefix) => !ns_prefix.as_ref().is_some_and(|n| n.is_valid()),
+            Self::Universal(ns_prefix) => !ns_prefix.as_ref().is_some_and(|n| n.is_valid()),
             Self::WQName(wq_name) => wq_name.is_valid(),
         }
     }
@@ -47,9 +47,14 @@ impl CSSValidateSelector for TypeSelector {
 
 impl Selector for TypeSelector {
     fn matches(&self, element: &DomPtr<Element>) -> bool {
-        _ = element;
         match self {
-            Self::NSPrefix(_) => false,
+            Self::Universal(namespace) => {
+                // This is the universal selector
+                // FIXME: If there is a namespace then we should only match elements from that
+                //        namespace
+                _ = namespace;
+                true
+            },
             Self::WQName(wq_name) => {
                 wq_name.prefix.is_none() && wq_name.ident == element.borrow().local_name()
             },
@@ -64,7 +69,7 @@ impl Selector for TypeSelector {
 impl Serialize for TypeSelector {
     fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
         match self {
-            Self::NSPrefix(ns_prefix) => {
+            Self::Universal(ns_prefix) => {
                 // FIXME: serialize ns prefix
                 _ = ns_prefix;
 
@@ -96,12 +101,12 @@ mod tests {
 
         assert_eq!(
             TypeSelector::parse_from_str("foo | *"),
-            Ok(TypeSelector::NSPrefix(Some(NSPrefix::Ident("foo".into()))))
+            Ok(TypeSelector::Universal(Some(NSPrefix::Ident("foo".into()))))
         );
 
         assert_eq!(
             TypeSelector::parse_from_str("*"),
-            Ok(TypeSelector::NSPrefix(None))
+            Ok(TypeSelector::Universal(None))
         );
     }
 }
