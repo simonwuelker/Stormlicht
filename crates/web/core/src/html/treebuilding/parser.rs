@@ -499,7 +499,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#close-a-p-element>
     fn close_p_element(&mut self) {
         // 1. Generate implied end tags, except for p elements.
-        self.generate_implied_end_tags_excluding(Some(DomType::HtmlParagraphElement));
+        self.generate_implied_end_tags_excluding(Some(static_interned!("p")));
 
         // 2. If the current node is not a p element,
         if !self.current_node().is_a::<HtmlParagraphElement>() {
@@ -517,16 +517,29 @@ impl<P: ParseErrorHandler> Parser<P> {
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#closing-elements-that-have-implied-end-tags>
-    fn generate_implied_end_tags_excluding(&mut self, exclude: Option<DomType>) {
+    fn generate_implied_end_tags_excluding(&mut self, exclude: Option<InternedString>) {
+        const LOOP_WHILE_ELEMENTS: [InternedString; 10] = [
+            static_interned!("dd"),
+            static_interned!("dt"),
+            static_interned!("li"),
+            static_interned!("optgroup"),
+            static_interned!("option"),
+            static_interned!("p"),
+            static_interned!("rb"),
+            static_interned!("rp"),
+            static_interned!("rt"),
+            static_interned!("rtc"),
+        ];
+
         loop {
-            let node_type = self.current_node().underlying_type();
-            if exclude.is_some_and(|to_exclude| to_exclude == node_type) {
-                return;
+            let element_name = self.current_node().borrow().local_name();
+
+            if !LOOP_WHILE_ELEMENTS.contains(&element_name)
+                || exclude.is_some_and(|e| e == element_name)
+            {
+                break;
             }
-            // FIXME: There are more elements here that aren't yet implemented
-            if node_type != DomType::HtmlParagraphElement {
-                return;
-            }
+
             self.pop_from_open_elements();
         }
     }
@@ -1943,7 +1956,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // If node is a dd element, then run these substeps:
                         if node.is_a::<HtmlDdElement>() {
                             // 1. Generate implied end tags, except for dd elements.
-                            self.generate_implied_end_tags_excluding(Some(DomType::HtmlDdElement));
+                            self.generate_implied_end_tags_excluding(Some(static_interned!("dd")));
 
                             // 2. If the current node is not a dd element, then this is a parse error.
 
@@ -2126,7 +2139,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                         // Otherwise, run these steps:
                         // 1. Generate implied end tags, except for li elements.
-                        self.generate_implied_end_tags_excluding(Some(DomType::HtmlLiElement));
+                        self.generate_implied_end_tags_excluding(Some(static_interned!("li")));
 
                         // 2. If the current node is not an li element, then this is a parse error.
 
@@ -2146,11 +2159,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
                         // Otherwise, run these steps:
                         // 1. Generate implied end tags, except for HTML elements with the same tag name as the token.
-                        if tagdata.name == static_interned!("dd") {
-                            self.generate_implied_end_tags_excluding(Some(DomType::HtmlDdElement));
-                        } else {
-                            self.generate_implied_end_tags_excluding(Some(DomType::HtmlDtElement));
-                        }
+                        self.generate_implied_end_tags_excluding(Some(tagdata.name));
 
                         // 2. If the current node is not an HTML element with the same tag name as that of the token, then this is a parse error.
 
