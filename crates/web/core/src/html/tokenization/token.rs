@@ -1,4 +1,4 @@
-use crate::InternedString;
+use crate::{static_interned, InternedString};
 
 #[derive(Debug, Clone)]
 pub enum Token {
@@ -282,6 +282,13 @@ impl TagData {
     #[must_use]
     pub fn attributes(&self) -> &[(InternedString, InternedString)] {
         &self.attributes
+    }
+
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#adjust-foreign-attributes>
+    pub fn adjust_foreign_attributes(&mut self) {
+        _ = self;
+        // FIXME: implement this!
+        //        This requires "namespaced attributes"
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#adjust-svg-attributes>

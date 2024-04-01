@@ -237,7 +237,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                             .parse_stylesheet(self.stylesheets.len())
                     {
                         if !stylesheet.rules().is_empty() {
-                            self.stylesheets.push(stylesheet);
+                            self.stylesheets.push(dbg!(stylesheet));
                         } else {
                             log::debug!("Dropping empty stylesheet");
                         }
@@ -2583,10 +2583,27 @@ impl<P: ParseErrorHandler> Parser<P> {
                     {
                         todo!();
                     },
-                    Token::Tag(tagdata)
+                    Token::Tag(mut tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("svg") =>
                     {
-                        todo!();
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // Adjust SVG attributes for the token. (This fixes the case of SVG attributes that are not all lowercase.)
+                        tagdata.adjust_svg_attributes();
+
+                        // Adjust foreign attributes for the token. (This fixes the use of namespaced attributes, in particular XLink in SVG.)
+                        tagdata.adjust_foreign_attributes();
+
+                        // Insert a foreign element for the token, with SVG namespace and false.
+                        self.insert_foreign_element(&tagdata, Namespace::SVG);
+
+                        // If the token has its self-closing flag set, pop the current node off the
+                        // stack of open elements and acknowledge the token's self-closing flag.
+                        if tagdata.self_closing {
+                            self.pop_from_open_elements();
+                            self.acknowledge_self_closing_flag_if_set(&tagdata);
+                        }
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening
