@@ -713,7 +713,7 @@ impl<P: ParseErrorHandler> Parser<P> {
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-an-html-element>
     fn insert_html_element_for_token(&mut self, tagdata: &TagData) -> DomPtr<Element> {
-        self.insert_foreign_element(tagdata, Namespace::HTML)
+        self.insert_foreign_element(tagdata, Namespace::HTML, false)
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#insert-a-foreign-element>
@@ -721,29 +721,25 @@ impl<P: ParseErrorHandler> Parser<P> {
         &mut self,
         tagdata: &TagData,
         namespace: Namespace,
+        only_add_to_element_stack: bool,
     ) -> DomPtr<Element> {
-        // Let the adjusted insertion location be the appropriate place for inserting a node.
+        // 1. Let the adjusted insertion location be the appropriate place for inserting a node.
         let adjusted_insertion_location = self.appropriate_place_for_inserting_node();
 
-        // Let element be the result of creating an element for the token in the given namespace, with the intended parent being the element in which the adjusted insertion location finds itself.
+        // 2. Let element be the result of creating an element for the token in the given namespace,
+        //    with the intended parent being the element in which the adjusted insertion location finds itself.
         let element =
             self.create_element_for_token(tagdata, namespace, &adjusted_insertion_location);
 
-        // If it is possible to insert element at the adjusted insertion location, then:
-        // FIXME: it is currently always possible to insert more elements
+        // 3. If onlyAddToElementStack is false, then run insert an element at the adjusted insertion location with element.
+        if !only_add_to_element_stack {
+            Node::append_child(adjusted_insertion_location, element.clone().upcast());
+        }
 
-        // FIXME: If the parser was not created as part of the HTML fragment parsing algorithm, then push a new element queue onto element's relevant agent's custom element reactions stack.
-
-        // Insert element at the adjusted insertion location.
-        Node::append_child(adjusted_insertion_location, element.clone().upcast());
-
-        // FIXME: If the parser was not created as part of the HTML fragment parsing algorithm, then pop the element queue from
-        // element's relevant agent's custom element reactions stack, and invoke custom element reactions in that queue.
-
-        // Push element onto the stack of open elements so that it is the new current node.
+        // 4. Push element onto the stack of open elements so that it is the new current node.
         self.open_elements.push(element.clone());
 
-        // Return element.
+        // 5. Return element.
         element
     }
 
@@ -2596,7 +2592,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         tagdata.adjust_foreign_attributes();
 
                         // Insert a foreign element for the token, with SVG namespace and false.
-                        self.insert_foreign_element(&tagdata, Namespace::SVG);
+                        self.insert_foreign_element(&tagdata, Namespace::SVG, false);
 
                         // If the token has its self-closing flag set, pop the current node off the
                         // stack of open elements and acknowledge the token's self-closing flag.
