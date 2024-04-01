@@ -67,9 +67,13 @@ where
     }
 
     pub fn resize(&self, width: usize, height: usize) -> Self {
-        // Nearest neighbor
         let mut result = Self::new(width, height);
 
+        if self.width() == 0 || self.height() == 0 {
+            return result;
+        }
+
+        // Nearest neighbor
         let height_ratio = self.height as f32 / height as f32;
         let width_ratio = self.width as f32 / width as f32;
 
