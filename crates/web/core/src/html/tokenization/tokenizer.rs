@@ -279,7 +279,7 @@ pub struct Tokenizer<P: ParseErrorHandler> {
     last_emitted_start_tag_name: Option<String>,
 
     /// A general-purpose temporary buffer
-    buffer: Option<String>,
+    buffer: String,
 
     current_token: CurrentToken,
     character_reference_code: u32,
@@ -287,6 +287,7 @@ pub struct Tokenizer<P: ParseErrorHandler> {
 }
 
 impl<P: ParseErrorHandler> Tokenizer<P> {
+    #[must_use]
     pub fn new(source: &str) -> Self {
         // Normalize newlines
         // https://infra.spec.whatwg.org/#normalize-newlines
@@ -299,7 +300,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
             current_token: CurrentToken::default(),
             last_emitted_start_tag_name: None,
             character_reference_code: 0,
-            buffer: None,
+            buffer: String::default(),
             done: false,
             token_buffer: VecDeque::new(),
             phantom_data: PhantomData,
@@ -339,6 +340,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
     /// Whether the current token is an [Token::EndTag] token whose name matches
     /// the name of the last [Token::StartTag] token that was emitted.
+    #[must_use]
     fn is_appropriate_end_token(&self) -> bool {
         // Check if
         // * there was a start token emitted previously
@@ -363,21 +365,20 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#flush-code-points-consumed-as-a-character-reference>
     fn flush_code_points_consumed_as_character_reference(&mut self) {
         let is_inside_attribute = self.is_inside_attribute();
-        if let Some(temporary_buffer) = &mut self.buffer {
-            if is_inside_attribute {
-                temporary_buffer
-                    .chars()
-                    .for_each(|c| self.current_token.append_to_attribute_value(c));
-            } else {
-                mem::take(temporary_buffer)
-                    .chars()
-                    .for_each(|c| self.emit(Token::Character(c)));
-            }
+        if is_inside_attribute {
+            self.buffer
+                .chars()
+                .for_each(|c| self.current_token.append_to_attribute_value(c));
+        } else {
+            mem::take(&mut self.buffer)
+                .chars()
+                .for_each(|c| self.emit(Token::Character(c)));
         }
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#charref-in-attribute>
-    fn is_inside_attribute(&self) -> bool {
+    #[must_use]
+    const fn is_inside_attribute(&self) -> bool {
         matches!(
             self.return_state,
             Some(
@@ -389,15 +390,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
     }
 
     fn add_to_buffer(&mut self, c: char) {
-        match &mut self.buffer {
-            Some(ref mut buffer) => {
-                buffer.push(c);
-            },
-            None => panic!(
-                "Trying to write {} to self.buffer but self.buffer is None",
-                c
-            ),
-        }
+        self.buffer.push(c);
     }
 
     /// Sets the current state to a specific state.
@@ -407,7 +400,8 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
         self.state = state;
     }
 
-    /// Reads the next character from the input strea,
+    /// Reads the next character from the input stream
+    #[must_use]
     fn read_next(&mut self) -> Option<char> {
         self.source.next()
     }
@@ -687,7 +681,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('/') => {
                         // Set the temporary buffer to the empty string.
-                        self.buffer = Some(String::new());
+                        self.buffer.clear();
 
                         // Switch to the RCDATA end tag open state.
                         self.switch_to(TokenizerState::RCDATAEndTagOpen);
@@ -761,7 +755,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // buffer (in the order they were added to the buffer).
                         self.emit(Token::Character('<'));
                         self.emit(Token::Character('/'));
-                        for c in self.buffer.take().unwrap().chars() {
+                        for c in mem::take(&mut self.buffer).chars() {
                             self.emit(Token::Character(c));
                         }
 
@@ -777,7 +771,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     Some('/') => {
                         // Set the temporary buffer to the empty string.
                         // Switch to the RAWTEXT end tag open state.
-                        self.buffer = Some(String::new());
+                        self.buffer.clear();
                         self.switch_to(TokenizerState::RAWTEXTEndTagOpen);
                     },
                     _ => {
@@ -850,7 +844,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // buffer (in the order they were added to the buffer).
                         self.emit(Token::Character('<'));
                         self.emit(Token::Character('/'));
-                        for c in self.buffer.take().unwrap().chars() {
+                        for c in mem::take(&mut self.buffer).chars() {
                             self.emit(Token::Character(c));
                         }
 
@@ -865,7 +859,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('/') => {
                         // Set the temporary buffer to the empty string.
-                        self.buffer = Some(String::new());
+                        self.buffer.clear();
 
                         // Switch to the script data end tag open state.
                         self.switch_to(TokenizerState::ScriptDataEndTagOpen);
@@ -950,7 +944,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // buffer (in the order they were added to the buffer).
                         self.emit(Token::Character('<'));
                         self.emit(Token::Character('/'));
-                        for c in self.buffer.take().unwrap().chars() {
+                        for c in mem::take(&mut self.buffer).chars() {
                             self.emit(Token::Character(c));
                         }
 
@@ -1114,14 +1108,14 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('/') => {
                         // Set the temporary buffer to the empty string.
-                        self.buffer = Some(String::new());
+                        self.buffer.clear();
 
                         // Switch to the script data escaped end tag open state.
                         self.switch_to(TokenizerState::ScriptDataEscapedEndTagOpen);
                     },
                     Some('a'..='z' | 'A'..='Z') => {
                         // Set the temporary buffer to the empty string.
-                        self.buffer = Some(String::new());
+                        self.buffer.clear();
 
                         // Emit a U+003C LESS-THAN SIGN character token.
                         self.emit(Token::Character('<'));
@@ -1201,7 +1195,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                                 // buffer (in the order they were added to the buffer).
                                 self.emit(Token::Character('<'));
                                 self.emit(Token::Character('/'));
-                                for c in self.buffer.take().unwrap().chars() {
+                                for c in mem::take(&mut self.buffer).chars() {
                                     self.emit(Token::Character(c));
                                 }
 
@@ -1218,11 +1212,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some(c @ ('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}' | '/' | '>')) => {
                         // If the temporary buffer is the string "script",
-                        if self
-                            .buffer
-                            .as_ref()
-                            .is_some_and(|buffer| buffer == "script")
-                        {
+                        if self.buffer == "script" {
                             // then switch to the script data double escaped state.
                             self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
                         } else {
@@ -1389,7 +1379,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('/') => {
                         // Set the temporary buffer to the empty string.
-                        self.buffer = Some(String::new());
+                        self.buffer.clear();
 
                         // Switch to the script data double escape end state.
                         self.switch_to(TokenizerState::ScriptDataDoubleEscapeEnd);
@@ -1409,11 +1399,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some(c @ ('\u{0009}' | '\u{000A}' | '\u{000C}' | '\u{0020}' | '/' | '>')) => {
                         // If the temporary buffer is the string "script",
-                        if self
-                            .buffer
-                            .as_ref()
-                            .is_some_and(|buffer| buffer == "script")
-                        {
+                        if self.buffer == "script" {
                             // then switch to the script data escaped state.
                             self.switch_to(TokenizerState::ScriptDataEscaped);
                         } else {
@@ -3032,7 +3018,8 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
             TokenizerState::CharacterReference => {
                 // Set the temporary buffer to the empty string.
                 // Append a U+0026 AMPERSAND (&) character to the temporary buffer.
-                self.buffer = Some("&".to_string());
+                self.buffer.clear();
+                self.buffer.push('&');
 
                 // Consume the next input character:
                 match self.read_next() {
@@ -3083,7 +3070,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // the character reference name (as given by the
                         // second column of the named character references
                         // table) to the temporary buffer.
-                        self.buffer = Some(resolved_reference.to_string());
+                        self.buffer = resolved_reference.to_string();
 
                         // Flush code points consumed as a character reference.
                         self.flush_code_points_consumed_as_character_reference();
@@ -3413,12 +3400,17 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     },
                     _ => {},
                 }
-                self.buffer = Some(
-                    char::from_u32(self.character_reference_code)
-                        .unwrap()
-                        .to_string(),
-                );
+                // Set the temporary buffer to the empty string.
+                self.buffer.clear();
+
+                // Append a code point equal to the character reference code to the temporary buffer.
+                self.buffer
+                    .push(char::from_u32(self.character_reference_code).unwrap());
+
+                // Flush code points consumed as a character reference.
                 self.flush_code_points_consumed_as_character_reference();
+
+                // Switch to the return state.
                 self.switch_to(self.return_state.unwrap());
             },
         }
