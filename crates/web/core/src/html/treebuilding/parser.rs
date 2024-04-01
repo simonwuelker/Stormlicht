@@ -2575,7 +2575,16 @@ impl<P: ParseErrorHandler> Parser<P> {
                         if tagdata.opening && tagdata.name == static_interned!("optgroup")
                             || tagdata.name == static_interned!("option") =>
                     {
-                        todo!();
+                        // If the current node is an option element, then pop the current node off the stack of open elements.
+                        if self.current_node().borrow().local_name() == static_interned!("option") {
+                            self.pop_from_open_elements();
+                        }
+
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // Insert an HTML element for the token.
+                        self.insert_html_element_for_token(&tagdata);
                     },
                     Token::Tag(tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("rb")
