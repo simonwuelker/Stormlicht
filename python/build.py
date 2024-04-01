@@ -12,7 +12,7 @@ def ensure_submodules_are_downloaded():
     util.Command.create("git").with_arguments(["submodule", "update", "--init", "--recursive"]).run()
 
 def build_documentation(args, unknown_args):
-    cmd = util.Command.create("cargo").with_arguments(["doc"]).with_forwarded_arguments(unknown_args)
+    cmd = util.Command.create("cargo").with_arguments(["doc", "--document-private-items"]).with_forwarded_arguments(unknown_args)
 
     if args.open:
         cmd.append_argument("--open")
