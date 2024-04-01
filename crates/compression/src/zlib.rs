@@ -47,7 +47,7 @@ pub fn decompress(bytes: &[u8]) -> Result<Vec<u8>, Error> {
     let flag_dict = flags & FLAG_DICT_BIT != 0;
     let _flag_level = flags >> 6; // compression level, not needed for decompression
 
-    let header_checksum = u16::from_be_bytes(bytes[..2].try_into().unwrap());
+    let header_checksum = ((compression_method_and_flags as u16) << 8) | flags as u16;
     if header_checksum % 31 != 0 {
         log::warn!("Invalid zlib header checksum: {header_checksum} (must be a multiple of 31)");
         return Err(Error::InvalidHeaderChecksum);
