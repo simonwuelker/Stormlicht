@@ -284,6 +284,16 @@ impl TagData {
         &self.attributes
     }
 
+    /// <https://html.spec.whatwg.org/multipage/parsing.html#adjust-mathml-attributes>
+    pub fn adjust_mathml_attributes(&mut self) {
+        for (key, _) in self.attributes.iter_mut() {
+            if *key == static_interned!("definitionurl") {
+                *key = static_interned!("definitionUrl");
+                break; // attribute names are unique
+            }
+        }
+    }
+
     /// <https://html.spec.whatwg.org/multipage/parsing.html#adjust-foreign-attributes>
     pub fn adjust_foreign_attributes(&mut self) {
         _ = self;
