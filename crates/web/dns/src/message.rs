@@ -1,4 +1,4 @@
-//! https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
+//! <https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1>
 
 use sl_std::{rand::RNG, read::ReadExt};
 
