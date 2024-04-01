@@ -9,12 +9,13 @@ use crate::{
         dom_objects::{
             Comment, Document, DocumentType, Element, HtmlBodyElement, HtmlDdElement,
             HtmlDivElement, HtmlElement, HtmlFormElement, HtmlHeadElement, HtmlHtmlElement,
-            HtmlLiElement, HtmlParagraphElement, HtmlScriptElement, HtmlTableElement,
-            HtmlTemplateElement, Node, Text,
+            HtmlLiElement, HtmlLinkElement, HtmlParagraphElement, HtmlScriptElement,
+            HtmlTableElement, HtmlTemplateElement, Node, Text,
         },
         DomPtr, DomType, DomTyped,
     },
     html::{
+        links,
         tokenization::{ParseErrorHandler, TagData, Token, Tokenizer, TokenizerState},
         treebuilding::{ActiveFormattingElement, ActiveFormattingElements, FormatEntry},
     },
@@ -225,6 +226,8 @@ impl<P: ParseErrorHandler> Parser<P> {
             .pop()
             .expect("there are no open elements to pop");
 
+        // FIXME: Clean up the way we check for new stylesheets here (<style>, <link rel="stylesheet">)
+
         // Check if we just popped a <style> element, if so, register a new stylesheet
         if element.underlying_type() == DomType::HtmlStyleElement {
             if let Some(first_child) = element.borrow().children().first() {
@@ -238,6 +241,34 @@ impl<P: ParseErrorHandler> Parser<P> {
                         } else {
                             log::debug!("Dropping empty stylesheet");
                         }
+                    }
+                }
+            }
+        }
+
+        if let Some(link_element) = element.try_into_type::<HtmlLinkElement>() {
+            let link_element = link_element.borrow();
+            if link_element.relationship() == links::Relationship::Stylesheet {
+                if let Some(url) = link_element.url() {
+                    match mime::Resource::load(&url) {
+                        Ok(resource) => {
+                            // FIXME: Check mime type here
+                            let css = String::from_utf8_lossy(&resource.data);
+                            if let Ok(stylesheet) = css::Parser::new(&css, css::Origin::Author)
+                                .parse_stylesheet(self.stylesheets.len())
+                            {
+                                if !stylesheet.rules().is_empty() {
+                                    self.stylesheets.push(stylesheet);
+                                } else {
+                                    log::debug!("Dropping empty stylesheet");
+                                }
+                            }
+                        },
+                        Err(error) => {
+                            log::error!(
+                                "Failed to load stylesheet: {url} could not be loaded ({error:?}"
+                            )
+                        },
                     }
                 }
             }
