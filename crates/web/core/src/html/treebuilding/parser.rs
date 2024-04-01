@@ -2574,10 +2574,27 @@ impl<P: ParseErrorHandler> Parser<P> {
                     {
                         todo!();
                     },
-                    Token::Tag(tagdata)
+                    Token::Tag(mut tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("math") =>
                     {
-                        todo!();
+                        // Reconstruct the active formatting elements, if any.
+                        self.reconstruct_active_formatting_elements();
+
+                        // Adjust MathML attributes for the token. (This fixes the case of MathML attributes that are not all lowercase.)
+                        tagdata.adjust_mathml_attributes();
+
+                        // Adjust foreign attributes for the token. (This fixes the use of namespaced attributes, in particular XLink.)
+                        tagdata.adjust_foreign_attributes();
+
+                        // Insert a foreign element for the token, with MathML namespace and false.
+                        self.insert_foreign_element(&tagdata, Namespace::MathML, false);
+
+                        // If the token has its self-closing flag set, pop the current node off the stack of open elements
+                        // and acknowledge the token's self-closing flag.
+                        if tagdata.self_closing {
+                            self.pop_from_open_elements();
+                            self.acknowledge_self_closing_flag_if_set(&tagdata);
+                        }
                     },
                     Token::Tag(mut tagdata)
                         if tagdata.opening && tagdata.name == static_interned!("svg") =>
