@@ -123,7 +123,12 @@ fn create_element_for_interface(
     element_data: Element,
 ) -> DomPtr<Element> {
     if namespace != Namespace::HTML {
-        todo!();
+        log::warn!(
+            "Failed to create element for {namespace:?}:  {:?}",
+            local_name.to_string()
+        );
+
+        return DomPtr::new(element_data);
     }
 
     match local_name {
