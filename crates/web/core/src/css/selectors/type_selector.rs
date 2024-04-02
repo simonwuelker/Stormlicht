@@ -2,7 +2,9 @@ use std::fmt;
 
 use crate::{
     css::{
-        selectors::{CSSValidateSelector, NSPrefix, Selector, Specificity, WQName},
+        selectors::{
+            CSSValidateSelector, NamespacePrefix, Selector, Specificity, WellQualifiedName,
+        },
         syntax::Token,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
@@ -13,20 +15,20 @@ use crate::{
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypeSelector {
     /// <https://drafts.csswg.org/selectors-4/#the-universal-selector>
-    Universal(Option<NSPrefix>),
-    WQName(WQName),
+    Universal(Option<NamespacePrefix>),
+    Typename(WellQualifiedName),
 }
 
 impl<'a> CSSParse<'a> for TypeSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-type-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let start_state = parser.state();
-        if let Ok(wq_name) = WQName::parse(parser) {
-            return Ok(TypeSelector::WQName(wq_name));
+        if let Ok(wq_name) = WellQualifiedName::parse(parser) {
+            return Ok(TypeSelector::Typename(wq_name));
         }
 
         parser.set_state(start_state);
-        let ns_prefix = parser.parse_optional_value(NSPrefix::parse);
+        let ns_prefix = parser.parse_optional_value(NamespacePrefix::parse);
         parser.skip_whitespace();
         if matches!(parser.next_token(), Some(Token::Delim('*'))) {
             Ok(TypeSelector::Universal(ns_prefix))
@@ -39,8 +41,8 @@ impl<'a> CSSParse<'a> for TypeSelector {
 impl CSSValidateSelector for TypeSelector {
     fn is_valid(&self) -> bool {
         match self {
-            Self::Universal(ns_prefix) => !ns_prefix.as_ref().is_some_and(|n| n.is_valid()),
-            Self::WQName(wq_name) => wq_name.is_valid(),
+            Self::Universal(namespace) => !namespace.as_ref().is_some_and(|n| n.is_valid()),
+            Self::Typename(type_name) => type_name.is_valid(),
         }
     }
 }
@@ -55,8 +57,8 @@ impl Selector for TypeSelector {
                 _ = namespace;
                 true
             },
-            Self::WQName(wq_name) => {
-                wq_name.prefix.is_none() && wq_name.ident == element.borrow().local_name()
+            Self::Typename(type_name) => {
+                type_name.prefix.is_none() && type_name.ident == element.borrow().local_name()
             },
         }
     }
@@ -69,14 +71,14 @@ impl Selector for TypeSelector {
 impl Serialize for TypeSelector {
     fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
         match self {
-            Self::Universal(ns_prefix) => {
+            Self::Universal(namespace) => {
                 // FIXME: serialize ns prefix
-                _ = ns_prefix;
+                _ = namespace;
 
                 serializer.serialize('*')?;
                 Ok(())
             },
-            Self::WQName(wq_name) => serializer.serialize(*wq_name),
+            Self::Typename(type_name) => serializer.serialize(*type_name),
         }
     }
 }
@@ -85,7 +87,7 @@ impl Serialize for TypeSelector {
 mod tests {
     use super::TypeSelector;
     use crate::css::{
-        selectors::{NSPrefix, WQName},
+        selectors::{NamespacePrefix, WellQualifiedName},
         CSSParse,
     };
 
@@ -93,15 +95,17 @@ mod tests {
     fn parse_type_selector() {
         assert_eq!(
             TypeSelector::parse_from_str("foo | bar"),
-            Ok(TypeSelector::WQName(WQName {
-                prefix: Some(NSPrefix::Ident("foo".into())),
+            Ok(TypeSelector::Typename(WellQualifiedName {
+                prefix: Some(NamespacePrefix::Ident("foo".into())),
                 ident: "bar".into()
             }))
         );
 
         assert_eq!(
             TypeSelector::parse_from_str("foo | *"),
-            Ok(TypeSelector::Universal(Some(NSPrefix::Ident("foo".into()))))
+            Ok(TypeSelector::Universal(Some(NamespacePrefix::Ident(
+                "foo".into()
+            ))))
         );
 
         assert_eq!(

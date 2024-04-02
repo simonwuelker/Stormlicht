@@ -3,7 +3,8 @@ use std::fmt;
 use crate::{
     css::{
         selectors::{
-            AttributeMatcher, AttributeModifier, CSSValidateSelector, Selector, Specificity, WQName,
+            AttributeMatcher, AttributeModifier, CSSValidateSelector, Selector, Specificity,
+            WellQualifiedName,
         },
         syntax::Token,
         CSSParse, ParseError, Parser, Serialize, Serializer,
@@ -16,10 +17,10 @@ use crate::{
 #[derive(Clone, Debug, PartialEq)]
 pub enum AttributeSelector {
     Exists {
-        attribute_name: WQName,
+        attribute_name: WellQualifiedName,
     },
     Matches {
-        attribute_name: WQName,
+        attribute_name: WellQualifiedName,
         matcher: AttributeMatcher,
         value: String,
         modifier: AttributeModifier,
@@ -36,7 +37,7 @@ impl<'a> CSSParse<'a> for AttributeSelector {
         parser.skip_whitespace();
 
         // Both variants start with a wqname
-        let attribute_name = WQName::parse(parser)?;
+        let attribute_name = WellQualifiedName::parse(parser)?;
 
         parser.skip_whitespace();
 
@@ -188,7 +189,7 @@ mod tests {
     use crate::css::{
         selectors::{
             AttributeMatcher, AttributeModifier, ClassSelector, IDSelector, PseudoClassSelector,
-            SubClassSelector, WQName,
+            SubClassSelector, WellQualifiedName,
         },
         CSSParse,
     };
@@ -212,7 +213,7 @@ mod tests {
         assert_eq!(
             SubClassSelector::parse_from_str("[foo]"),
             Ok(SubClassSelector::Attribute(AttributeSelector::Exists {
-                attribute_name: WQName {
+                attribute_name: WellQualifiedName {
                     prefix: None,
                     ident: "foo".into(),
                 }
@@ -252,7 +253,7 @@ mod tests {
         assert_eq!(
             AttributeSelector::parse_from_str("[foo]"),
             Ok(AttributeSelector::Exists {
-                attribute_name: WQName {
+                attribute_name: WellQualifiedName {
                     prefix: None,
                     ident: "foo".into(),
                 }
@@ -262,7 +263,7 @@ mod tests {
         assert_eq!(
             AttributeSelector::parse_from_str("[foo ^= bar i]"),
             Ok(AttributeSelector::Matches {
-                attribute_name: WQName {
+                attribute_name: WellQualifiedName {
                     prefix: None,
                     ident: "foo".into(),
                 },
@@ -275,7 +276,7 @@ mod tests {
         assert_eq!(
             AttributeSelector::parse_from_str("[foo $= bar]"),
             Ok(AttributeSelector::Matches {
-                attribute_name: WQName {
+                attribute_name: WellQualifiedName {
                     prefix: None,
                     ident: "foo".into(),
                 },

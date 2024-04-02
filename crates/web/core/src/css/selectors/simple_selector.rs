@@ -81,7 +81,7 @@ impl Serialize for SimpleSelector {
 mod tests {
     use super::SimpleSelector;
     use crate::css::{
-        selectors::{IDSelector, SubClassSelector, TypeSelector, WQName},
+        selectors::{IDSelector, SubClassSelector, TypeSelector, WellQualifiedName},
         CSSParse,
     };
 
@@ -89,10 +89,12 @@ mod tests {
     fn parse_simple_selector() {
         assert_eq!(
             SimpleSelector::parse_from_str("foo"),
-            Ok(SimpleSelector::Type(TypeSelector::WQName(WQName {
-                prefix: None,
-                ident: "foo".into()
-            })))
+            Ok(SimpleSelector::Type(TypeSelector::Typename(
+                WellQualifiedName {
+                    prefix: None,
+                    ident: "foo".into()
+                }
+            )))
         );
 
         assert_eq!(
