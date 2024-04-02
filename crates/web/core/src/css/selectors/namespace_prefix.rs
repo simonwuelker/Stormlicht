@@ -8,19 +8,20 @@ use crate::{
 pub enum NamespacePrefix {
     Ident(InternedString),
     Asterisk,
-    Empty,
 }
 
-impl<'a> CSSParse<'a> for NamespacePrefix {
-    // <https://drafts.csswg.org/selectors-4/#typedef-ns-prefix>
+impl<'a> CSSParse<'a> for Option<NamespacePrefix> {
+    /// <https://drafts.csswg.org/selectors-4/#typedef-ns-prefix>
+    ///
+    /// This method can return `Ok(None)` when parsing a selector like
+    /// like `|foo` (with an empty [NamespacePrefix]), [since thats equivalent
+    /// to not having a namespace specified at all](https://drafts.csswg.org/css-namespaces/#terminology)
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let prefix = parser
-            .parse_optional_value(|parser| match parser.next_token() {
-                Some(Token::Ident(ident)) => Ok(NamespacePrefix::Ident(ident)),
-                Some(Token::Delim('*')) => Ok(NamespacePrefix::Asterisk),
-                _ => Err(ParseError),
-            })
-            .unwrap_or(NamespacePrefix::Empty);
+        let prefix = parser.parse_optional_value(|parser| match parser.next_token() {
+            Some(Token::Ident(ident)) => Ok(NamespacePrefix::Ident(ident)),
+            Some(Token::Delim('*')) => Ok(NamespacePrefix::Asterisk),
+            _ => Err(ParseError),
+        });
 
         parser.skip_whitespace();
 
@@ -48,16 +49,13 @@ mod tests {
     #[test]
     fn parse_ns_prefix() {
         assert_eq!(
-            NamespacePrefix::parse_from_str("foo |"),
-            Ok(NamespacePrefix::Ident("foo".into()))
+            Option::<NamespacePrefix>::parse_from_str("foo |"),
+            Ok(Some(NamespacePrefix::Ident("foo".into())))
         );
         assert_eq!(
-            NamespacePrefix::parse_from_str("* |"),
-            Ok(NamespacePrefix::Asterisk)
+            Option::<NamespacePrefix>::parse_from_str("* |"),
+            Ok(Some(NamespacePrefix::Asterisk))
         );
-        assert_eq!(
-            NamespacePrefix::parse_from_str("|"),
-            Ok(NamespacePrefix::Empty),
-        );
+        assert_eq!(Option::<NamespacePrefix>::parse_from_str("|"), Ok(None),);
     }
 }

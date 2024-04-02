@@ -28,7 +28,9 @@ impl<'a> CSSParse<'a> for TypeSelector {
         }
 
         parser.set_state(start_state);
-        let ns_prefix = parser.parse_optional_value(NamespacePrefix::parse);
+        let ns_prefix = parser
+            .parse_optional_value(Option::<NamespacePrefix>::parse)
+            .flatten();
         parser.skip_whitespace();
         if matches!(parser.next_token(), Some(Token::Delim('*'))) {
             Ok(TypeSelector::Universal(ns_prefix))

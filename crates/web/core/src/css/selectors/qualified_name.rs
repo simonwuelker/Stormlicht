@@ -19,7 +19,9 @@ pub struct WellQualifiedName {
 impl<'a> CSSParse<'a> for WellQualifiedName {
     // <https://drafts.csswg.org/selectors-4/#typedef-wq-name>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let prefix = parser.parse_optional_value(NamespacePrefix::parse);
+        let prefix = parser
+            .parse_optional_value(Option::<NamespacePrefix>::parse)
+            .flatten();
 
         parser.skip_whitespace();
 
