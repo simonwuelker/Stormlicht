@@ -34,7 +34,7 @@ struct ArgumentParser {
     version: bool,
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(miri)))]
 #[link(name = "c")]
 extern "C" {
     fn geteuid() -> u32;
@@ -52,7 +52,7 @@ pub fn main() -> ExitCode {
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(miri)))]
     if unsafe { geteuid() } == 0 {
         log::error!("Refusing to run as root");
         return ExitCode::FAILURE;
