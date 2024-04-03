@@ -15,8 +15,9 @@ If you want to follow the development, you can visit [chat.stormlicht.rs](https:
   - [1.1. Design goals](#11-design-goals)
   - [1.2. Build Instructions](#12-build-instructions)
   - [1.3. Development](#13-development)
-    - [1.3.1. Logging](#131-logging)
+    - [1.3.1 Logging](#131-logging)
     - [1.3.2 Backtraces](#132-backtraces)
+    - [1.3.3 Running with Miri](#133-running-with-miri)
   - [1.4. Why is there no GUI?](#14-why-is-there-no-gui)
   - [1.5. Credits](#15-credits)
 
@@ -26,8 +27,8 @@ I strive for Correctness, Performance and Safety, in that order.
 
 This is also a "for fun" project, so I do try and implement as much of the functionality as possible without relying on third party crates. (currently, we only need [glazier](https://github.com/linebender/glazier) and [softbuffer](https://github.com/rust-windowing/softbuffer) for cross-platform window management, [log](https://github.com/rust-lang/log) and [env-logger](https://github.com/rust-cli/env_logger) for logging as well as [syn](https://github.com/dtolnay/syn)/[quote](https://github.com/dtolnay/quote)/[proc-macro2](https://github.com/dtolnay/proc-macro2) during compilation)
 
-| Rendering the [Acid1](https://www.w3.org/Style/CSS/Test/CSS1/current/test5526c.htm) test | Reference Rendering (Mozilla Firefox 122.0) |
-| --- | --- |
+| Rendering the [Acid1](https://www.w3.org/Style/CSS/Test/CSS1/current/test5526c.htm) test            | Reference Rendering (Mozilla Firefox 122.0)                                                         |
+| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | ![image](https://github.com/Wuelle/Stormlicht/assets/58120269/42b6aee1-639b-4013-afdc-a23bfd441d63) | ![image](https://github.com/Wuelle/Stormlicht/assets/58120269/0f16b696-d771-4f84-ae14-492becf2b9ab) |
 
 
@@ -64,6 +65,16 @@ The default log level is `info`
 
 ### 1.3.2 Backtraces
 Set `RUST_BACKTRACE=1` to enable backtraces in case of a panic.
+
+### 1.3.3 Running with Miri
+Testing the browser inside [Miri](https://github.com/rust-lang/miri) can help detect instances of undefined behaviour. To use miri, execute the following:
+```
+rustup toolchain install nightly --component miri
+rustup override set nightly
+
+./stormlicht.py run --miri
+./stormlicht.py test --miri
+```
 
 ## 1.4. Why is there no GUI?
 I would love to have a GUI! But actually writing one in rust is *hard*[^2], mostly due to the lack of OOP and the borrowchecker.
