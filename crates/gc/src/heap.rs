@@ -101,7 +101,8 @@ impl Heap {
             unmarked_node.linked_by.set(node_to_be_dropped.next.get());
 
             // SAFETY: The node ptr is guaranteed to point to a valid node
-            unsafe { ptr::drop_in_place(ptr::from_mut(node_to_be_dropped)) };
+            // The constructed box is immediately dropped
+            let _ = unsafe { Box::from_raw(ptr::from_mut(node_to_be_dropped)) };
         }
 
         self.bytes_allocated -= total_freed_size;
