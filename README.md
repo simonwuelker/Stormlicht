@@ -9,7 +9,7 @@
 
 # 1. Stormlicht
 Stormlicht is an experimental browser engine written from scratch.<br>
-If you want to follow the development, you can visit [chat.stormlicht.rs](https://chat.stormlicht.rs).
+If you want to follow the development, you can visit [#stormlicht:matrix.org](https://app.element.io/#/room/#stormlicht:matrix.org)
 
 - [1. Stormlicht](#1-stormlicht)
   - [1.1. Design goals](#11-design-goals)
