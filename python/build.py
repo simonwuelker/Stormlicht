@@ -35,7 +35,12 @@ def run_stormlicht(args, unknown_args):
     if not args.no_backtrace:
         environment["RUST_BACKTRACE"] = "1"
 
-    cmd = util.Command.create("cargo").with_environment(environment).with_arguments(["run"]).with_forwarded_arguments(unknown_args)
+    if args.miri:
+        arguments = ["miri", "run"]
+    else:
+        arguments = ["run"]
+
+    cmd = util.Command.create("cargo").with_environment(environment).with_arguments(arguments).with_forwarded_arguments(unknown_args)
 
     if args.release:
         cmd.append_argument("--release")
@@ -69,7 +74,11 @@ def build_gtk_blueprints():
     util.Command.create("blueprint-compiler").with_arguments(["batch-compile", blueprint_dir, blueprint_dir]).extend_arguments(blueprint_files).run()
 
 def test_stormlicht(args, unknown_args):
-    cmd = util.Command.create("cargo").with_arguments(["test"]).with_forwarded_arguments(unknown_args).run()
+    if args.miri:
+        arguments = ["miri", "test"]
+    else:
+        arguments = ["test"]
+    cmd = util.Command.create("cargo").with_arguments(arguments).with_forwarded_arguments(unknown_args).run()
 
 def run():
     # Install git pre-commit hook
@@ -122,6 +131,11 @@ def run():
         help="Don't include a backtrace in crash messages"
     )
     parser_run.add_argument(
+        "--miri",
+        action="store_true",
+        help="Check for undefined behaviour using Miri"
+    )
+    parser_run.add_argument(
         "--chrome",
         choices=["glazier", "gtk"],
         default="glazier",
@@ -140,6 +154,11 @@ def run():
 
     # Testing
     parser_test = subparsers.add_parser("test", help="Test Stormlicht")
+    parser_test.add_argument(
+        "--miri",
+        action="store_true",
+        help="Check for undefined behaviour using Miri"
+    )
     parser_test.set_defaults(handler=test_stormlicht)
 
     test_subparsers = parser_test.add_subparsers()
