@@ -1,3 +1,5 @@
+//! The thread-local heap, takes care of managing allocations and detecting garbage objects
+
 use std::{
     cell::{Cell, RefCell},
     mem,
@@ -51,8 +53,9 @@ impl Heap {
     /// Returns the number of bytes that were freed
     fn collect_garbage(&mut self) -> usize {
         log::debug!("Collecting garbage...");
-
         // Mark phase
+        // Iterate over all known GC objects and mark them (and all their children)
+        // if they have one more roots
         let mut next = self.head;
         while let Some(next_cell) = next {
             // SAFETY: All the pointers in the chain are guaranteed to point to
@@ -73,16 +76,16 @@ impl Heap {
 
         let mut unmarked_nodes = vec![];
         let mut next = Cell::from_mut(&mut self.head);
-        while let Some(next_node) = next.get() {
+        while let Some(node_ptr) = next.get() {
             // SAFETY: All the pointers in the chain are guaranteed to point to
             //         valid HeapNodes
-            let node = unsafe { next_node.as_ref() };
+            let node = unsafe { node_ptr.as_ref() };
 
             if node.is_marked() {
                 node.unmark();
             } else {
                 let unmarked_cell = UnmarkedNode {
-                    node: next_node,
+                    node: node_ptr,
                     linked_by: next,
                 };
                 unmarked_nodes.push(unmarked_cell);
@@ -90,9 +93,11 @@ impl Heap {
             next = &node.next;
         }
 
+        println!("Found {:?} unmarked ndoes", unmarked_nodes.len());
+
         // Sweep Phase
         let mut total_freed_size = 0;
-        for mut unmarked_node in unmarked_nodes {
+        while let Some(mut unmarked_node) = unmarked_nodes.pop() {
             total_freed_size += mem::size_of_val(&unmarked_node.node);
 
             // Remove the unmarked node from the linked list

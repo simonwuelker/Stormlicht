@@ -5,7 +5,7 @@ use crate::{heap::HEAP, Trace};
 const MARKED_BIT: usize = 1 << (usize::BITS - 1);
 const ROOTS_MASK: usize = !MARKED_BIT;
 
-pub(crate) struct HeapNode<T: ?Sized> {
+pub struct HeapNode<T: ?Sized> {
     /// Contains root count and whether or not the node is marked
     ///
     /// Highest bit indicates mark state, lower bits are the root count.
@@ -43,6 +43,7 @@ where
     T: ?Sized + Trace,
 {
     #[inline]
+    #[must_use]
     pub const fn value(&self) -> &T {
         &self.value
     }
@@ -57,6 +58,7 @@ where
         }
     }
 
+    /// Unmarks the cell (but leaves the children untouched)
     pub fn unmark(&self) {
         self.flags.set(self.flags.get() & ROOTS_MASK);
     }
