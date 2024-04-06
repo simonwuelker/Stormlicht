@@ -1,19 +1,14 @@
 //! <https://262.ecma-international.org/14.0/#sec-left-hand-side-expressions>
 
-use crate::parser::{
-    tokenization::{SkipLineTerminators, Token, Tokenizer},
-    SyntaxError,
+use crate::{
+    bytecode::{self, CompileToBytecode},
+    parser::{
+        tokenization::{SkipLineTerminators, Token, Tokenizer},
+        SyntaxError,
+    },
 };
 
 use super::{parse_primary_expression, Expression};
-
-/// <https://262.ecma-international.org/14.0/#prod-LeftHandSideExpression>
-#[derive(Clone, Debug)]
-pub enum LeftHandSideExpression {
-    NewExpression(NewExpression),
-    CallExpression,
-    OptionalExpression,
-}
 
 /// <https://262.ecma-international.org/14.0/#prod-NewExpression>
 #[derive(Clone, Debug)]
@@ -23,24 +18,22 @@ pub struct NewExpression {
     pub expression: Box<Expression>,
 }
 
-impl LeftHandSideExpression {
-    /// <https://262.ecma-international.org/14.0/#prod-LeftHandSideExpression>
-    pub fn parse<const YIELD: bool, const AWAIT: bool>(
-        tokenizer: &mut Tokenizer<'_>,
-    ) -> Result<Expression, SyntaxError> {
-        let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
-            return Err(tokenizer.syntax_error());
-        };
+/// <https://262.ecma-international.org/14.0/#prod-LeftHandSideExpression>
+pub fn parse_lefthandside_expression<const YIELD: bool, const AWAIT: bool>(
+    tokenizer: &mut Tokenizer<'_>,
+) -> Result<Expression, SyntaxError> {
+    let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
+        return Err(tokenizer.syntax_error());
+    };
 
-        let lhs_expression = match next_token {
-            Token::Identifier(ident) if ident == "new" => {
-                NewExpression::parse::<YIELD, AWAIT>(tokenizer)?
-            },
-            _ => parse_primary_expression::<YIELD, AWAIT>(tokenizer)?,
-        };
+    let lhs_expression = match next_token {
+        Token::Identifier(ident) if ident == "new" => {
+            NewExpression::parse::<YIELD, AWAIT>(tokenizer)?
+        },
+        _ => parse_primary_expression::<YIELD, AWAIT>(tokenizer)?,
+    };
 
-        Ok(lhs_expression)
-    }
+    Ok(lhs_expression)
 }
 
 impl NewExpression {
@@ -72,5 +65,16 @@ impl NewExpression {
         };
 
         Ok(new_expression)
+    }
+}
+
+impl CompileToBytecode for NewExpression {
+    type Result = bytecode::Register;
+
+    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
+        _ = builder;
+        _ = self.nest_level;
+        _ = self.expression;
+        todo!("compile NewExpression")
     }
 }

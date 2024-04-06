@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-use super::{Expression, LeftHandSideExpression};
+use super::{left_hand_side_expression::parse_lefthandside_expression, Expression};
 
 /// <https://262.ecma-international.org/14.0/#prod-UpdateExpression>
 #[derive(Clone, Debug)]
@@ -37,16 +37,16 @@ impl UpdateExpression {
         let update_expression = match next_token {
             Token::Punctuator(Punctuator::DoublePlus) => {
                 tokenizer.advance(1);
-                let lhs_expression = LeftHandSideExpression::parse::<YIELD, AWAIT>(tokenizer)?;
+                let lhs_expression = parse_lefthandside_expression::<YIELD, AWAIT>(tokenizer)?;
                 Self::PreIncrement(Box::new(lhs_expression))
             },
             Token::Punctuator(Punctuator::DoubleMinus) => {
                 tokenizer.advance(1);
-                let lhs_expression = LeftHandSideExpression::parse::<YIELD, AWAIT>(tokenizer)?;
+                let lhs_expression = parse_lefthandside_expression::<YIELD, AWAIT>(tokenizer)?;
                 Self::PreDecrement(Box::new(lhs_expression))
             },
             _ => {
-                let lhs_expression = LeftHandSideExpression::parse::<YIELD, AWAIT>(tokenizer)?;
+                let lhs_expression = parse_lefthandside_expression::<YIELD, AWAIT>(tokenizer)?;
 
                 match tokenizer.peek(0, SkipLineTerminators::No)? {
                     Some(Token::Punctuator(Punctuator::DoublePlus)) => {

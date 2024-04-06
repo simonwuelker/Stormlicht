@@ -1,6 +1,7 @@
 use crate::{
     bytecode::{self, CompileToBytecode},
     parser::{
+        expressions::Expression,
         tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
         SyntaxError,
     },
@@ -37,7 +38,7 @@ impl StatementListItem {
             Token::Identifier(ident) if matches!(ident.as_str(), "if" | "while" | "throw") => {
                 Statement::parse::<YIELD, AWAIT, RETURN>(tokenizer)?.into()
             },
-            _ => return Err(tokenizer.syntax_error()),
+            _ => Statement::parse::<YIELD, AWAIT, RETURN>(tokenizer)?.into(),
         };
 
         Ok(statement_list_item)
@@ -50,7 +51,7 @@ pub(crate) enum Statement {
     BlockStatement(BlockStatement),
     VariableStatement,
     EmptyStatement,
-    ExpressionStatement,
+    ExpressionStatement(Expression),
     IfStatement(IfStatement),
     WhileStatement(WhileStatement),
     ContinueStatement,
@@ -94,7 +95,10 @@ impl Statement {
                 tokenizer.advance(1);
                 Self::EmptyStatement
             },
-            _ => return Err(tokenizer.syntax_error()),
+            _ => {
+                let expression_statement = Expression::parse::<true, YIELD, AWAIT>(tokenizer)?;
+                expression_statement.into()
+            },
         };
 
         Ok(statement)
@@ -156,5 +160,11 @@ impl From<IfStatement> for Statement {
 impl From<BlockStatement> for Statement {
     fn from(value: BlockStatement) -> Self {
         Self::BlockStatement(value)
+    }
+}
+
+impl From<Expression> for Statement {
+    fn from(value: Expression) -> Self {
+        Self::ExpressionStatement(value)
     }
 }

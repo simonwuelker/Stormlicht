@@ -1,14 +1,17 @@
 //! <https://262.ecma-international.org/14.0/#sec-ecmascript-language-expressions>
 
+mod assignment_expression;
 mod binary_expression;
+mod conditional;
 mod left_hand_side_expression;
 mod object;
 mod short_circuit;
 mod unary_expression;
 mod update_expression;
 
+pub use assignment_expression::AssignmentExpression;
 pub use binary_expression::BinaryExpression;
-pub use left_hand_side_expression::LeftHandSideExpression;
+pub use conditional::ConditionalExpression;
 pub use unary_expression::UnaryExpression;
 pub use update_expression::UpdateExpression;
 
@@ -36,6 +39,8 @@ pub enum Expression {
     Update(UpdateExpression),
     IdentifierReference(String),
     New(NewExpression),
+    Assignment(AssignmentExpression),
+    ConditionalExpression(ConditionalExpression),
 }
 
 /// <https://262.ecma-international.org/14.0/#prod-PrimaryExpression>
@@ -92,7 +97,7 @@ impl Expression {
     pub fn parse<const IN: bool, const YIELD: bool, const AWAIT: bool>(
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
-        binary_expression::parse_logical_or_expression::<IN, YIELD, AWAIT>(tokenizer)
+        AssignmentExpression::parse::<IN, YIELD, AWAIT>(tokenizer)
     }
 }
 
@@ -102,7 +107,11 @@ impl CompileToBytecode for Expression {
     fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
         match self {
             Self::This => todo!(),
+            Self::Assignment(assignment_expression) => assignment_expression.compile(builder),
             Self::Binary(binary_expression) => binary_expression.compile(builder),
+            Self::ConditionalExpression(conditional_expression) => {
+                conditional_expression.compile(builder)
+            },
             Self::Unary(unary_expression) => unary_expression.compile(builder),
             Self::Update(update_expression) => update_expression.compile(builder),
             Self::IdentifierReference(identifier_reference) => {
@@ -115,7 +124,7 @@ impl CompileToBytecode for Expression {
                 .get_current_block()
                 .allocate_register_with_value(literal.clone().into()),
             Self::ObjectLiteral(object_literal) => object_literal.compile(builder),
-            Self::New(_) => todo!(),
+            Self::New(new_expression) => new_expression.compile(builder),
         }
     }
 }
@@ -153,5 +162,17 @@ impl From<UnaryExpression> for Expression {
 impl From<UpdateExpression> for Expression {
     fn from(value: UpdateExpression) -> Self {
         Self::Update(value)
+    }
+}
+
+impl From<AssignmentExpression> for Expression {
+    fn from(value: AssignmentExpression) -> Self {
+        Self::Assignment(value)
+    }
+}
+
+impl From<ConditionalExpression> for Expression {
+    fn from(value: ConditionalExpression) -> Self {
+        Self::ConditionalExpression(value)
     }
 }
