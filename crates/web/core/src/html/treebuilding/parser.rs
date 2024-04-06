@@ -237,7 +237,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                             .parse_stylesheet(self.stylesheets.len())
                     {
                         if !stylesheet.rules().is_empty() {
-                            self.stylesheets.push(dbg!(stylesheet));
+                            self.stylesheets.push(stylesheet);
                         } else {
                             log::debug!("Dropping empty stylesheet");
                         }
