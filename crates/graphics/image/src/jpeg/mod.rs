@@ -1,8 +1,16 @@
-use crate::{jpeg::chunk::Chunk, Texture};
-
-use self::chunk::Chunks;
+//! JPEG decoding module
+//!
+//! ## Resources
+//! * <https://www.w3.org/Graphics/JPEG/itu-t81.pdf>
+//! * <https://www.w3.org/Graphics/JPEG/>
+//! * <https://imrannazar.com/series/lets-build-a-jpeg-decoder>
 
 mod chunk;
+mod huffman_table;
+
+use crate::{jpeg::chunk::Chunk, DynamicTexture, Texture};
+
+use self::{chunk::Chunks, huffman_table::HuffmanTables};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -10,6 +18,9 @@ pub enum Error {
     UnknownChunk,
     UnexpectedChunk,
     IncompleteImage,
+
+    /// A `DHT` chunk failed to parse
+    BadHuffmanTable,
 }
 
 pub fn decode(bytes: &[u8]) -> Result<Texture, Error> {
@@ -48,6 +59,7 @@ impl<'a> Decoder<'a> {
             return Err(Error::UnexpectedChunk);
         }
 
+        let mut huffman_tables = HuffmanTables::default();
         for chunk in self.chunks {
             let chunk = chunk?;
 
@@ -59,6 +71,9 @@ impl<'a> Decoder<'a> {
                     let frame_header = FrameHeader::new(subscript, data)?;
                     self.process_frame_header(frame_header)?;
                 },
+                Chunk::DefineHuffmanTable(huffman_table) => {
+                    huffman_tables.add_table(huffman_table)?;
+                },
                 _ => {},
             }
         }
@@ -68,7 +83,7 @@ impl<'a> Decoder<'a> {
             texture,
         } = self.stage
         else {
-            log::error!("Decoder diard not terminate with a complete decoded image");
+            log::error!("Decoder did not terminate with a complete decoded image");
             return Err(Error::IncompleteImage);
         };
 
