@@ -13,7 +13,8 @@
     bigint_helper_methods,
     array_chunks,
     maybe_uninit_uninit_array,
-    assert_matches
+    assert_matches,
+    non_null_convenience
 )]
 
 pub mod ascii;
@@ -30,4 +31,5 @@ pub mod rand;
 pub mod range;
 pub mod read;
 pub mod ring_buffer;
+pub mod safe_casts;
 pub mod slice;
