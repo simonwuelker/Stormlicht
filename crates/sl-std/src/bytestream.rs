@@ -30,9 +30,15 @@ impl<'a> ByteStream<'a> {
     /// Returns the bytes from cursor until the end of the stream
     ///
     /// If the cursor is past the end of the stream, an empty slice is returned
+    #[must_use]
     pub fn remaining(&self) -> &[u8] {
         let index = self.cursor.min(self.bytes.len() - 1);
         &self.bytes[index..]
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.remaining().is_empty()
     }
 
     pub fn advance(&mut self, n: usize) {
