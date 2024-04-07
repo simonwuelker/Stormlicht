@@ -150,6 +150,11 @@ impl<'a> Chunks<'a> {
             remaining_bytes: bytes,
         }
     }
+
+    #[must_use]
+    pub const fn remaining(&self) -> &[u8] {
+        self.remaining_bytes
+    }
 }
 
 impl<'a> Iterator for Chunks<'a> {

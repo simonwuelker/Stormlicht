@@ -4,13 +4,15 @@
 //! * <https://www.w3.org/Graphics/JPEG/itu-t81.pdf>
 //! * <https://www.w3.org/Graphics/JPEG/>
 //! * <https://imrannazar.com/series/lets-build-a-jpeg-decoder>
+//! * <http://www.opennet.ru/docs/formats/jpeg.txt>
 
 mod chunk;
 mod huffman_table;
+mod quantization_table;
 
-use crate::{jpeg::chunk::Chunk, DynamicTexture, Texture};
+use crate::{jpeg::chunk::Chunk, Texture};
 
-use self::{chunk::Chunks, huffman_table::HuffmanTables};
+use self::{chunk::Chunks, huffman_table::HuffmanTables, quantization_table::QuantizationTables};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -19,8 +21,14 @@ pub enum Error {
     UnexpectedChunk,
     IncompleteImage,
 
+    /// Failed to parse frame data
+    BadFrame,
+
     /// A `DHT` chunk failed to parse
     BadHuffmanTable,
+
+    /// A `DQT` chunk failed to parse
+    BadQuantizationTable,
 }
 
 pub fn decode(bytes: &[u8]) -> Result<Texture, Error> {
@@ -60,6 +68,7 @@ impl<'a> Decoder<'a> {
         }
 
         let mut huffman_tables = HuffmanTables::default();
+        let mut quantization_tables = QuantizationTables::default();
         for chunk in self.chunks {
             let chunk = chunk?;
 
@@ -69,10 +78,13 @@ impl<'a> Decoder<'a> {
                 Chunk::ApplicationSpecific { .. } => {},
                 Chunk::StartOfFrame { subscript, data } => {
                     let frame_header = FrameHeader::new(subscript, data)?;
-                    self.process_frame_header(frame_header)?;
+                    process_frame(frame_header, self.chunks.remaining())?;
                 },
                 Chunk::DefineHuffmanTable(huffman_table) => {
                     huffman_tables.add_table(huffman_table)?;
+                },
+                Chunk::DefineQuantizationTable(quantization_table) => {
+                    quantization_tables.add_tables(quantization_table)?;
                 },
                 _ => {},
             }
@@ -107,6 +119,39 @@ impl<'a> Decoder<'a> {
 
         Ok(())
     }
+}
+
+fn process_frame(frame_header: FrameHeader, frame_bytes: &[u8]) -> Result<(), Error> {
+    let texture = DynamicTexture::Rgb8(Texture::new(
+        frame_header.samples_per_line as usize,
+        frame_header.number_of_lines as usize,
+    ));
+
+    let mut bytes = frame_bytes.iter();
+
+    // Read the image components
+    let mut components = Vec::with_capacity(frame_header.num_image_components as usize);
+    for _ in 0..frame_header.num_image_components {
+        let id = *bytes.next().ok_or(Error::BadFrame)?;
+        let sampling = *bytes.next().ok_or(Error::BadFrame)?;
+        let q_table = *bytes.next().ok_or(Error::BadFrame)?;
+
+        let component = Component {
+            id,
+            _sampling: sampling,
+            _q_table: q_table,
+        };
+        components.push(component.id);
+    }
+
+    Ok(())
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Component {
+    id: u8,
+    _sampling: u8,
+    _q_table: u8,
 }
 
 #[derive(Clone, Copy, Debug)]

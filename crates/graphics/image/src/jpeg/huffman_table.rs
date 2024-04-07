@@ -4,14 +4,17 @@ use super::Error;
 
 const MAX_NUM_HUFFMAN_TABLES: usize = 32;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 pub struct HuffmanTables {
     tables: [HuffmanTable; MAX_NUM_HUFFMAN_TABLES],
 }
 
-#[derive(Clone, Copy, Debug)]
+/// A huffman table for decoding symbols
+///
+/// Implemented as in <https://commandlinefanatic.com/cgi-bin/showarticle.cgi?article=art007>
+#[derive(Clone, Debug)]
 pub struct HuffmanTable {
-    lookup_table: [HuffmanTableEntry; u16::MAX as usize],
+    lookup_table: Box<[HuffmanTableEntry; u16::MAX as usize]>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -50,7 +53,7 @@ impl Default for HuffmanTable {
         };
 
         Self {
-            lookup_table: [initial_symbol; u16::MAX as usize],
+            lookup_table: Box::new([initial_symbol; u16::MAX as usize]),
         }
     }
 }
