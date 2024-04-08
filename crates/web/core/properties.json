@@ -7,6 +7,13 @@
         "initial": "BackgroundColor::default()"
     },
     {
+        "name": "background-image",
+        "specification": "https://drafts.csswg.org/css-backgrounds/#background-image",
+        "inherited": false,
+        "value": "BackgroundImage",
+        "initial": "BackgroundImage::default()"
+    },
+    {
         "name": "border-color",
         "specification": "https://drafts.csswg.org/css-backgrounds/#border-color",
         "inherited": false,
