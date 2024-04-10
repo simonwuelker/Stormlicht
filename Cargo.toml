@@ -29,6 +29,7 @@ members = [
     "crates/util/buildutils",
     "crates/js",
     "crates/gc",
+    "crates/encodings",
 ]
 resolver = "2"
 

@@ -14,6 +14,7 @@ BROTLI_DICTIONARY_URL = (
 )
 BROTLI_REPO_URL = "https://github.com/google/brotli"
 HTML_NAMED_ENTITIES_URL = "https://html.spec.whatwg.org/entities.json"
+HTML_ENCODINGS_URL = "https://encoding.spec.whatwg.org/encodings.json"
 
 def download_required_files():
     def download(url):
@@ -32,6 +33,12 @@ def download_required_files():
         named_entities = download(HTML_NAMED_ENTITIES_URL)
         with open(os.path.join(BASE_DIR, "html_named_entities.json"), "wb") as f:
             f.write(named_entities)
+
+    if not os.path.exists(os.path.join(BASE_DIR, "encodings.json")):
+        log.info("Downloading html encodings list...")
+        encodings = download(HTML_ENCODINGS_URL)
+        with open(os.path.join(BASE_DIR, "encodings.json"), "wb") as f:
+            f.write(encodings)
 
     if not os.path.exists(os.path.join(BASE_DIR, "fonts/roboto/Roboto-Medium.ttf")):
         log.info("Downloading font files...")

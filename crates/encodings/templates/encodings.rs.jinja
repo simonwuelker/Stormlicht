@@ -1,0 +1,38 @@
+use std::str::FromStr;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InvalidEncoding;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum Encoding {
+	{% for encoding in encodings %}
+		{{ encoding["name"] }},
+	{% endfor %}
+}
+
+impl FromStr for Encoding {
+	type Err = InvalidEncoding;
+
+	fn from_str(label: &str) -> Result<Self, Self::Err> {
+		// https://encoding.spec.whatwg.org/#concept-encoding-get
+
+		// 1. Remove any leading and trailing ASCII whitespace from label. 
+		let label = label.trim_matches(|c: char| c.is_ascii_whitespace());
+
+		// 2. If label is an ASCII case-insensitive match for any of the labels listed in the 
+		//    table below, then return the corresponding encoding; otherwise return failure. 
+		let label = label.to_ascii_lowercase();
+
+		let encoding = match label.as_str() {
+			{% for encoding in encodings %}
+				{% for name in encoding["labels"] %}
+					"{{ name }}" => Self::{{ encoding["name"] }},
+				{% endfor %}
+			{% endfor %}
+			_ => return Err(InvalidEncoding),
+		};
+
+		Ok(encoding)
+	}
+}
