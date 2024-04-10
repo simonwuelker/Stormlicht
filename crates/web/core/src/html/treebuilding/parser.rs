@@ -1435,8 +1435,8 @@ impl<P: ParseErrorHandler> Parser<P> {
                             // 3. Pop elements from the stack of open
                             //    elements until a template element has
                             //    been popped from the stack.
-                            self.pop_from_open_elements_until(|node| {
-                                node.is_a::<HtmlTemplateElement>()
+                            self.pop_from_open_elements_until(|element| {
+                                element.borrow().local_name() == static_interned!("template")
                             });
 
                             // 4. Clear the list of active
