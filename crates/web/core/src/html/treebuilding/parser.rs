@@ -3362,7 +3362,7 @@ impl<P: ParseErrorHandler> Parser<P> {
     /// Extracted into its own functions because the adoption agency algorithm makes use of this sequence
     /// of steps too.
     fn any_other_end_tag_in_body(&mut self, tag: TagData) {
-        fn is_html_element_with_name(node: DomPtr<Element>, name: InternedString) -> bool {
+        fn is_html_element_with_name(node: &DomPtr<Element>, name: InternedString) -> bool {
             if let Some(element) = node.try_into_type::<Element>() {
                 if element.borrow().local_name() == name {
                     return node.is_a::<HtmlElement>();
@@ -3374,24 +3374,32 @@ impl<P: ParseErrorHandler> Parser<P> {
 
         // 1. Initialize node to be the current node (the bottommost node of the stack).
         // 2. Loop:
-        for node in self.open_elements.iter().rev() {
+        for (index, node) in self.open_elements.iter().rev().enumerate() {
             // If node is an HTML element with the same tag name as the token, then:
-            if is_html_element_with_name(node.clone(), tag.name) {
+            if is_html_element_with_name(&node, tag.name) {
                 // 1. Generate implied end tags,
                 // FIXME: except for HTML elements with the same tag name as the token.
                 self.generate_implied_end_tags_excluding(None);
 
-                // 2. FIXME: If node is not the current node, then this is a parse error.
+                // 2. If node is not the current node,
+                if index != 0 {
+                    // then this is a parse error
+                }
 
-                // 3. FIXME: Pop all the nodes from the current node up to node, including node, then stop these steps.
-                self.open_elements.pop();
+                // 3. Pop all the nodes from the current node up to node, including node, then stop these steps.
+                for _ in 0..index + 1 {
+                    self.open_elements.pop();
+                }
                 break;
             }
-            // 3. FIXME: Otherwise, if node is in the special category, then this is a parse error;
-            //    ignore the token, and return.
+            // 3. Otherwise, if node is in the special category,
+            else if is_element_in_special_category(node.borrow().local_name()) {
+                // then this is a parse error; ignore the token, and return.
+                return;
+            }
 
+            // NOTE: Steps 4 & 5 are implemented using the for-loop
             // 4. Set node to the previous entry in the stack of open elements.
-
             // 5. Return to the step labeled loop.
         }
     }
