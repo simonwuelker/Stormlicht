@@ -546,12 +546,31 @@ impl<P: ParseErrorHandler> Parser<P> {
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#generate-all-implied-end-tags-thoroughly>
     fn generate_implied_end_tags_thoroughly(&mut self) {
-        loop {
-            let current_node = self.current_node();
-            // FIXME: There are more elements here that aren't yet implemented
-            if current_node.is_a::<HtmlParagraphElement>() {
-                return;
-            }
+        fn should_continue_popping(element_name: InternedString) -> bool {
+            matches!(
+                element_name,
+                static_interned!("caption")
+                    | static_interned!("colgroup")
+                    | static_interned!("dd")
+                    | static_interned!("dt")
+                    | static_interned!("li")
+                    | static_interned!("optgroup")
+                    | static_interned!("option")
+                    | static_interned!("p")
+                    | static_interned!("rb")
+                    | static_interned!("rp")
+                    | static_interned!("rt")
+                    | static_interned!("rtc")
+                    | static_interned!("tbody")
+                    | static_interned!("td")
+                    | static_interned!("tfoot")
+                    | static_interned!("th")
+                    | static_interned!("thead")
+                    | static_interned!("tr")
+            )
+        }
+
+        while should_continue_popping(self.current_node().borrow().local_name()) {
             self.pop_from_open_elements();
         }
     }
