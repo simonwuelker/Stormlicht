@@ -1,4 +1,4 @@
-use crate::SystemFont;
+use crate::{Language, SystemFont};
 
 /// Used to abstract over font source backends (fontconfig etc)
 pub trait FontStore {
@@ -32,6 +32,7 @@ cfg_match! {
                 let fallback_font = SystemFont {
                     path: PathBuf::from(FALLBACK_PATH),
                     name: "Roboto-Medium".to_string(),
+                    languages: vec![Language::English],
                     weight_range: (Weight::NORMAL, Weight::NORMAL),
                 };
 
