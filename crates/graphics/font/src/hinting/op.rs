@@ -36,6 +36,9 @@ pub const FDEF: Opcode = 0x2C;
 /// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#ENDF>
 pub const ENDF: Opcode = 0x2D;
 
+/// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#NPUSHB>
+pub const NPUSHB: Opcode = 0x40;
+
 /// <https://developer.apple.com/fonts/TrueType-Reference-Manual/RM05/Chap5.html#RS>
 pub const RS: Opcode = 0x43;
 

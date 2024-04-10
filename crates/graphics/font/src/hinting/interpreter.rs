@@ -1,3 +1,5 @@
+use std::iter::FusedIterator;
+
 use super::{op, F26Dot6, GraphicsState};
 
 const MAX_STORAGE_AREAS_TO_RESERVE: usize = 256;
@@ -52,6 +54,7 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
+    #[must_use]
     pub fn new(max_storage_areas: usize, max_function_defs: usize) -> Self {
         let storage_areas = if MAX_STORAGE_AREAS_TO_RESERVE < max_storage_areas {
             log::error!("Font needs {max_storage_areas} storage areas, but we won't reserve more than {MAX_STORAGE_AREAS_TO_RESERVE}");
@@ -145,7 +148,7 @@ impl Interpreter {
 
                 let mut depth = 0;
                 for (index, instruction) in instructions.enumerate() {
-                    match instruction {
+                    match instruction? {
                         op::IF => depth += 1,
                         op::EIF => {
                             if depth == 0 {
@@ -199,6 +202,15 @@ impl Interpreter {
                 // (only legal if we are within a function definition)
                 return Err(Error::UnexpectedEndf);
             },
+            Some(op::NPUSHB) => {
+                // Push n bytes
+                let n = program.next_u8().ok_or(Error::EndOfFileInInstruction)?;
+
+                for _ in 0..n {
+                    let byte = program.next_u8().ok_or(Error::EndOfFileInInstruction)?;
+                    self.stack.push(byte);
+                }
+            },
             Some(op::RS) => {
                 // RS (Read Storage)
                 let address = self.stack.pop()?.as_uint32();
@@ -247,7 +259,7 @@ impl Interpreter {
 
                     let mut depth = 0;
                     for (index, instruction) in instructions.enumerate() {
-                        match instruction {
+                        match instruction? {
                             op::IF => depth += 1,
                             op::ELSE => {
                                 if depth == 0 {
@@ -334,6 +346,8 @@ impl<'a> ExecutionContext<'a> {
         let mut instructions = Instructions::new(self.remaining().iter().copied());
         let mut depth = 0;
         while let Some(instruction) = instructions.next() {
+            let instruction = instruction?;
+
             if instruction == op::ENDF {
                 if depth == 0 {
                     let offset = instructions.offset;
@@ -357,6 +371,14 @@ impl<'a> ExecutionContext<'a> {
     }
 }
 
+/// An iterator over the instructions of a program
+///
+/// ## Why?
+/// Truetype instructions encode their operands as part of the program.
+/// For example, the PUSHB instructions push bytes on the stack, and these bytes
+/// are stored directly after the instruction.
+/// Therefore, simply iterating over the bytes of a program is not sufficient, since
+/// operands will be misinterpreted as opcodes.
 struct Instructions<I> {
     bytes: I,
     offset: usize,
@@ -369,25 +391,54 @@ impl<I> Instructions<I> {
     }
 }
 
+impl<I> Instructions<I>
+where
+    I: Iterator<Item = u8>,
+{
+    fn advance_stream(&mut self, n: usize) -> Result<(), Error> {
+        if self.bytes.advance_by(n as usize).is_err() {
+            return Err(Error::EndOfFileInInstruction);
+        }
+
+        self.offset += n as usize;
+        Ok(())
+    }
+}
+
 impl<I> Iterator for Instructions<I>
 where
     I: Iterator<Item = u8>,
 {
-    type Item = u8;
+    type Item = Result<u8, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let instruction = self.bytes.next()?;
         self.offset += 1;
 
-        // If the instruction is a PUSHB then the next few bytes are not instructions
-        // but instead values to be pushed onto the stack
-        if (op::PUSHB_START..=op::PUSHB_END).contains(&instruction) {
-            let n_bytes_to_skip = instruction - op::PUSHB_START + 1;
-            let _ = self.bytes.advance_by(n_bytes_to_skip as usize);
-            self.offset += n_bytes_to_skip as usize;
+        match instruction {
+            op::PUSHB_START..=op::PUSHB_END => {
+                // If the instruction is a PUSHB then the next few bytes are not instructions
+                // but instead values to be pushed onto the stack
+                let n_bytes_to_skip = instruction - op::PUSHB_START + 1;
+                if let Err(error) = self.advance_stream(n_bytes_to_skip as usize) {
+                    return Some(Err(error));
+                }
+            },
+            op::NPUSHB => {
+                let Some(n) = self.bytes.next() else {
+                    return Some(Err(Error::EndOfFileInInstruction));
+                };
+
+                if let Err(error) = self.advance_stream(n as usize) {
+                    return Some(Err(error));
+                }
+            },
+            _ => {
+                // All other opcodes don't store their data in the instruction stream
+            },
         }
 
-        Some(instruction)
+        Some(Ok(instruction))
     }
 }
 
@@ -493,6 +544,12 @@ impl StackElement {
     #[must_use]
     fn as_f26dot6(&self) -> F26Dot6 {
         F26Dot6::from_bits(self.as_int32())
+    }
+}
+
+impl From<u8> for StackElement {
+    fn from(value: u8) -> Self {
+        Self(value as u32)
     }
 }
 
