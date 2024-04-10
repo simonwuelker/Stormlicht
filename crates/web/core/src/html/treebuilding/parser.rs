@@ -2688,80 +2688,6 @@ impl<P: ParseErrorHandler> Parser<P> {
                     _ => todo!(),
                 }
             },
-            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterbody
-            InsertionMode::AfterBody => {
-                match token {
-                    Token::Character(TAB | LINE_FEED | FORM_FEED | WHITESPACE) => {
-                        // Process the token using the rules for the "in body" insertion mode.
-                        self.consume_in_mode(InsertionMode::InBody, token);
-                    },
-                    Token::Comment(data) => {
-                        // Insert a comment as the last child of the first element in the stack of
-                        // open elements (the html element).
-                        self.insert_comment(data)
-                    },
-                    Token::DOCTYPE(_) => {
-                        // parse error, ignore token
-                    },
-                    Token::Tag(ref tagdata)
-                        if tagdata.opening && tagdata.name == static_interned!("html") =>
-                    {
-                        // Process the token using the rules for the "in body" insertion mode.
-                        self.consume_in_mode(InsertionMode::InBody, token);
-                    },
-                    Token::Tag(tagdata)
-                        if !tagdata.opening && tagdata.name == static_interned!("html") =>
-                    {
-                        // FIXME
-                        // If the parser was created as part of the HTML fragment parsing
-                        // algorithm, this is a parse error; ignore the token. (fragment case)
-
-                        // Otherwise, switch the insertion mode to "after after body".
-                        self.insertion_mode = InsertionMode::AfterAfterBody;
-                    },
-                    Token::EOF => {
-                        // Stop parsing.
-                        self.stop_parsing();
-                    },
-                    _ => {
-                        // Parse error. Switch the insertion mode to "in body" and reprocess the
-                        // token.
-                        self.insertion_mode = InsertionMode::InBody;
-                        self.consume(token);
-                    },
-                }
-            },
-            // https://html.spec.whatwg.org/multipage/parsing.html#the-after-after-body-insertion-mode
-            InsertionMode::AfterAfterBody => {
-                match token {
-                    Token::Comment(data) => {
-                        // Insert a comment as the last child of the Document object. FIXME is the
-                        // first element the document?
-                        self.insert_comment(data);
-                    },
-                    Token::Character(TAB | LINE_FEED | FORM_FEED | WHITESPACE)
-                    | Token::DOCTYPE(_) => {
-                        // Process the token using the rules for the "in body" insertion mode.
-                        self.consume_in_mode(InsertionMode::InBody, token);
-                    },
-                    Token::Tag(ref tagdata)
-                        if tagdata.opening && tagdata.name == static_interned!("html") =>
-                    {
-                        // Process the token using the rules for the "in body" insertion mode.
-                        self.consume_in_mode(InsertionMode::InBody, token);
-                    },
-                    Token::EOF => {
-                        // Stop parsing.
-                        self.stop_parsing();
-                    },
-                    _ => {
-                        // Parse error. Switch the insertion mode to "in body" and reprocess the
-                        // token.
-                        self.insertion_mode = InsertionMode::InBody;
-                        self.consume(token);
-                    },
-                }
-            },
             // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incdata
             InsertionMode::Text => {
                 match token {
@@ -3075,6 +3001,12 @@ impl<P: ParseErrorHandler> Parser<P> {
                     },
                 }
             },
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incaption
+            InsertionMode::InCaption => todo!("implement InCaption mode"),
+
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incolgroup
+            InsertionMode::InColumnGroup => todo!("implement InColumnGroup mode"),
+
             // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intbody
             InsertionMode::InTableBody => {
                 match token {
@@ -3186,7 +3118,105 @@ impl<P: ParseErrorHandler> Parser<P> {
                     },
                 }
             },
-            _ => todo!("Implement '{mode:?}' state"),
+
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intr
+            InsertionMode::InRow => todo!("implement InRow state"),
+
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intd
+            InsertionMode::InCell => todo!("implement InCell state"),
+
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inselect
+            InsertionMode::InSelect => todo!("implement InSelect state"),
+
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inselectintable
+            InsertionMode::InSelectInTable => todo!("implement InSelectInTable mode"),
+
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intemplate
+            InsertionMode::InTemplate => todo!("implement InTemplate mode"),
+
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterbody
+            InsertionMode::AfterBody => {
+                match token {
+                    Token::Character(TAB | LINE_FEED | FORM_FEED | WHITESPACE) => {
+                        // Process the token using the rules for the "in body" insertion mode.
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                    },
+                    Token::Comment(data) => {
+                        // Insert a comment as the last child of the first element in the stack of
+                        // open elements (the html element).
+                        self.insert_comment(data)
+                    },
+                    Token::DOCTYPE(_) => {
+                        // parse error, ignore token
+                    },
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("html") =>
+                    {
+                        // Process the token using the rules for the "in body" insertion mode.
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                    },
+                    Token::Tag(tagdata)
+                        if !tagdata.opening && tagdata.name == static_interned!("html") =>
+                    {
+                        // FIXME
+                        // If the parser was created as part of the HTML fragment parsing
+                        // algorithm, this is a parse error; ignore the token. (fragment case)
+
+                        // Otherwise, switch the insertion mode to "after after body".
+                        self.insertion_mode = InsertionMode::AfterAfterBody;
+                    },
+                    Token::EOF => {
+                        // Stop parsing.
+                        self.stop_parsing();
+                    },
+                    _ => {
+                        // Parse error. Switch the insertion mode to "in body" and reprocess the
+                        // token.
+                        self.insertion_mode = InsertionMode::InBody;
+                        self.consume(token);
+                    },
+                }
+            },
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inframeset
+            InsertionMode::InFrameset => todo!("implement InFrameset mode"),
+
+            // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterframeset
+            InsertionMode::AfterFrameset => todo!("implement AfterFrameset mode"),
+
+            // https://html.spec.whatwg.org/multipage/parsing.html#the-after-after-body-insertion-mode
+            InsertionMode::AfterAfterBody => {
+                match token {
+                    Token::Comment(data) => {
+                        // Insert a comment as the last child of the Document object. FIXME is the
+                        // first element the document?
+                        self.insert_comment(data);
+                    },
+                    Token::Character(TAB | LINE_FEED | FORM_FEED | WHITESPACE)
+                    | Token::DOCTYPE(_) => {
+                        // Process the token using the rules for the "in body" insertion mode.
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                    },
+                    Token::Tag(ref tagdata)
+                        if tagdata.opening && tagdata.name == static_interned!("html") =>
+                    {
+                        // Process the token using the rules for the "in body" insertion mode.
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                    },
+                    Token::EOF => {
+                        // Stop parsing.
+                        self.stop_parsing();
+                    },
+                    _ => {
+                        // Parse error. Switch the insertion mode to "in body" and reprocess the
+                        // token.
+                        self.insertion_mode = InsertionMode::InBody;
+                        self.consume(token);
+                    },
+                }
+            },
+
+            // https://html.spec.whatwg.org/multipage/parsing.html#the-after-after-frameset-insertion-mode
+            InsertionMode::AfterAfterFrameset => todo!("implement AfterAfterFrameset mode"),
         }
     }
 
