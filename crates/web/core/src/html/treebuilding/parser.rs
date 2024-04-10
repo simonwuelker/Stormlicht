@@ -3132,7 +3132,146 @@ impl<P: ParseErrorHandler> Parser<P> {
             InsertionMode::InSelectInTable => todo!("implement InSelectInTable mode"),
 
             // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intemplate
-            InsertionMode::InTemplate => todo!("implement InTemplate mode"),
+            InsertionMode::InTemplate => {
+                match token {
+                    Token::Character(_) | Token::Comment(_) | Token::DOCTYPE(_) => {
+                        // Process the token using the rules for the "in body" insertion mode.
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                    },
+                    Token::Tag(ref tag)
+                        if tag.opening
+                            && matches!(
+                                tag.name,
+                                static_interned!("base")
+                                    | static_interned!("basefont")
+                                    | static_interned!("bgsound")
+                                    | static_interned!("link")
+                                    | static_interned!("meta")
+                                    | static_interned!("noframes")
+                                    | static_interned!("script")
+                                    | static_interned!("style")
+                                    | static_interned!("template")
+                                    | static_interned!("title")
+                            ) =>
+                    {
+                        // Process the token using the rules for the "in head" insertion mode.
+                        self.consume_in_mode(InsertionMode::InHead, token);
+                    },
+                    Token::Tag(ref tag)
+                        if !tag.opening && tag.name == static_interned!("template") =>
+                    {
+                        // Process the token using the rules for the "in head" insertion mode.
+                        self.consume_in_mode(InsertionMode::InHead, token);
+                    },
+                    Token::Tag(ref tag)
+                        if tag.opening
+                            && matches!(
+                                tag.name,
+                                static_interned!("caption")
+                                    | static_interned!("colgroup")
+                                    | static_interned!("tbody")
+                                    | static_interned!("tfoot")
+                                    | static_interned!("thead")
+                            ) =>
+                    {
+                        // Pop the current template insertion mode off the stack of template insertion modes.
+                        self.template_insertion_modes.pop();
+
+                        // Push "in table" onto the stack of template insertion modes so that it is the new
+                        // current template insertion mode.
+                        self.template_insertion_modes.push(InsertionMode::InTable);
+
+                        // Switch the insertion mode to "in table", and reprocess the token.
+                        self.insertion_mode = InsertionMode::InTable;
+                        self.consume(token);
+                    },
+                    Token::Tag(ref tag) if tag.opening && tag.name == static_interned!("col") => {
+                        // Pop the current template insertion mode off the stack of template insertion modes.
+                        self.template_insertion_modes.pop();
+
+                        // Push "in column group" onto the stack of template insertion modes so that it is
+                        // the new current template insertion mode.
+                        self.template_insertion_modes
+                            .push(InsertionMode::InColumnGroup);
+
+                        // Switch the insertion mode to "in column group", and reprocess the token.
+                        self.insertion_mode = InsertionMode::InColumnGroup;
+                        self.consume(token);
+                    },
+                    Token::Tag(ref tag) if tag.opening && tag.name == static_interned!("tr") => {
+                        // Pop the current template insertion mode off the stack of template insertion modes.
+                        self.template_insertion_modes.pop();
+
+                        // Push "in table body" onto the stack of template insertion modes so that it is
+                        // the new current template insertion mode.
+                        self.template_insertion_modes
+                            .push(InsertionMode::InTableBody);
+
+                        // Switch the insertion mode to "in table body", and reprocess the token.
+                        self.insertion_mode = InsertionMode::InTableBody;
+                        self.consume(token);
+                    },
+                    Token::Tag(ref tag)
+                        if tag.opening
+                            && matches!(
+                                tag.name,
+                                static_interned!("td") | static_interned!("th")
+                            ) =>
+                    {
+                        // Pop the current template insertion mode off the stack of template insertion modes.
+                        self.template_insertion_modes.pop();
+
+                        // Push "in row" onto the stack of template insertion modes so that it is the new current template insertion mode.
+                        self.template_insertion_modes.push(InsertionMode::InRow);
+
+                        // Switch the insertion mode to "in row", and reprocess the token.
+                        self.insertion_mode = InsertionMode::InRow;
+                        self.consume(token);
+                    },
+                    Token::Tag(ref tag) if tag.opening => {
+                        // Pop the current template insertion mode off the stack of template insertion modes.
+                        self.template_insertion_modes.pop();
+
+                        // Push "in body" onto the stack of template insertion modes so that it is the new current template insertion mode.
+                        self.template_insertion_modes.push(InsertionMode::InBody);
+
+                        // Switch the insertion mode to "in body", and reprocess the token.
+                        self.insertion_mode = InsertionMode::InBody;
+                        self.consume(token);
+                    },
+                    Token::Tag(_) => {
+                        // Parse error. Ignore the token.
+                    },
+                    Token::EOF => {
+                        // If there is no template element on the stack of open elements, then stop parsing. (fragment case)
+                        let contains_template_element = self
+                            .open_elements
+                            .iter()
+                            .any(|element| element.is_a::<HtmlTemplateElement>());
+                        if !contains_template_element {
+                            self.stop_parsing();
+                        } else {
+                            // Otherwise, this is a parse error.
+                            // Pop elements from the stack of open elements until a template element has been popped from the stack.
+                            self.pop_from_open_elements_until(|elem| {
+                                elem.borrow().local_name() == static_interned!("template")
+                            });
+
+                            // Clear the list of active formatting elements up to the last marker.
+                            self.active_formatting_elements.clear_up_to_last_marker();
+
+                            // Pop the current template insertion mode off the stack of template insertion modes.
+                            self.template_insertion_modes.pop();
+
+                            // Reset the insertion mode appropriately.
+                            self.reset_insertion_mode_appropriately();
+
+                            // Reprocess the token.
+                            self.consume(token);
+                        }
+                    },
+                }
+            },
 
             // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-afterbody
             InsertionMode::AfterBody => {
