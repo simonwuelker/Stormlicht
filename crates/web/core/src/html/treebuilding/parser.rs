@@ -1451,7 +1451,6 @@ impl<P: ParseErrorHandler> Parser<P> {
                             // 6. Reset the insertion mode appropriately.
                             self.reset_insertion_mode_appropriately();
                         }
-                        todo!();
                     },
                     Token::Tag(ref tagdata)
                         if (tagdata.opening && tagdata.name == static_interned!("head"))
