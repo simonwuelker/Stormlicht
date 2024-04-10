@@ -116,15 +116,15 @@ impl<'a> Iterator for LineBreakIterator<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::LineBreakIterator;
-    use crate::css::{layout::Pixels, FontMetrics};
+    use super::*;
+    use font::Font;
 
     #[test]
     fn do_not_break_empty_text() {
         // When iterating over line breaks of empty text, we should produce no lines at all
         // (as opposed to one empty line)
         let font_metrics = FontMetrics {
-            font_face: Box::default(),
+            font_face: Box::new(Font::fallback()),
             size: Pixels::ZERO,
         };
 

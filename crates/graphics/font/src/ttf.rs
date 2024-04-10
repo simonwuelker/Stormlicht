@@ -370,11 +370,10 @@ impl Font {
             symbol_uses,
         )
     }
-}
 
-impl Default for Font {
-    fn default() -> Self {
-        Self::new(DEFAULT_FONT).unwrap()
+    /// A font that can be used for testing, or if no other font is available
+    pub fn fallback() -> Self {
+        Self::new(DEFAULT_FONT).expect("Fallback font file is valid")
     }
 }
 
