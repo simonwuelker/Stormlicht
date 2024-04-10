@@ -1653,13 +1653,22 @@ impl<P: ParseErrorHandler> Parser<P> {
                     {
                         // Parse error.
 
-                        // If there is a template element on the stack of open elements, then ignore
-                        // the token.
-                        if self.current_node().underlying_type() != DomType::HtmlTemplateElement {
+                        // If there is a template element on the stack of open elements,
+                        if self
+                            .open_elements
+                            .iter()
+                            .any(|elem| elem.borrow().local_name() == static_interned!("template"))
+                        {
+                            // then ignore the token.
+                            return;
+                        } else {
                             // Otherwise, for each attribute on the token, check to see if the attribute is
                             // already present on the top element of the stack of open elements. If it is
                             // not, add the attribute and its corresponding value to that element.
-                            todo!();
+                            for attribute in tagdata.attributes() {
+                                _ = attribute;
+                                todo!();
+                            }
                         }
                     },
                     Token::Tag(ref tagdata)
