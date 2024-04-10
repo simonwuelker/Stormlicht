@@ -132,7 +132,7 @@ impl Font {
         // If no such table exists then the font is not instructed
         let is_instructed = offset_table
             .get_table(FPGM_TAG)
-            .map(|fpgm_entry| data[fpgm_entry.offset()..][..fpgm_entry.length()].to_owned())
+            .map(|fpgm_entry| &data[fpgm_entry.offset()..][..fpgm_entry.length()])
             .filter(|p| {
                 let result = interpreter.run(p);
                 if let Err(error) = result {
