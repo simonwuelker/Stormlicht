@@ -391,6 +391,8 @@ where
     }
 }
 
+impl<I> FusedIterator for Instructions<I> where I: Iterator<Item = u8> {}
+
 #[derive(Clone, Copy, Debug)]
 pub enum Zone {
     /// Z0
