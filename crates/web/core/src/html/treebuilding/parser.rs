@@ -1743,9 +1743,17 @@ impl<P: ParseErrorHandler> Parser<P> {
                             // Otherwise, for each attribute on the token, check to see if the attribute is
                             // already present on the top element of the stack of open elements. If it is
                             // not, add the attribute and its corresponding value to that element.
-                            for attribute in tagdata.attributes() {
-                                _ = attribute;
-                                todo!();
+                            let html_element = self
+                                .open_elements
+                                .first()
+                                .expect("Stack of open elements cannot be empty");
+
+                            for (key, value) in tagdata.attributes() {
+                                html_element
+                                    .borrow_mut()
+                                    .attributes_mut()
+                                    .entry(*key)
+                                    .or_insert(*value);
                             }
                         }
                     },
