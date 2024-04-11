@@ -612,42 +612,102 @@ impl<P: ParseErrorHandler> Parser<P> {
                 last = true;
             }
 
-            // 4. FIXME: If node is a select element, run these substeps:
+            // 4. If node is a select element, run these substeps:
+            let node_name = node.borrow().local_name();
+            if node_name == static_interned!("select") {
+                // 1. If last is true, jump to the step below labeled done.
+                if last {
+                    break;
+                }
 
-            // 5. FIXME: If node is a td or th element and last is false, then switch the insertion mode to "in cell" and return.
+                // 2. Let ancestor be node.
+                // 3. Loop: If ancestor is the first node in the stack of open elements, jump to the step below labeled done.
+                // 4. Let ancestor be the node before ancestor in the stack of open elements.
+                for ancestor in self.open_elements.iter().rev().skip(1) {
+                    // 5. If ancestor is a template node, jump to the step below labeled done.
+                    let ancestor_name = ancestor.borrow().local_name();
+                    if ancestor_name == static_interned!("template") {
+                        break;
+                    }
 
-            // 6. FIXME: If node is a tr element, then switch the insertion mode to "in row" and return.
+                    // 6. If ancestor is a table node, switch the insertion mode to "in select in table" and return.
+                    if ancestor_name == static_interned!("table") {
+                        self.insertion_mode = InsertionMode::InSelectInTable;
+                    }
 
-            // 7. FIXME: If node is a tbody, thead, or tfoot element, then switch the insertion mode to "in table body" and return.
+                    // 7. Jump back to the step labeled loop.
+                }
 
-            // 8. FIXME: If node is a caption element, then switch the insertion mode to "in caption" and return.
+                // 8. Done: Switch the insertion mode to "in select" and return.
+                self.insertion_mode = InsertionMode::InSelect;
+                return;
+            }
 
-            // 9. FIXME: If node is a colgroup element, then switch the insertion mode to "in column group" and return.
+            // 5. If node is a td or th element and last is false, then switch the insertion mode to "in cell" and return.
+            if matches!(node_name, static_interned!("td") | static_interned!("th")) {
+                self.insertion_mode = InsertionMode::InCell;
+                return;
+            }
 
-            // 10. FIXME: If node is a table element, then switch the insertion mode to "in table" and return.
+            // 6. If node is a tr element, then switch the insertion mode to "in row" and return.
+            if node_name == static_interned!("tr") {
+                self.insertion_mode = InsertionMode::InRow;
+                return;
+            }
+
+            // 7. If node is a tbody, thead, or tfoot element, then switch the insertion mode to "in table body" and return.
+            if matches!(
+                node_name,
+                static_interned!("tbody") | static_interned!("thead") | static_interned!("tfoot")
+            ) {
+                self.insertion_mode = InsertionMode::InTable;
+                return;
+            }
+
+            // 8. If node is a caption element, then switch the insertion mode to "in caption" and return.
+            if node_name == static_interned!("caption") {
+                self.insertion_mode = InsertionMode::InCaption;
+                return;
+            }
+
+            // 9. If node is a colgroup element, then switch the insertion mode to "in column group" and return.
+            if node_name == static_interned!("colgroup") {
+                self.insertion_mode = InsertionMode::InColumnGroup;
+                return;
+            }
+
+            // 10. If node is a table element, then switch the insertion mode to "in table" and return.
+            if node_name == static_interned!("table") {
+                self.insertion_mode = InsertionMode::InTable;
+                return;
+            }
 
             // 11: If node is a template element, then switch the insertion mode to the current template insertion mode and return.
-            if node.is_a::<HtmlTemplateElement>() {
+            if node_name == static_interned!("template") {
                 self.insertion_mode = self.current_template_insertion_mode();
                 return;
             }
 
             // 12. If node is a head element and last is false, then switch the insertion mode to "in head" and return.
-            if node.is_a::<HtmlHeadElement>() {
+            if node_name == static_interned!("head") {
                 self.insertion_mode = InsertionMode::InHead;
                 return;
             }
 
             // 13. If node is a body element, then switch the insertion mode to "in body" and return.
-            if node.is_a::<HtmlBodyElement>() {
+            if node_name == static_interned!("body") {
                 self.insertion_mode = InsertionMode::InBody;
                 return;
             }
 
-            // 14. FIXME: If node is a frameset element, then switch the insertion mode to "in frameset" and return. (fragment case)
+            // 14. If node is a frameset element, then switch the insertion mode to "in frameset" and return. (fragment case)
+            if node_name == static_interned!("frameset") {
+                self.insertion_mode = InsertionMode::InFrameset;
+                return;
+            }
 
             // 15. If node is an html element, run these substeps:
-            if node.is_a::<HtmlHtmlElement>() {
+            if node_name == static_interned!("html") {
                 // 1. If the head element pointer is null, switch the insertion mode to "before head" and return. (fragment case)
                 if self.head.is_none() {
                     self.insertion_mode = InsertionMode::BeforeHead;
