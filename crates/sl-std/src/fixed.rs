@@ -2,15 +2,11 @@
 
 use std::{fmt, ops};
 
-use crate::const_assert;
-
 /// Fixed point floating number using two's complement
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Fixed<const N: usize>(i32);
 
 impl<const N: usize> Fixed<N> {
-    const_assert!(N <= 32, "Cannot use more than 32 bits for fractional part");
-
     pub const INT_BITS: usize = 32 - N;
     pub const FRAC_BITS: usize = N;
 
