@@ -7,7 +7,7 @@ pub struct InvalidEncoding;
 #[allow(non_camel_case_types)]
 pub enum Encoding {
 	{% for encoding in encodings %}
-		{{ encoding["name"] }},
+		{{ encoding["name"] | transform_encoding_name }},
 	{% endfor %}
 }
 
@@ -27,7 +27,7 @@ impl FromStr for Encoding {
 		let encoding = match label.as_str() {
 			{% for encoding in encodings %}
 				{% for name in encoding["labels"] %}
-					"{{ name }}" => Self::{{ encoding["name"] }},
+					"{{ name }}" => Self::{{ encoding["name"] | transform_encoding_name }},
 				{% endfor %}
 			{% endfor %}
 			_ => return Err(InvalidEncoding),

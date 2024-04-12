@@ -15,6 +15,10 @@ pub fn main() {
             .join("encodings.json")
             .display()
     );
+    println!(
+        "cargo:rerun-if-changed={}",
+        PathBuf::from(&download_dir).join("indexes.json").display()
+    );
 
     Command::new(PYTHON.as_str())
         .args(&["build.py".into(), out_dir, download_dir])

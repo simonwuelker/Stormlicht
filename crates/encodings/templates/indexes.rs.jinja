@@ -1,0 +1,29 @@
+const REPLACEMENT: u32 = {{ REPLACEMENT }};
+
+#[allow(dead_code)] // only used at compile time
+const fn all_are_valid_chars(values: &[u32]) -> bool {
+	let mut i = 0;
+	while i < values.len() {
+		if char::from_u32(values[i]).is_none() {
+			return false;
+		}
+		i += 1;
+	}
+
+	true
+}
+
+{% for index_name in indexes %}
+	{% set index = indexes[index_name] %}
+
+	{% if index_name == "gb18030-ranges" %}
+		{# gb18030-ranges has a different format than all other indexes #}
+	{% else %}
+		/// The index for the `{{ index_name }}` encoding
+		pub mod {{ index_name | transform_encoding_name }} {
+			pub const TABLE: [u32; {{ index | length }}] = {{ index | replace_nones }};
+
+			sl_std::const_assert!(super::all_are_valid_chars(&TABLE));
+		}
+	{% endif %}
+{% endfor %}
