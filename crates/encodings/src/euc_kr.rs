@@ -39,18 +39,14 @@ impl Decoder for EucKrDecoder {
             // 2. Let code point be null if pointer is null,
             // otherwise the index code point for pointer in index EUC-KR.
             let code_point = if pointer == 0 {
-                0
+                '\x00'
             } else {
                 index::euc_kr::TABLE[pointer as usize]
             };
 
             // 3. If code point is non-null, return a code point whose value is code point.
-            if code_point != 0 {
-                debug_assert!(char::from_u32(code_point).is_some());
-
-                // SAFETY: The index is known to only contain valid codepoints
-                let c = unsafe { char::from_u32_unchecked(code_point) };
-                return DecodeResult::Item(c);
+            if code_point != '\x00' {
+                return DecodeResult::Item(code_point);
             }
 
             // 4. If byte is an ASCII byte, restore byte to ioQueue.

@@ -53,7 +53,7 @@ impl Decoder for EucJpDecoder {
             self.lead = 0;
 
             // 1. Let code point be null.
-            let mut code_point = 0;
+            let mut code_point = '\x00';
 
             // 2. If lead and byte are both in the range 0xA1 to 0xFE, inclusive,
             //    then set code point to the index code point for
@@ -73,12 +73,8 @@ impl Decoder for EucJpDecoder {
             self.jis0212 = false;
 
             // 4. If code point is non-null, return a code point whose value is code point.
-            if code_point != 0 {
-                debug_assert!(char::from_u32(code_point).is_some());
-
-                // SAFETY: The table is known to only contain valid characters
-                let c = unsafe { char::from_u32_unchecked(code_point) };
-                return DecodeResult::Item(c);
+            if code_point != '\x00' {
+                return DecodeResult::Item(code_point);
             }
 
             // 5. If byte is an ASCII byte, restore byte to ioQueue.
