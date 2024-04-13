@@ -3,6 +3,7 @@
 #![feature(byte_slice_trim_ascii, ascii_char)]
 
 mod decoder;
+mod euc_jp;
 mod euc_kr;
 
 mod encodings {
