@@ -10,7 +10,7 @@ pub mod request;
 mod response;
 mod status_code;
 
-pub use headers::Headers;
+pub use headers::{Header, Headers};
 pub use request::Request;
 pub use response::Response;
 pub use status_code::StatusCode;

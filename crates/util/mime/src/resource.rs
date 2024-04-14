@@ -7,7 +7,7 @@ use crate::{
     sniff_tables, MIMEType,
 };
 
-use http::request::HTTPError;
+use http::{request::HTTPError, Header};
 use sl_std::{ascii, base64};
 use url::{ExcludeFragment, URL};
 
@@ -97,7 +97,7 @@ impl Resource {
                     response.context().url.serialize(ExcludeFragment::Yes)
                 );
 
-                if let Some(content_type_string) = response.headers().get("Content-Type") {
+                if let Some(content_type_string) = response.headers().get(Header::CONTENT_TYPE) {
                     if let Ok(content_type) = MIMEType::from_str(content_type_string) {
                         supplied_type = Some(content_type);
                     }

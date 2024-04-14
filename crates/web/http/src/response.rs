@@ -3,12 +3,12 @@
 use std::io::{BufRead, BufReader, Read};
 
 use compression::{brotli, gzip, zlib};
-use sl_std::iter::MultiElementSplit;
+use sl_std::{ascii, iter::MultiElementSplit};
 
 use crate::{
     request::{Context, HTTPError, HTTP_NEWLINE},
     status_code::StatusCode,
-    Headers,
+    Header, Headers,
 };
 
 /// Like [BufReader::read_until], except the needle may have arbitrary length
@@ -119,10 +119,15 @@ impl Response {
 
             let key = &header_line[..separator];
             let value = &header_line[separator + 1..];
+
+            // FIXME: Find a way not to clone the header here
+            let header_name = ascii::Str::from_bytes(key)
+                .ok_or(HTTPError::InvalidResponse)?
+                .trim()
+                .to_lowercase();
+            let header = Header::from_lowercase_str(&header_name);
             headers.set(
-                std::str::from_utf8(key)
-                    .map_err(|_| HTTPError::InvalidResponse)?
-                    .trim(),
+                header,
                 std::str::from_utf8(value)
                     .map_err(|_| HTTPError::InvalidResponse)?
                     .trim()
@@ -132,7 +137,9 @@ impl Response {
 
         // Anything after the headers is the actual response body
         // The length of the body depends on the headers that were sent
-        let mut body: Vec<u8> = if let Some(transfer_encoding) = headers.get("Transfer-encoding") {
+        let mut body: Vec<u8> = if let Some(transfer_encoding) =
+            headers.get(Header::TRANSFER_ENCODING)
+        {
             match transfer_encoding {
                 "chunked" => {
                     // https://datatracker.ietf.org/doc/html/rfc9112#name-chunked-transfer-coding
@@ -175,7 +182,7 @@ impl Response {
                     return Err(HTTPError::InvalidResponse);
                 },
             }
-        } else if let Some(content_length) = headers.get("Content-Length") {
+        } else if let Some(content_length) = headers.get(Header::CONTENT_LENGTH) {
             // Reserve enough space for the content inside the response body
             let content_length: usize =
                 str::parse(content_length).map_err(|_| HTTPError::InvalidResponse)?;
@@ -189,7 +196,7 @@ impl Response {
         };
 
         // Take care of response compressions
-        if let Some(compression_algorithm) = headers.get("content-encoding") {
+        if let Some(compression_algorithm) = headers.get(Header::CONTENT_ENCODING) {
             // See https://www.rfc-editor.org/rfc/rfc2616#section-3.5
             match compression_algorithm {
                 "gzip" => {

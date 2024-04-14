@@ -7,7 +7,7 @@ use compression::{brotli, gzip, zlib};
 use dns::DNSError;
 use url::{Host, URL};
 
-use crate::{https, response::Response, Headers, StatusCode};
+use crate::{https, response::Response, Header, Headers, StatusCode};
 
 const USER_AGENT: &str = "Stormlicht";
 pub(crate) const HTTP_NEWLINE: &str = "\r\n";
@@ -54,7 +54,7 @@ pub struct Request {
 
 impl Context {
     #[must_use]
-    pub fn new(url: URL) -> Self {
+    pub const fn new(url: URL) -> Self {
         Self {
             num_redirections: 0,
             url,
@@ -64,7 +64,7 @@ impl Context {
 
 impl Method {
     #[must_use]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
             Self::GET => "GET",
             Self::POST => "POST",
@@ -86,14 +86,14 @@ impl Request {
         );
 
         let mut headers = Headers::with_capacity(3);
-        headers.set("User-Agent", USER_AGENT.to_string());
-        headers.set("Accept", "*/*".to_string());
+        headers.set(Header::USER_AGENT, USER_AGENT.to_string());
+        headers.set(Header::ACCEPT, "*/*".to_string());
         headers.set(
-            "Accept-Encoding",
+            Header::ACCEPT_ENCODING,
             "gzip, brotli, deflate, identity".to_string(),
         );
         headers.set(
-            "Host",
+            Header::HOST,
             url.host().expect("URL does not have a host").to_string(),
         );
 
@@ -129,7 +129,7 @@ impl Request {
 
         // Send headers
         for (header, value) in self.headers.iter() {
-            write!(writer, "{header}: {value}{HTTP_NEWLINE}")?;
+            write!(writer, "{}: {value}{HTTP_NEWLINE}", header.as_str())?;
         }
 
         // Finish request with an extra newline
@@ -189,7 +189,7 @@ impl Request {
         if response.status().is_redirection() {
             if let Some(relocation) = response
                 .headers()
-                .get("Location")
+                .get(Header::LOCATION)
                 .and_then(|location| location.parse::<URL>().ok())
             {
                 log::info!(
@@ -215,7 +215,7 @@ impl Request {
                 }
 
                 self.headers.set(
-                    "Host",
+                    Header::HOST,
                     relocation
                         .host()
                         .expect("relocation url does not have a host")
