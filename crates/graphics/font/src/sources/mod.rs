@@ -1,4 +1,4 @@
-use crate::{Language, SystemFont};
+use crate::SystemFont;
 
 /// Used to abstract over font source backends (fontconfig etc)
 pub trait FontStore {

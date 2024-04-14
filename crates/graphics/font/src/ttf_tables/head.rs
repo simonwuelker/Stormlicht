@@ -80,7 +80,7 @@ impl HeadTable {
         self.max_y
     }
 
-    /// Get the format of the [Loca Table](crate::ttf::tables::loca::LocaTable).
+    /// Get the format of the [Loca Table](super::loca::LocaTable).
     #[inline]
     #[must_use]
     pub fn loca_table_format(&self) -> LocaTableFormat {

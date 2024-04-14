@@ -1,6 +1,6 @@
 //! [Vertical Header](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6hhea.html) Table
 //!
-//! Mostly just contains information for the [vmtx](crate::ttf::tables::vmtx) table.
+//! Mostly just contains information for the [vmtx](super::vmtx) table.
 
 use crate::ttf::read_u16_at;
 
