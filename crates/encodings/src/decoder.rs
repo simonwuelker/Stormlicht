@@ -15,7 +15,7 @@ pub enum DecodeResult {
 
 #[derive(Clone, Copy, Debug)]
 pub struct DecodeError {
-    byte_offset: usize,
+    pub byte_offset: usize,
 }
 
 pub struct Context<'a> {
