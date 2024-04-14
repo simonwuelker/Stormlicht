@@ -46,25 +46,30 @@ pub struct URL {
     /// It is initially the empty string.
     pub(crate) password: ascii::String,
 
-    /// A [URL]’s host is [None](Option::None) or a [host](Host).
-    /// It is initially [None](Option::None).
+    /// A [URL]’s host is [None] or a [host](Host).
+    ///
+    /// It is initially [None].
     pub(crate) host: Option<Host>,
 
-    /// A [URL]’s port is either [None](Option::None) or a 16-bit unsigned integer that identifies a networking port.
-    /// It is initially [None](Option::None).
+    /// A [URL]’s port is either [None] or a 16-bit unsigned integer that identifies a networking port.
+    ///
+    /// It is initially [None].
     pub(crate) port: Option<Port>,
 
     /// A [URL]’s path is either a URL path segment or a list of zero or more URL path segments,
+    ///
     /// usually identifying a location. It is initially « ».
     pub(crate) path: Vec<ascii::String>,
 
-    /// A [URL]’s query is either [None](Option::None) or an ASCII string.
-    /// It is initially [None](Option::None).
+    /// A [URL]’s query is either [None] or an ASCII string.
+    ///
+    /// It is initially [None].
     pub(crate) query: Option<ascii::String>,
 
-    /// A URL’s fragment is either [None](Option::None) or an ASCII string
+    /// A URL’s fragment is either [None] or an ASCII string
     /// that can be used for further processing on the resource the URL’s other components identify.
-    /// It is initially [None](Option::None).
+    ///
+    /// It is initially [None].
     pub(crate) fragment: Option<ascii::String>,
 }
 
