@@ -1146,36 +1146,3 @@ pub enum NonStandardHeader {
     /// Refer to [Header::X_DNS_PREFETCH_CONTROL] for documentation
     DnsPrefetchControl,
 }
-
-#[inline]
-#[must_use]
-fn is_legal_in_header_name(b: u8) -> bool {
-    // "Any char except CTL and separators"
-    b < 0x80 && !is_ascii_separator(b) && !b.is_ascii_control()
-}
-
-#[must_use]
-#[inline]
-const fn is_ascii_separator(b: u8) -> bool {
-    matches!(
-        b,
-        b'(' | b')'
-            | b'<'
-            | b'>'
-            | b'@'
-            | b','
-            | b';'
-            | b':'
-            | b'\\'
-            | b'"'
-            | b'/'
-            | b'['
-            | b']'
-            | b'?'
-            | b'='
-            | b'{'
-            | b'}'
-            | b' '
-            | b'\t'
-    )
-}
