@@ -6,6 +6,7 @@
 //! * <https://imrannazar.com/series/lets-build-a-jpeg-decoder>
 //! * <http://www.opennet.ru/docs/formats/jpeg.txt>
 
+mod bit_reader;
 mod chunk;
 mod huffman_table;
 mod quantization_table;

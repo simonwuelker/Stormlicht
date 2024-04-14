@@ -1,6 +1,6 @@
 use std::num::{NonZero, NonZeroU16};
 
-use super::Error;
+use super::{bit_reader::BitReader, Error};
 
 const MAX_NUM_HUFFMAN_TABLES: usize = 32;
 
@@ -41,6 +41,14 @@ impl HuffmanTable {
             consumed_bits: entry.mask.count_ones(),
         }
     }
+
+    #[must_use]
+    pub fn lookup_code_from_reader(&self, reader: &mut BitReader<'_>) -> u8 {
+        let result = self.lookup_code(reader.peek_u16());
+        reader.advance(result.consumed_bits.get() as usize);
+
+        result.symbol
+    }
 }
 
 impl Default for HuffmanTable {
@@ -75,6 +83,11 @@ struct HuffmanTableEntry {
 }
 
 impl HuffmanTables {
+    #[must_use]
+    pub fn get(&self, index: usize) -> &HuffmanTable {
+        &self.tables[index]
+    }
+
     pub fn add_table(&mut self, bytes: &[u8]) -> Result<(), Error> {
         // First byte is the table id
         let table_id = *bytes.get(0).ok_or(Error::BadHuffmanTable)? as usize;
