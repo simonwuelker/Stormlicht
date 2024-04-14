@@ -63,7 +63,7 @@ impl QuantizationTables {
             };
 
             let destination = pq_tq as usize & 0x0F;
-            if destination <= self.tables.len() {
+            if self.tables.len() <= destination {
                 return Err(Error::BadQuantizationTable);
             }
 
