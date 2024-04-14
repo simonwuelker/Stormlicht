@@ -11,9 +11,11 @@ mod chunk;
 mod huffman_table;
 mod quantization_table;
 
-use crate::{jpeg::chunk::Chunk, Texture};
+use chunk::{Chunk, Chunks};
+use huffman_table::HuffmanTables;
+use quantization_table::QuantizationTables;
 
-use self::{chunk::Chunks, huffman_table::HuffmanTables, quantization_table::QuantizationTables};
+use crate::Texture;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -30,47 +32,57 @@ pub enum Error {
 
     /// A `DQT` chunk failed to parse
     BadQuantizationTable,
+
+    /// A feature is not yet implemented
+    Unsupported,
 }
 
 pub fn decode(bytes: &[u8]) -> Result<Texture, Error> {
-    Decoder::new(bytes).decode()
+    Decoder::decode(bytes)
 }
 
 #[derive(Clone)]
-struct Decoder<'a> {
-    chunks: Chunks<'a>,
-    stage: DecoderStage,
+struct Decoder {
+    huffman_tables: HuffmanTables,
+    quantization_tables: QuantizationTables,
+
+    /// Mapping from image components to their used
+    /// quantization tables
+    quantization_table_mapping: [u8; 3],
+
+    /// The frame currently being decoded
+    current_frame: Option<Frame>,
 }
 
-#[derive(Clone, Debug, Default)]
-enum DecoderStage {
-    #[default]
-    BeforeFrameHeader,
-    InFrame {
-        frame_header: FrameHeader,
-        texture: Texture,
-    },
+#[derive(Clone)]
+struct Frame {
+    header: FrameHeader,
+    texture: Texture,
 }
 
-impl<'a> Decoder<'a> {
-    #[must_use]
-    fn new(bytes: &'a [u8]) -> Self {
+impl Default for Decoder {
+    fn default() -> Self {
         Self {
-            chunks: Chunks::new(bytes),
-            stage: DecoderStage::default(),
+            huffman_tables: HuffmanTables::default(),
+            quantization_tables: QuantizationTables::default(),
+            quantization_table_mapping: [0; 3],
+            current_frame: None,
         }
     }
+}
 
-    fn decode(mut self) -> Result<Texture, Error> {
-        let first_chunk = self.chunks.next();
+impl Decoder {
+    fn decode(bytes: &[u8]) -> Result<Texture, Error> {
+        let mut chunks = Chunks::new(bytes);
+        let mut decoder = Self::default();
+
+        let first_chunk = chunks.next();
         if !matches!(first_chunk, Some(Ok(Chunk::StartOfImage))) {
             log::error!("Expected SOI chunk, found {first_chunk:?}");
             return Err(Error::UnexpectedChunk);
         }
 
-        let mut huffman_tables = HuffmanTables::default();
-        let mut quantization_tables = QuantizationTables::default();
-        for chunk in self.chunks {
+        for chunk in chunks {
             let chunk = chunk?;
 
             match chunk {
@@ -78,14 +90,20 @@ impl<'a> Decoder<'a> {
                 Chunk::Comment(_) => {},
                 Chunk::ApplicationSpecific { .. } => {},
                 Chunk::StartOfFrame { subscript, data } => {
+                    if decoder.current_frame.is_some() {
+                        // Section 4.10
+                        log::error!("FIXME: Implement hierarchical jpeg (with multiple frames)");
+                        return Err(Error::Unsupported);
+                    }
+
                     let frame_header = FrameHeader::new(subscript, data)?;
-                    process_frame(frame_header, self.chunks.remaining())?;
+                    decoder.process_frame(frame_header, chunks.remaining())?;
                 },
                 Chunk::DefineHuffmanTable(huffman_table) => {
-                    huffman_tables.add_table(huffman_table)?;
+                    decoder.huffman_tables.add_table(huffman_table)?;
                 },
                 Chunk::DefineQuantizationTable(quantization_table) => {
-                    quantization_tables.add_tables(quantization_table)?;
+                    decoder.quantization_tables.add_tables(quantization_table)?;
                 },
                 Chunk::StartOfScan { header, scan } => {
                     // we don't care about the SOS header, for now
@@ -98,72 +116,51 @@ impl<'a> Decoder<'a> {
             }
         }
 
-        let DecoderStage::InFrame {
-            frame_header,
-            texture,
-        } = self.stage
-        else {
-            log::error!("Decoder did not terminate with a complete decoded image");
-            return Err(Error::IncompleteImage);
-        };
-
-        Ok(texture)
+        todo!();
     }
 
-    fn process_frame_header(&mut self, frame_header: FrameHeader) -> Result<(), Error> {
-        if !matches!(self.stage, DecoderStage::BeforeFrameHeader) {
-            return Err(Error::UnexpectedChunk);
-        }
-
+    fn process_frame(
+        &mut self,
+        frame_header: FrameHeader,
+        frame_bytes: &[u8],
+    ) -> Result<(), Error> {
         let texture = Texture::new(
             frame_header.samples_per_line as usize,
             frame_header.number_of_lines as usize,
         );
 
-        self.stage = DecoderStage::InFrame {
-            frame_header: frame_header,
+        let frame = Frame {
+            header: frame_header,
             texture,
         };
+        self.current_frame = Some(frame);
+
+        let mut bytes = frame_bytes.iter();
+
+        // Read the image components
+        if frame_header.num_image_components != 3 {
+            log::error!(
+                "Image has {} components but we only understand images with 3 components (YCbCr)",
+                frame_header.num_image_components
+            )
+        }
+
+        for component_id in 0..frame_header.num_image_components {
+            let _id = *bytes.next().ok_or(Error::BadFrame)?;
+            let _sampling_factor = *bytes.next().ok_or(Error::BadFrame)?;
+            let used_quantization_table = *bytes.next().ok_or(Error::BadFrame)?;
+
+            self.quantization_table_mapping[component_id as usize] = used_quantization_table;
+        }
 
         Ok(())
     }
 }
 
-fn process_frame(frame_header: FrameHeader, frame_bytes: &[u8]) -> Result<(), Error> {
-    let texture = DynamicTexture::Rgb8(Texture::new(
-        frame_header.samples_per_line as usize,
-        frame_header.number_of_lines as usize,
-    ));
-
-    let mut bytes = frame_bytes.iter();
-
-    // Read the image components
-    let mut components = Vec::with_capacity(frame_header.num_image_components as usize);
-    for _ in 0..frame_header.num_image_components {
-        let id = *bytes.next().ok_or(Error::BadFrame)?;
-        let sampling = *bytes.next().ok_or(Error::BadFrame)?;
-        let q_table = *bytes.next().ok_or(Error::BadFrame)?;
-
-        let component = Component {
-            id,
-            _sampling: sampling,
-            _q_table: q_table,
-        };
-        components.push(component.id);
-    }
-
-    Ok(())
-}
-
-#[derive(Clone, Copy, Debug)]
-struct Component {
-    id: u8,
-    _sampling: u8,
-    _q_table: u8,
-}
-
 #[derive(Clone, Copy, Debug)]
 struct FrameHeader {
+    /// Specifies whether the encoding process is baseline sequential, extended sequential,
+    /// progressive, or lossless, as well as which entropy encoding procedure is used.
     subscript: u8,
 
     /// Sample precision in bits
