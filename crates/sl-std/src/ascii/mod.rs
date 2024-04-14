@@ -14,6 +14,7 @@ pub trait AsciiCharExt {
     /// <https://infra.spec.whatwg.org/#ascii-whitespace>
     fn is_whitespace(&self) -> bool;
     fn is_newline(&self) -> bool;
+    fn to_lowercase(&self) -> Self;
 }
 
 impl AsciiCharExt for Char {
@@ -26,5 +27,15 @@ impl AsciiCharExt for Char {
 
     fn is_newline(&self) -> bool {
         matches!(self, Char::LineFeed | Char::CarriageReturn)
+    }
+
+    fn to_lowercase(&self) -> Self {
+        let byte = *self as u8;
+        if (b'A'..=b'Z').contains(&byte) {
+            // SAFETY: These are all still ascii bytes (below 0x80)
+            unsafe { Self::from_u8_unchecked(byte + 0x20) }
+        } else {
+            *self
+        }
     }
 }

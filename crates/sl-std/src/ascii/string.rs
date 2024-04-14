@@ -147,6 +147,12 @@ impl String {
             )
         }
     }
+
+    #[must_use]
+    #[inline]
+    pub const fn from_chars(chars: Vec<Char>) -> Self {
+        Self { chars }
+    }
 }
 
 impl Deref for String {

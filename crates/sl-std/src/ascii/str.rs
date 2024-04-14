@@ -34,6 +34,12 @@ impl Str {
     }
 
     #[must_use]
+    pub fn to_lowercase(&self) -> String {
+        let chars = self.chars.iter().map(Char::to_lowercase).collect();
+        String::from_chars(chars)
+    }
+
+    #[must_use]
     pub const fn from_bytes(bytes: &[u8]) -> Option<&Self> {
         // Cannot use Option::map in a const context
         match bytes.as_ascii() {
