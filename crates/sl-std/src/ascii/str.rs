@@ -9,36 +9,101 @@ pub struct Str {
 }
 
 impl Str {
+    /// The empty [Str]
     pub const EMPTY: &'static Self = Self::from_ascii_chars(&[]);
 
+    /// Returns the length of `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #![feature(ascii_char_variants, ascii_char)]
+    /// # use sl_std::ascii;
+    ///
+    /// let foo: &ascii::Str = "foo".try_into().unwrap();
+    /// assert_eq!(foo.len(), 3);
+    /// ```
+    #[inline]
     #[must_use]
     pub const fn len(&self) -> usize {
         self.chars().len()
     }
 
+    /// Returns `true` if `self` has a length of zero bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #![feature(ascii_char_variants, ascii_char)]
+    /// # use sl_std::ascii;
+    ///
+    /// let foo: &ascii::Str = "foo".try_into().unwrap();
+    /// assert!(!foo.is_empty());
+    ///
+    /// let bar: &ascii::Str = "".try_into().unwrap();
+    /// assert!(bar.is_empty());
+    /// ```
+    #[inline]
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    /// Construct [Self] from a `&[Char]`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #![feature(ascii_char_variants, ascii_char)]
+    /// # use sl_std::ascii;
+    ///
+    /// let chars = &[
+    ///     ascii::Char::CapitalF,
+    ///     ascii::Char::SmallO,
+    ///     ascii::Char::SmallO,
+    /// ];
+    /// let foo = ascii::Str::from_ascii_chars(chars);
+    /// assert_eq!(foo.as_str(), "Foo");
+    /// ```
+    #[inline]
     #[must_use]
     pub const fn from_ascii_chars(chars: &[Char]) -> &Self {
         // SAFETY: Str is guaranteed to have the same layout as [Char]
         unsafe { &*(chars as *const [Char] as *const Str) }
     }
 
+    #[inline]
     #[must_use]
     pub fn from_ascii_chars_mut(chars: &mut [Char]) -> &mut Self {
         // SAFETY: Str is guaranteed to have the same layout as [Char]
         unsafe { &mut *(chars as *mut [Char] as *mut Str) }
     }
 
+    #[inline]
     #[must_use]
     pub fn to_lowercase(&self) -> String {
         let chars = self.chars.iter().map(Char::to_lowercase).collect();
         String::from_chars(chars)
     }
 
+    /// Construct [Self] from a `&[u8]`
+    ///
+    /// Returns `None` if the bytes are not a valid ascii-encoded
+    /// character sequence.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #![feature(ascii_char_variants, ascii_char)]
+    /// # use sl_std::ascii;
+    ///
+    /// let valid = b"foobar";
+    /// let invalid = b"foo\xFFbar"; // 0xFF is not ascii
+    ///
+    /// assert!(ascii::Str::from_bytes(valid).is_some());
+    /// assert!(ascii::Str::from_bytes(invalid).is_none());
+    /// ```
+    #[inline]
     #[must_use]
     pub const fn from_bytes(bytes: &[u8]) -> Option<&Self> {
         // Cannot use Option::map in a const context
