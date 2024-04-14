@@ -29,6 +29,7 @@ pub struct PropertyDescriptor {
 #[derive(Clone, Debug)]
 enum PropertyDescriptorVariant {
     Data(DataProperty),
+    #[allow(dead_code)]
     Accessor(AccessorProperty),
 }
 

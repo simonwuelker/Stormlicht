@@ -106,13 +106,6 @@ macro_rules! binary_op {
 }
 
 binary_op!(
-    "<https://262.ecma-international.org/14.0/#prod-LogicalORExpression>",
-    parse_logical_or_expression<const IN: bool, const YIELD: bool, const AWAIT: bool,>,
-    parse_logical_and_expression::<IN, YIELD, AWAIT>,
-    Punctuator::DoubleVerticalBar => LogicalOp::Or,
-);
-
-binary_op!(
     "<https://262.ecma-international.org/14.0/#prod-LogicalANDExpression>",
     parse_logical_and_expression<const IN: bool, const YIELD: bool, const AWAIT: bool,>,
     parse_bitwise_or_expression::<IN, YIELD, AWAIT>,
@@ -229,35 +222,6 @@ pub fn parse_exponentiation_expression<const YIELD: bool, const AWAIT: bool>(
     };
 
     Ok(exponentiation_expression)
-}
-
-/// <https://262.ecma-international.org/14.0/#prod-CoalesceExpression>
-fn parse_coalesce_expression<const IN: bool, const YIELD: bool, const AWAIT: bool>(
-    tokenizer: &mut Tokenizer<'_>,
-) -> Result<Expression, SyntaxError> {
-    let mut coalesce_expression = parse_bitwise_or_expression::<IN, YIELD, AWAIT>(tokenizer)?;
-
-    let mut got_at_least_one_rhs = false;
-    while tokenizer
-        .peek(0, SkipLineTerminators::Yes)?
-        .is_some_and(|t| t.is_punctuator(Punctuator::DoubleQuestionMark))
-    {
-        got_at_least_one_rhs = true;
-        let rhs = parse_bitwise_or_expression::<IN, YIELD, AWAIT>(tokenizer)?;
-        coalesce_expression = BinaryExpression {
-            op: BinaryOp::Logical(LogicalOp::Coalesce),
-            lhs: Box::new(coalesce_expression),
-            rhs: Box::new(rhs),
-        }
-        .into();
-    }
-
-    if !got_at_least_one_rhs {
-        // Unlike other binary expressions, the coalesce expression requires at least two operands
-        return Err(tokenizer.syntax_error());
-    }
-
-    Ok(coalesce_expression)
 }
 
 impl CompileToBytecode for BinaryExpression {

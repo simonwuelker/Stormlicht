@@ -40,7 +40,9 @@ impl WhileStatement {
 
 impl CompileToBytecode for WhileStatement {
     fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        let _ = builder;
+        _ = builder;
+        _ = self.loop_condition;
+        _ = self.body;
         todo!()
     }
 }

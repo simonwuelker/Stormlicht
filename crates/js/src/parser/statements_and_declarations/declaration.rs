@@ -119,7 +119,6 @@ pub enum LexicalBinding {
         identifier: String,
         initializer: Option<Expression>,
     },
-    BindingPattern,
 }
 
 impl LexicalBinding {
@@ -200,6 +199,7 @@ impl CompileToBytecode for Declaration {
 impl CompileToBytecode for LexicalDeclaration {
     fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
         let current_block = builder.current_block();
+        let _ = self.let_or_const; // FIXME: Use this!
 
         for lexical_binding in &self.lexical_bindings {
             match lexical_binding {
@@ -218,7 +218,6 @@ impl CompileToBytecode for LexicalDeclaration {
                             .update_variable(identifier.clone(), result);
                     }
                 },
-                LexicalBinding::BindingPattern => todo!(),
             }
         }
     }

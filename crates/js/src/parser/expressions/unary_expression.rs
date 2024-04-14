@@ -79,6 +79,18 @@ impl CompileToBytecode for UnaryExpression {
 
     fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
         match self {
+            Self::Delete(expression) => {
+                _ = expression;
+                todo!();
+            },
+            Self::Void(expression) => {
+                _ = expression;
+                todo!();
+            },
+            Self::TypeOf(expression) => {
+                _ = expression;
+                todo!();
+            },
             Self::Plus(expression) => {
                 // https://262.ecma-international.org/14.0/#sec-unary-plus-operator-runtime-semantics-evaluation
 
@@ -88,7 +100,18 @@ impl CompileToBytecode for UnaryExpression {
                 // 2. Return ? ToNumber(? GetValue(expr)).
                 builder.get_current_block().to_number(result)
             },
-            _ => todo!(),
+            Self::Minus(expression) => {
+                _ = expression;
+                todo!();
+            },
+            Self::BitwiseNot(expression) => {
+                _ = expression;
+                todo!();
+            },
+            Self::LogicalNot(expression) => {
+                _ = expression;
+                todo!();
+            },
         }
     }
 }

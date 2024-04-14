@@ -68,9 +68,25 @@ impl CompileToBytecode for UpdateExpression {
     type Result = bytecode::Register;
 
     fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        let current_block = builder.get_current_block();
+        _ = builder;
 
-        _ = current_block;
-        todo!()
+        match self {
+            Self::PreDecrement(expression) => {
+                _ = expression;
+                todo!();
+            },
+            Self::PostDecrement(expression) => {
+                _ = expression;
+                todo!();
+            },
+            Self::PreIncrement(expression) => {
+                _ = expression;
+                todo!();
+            },
+            Self::PostIncrement(expression) => {
+                _ = expression;
+                todo!();
+            },
+        }
     }
 }

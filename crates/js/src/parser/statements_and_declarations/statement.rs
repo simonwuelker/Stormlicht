@@ -49,19 +49,11 @@ impl StatementListItem {
 #[derive(Clone, Debug)]
 pub(crate) enum Statement {
     BlockStatement(BlockStatement),
-    VariableStatement,
     EmptyStatement,
     ExpressionStatement(Expression),
     IfStatement(IfStatement),
     WhileStatement(WhileStatement),
-    ContinueStatement,
-    BreakStatement,
-    RETURNStatement,
-    WithStatement,
-    LabelledStatement,
     ThrowStatement(ThrowStatement),
-    TryStatement,
-    DebuggerStatement,
 }
 
 impl Statement {
@@ -121,8 +113,10 @@ impl CompileToBytecode for Statement {
             Self::IfStatement(if_statement) => if_statement.compile(builder),
             Self::WhileStatement(while_statement) => while_statement.compile(builder),
             Self::EmptyStatement => {},
+            Self::ExpressionStatement(expression) => {
+                expression.compile(builder);
+            },
             Self::ThrowStatement(throw_statement) => throw_statement.compile(builder),
-            _ => todo!(),
         }
     }
 }
