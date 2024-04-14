@@ -4,12 +4,6 @@ pub enum Family {
     Generic(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct FontCacheKey {
-    pub family: Family,
-    pub style: Style,
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct Properties {
     pub style: Style,
