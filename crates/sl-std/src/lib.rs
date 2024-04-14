@@ -21,6 +21,7 @@ pub mod ascii;
 pub mod assert;
 pub mod base64;
 pub mod big_num;
+pub mod bitreader;
 pub mod bytestream;
 pub mod chars;
 pub mod datetime;

@@ -3,7 +3,7 @@
 //! For the purposes of this module, "Symbol" shall refer to an unencoded
 //! codepoint and "Code" shall refer to an encoded codepoint.
 
-use crate::bitreader::{BitReader, Error};
+use sl_std::bitreader::{BitReader, Error};
 use std::fmt;
 
 /// Tuple of (data, nbits) for representing an arbitrary number of bits

@@ -2,10 +2,8 @@
 
 pub mod dictionary;
 
-use crate::{
-    bitreader::{self, BitReader},
-    huffman::{Bits, HuffmanBitTree, HuffmanTree},
-};
+use crate::huffman::{Bits, HuffmanBitTree, HuffmanTree};
+use sl_std::bitreader::{self, BitReader};
 
 use sl_std::ring_buffer::RingBuffer;
 

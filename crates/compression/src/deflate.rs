@@ -1,7 +1,6 @@
-use crate::{
-    bitreader::{self, BitReader},
-    huffman::HuffmanTree,
-};
+use crate::huffman::HuffmanTree;
+
+use sl_std::bitreader::{self, BitReader};
 
 use std::cmp::{min, Ordering};
 
