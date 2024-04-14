@@ -161,12 +161,29 @@ impl Decoder {
 struct FrameHeader {
     /// Specifies whether the encoding process is baseline sequential, extended sequential,
     /// progressive, or lossless, as well as which entropy encoding procedure is used.
+    ///
+    /// The values are as follows:
+    /// * `0`: Baseline DCT
+    /// * `1`: Extended sequential DCT, Huffman coding
+    /// * `2`: Progressive DCT, Huffman coding
+    /// * `3`: Lossless (sequential), Huffman coding
+    /// * `9`: Extended sequential DCT, arithmetic coding
+    /// * `10`: Progressive DCT, arithmetic coding
+    /// * `11`: Lossless (sequential), arithmetic coding
+    #[allow(dead_code)] // We only support one of these for now
     subscript: u8,
 
     /// Sample precision in bits
     sample_precision: u8,
 
+    /// The height of the image
+    ///
+    /// If there are multiple components then this is the height of the largest one.
     number_of_lines: u16,
+
+    /// The width of the image
+    ///
+    /// If there are multiple components then this is the width of the largest one.
     samples_per_line: u16,
     num_image_components: u8,
 }
@@ -175,6 +192,11 @@ impl FrameHeader {
     fn new(subscript: u8, bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() < 6 {
             return Err(Error::BadChunk);
+        }
+
+        if subscript != 2 {
+            log::error!("Implement image types other than progressive huffman coding");
+            return Err(Error::Unsupported);
         }
 
         let sample_precision = bytes[0];
