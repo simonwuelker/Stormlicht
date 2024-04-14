@@ -5,7 +5,7 @@ use sl_std::{
 
 use crate::{
     default_port_for_scheme,
-    host::{self, host_parse_with_special, Host},
+    host::{self, host_parse_with_special, Host, HostParseError},
     is_special_scheme,
     percent_encode::{
         is_c0_percent_encode_set, is_fragment_percent_encode_set, is_path_percent_encode_set,
@@ -16,7 +16,13 @@ use crate::{
 };
 
 #[derive(Clone, Copy, Debug)]
-pub struct Failure;
+pub enum Error {
+    /// Generic Error
+    Failure,
+
+    /// Failed to parse host
+    HostParse(HostParseError),
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum URLParserState {
@@ -70,7 +76,7 @@ impl<'a, H> URLParser<'a, H>
 where
     H: ValidationErrorHandler,
 {
-    pub(crate) fn run_to_completion(mut self) -> Result<Self, Failure> {
+    pub(crate) fn run_to_completion(mut self) -> Result<Self, Error> {
         loop {
             // Keep running the following state machine by switching on state.
             let start_over = self.step()?;
@@ -99,7 +105,7 @@ where
         self.state = new_state;
     }
 
-    fn step(&mut self) -> Result<StartOver, Failure> {
+    fn step(&mut self) -> Result<StartOver, Error> {
         match self.state {
             // https://url.spec.whatwg.org/#scheme-start-state
             URLParserState::SchemeStart => {
@@ -124,7 +130,7 @@ where
                 // Otherwise,
                 else {
                     // return failure.
-                    return Err(Failure);
+                    return Err(Error::Failure);
                 }
             },
             // https://url.spec.whatwg.org/#scheme-state
@@ -248,7 +254,7 @@ where
                 // Otherwise,
                 else {
                     // return failure.
-                    return Err(Failure);
+                    return Err(Error::Failure);
                 }
             },
             // https://url.spec.whatwg.org/#no-scheme-state
@@ -264,7 +270,7 @@ where
                         .validation_error(ValidationError::MissingSchemeNonRelativeURL);
 
                     // return failure.
-                    return Err(Failure);
+                    return Err(Error::Failure);
                 }
                 let base = self
                     .base
@@ -560,7 +566,7 @@ where
                             .validation_error(ValidationError::InvalidCredentials);
 
                         // return failure.
-                        return Err(Failure);
+                        return Err(Error::Failure);
                     }
 
                     // Decrease pointer by the number of code points in buffer plus one,
@@ -600,7 +606,7 @@ where
                             .validation_error(ValidationError::HostMissing);
 
                         // return failure.
-                        return Err(Failure);
+                        return Err(Error::Failure);
                     }
 
                     // If state override is given and state override is hostname state
@@ -617,7 +623,7 @@ where
                     );
 
                     // If host is failure, then return failure.
-                    let host = host_or_failure.map_err(|_| Failure)?;
+                    let host = host_or_failure?;
 
                     // Set url’s host to host,
                     self.url.host = Some(host);
@@ -645,7 +651,7 @@ where
                             .validation_error(ValidationError::HostMissing);
 
                         // return failure.
-                        return Err(Failure);
+                        return Err(Error::Failure);
                     }
                     // Otherwise, if state override is given, buffer is the empty string,
                     // and either url includes credentials or url’s port is non-null
@@ -665,7 +671,7 @@ where
                     );
 
                     // If host is failure, then return failure.
-                    let host = host_or_failure.map_err(|_| Failure)?;
+                    let host = host_or_failure?;
 
                     // Set url’s host to host,
                     self.url.host = Some(host);
@@ -732,7 +738,7 @@ where
                                     .validation_error(ValidationError::PortOutOfRange);
 
                                 // return failure.
-                                return Err(Failure);
+                                return Err(Error::Failure);
                             },
                         };
 
@@ -766,7 +772,7 @@ where
                         .validation_error(ValidationError::PortInvalid);
 
                     // return failure.
-                    return Err(Failure);
+                    return Err(Error::Failure);
                 }
             },
             // https://url.spec.whatwg.org/#file-state
@@ -943,8 +949,7 @@ where
                                 &self.buffer,
                                 false,
                                 &mut self.error_handler,
-                            )
-                            .map_err(|_| Failure)?;
+                            )?;
 
                             // If host is "localhost", then set host to the empty string.
                             if let Host::Domain(domain) = &host
@@ -1320,5 +1325,11 @@ where
             },
         }
         Ok(StartOver::No)
+    }
+}
+
+impl From<HostParseError> for Error {
+    fn from(value: HostParseError) -> Self {
+        Self::HostParse(value)
     }
 }
