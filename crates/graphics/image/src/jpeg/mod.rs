@@ -87,6 +87,13 @@ impl<'a> Decoder<'a> {
                 Chunk::DefineQuantizationTable(quantization_table) => {
                     quantization_tables.add_tables(quantization_table)?;
                 },
+                Chunk::StartOfScan { header, scan } => {
+                    // we don't care about the SOS header, for now
+                    _ = header;
+                    _ = scan;
+
+                    todo!()
+                },
                 _ => {},
             }
         }
