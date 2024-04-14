@@ -1,18 +1,104 @@
-use std::{
-    convert::FloatToInt,
-    marker::PhantomData,
-    ops::{Deref, DerefMut},
-};
+use crate::{bmp, jpeg, png};
 
-use crate::{bmp, format::ColorFormat, jpeg, png, DynamicTexture, Rgba};
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Rgbaf32 {
+    channels: [f32; 4],
+}
 
+impl Rgbaf32 {
+    pub const BLANK: Self = Self::rgba(0., 0., 0., 0.);
+
+    #[inline]
+    #[must_use]
+    pub const fn red(&self) -> f32 {
+        self.channels[0]
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn green(&self) -> f32 {
+        self.channels[1]
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn blue(&self) -> f32 {
+        self.channels[2]
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn alpha(&self) -> f32 {
+        self.channels[3]
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn grayscale(value: f32) -> Self {
+        Self::grayscale_with_alpha(value, 1.)
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn grayscale_with_alpha(value: f32, alpha: f32) -> Self {
+        Self {
+            channels: [value, value, value, alpha],
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
+        Self::rgba(r, g, b, 1.)
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn rgba(r: f32, g: f32, b: f32, alpha: f32) -> Self {
+        Self {
+            channels: [r, g, b, alpha],
+        }
+    }
+
+    #[inline]
+    pub fn set_alpha(&mut self, alpha: f32) {
+        self.channels[3] = alpha;
+    }
+
+    /// Blend another color on top of `self`
+    #[must_use]
+    pub fn blend(&self, other: Self) -> Self {
+        // https://stackoverflow.com/questions/7438263/alpha-compositing-algorithm-blend-modes#answer-11163848
+        if other.alpha() == 0. {
+            return *self;
+        }
+
+        if other.alpha() == 1. {
+            return other;
+        }
+
+        let new_alpha = self.alpha() + other.alpha() - self.alpha() * other.alpha();
+
+        if new_alpha == 0. {
+            // New image doesn't have any color
+            return Self::BLANK;
+        }
+
+        let red = other.red() * other.alpha() + self.red() * (1. - other.alpha());
+        let green = other.green() * other.alpha() + self.green() * (1. - other.alpha());
+        let blue = other.blue() * other.alpha() + self.blue() * (1. - other.alpha());
+
+        let channels = [red, green, blue, new_alpha];
+
+        Self { channels }
+    }
+}
 /// A texture that holds visual content
 #[derive(Clone, Debug)]
-pub struct Texture<C, D> {
+pub struct Texture {
     width: usize,
     height: usize,
-    data: D,
-    marker: PhantomData<C>,
+    data: Vec<Rgbaf32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -21,31 +107,21 @@ pub enum AccessMode {
     Clamp,
 }
 
-impl<C, D> Texture<C, D> {
+impl Texture {
     #[must_use]
-    pub const fn from_data(data: D, width: usize, height: usize) -> Self {
+    pub const fn from_data(data: Vec<Rgbaf32>, width: usize, height: usize) -> Self {
         Self {
             width,
             height,
             data,
-            marker: PhantomData,
         }
     }
 }
 
-impl<C> Texture<C, Vec<C::Channel>>
-where
-    C: ColorFormat,
-    C::Channel: Copy + Default,
-    f32: FloatToInt<C::Channel>,
-{
+impl Texture {
     #[must_use]
     pub fn new(width: usize, height: usize) -> Self {
-        Self::from_data(
-            vec![C::Channel::default(); width * height * C::N_CHANNELS],
-            width,
-            height,
-        )
+        Self::from_data(vec![Rgbaf32::default(); width * height], width, height)
     }
 
     /// Change the texture buffer size
@@ -54,10 +130,7 @@ where
     pub fn resize_buffer(&mut self, new_width: usize, new_height: usize) {
         self.width = new_width;
         self.height = new_height;
-        self.data.resize(
-            new_width * new_height * C::N_CHANNELS,
-            C::Channel::default(),
-        );
+        self.data.resize(new_width * new_height, Rgbaf32::default());
     }
 
     /// Constructs an empty texture
@@ -89,22 +162,10 @@ where
     }
 }
 
-impl<'a, C, D> Texture<C, D>
-where
-    C: ColorFormat,
-    C::Channel: 'a + Copy + Default,
-    D: 'a + Deref<Target = [C::Channel]>,
-    f32: FloatToInt<C::Channel>,
-{
+impl Texture {
     #[must_use]
-    pub fn data(&self) -> &[C::Channel] {
+    pub fn data(&self) -> &[Rgbaf32] {
         &self.data
-    }
-
-    #[must_use]
-    pub fn pixel_data(&'a self, x: usize, y: usize) -> &[C::Channel] {
-        let pixel_index = (self.width * y + x) * C::N_CHANNELS;
-        &self.data[pixel_index..pixel_index + C::N_CHANNELS]
     }
 
     #[must_use]
@@ -131,7 +192,7 @@ where
     /// # Panics
     /// Panics if any of the image dimensions is zero.
     #[must_use]
-    pub fn get_clamped(&'a self, x: usize, y: usize) -> C {
+    pub fn get_clamped(&self, x: usize, y: usize) -> Rgbaf32 {
         assert!(self.width() != 0);
         assert!(self.height() != 0);
 
@@ -141,9 +202,9 @@ where
     }
 
     #[must_use]
-    pub fn get(&'a self, x: usize, y: usize, access_mode: AccessMode) -> C {
+    pub fn get(&self, x: usize, y: usize, access_mode: AccessMode) -> Rgbaf32 {
         match access_mode {
-            AccessMode::Zero => self.get_or(x, y, C::default()),
+            AccessMode::Zero => self.get_or(x, y, Rgbaf32::default()),
             AccessMode::Clamp => self.get_clamped(x, y),
         }
     }
@@ -153,15 +214,16 @@ where
     /// # Panics
     /// This function panics if the coordinates are outside of the bitmap
     #[must_use]
-    pub fn get_pixel(&'a self, x: usize, y: usize) -> C {
-        C::from_channels(self.pixel_data(x, y))
+    pub fn get_pixel(&self, x: usize, y: usize) -> Rgbaf32 {
+        let pixel_index = self.width * y + x;
+        self.data[pixel_index]
     }
 
     /// Access a specific pixel in the image
     ///
     /// If the coordinates are outside the image, `default` will be returned
     #[must_use]
-    pub fn get_or(&'a self, x: usize, y: usize, default: C) -> C {
+    pub fn get_or(&self, x: usize, y: usize, default: Rgbaf32) -> Rgbaf32 {
         if self.contains(x, y) {
             self.get_pixel(x, y)
         } else {
@@ -170,39 +232,33 @@ where
     }
 }
 
-impl<C, D> Texture<C, D>
-where
-    C: ColorFormat,
-    D: DerefMut<Target = [C::Channel]>,
-    f32: FloatToInt<C::Channel>,
-{
+impl Texture {
     #[must_use]
-    pub fn data_mut(&mut self) -> &mut [C::Channel] {
+    pub fn data_mut(&mut self) -> &mut [Rgbaf32] {
         &mut self.data
     }
 
     #[must_use]
-    pub fn pixel_data_mut(&mut self, x: usize, y: usize) -> &mut [C::Channel] {
-        let pixel_index = (self.width() * y + x) * C::N_CHANNELS;
-        &mut self.data[pixel_index..pixel_index + C::N_CHANNELS]
+    pub fn pixel_data_mut(&mut self, x: usize, y: usize) -> &mut Rgbaf32 {
+        let pixel_index = self.width() * y + x;
+        &mut self.data[pixel_index]
     }
 
-    pub fn pixels_mut(&mut self) -> impl Iterator<Item = &mut [C::Channel]> {
-        self.data.chunks_exact_mut(C::N_CHANNELS)
+    pub fn pixels_mut(&mut self) -> impl Iterator<Item = &mut Rgbaf32> {
+        self.data.iter_mut()
     }
 
     /// Set the pixel at the given coordinates to the specified value.
     ///
     /// # Panics
     /// This function panics if the coordinates are outside of the bitmap
-    pub fn set_pixel(&mut self, x: usize, y: usize, pixel: C) {
-        self.pixel_data_mut(x, y).copy_from_slice(pixel.channels());
+    pub fn set_pixel(&mut self, x: usize, y: usize, pixel: Rgbaf32) {
+        *self.pixel_data_mut(x, y) = pixel;
     }
 
-    pub fn clear(&mut self, clear_color: C) {
-        let channels = clear_color.channels();
+    pub fn clear(&mut self, clear_color: Rgbaf32) {
         for pixel in self.pixels_mut() {
-            pixel.copy_from_slice(channels)
+            *pixel = clear_color
         }
     }
 }
@@ -214,7 +270,7 @@ pub enum Error {
     Jpeg(jpeg::Error),
 }
 
-impl DynamicTexture {
+impl Texture {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.starts_with(&png::PNG_HEADER) {
             Self::from_png(bytes).map_err(Error::from)
@@ -235,50 +291,6 @@ impl DynamicTexture {
 
     pub fn from_png(bytes: &[u8]) -> Result<Self, png::Error> {
         png::decode(bytes)
-    }
-
-    #[must_use]
-    pub fn empty() -> Self {
-        Self::Rgb8(Texture::empty())
-    }
-
-    #[must_use]
-    pub const fn width(&self) -> usize {
-        match self {
-            Self::Rgb8(t) => t.width(),
-            Self::Rgba8(t) => t.width(),
-            Self::GrayScale8(t) => t.width(),
-            Self::GrayScaleAlpha8(t) => t.width(),
-        }
-    }
-
-    #[must_use]
-    pub const fn height(&self) -> usize {
-        match self {
-            Self::Rgb8(t) => t.height(),
-            Self::Rgba8(t) => t.height(),
-            Self::GrayScale8(t) => t.height(),
-            Self::GrayScaleAlpha8(t) => t.height(),
-        }
-    }
-
-    #[must_use]
-    pub fn get(&self, x: usize, y: usize, access_mode: AccessMode) -> Rgba<u8> {
-        match self {
-            Self::Rgb8(t) => t.get(x, y, access_mode).into(),
-            Self::Rgba8(t) => t.get(x, y, access_mode),
-            Self::GrayScale8(t) => t.get(x, y, access_mode).into(),
-            Self::GrayScaleAlpha8(t) => t.get(x, y, access_mode).into(),
-        }
-    }
-
-    pub fn resize(&self, width: usize, height: usize) -> Self {
-        match self {
-            Self::Rgb8(t) => t.resize(width, height).into(),
-            Self::Rgba8(t) => t.resize(width, height).into(),
-            Self::GrayScale8(t) => t.resize(width, height).into(),
-            Self::GrayScaleAlpha8(t) => t.resize(width, height).into(),
-        }
     }
 }
 

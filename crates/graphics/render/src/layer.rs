@@ -1,6 +1,4 @@
-use std::ops::DerefMut;
-
-use image::{AccessMode, ColorFormat, DynamicTexture, Rgba, Texture};
+use image::{AccessMode, Rgbaf32, Texture};
 use math::{AffineTransform, Angle, Color, Rectangle, Vec2D};
 
 use crate::{FlattenedPathPoint, Mask, Path, Rasterizer};
@@ -11,7 +9,7 @@ pub enum Source {
     Solid(Color),
 
     Texture {
-        texture: DynamicTexture,
+        texture: Texture,
         access_mode: AccessMode,
     },
 }
@@ -156,10 +154,7 @@ impl Layer {
             })
     }
 
-    pub(crate) fn render_to<'a, D>(&mut self, texture: &mut Texture<Rgba<u8>, D>)
-    where
-        D: 'a + DerefMut<Target = [<Rgba<u8> as ColorFormat>::Channel]>,
-    {
+    pub(crate) fn render_to(&mut self, texture: &mut Texture) {
         self.flatten_if_necessary();
 
         if let Some(outline_extent) = self.apply_transform() {
@@ -210,14 +205,7 @@ impl Source {
         }
     }
 }
-fn compose<D>(
-    destination: &mut Texture<Rgba<u8>, D>,
-    mask: Mask,
-    source: &Source,
-    offset: Vec2D<usize>,
-) where
-    D: DerefMut<Target = [<Rgba<u8> as ColorFormat>::Channel]>,
-{
+fn compose(destination: &mut Texture, mask: Mask, source: &Source, offset: Vec2D<usize>) {
     if offset.x < destination.width() && offset.y < destination.height() {
         // Don't draw out of bounds
         let available_space = Vec2D::new(
@@ -229,12 +217,14 @@ fn compose<D>(
                 for x in 0..mask.width().min(available_space.x) {
                     for y in 0..mask.height().min(available_space.y) {
                         let opacity = mask.opacity_at(x, y).abs().min(1.);
-                        let color = Rgba::from_channels(&[
-                            color.red(),
-                            color.green(),
-                            color.blue(),
-                            (opacity * 255.).round() as u8,
-                        ]);
+
+                        let color = Rgbaf32::rgba(
+                            color.red() as f32 / 255.,
+                            color.green() as f32 / 255.,
+                            color.blue() as f32 / 255.,
+                            opacity,
+                        );
+
                         let previous_color = destination.get_pixel(x + offset.x, y + offset.y);
                         let computed_color = previous_color.blend(color);
                         destination.set_pixel(x + offset.x, y + offset.y, computed_color);
@@ -251,9 +241,8 @@ fn compose<D>(
                         let mut texture_pixel = texture.get(x, y, *access_mode);
 
                         // Adjust the alpha value of the texture according to the mask
-                        let texture_alpha = texture_pixel.channels()[3];
-                        texture_pixel.channels_mut()[3] =
-                            (texture_alpha as f32 * opacity * 255.).round() as u8;
+                        let texture_alpha = texture_pixel.alpha();
+                        texture_pixel.set_alpha(texture_alpha * opacity);
 
                         let previous_color = destination.get_pixel(x + offset.x, y + offset.y);
                         let computed_color = previous_color.blend(texture_pixel);

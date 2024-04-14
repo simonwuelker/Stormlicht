@@ -1,11 +1,8 @@
 //! [Layer] management
 
-use std::{
-    collections::{hash_map::Iter, HashMap},
-    ops::DerefMut,
-};
+use std::collections::{hash_map::Iter, HashMap};
 
-use image::{ColorFormat, Rgba, Texture};
+use image::Texture;
 
 use crate::Layer;
 
@@ -54,10 +51,7 @@ impl Composition {
         self.layers.clear();
     }
 
-    pub fn render_to<'a, D>(&mut self, texture: &mut Texture<Rgba<u8>, D>)
-    where
-        D: 'a + DerefMut<Target = [<Rgba<u8> as ColorFormat>::Channel]>,
-    {
+    pub fn render_to(&mut self, texture: &mut Texture) {
         // Draw all the layers, in order
         let mut keys: Vec<u16> = self.layers.keys().copied().collect();
         keys.sort();

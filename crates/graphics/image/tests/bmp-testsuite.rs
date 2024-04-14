@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use image::DynamicTexture;
+use image::Texture;
 
 #[cfg(test)]
 mod images {
@@ -13,7 +13,7 @@ mod images {
 fn valid_images() {
     // Assert that all valid images can be parsed
     for test_file in test_files(images::VALID) {
-        let result = DynamicTexture::from_bytes(&test_file);
+        let result = Texture::from_bytes(&test_file);
         assert!(result.is_ok());
     }
 }
@@ -22,7 +22,7 @@ fn valid_images() {
 fn corrupt_images() {
     // Assert that all corrupt images fail to parse without crashing
     for test_file in test_files(images::CORRUPT) {
-        let result = DynamicTexture::from_bytes(&test_file);
+        let result = Texture::from_bytes(&test_file);
         assert!(result.is_err());
     }
 }
@@ -32,7 +32,7 @@ fn questionable_images() {
     // Assert that no questionable images cause crashes
     // (Whether or not parsing succeeds is not specified)
     for test_file in test_files(images::QUESTIONABLE) {
-        let _ = DynamicTexture::from_bytes(&test_file);
+        let _ = Texture::from_bytes(&test_file);
     }
 }
 

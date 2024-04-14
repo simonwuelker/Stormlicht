@@ -1,5 +1,5 @@
 use dom_derive::inherit;
-use image::DynamicTexture;
+use image::Texture;
 
 use crate::static_interned;
 
@@ -8,7 +8,7 @@ use super::HtmlElement;
 /// <https://html.spec.whatwg.org/multipage/embedded-content.html#the-img-element>
 #[inherit(HtmlElement)]
 pub struct HtmlImageElement {
-    texture: Option<Option<DynamicTexture>>,
+    texture: Option<Option<Texture>>,
 }
 
 impl HtmlImageElement {
@@ -22,7 +22,7 @@ impl HtmlImageElement {
     }
 
     #[must_use]
-    pub fn texture(&mut self) -> Option<&DynamicTexture> {
+    pub fn texture(&mut self) -> Option<&Texture> {
         let loaded_texture = self
             .texture
             .get_or_insert_with(|| load_texture_for_img_element(&self.__parent));
@@ -32,7 +32,7 @@ impl HtmlImageElement {
 }
 
 #[must_use]
-fn load_texture_for_img_element(html_element: &HtmlElement) -> Option<DynamicTexture> {
+fn load_texture_for_img_element(html_element: &HtmlElement) -> Option<Texture> {
     let Some(source_url) = html_element.attributes().get(&static_interned!("src")) else {
         log::error!("Failed to load <img> content: No \"src\" attribute found");
         return None;
@@ -60,7 +60,7 @@ fn load_texture_for_img_element(html_element: &HtmlElement) -> Option<DynamicTex
         return None;
     }
 
-    let texture = DynamicTexture::from_bytes(&resource.data)
+    let texture = Texture::from_bytes(&resource.data)
         .inspect_err(|error| {
             log::error!(
                 "Failed to load <img> content: Failed to load {source_url} as an image ({error:?})",

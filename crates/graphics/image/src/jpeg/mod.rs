@@ -1,4 +1,4 @@
-use crate::{jpeg::chunk::Chunk, DynamicTexture, Texture};
+use crate::{jpeg::chunk::Chunk, Texture};
 
 use self::chunk::Chunks;
 
@@ -12,7 +12,7 @@ pub enum Error {
     IncompleteImage,
 }
 
-pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
+pub fn decode(bytes: &[u8]) -> Result<Texture, Error> {
     Decoder::new(bytes).decode()
 }
 
@@ -28,7 +28,7 @@ enum DecoderStage {
     BeforeFrameHeader,
     InFrame {
         frame_header: FrameHeader,
-        texture: DynamicTexture,
+        texture: Texture,
     },
 }
 
@@ -41,7 +41,7 @@ impl<'a> Decoder<'a> {
         }
     }
 
-    fn decode(mut self) -> Result<DynamicTexture, Error> {
+    fn decode(mut self) -> Result<Texture, Error> {
         let first_chunk = self.chunks.next();
         if !matches!(first_chunk, Some(Ok(Chunk::StartOfImage))) {
             log::error!("Expected SOI chunk, found {first_chunk:?}");
@@ -80,10 +80,10 @@ impl<'a> Decoder<'a> {
             return Err(Error::UnexpectedChunk);
         }
 
-        let texture = DynamicTexture::Rgb8(Texture::new(
+        let texture = Texture::new(
             frame_header.samples_per_line as usize,
             frame_header.number_of_lines as usize,
-        ));
+        );
 
         self.stage = DecoderStage::InFrame {
             frame_header: frame_header,

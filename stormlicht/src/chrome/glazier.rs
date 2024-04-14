@@ -1,8 +1,8 @@
 use core::{event, BrowsingContext};
-use image::{ColorFormat, Rgba, Texture};
+use image::{Rgbaf32, Texture};
 use url::URL;
 
-use std::{mem, process::ExitCode};
+use std::process::ExitCode;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 enum RepaintRequired {
@@ -12,7 +12,7 @@ enum RepaintRequired {
 }
 
 pub struct BrowserApplication {
-    view_buffer: Texture<Rgba<u8>, Vec<u8>>,
+    view_buffer: Texture,
     graphics_context: Option<softbuffer::GraphicsContext>,
 
     /// Viewport size, in Display Points (not pixels)
@@ -39,8 +39,7 @@ impl glazier::WinHandler for BrowserApplication {
     }
 
     fn paint(&mut self, _invalid: &glazier::Region) {
-        self.view_buffer
-            .clear(Rgba::from_channels(&[255, 255, 255, 255]));
+        self.view_buffer.clear(Rgbaf32::rgb(1., 1., 1.));
         self.composition.clear();
 
         let dpi = self
@@ -58,23 +57,18 @@ impl glazier::WinHandler for BrowserApplication {
             // Convert the RGBA slice (of u8) into 0RGB (of u32)
             // SAFETY: The size of the view buffer is always known to be a multiple of 4,
             //         so its safe to manipulate as if it were u32's
-            let rgb_data: &mut [u32] = unsafe {
-                std::slice::from_raw_parts_mut(
-                    self.view_buffer.data_mut().as_mut_ptr() as *mut u32,
-                    self.view_buffer.data().len() / mem::size_of::<u32>(),
-                )
-            };
-            assert!(
-                std::mem::size_of_val(rgb_data) == std::mem::size_of_val(self.view_buffer.data())
-            );
+            let mut rgb_data = vec![0; self.view_buffer.data().len()];
 
-            for pixel in rgb_data.iter_mut() {
-                *pixel = pixel.to_be();
-                *pixel >>= 8;
+            for (pixel, color) in rgb_data.iter_mut().zip(self.view_buffer.data()) {
+                let red = (color.red() * 255.).round() as u8;
+                let green = (color.green() * 255.).round() as u8;
+                let blue = (color.blue() * 255.).round() as u8;
+
+                *pixel = (red as u32) << 16 | (green as u32) << 8 | (blue as u32);
             }
 
             graphics_context.set_buffer(
-                rgb_data,
+                &rgb_data,
                 self.view_buffer.width() as u16,
                 self.view_buffer.height() as u16,
             );

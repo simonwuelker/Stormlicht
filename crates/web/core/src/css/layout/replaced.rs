@@ -1,4 +1,4 @@
-use image::DynamicTexture;
+use image::Texture;
 use math::{Rectangle, Vec2D};
 
 use crate::{
@@ -52,7 +52,7 @@ impl IntrinsicSize {
 
 #[derive(Clone, Debug)]
 pub(crate) enum ReplacedContent {
-    Image(DynamicTexture),
+    Image(Texture),
 }
 
 /// <https://drafts.csswg.org/css-display/#replaced-element>
@@ -218,7 +218,7 @@ impl ReplacedElement {
                 // Fallback to an empty image with no intrinsic size
                 let replaced_element = ReplacedElement {
                     intrinsic_size: IntrinsicSize::NONE,
-                    content: ReplacedContent::Image(DynamicTexture::empty()),
+                    content: ReplacedContent::Image(Texture::empty()),
                     style: element_style,
                 };
 

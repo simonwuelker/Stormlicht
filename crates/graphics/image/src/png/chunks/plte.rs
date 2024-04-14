@@ -2,6 +2,8 @@
 
 use std::ops::Index;
 
+use crate::texture::Rgbaf32;
+
 const PALETTE_MAX_SIZE: usize = 256 * 3;
 
 #[derive(Clone, Copy, Debug)]
@@ -14,21 +16,26 @@ pub enum PaletteError {
 pub struct Palette {
     /// We always store 256 colors (the maximum), even if the actual
     /// size of the palette is less, to not have to worry about out of bounds errors
-    colors: [u8; PALETTE_MAX_SIZE],
+    colors: [Rgbaf32; PALETTE_MAX_SIZE],
 }
 
 impl Palette {
     pub fn new(bytes: &[u8]) -> Result<Self, PaletteError> {
-        if bytes.len() % 3 != 0 {
+        let color_values = bytes.array_chunks::<3>();
+
+        if !color_values.remainder().is_empty() {
             return Err(PaletteError::InvalidPaletteSize);
         }
 
-        if bytes.len() > PALETTE_MAX_SIZE {
+        if color_values.len() > PALETTE_MAX_SIZE {
             return Err(PaletteError::TooLong);
         }
 
-        let mut colors = [0; PALETTE_MAX_SIZE];
-        colors[..bytes.len()].copy_from_slice(bytes);
+        let mut colors = [Rgbaf32::default(); PALETTE_MAX_SIZE];
+
+        for (slot, [r, g, b]) in colors.iter_mut().zip(color_values) {
+            *slot = Rgbaf32::rgb(*r as f32 / 255., *g as f32 / 255., *b as f32 / 255.);
+        }
 
         let palette = Self { colors };
         Ok(palette)
@@ -36,12 +43,9 @@ impl Palette {
 }
 
 impl Index<u8> for Palette {
-    type Output = [u8];
+    type Output = Rgbaf32;
 
     fn index(&self, index: u8) -> &Self::Output {
-        self.colors
-            .chunks_exact(3)
-            .nth(index as usize)
-            .expect("Palette index out of bounds")
+        &self.colors[index as usize]
     }
 }

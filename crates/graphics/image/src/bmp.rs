@@ -4,7 +4,7 @@
 //! * <http://www.ece.ualberta.ca/~elliott/ee552/studentAppNotes/2003_w/misc/bmp_file_format/bmp_file_format.htm>
 //! * <http://www.martinreddy.net/gfx/2d/BMP.txt>
 
-use crate::{ColorFormat, DynamicTexture, Rgb, Texture};
+use crate::{texture::Rgbaf32, Texture};
 use sl_std::bytestream::ByteStream;
 
 pub(crate) const BMP_MAGIC: [u8; 2] = [0x42, 0x4d];
@@ -232,7 +232,7 @@ impl InfoHeader {
     }
 }
 
-pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
+pub fn decode(bytes: &[u8]) -> Result<Texture, Error> {
     if bytes.len() < 0x35 {
         // Every file must at least contain the header and info header structures
         return Err(Error::UnexpectedEndOfFile);
@@ -283,7 +283,11 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
             log::warn!("Reserved field in palette is not zero (is {reserved:?}");
         }
 
-        palette.push(Rgb::from_channels(&[red, green, blue]));
+        palette.push(Rgbaf32::rgb(
+            red as f32 / 255.,
+            green as f32 / 255.,
+            blue as f32 / 255.,
+        ));
     }
 
     if byte_stream.cursor() != image_data_offset as usize {
@@ -304,11 +308,10 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
         );
     }
 
-    let texture: DynamicTexture = match info_header.image_type {
+    let mut texture_data =
+        Vec::with_capacity(info_header.width as usize * info_header.height as usize);
+    match info_header.image_type {
         ImageType::Monochrome => {
-            let mut texture_data =
-                Vec::with_capacity(info_header.width as usize * info_header.height as usize * 3);
-
             info_header.for_each_scanline(image_data, |scanline| {
                 for i in 0..info_header.width as usize {
                     let byte_index = i / 8;
@@ -319,18 +322,11 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
                         .get(palette_index as usize)
                         .ok_or(Error::PaletteTooSmall)?;
 
-                    texture_data.extend(pixel.channels());
+                    texture_data.push(*pixel);
                 }
 
                 Ok(())
             })?;
-
-            Texture::<Rgb<u8>, Vec<u8>>::from_data(
-                texture_data,
-                info_header.width as usize,
-                info_header.height as usize,
-            )
-            .into()
         },
         ImageType::Palette8Bit(run_length_encoded) => {
             if run_length_encoded == RunLengthEncoded::Yes {
@@ -345,18 +341,11 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
                     let pixel = palette
                         .get(*palette_index as usize)
                         .ok_or(Error::PaletteTooSmall)?;
-                    texture_data.extend(pixel.channels());
+                    texture_data.push(*pixel);
                 }
 
                 Ok(())
             })?;
-
-            Texture::<Rgb<u8>, Vec<u8>>::from_data(
-                texture_data,
-                info_header.width as usize,
-                info_header.height as usize,
-            )
-            .into()
         },
         ImageType::Rgb16 => {
             todo!("implement .bmp rgb16 format")
@@ -369,7 +358,7 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
             };
 
             let mut texture_data =
-                Vec::with_capacity(info_header.width as usize * info_header.height as usize * 3);
+                Vec::with_capacity(info_header.width as usize * info_header.height as usize);
 
             info_header.for_each_scanline(image_data, |scanline| {
                 for pixel in scanline
@@ -380,23 +369,22 @@ pub fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
                     let green = pixel[1];
                     let red = pixel[2];
 
-                    texture_data.push(red);
-                    texture_data.push(green);
-                    texture_data.push(blue);
+                    let color =
+                        Rgbaf32::rgb(red as f32 / 255., green as f32 / 255., blue as f32 / 255.);
+                    texture_data.push(color);
                 }
 
                 Ok(())
             })?;
-
-            Texture::<Rgb<u8>, Vec<u8>>::from_data(
-                texture_data,
-                info_header.width as usize,
-                info_header.height as usize,
-            )
-            .into()
         },
         _ => todo!("implement palletized bmp images"),
-    };
+    }
+
+    let texture = Texture::from_data(
+        texture_data,
+        info_header.width as usize,
+        info_header.height as usize,
+    );
 
     Ok(texture)
 }

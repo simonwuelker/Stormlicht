@@ -6,7 +6,6 @@
 pub mod chunks;
 
 use std::{
-    convert::FloatToInt,
     fs,
     io::{self, Cursor, Read},
     path::Path,
@@ -16,10 +15,7 @@ use compression::zlib;
 
 use hash::Crc32Hasher;
 
-use crate::{
-    format::{GrayScale, GrayScaleAlpha},
-    ColorFormat, DynamicTexture, Rgb, Rgba, Texture,
-};
+use crate::{texture::Rgbaf32, Texture};
 
 use self::chunks::ihdr::ImageType;
 
@@ -45,7 +41,7 @@ pub enum Error {
     IO(io::Error),
 }
 
-pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<DynamicTexture, Error> {
+pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Texture, Error> {
     let mut file_contents = vec![];
     fs::File::open(&path)?.read_to_end(&mut file_contents)?;
     decode(&file_contents)
@@ -93,7 +89,7 @@ enum ParserStage {
     AfterIDAT,
 }
 
-pub(crate) fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
+pub(crate) fn decode(bytes: &[u8]) -> Result<Texture, Error> {
     let mut reader = Cursor::new(bytes);
 
     let mut signature = [0; 8];
@@ -162,35 +158,75 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<DynamicTexture, Error> {
         image_header.image_type.pixel_width(),
     )?;
 
-    let dynamic_texture: DynamicTexture = match image_header.image_type {
+    let mut texture_data = vec![Rgbaf32::default(); image_width * image_height];
+    match image_header.image_type {
         ImageType::GrayScale => {
-            texture_from_bytes::<GrayScale<u8>>(image_data, image_width, image_height)?.into()
+            if image_data.len() != image_width * image_height {
+                return Err(Error::IncorrectLengthOfImageData);
+            }
+
+            for (texture_pixel, color_value) in texture_data.iter_mut().zip(image_data) {
+                *texture_pixel = Rgbaf32::grayscale(color_value as f32 / 255.);
+            }
         },
         ImageType::GrayScaleWithAlpha => {
-            texture_from_bytes::<GrayScaleAlpha<u8>>(image_data, image_width, image_height)?.into()
+            if image_data.len() != image_width * image_height * 2 {
+                return Err(Error::IncorrectLengthOfImageData);
+            }
+
+            for (texture_pixel, [color_value, alpha]) in
+                texture_data.iter_mut().zip(image_data.array_chunks::<2>())
+            {
+                *texture_pixel =
+                    Rgbaf32::grayscale_with_alpha(*color_value as f32 / 255., *alpha as f32 / 255.);
+            }
         },
         ImageType::TrueColor => {
-            texture_from_bytes::<Rgb<u8>>(image_data, image_width, image_height)?.into()
+            if image_data.len() != image_width * image_height * 3 {
+                return Err(Error::IncorrectLengthOfImageData);
+            }
+
+            for (texture_pixel, [r, g, b]) in
+                texture_data.iter_mut().zip(image_data.array_chunks::<3>())
+            {
+                *texture_pixel = Rgbaf32::rgb(*r as f32 / 255., *g as f32 / 255., *b as f32 / 255.);
+            }
         },
         ImageType::TrueColorWithAlpha => {
-            texture_from_bytes::<Rgba<u8>>(image_data, image_width, image_height)?.into()
+            if image_data.len() != image_width * image_height * 4 {
+                return Err(Error::IncorrectLengthOfImageData);
+            }
+
+            for (texture_pixel, [r, g, b, alpha]) in
+                texture_data.iter_mut().zip(image_data.array_chunks::<4>())
+            {
+                *texture_pixel = Rgbaf32::rgba(
+                    *r as f32 / 255.,
+                    *g as f32 / 255.,
+                    *b as f32 / 255.,
+                    *alpha as f32 / 255.,
+                );
+            }
         },
         ImageType::IndexedColor => {
+            if image_data.len() != image_width * image_height {
+                return Err(Error::IncorrectLengthOfImageData);
+            }
+
             let Some(palette) = palette else {
                 log::error!("Cannot decode indexed color image without palette table");
                 return Err(Error::IndexedImageWithoutPalette);
             };
 
-            let mut decoded_buffer = Vec::with_capacity(image_width * image_height * 3);
-            for byte in image_data {
-                decoded_buffer.extend_from_slice(&palette[byte]);
+            for (texture_pixel, reference) in texture_data.iter_mut().zip(image_data) {
+                *texture_pixel = palette[reference];
             }
-
-            texture_from_bytes::<Rgb<u8>>(decoded_buffer, image_width, image_height)?.into()
         },
     };
 
-    Ok(dynamic_texture)
+    let texture = Texture::from_data(texture_data, image_width, image_height);
+
+    Ok(texture)
 }
 
 fn read_chunk<R: Read>(reader: &mut R) -> Result<Chunk, Error> {
@@ -430,23 +466,6 @@ impl TryFrom<u8> for Filter {
             _ => Err(Error::UnknownFilterType),
         }
     }
-}
-
-pub fn texture_from_bytes<C: ColorFormat>(
-    data: Vec<u8>,
-    width: usize,
-    height: usize,
-) -> Result<Texture<C, Vec<u8>>, Error>
-where
-    f32: FloatToInt<C::Channel>,
-{
-    if data.len() != width * height * C::N_CHANNELS {
-        return Err(Error::IncorrectLengthOfImageData);
-    }
-
-    let texture = Texture::from_data(data, width, height);
-
-    Ok(texture)
 }
 
 impl From<zlib::Error> for Error {
