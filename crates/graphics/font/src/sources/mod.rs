@@ -14,7 +14,7 @@ cfg_match! {
         pub type SystemSource = fontconfig::FontConfig;
     }
     _ => {
-        use crate::Weight;
+        use crate::{Language, Weight};
 
         use std::path::PathBuf;
 
