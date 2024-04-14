@@ -3,7 +3,7 @@ use std::{ascii::Char, fmt, iter::FusedIterator, ops, slice::SliceIndex};
 
 /// A borrowed [String]
 #[repr(transparent)]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Hash)]
 pub struct Str {
     chars: [Char],
 }

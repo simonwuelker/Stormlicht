@@ -38,7 +38,7 @@ pub struct NotAscii;
 /// foo.push_str("abcde".try_into().unwrap());
 /// assert_eq!(foo.len(), 5);
 /// ```
-#[derive(Clone, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct String {
     pub(super) chars: Vec<Char>,
 }
