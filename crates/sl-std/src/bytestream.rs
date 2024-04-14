@@ -30,10 +30,21 @@ impl<'a> ByteStream<'a> {
     /// Returns the bytes from cursor until the end of the stream
     ///
     /// If the cursor is past the end of the stream, an empty slice is returned
+    ///
+    /// # Example
+    /// ```
+    /// # use sl_std::bytestream::ByteStream;
+    ///
+    /// let mut byte_stream = ByteStream::new(b"foobar");
+    ///
+    /// assert_eq!(byte_stream.remaining(), b"foobar");
+    ///
+    /// byte_stream.advance(1000);
+    /// assert_eq!(byte_stream.remaining(), &[]);
+    /// ```
     #[must_use]
     pub fn remaining(&self) -> &[u8] {
-        let index = self.cursor.min(self.bytes.len() - 1);
-        &self.bytes[index..]
+        self.bytes.get(self.cursor..).unwrap_or_default()
     }
 
     #[must_use]
