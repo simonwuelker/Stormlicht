@@ -47,7 +47,7 @@ enum Precision {
     U16,
 }
 
-type QuantizationTable = [[u16; 8]; 8];
+pub type QuantizationTable = [u16; 64];
 
 impl QuantizationTables {
     #[must_use]
@@ -75,17 +75,17 @@ impl QuantizationTables {
             }
 
             // Read 64 elements whose size is specified by "precision"
-            let elements: [[u16; 8]; 8] = match precision {
+            let quantization_table: [u16; 64] = match precision {
                 Precision::U8 => {
                     // Read 64 bytes and extend them to u16s
                     let table = byte_stream.next_chunk::<64>().ok_or(Error::BadChunk)?;
-                    let mut extended_table: [u16; 64] = [0; 64];
 
+                    let mut extended_table: [u16; 64] = [0; 64];
                     for (src, dst) in table.iter().zip(extended_table.iter_mut()) {
                         *dst = (*src as u16) << 8;
                     }
 
-                    extended_table.cast()
+                    extended_table
                 },
                 Precision::U16 => {
                     let mut table: [u16; 64] = byte_stream
@@ -101,11 +101,15 @@ impl QuantizationTables {
                         }
                     }
 
-                    table.cast()
+                    table
                 },
             };
 
-            self.tables[destination] = Some(elements);
+            if quantization_table.iter().any(|&e| e == 0) {
+                return Err(Error::ZeroInQuantizationTable);
+            }
+
+            self.tables[destination] = Some(quantization_table);
         }
 
         Ok(())

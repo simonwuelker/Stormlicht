@@ -25,6 +25,8 @@ pub enum Error {
     IncompleteImage,
     UndefinedQuantizationTable,
 
+    ZeroInQuantizationTable,
+
     /// Failed to parse frame data
     BadFrame,
 
