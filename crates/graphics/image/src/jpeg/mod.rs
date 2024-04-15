@@ -25,6 +25,7 @@ pub enum Error {
     UnexpectedChunk,
     IncompleteImage,
     UndefinedQuantizationTable,
+    UndefinedHuffmanTable,
 
     ZeroInQuantizationTable,
 

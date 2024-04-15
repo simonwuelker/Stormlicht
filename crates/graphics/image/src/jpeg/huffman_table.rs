@@ -6,7 +6,7 @@ const MAX_NUM_HUFFMAN_TABLES: usize = 32;
 
 #[derive(Clone, Default)]
 pub struct HuffmanTables {
-    tables: [HuffmanTable; MAX_NUM_HUFFMAN_TABLES],
+    tables: [Option<HuffmanTable>; MAX_NUM_HUFFMAN_TABLES],
 }
 
 /// A huffman table for decoding symbols
@@ -18,7 +18,7 @@ pub struct HuffmanTable {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct HuffmanLookupResult {
+pub struct HuffmanLookupResult {
     symbol: u8,
     consumed_bits: NonZero<u32>,
 }
@@ -84,8 +84,10 @@ struct HuffmanTableEntry {
 
 impl HuffmanTables {
     #[must_use]
-    pub fn get(&self, index: usize) -> &HuffmanTable {
-        &self.tables[index]
+    pub fn get(&self, index: usize) -> Result<&HuffmanTable, Error> {
+        self.tables[index]
+            .as_ref()
+            .ok_or(Error::UndefinedHuffmanTable)
     }
 
     pub fn add_table(&mut self, bytes: &[u8]) -> Result<(), Error> {
@@ -105,6 +107,7 @@ impl HuffmanTables {
         let mut bytes = bytes.iter();
 
         let mut code: u16 = 0;
+        let mut table = HuffmanTable::default();
         for code_length in 0..16 {
             // This computes mask as an integer whose first code_length + 1 bits are 1 and 0 otherwise
             let mask = NonZeroU16::new(!((1 << (u16::BITS - code_length - 1)) - 1))
@@ -113,11 +116,13 @@ impl HuffmanTables {
 
             for _ in 0..n_codes_with_this_length {
                 let symbol = *bytes.next().ok_or(Error::BadHuffmanTable)?;
-                self.tables[table_id].insert_symbol(code, mask, symbol);
+                table.insert_symbol(code, mask, symbol);
                 code += 1;
             }
             code <<= 1;
         }
+
+        self.tables[table_id] = Some(table);
 
         Ok(())
     }
