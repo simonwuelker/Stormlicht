@@ -25,11 +25,12 @@ pub struct HuffmanLookupResult {
 
 impl HuffmanTable {
     fn insert_symbol(&mut self, code: u16, mask: NonZeroU16, symbol: u8) {
-        let repeat = 1 << mask.trailing_zeros();
+        let base = code << mask.trailing_zeros();
+        let repeat_count = (1 << mask.trailing_zeros()) - 1;
 
         let entry = HuffmanTableEntry { code, mask, symbol };
-        for i in 0..repeat {
-            self.lookup_table[(code + i) as usize] = entry;
+        for i in 0..repeat_count {
+            self.lookup_table[(base + i) as usize] = entry;
         }
     }
 
