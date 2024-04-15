@@ -82,7 +82,7 @@ impl QuantizationTables {
 
                     let mut extended_table: [u16; 64] = [0; 64];
                     for (src, dst) in table.iter().zip(extended_table.iter_mut()) {
-                        *dst = (*src as u16) << 8;
+                        *dst = *src as u16;
                     }
 
                     extended_table
