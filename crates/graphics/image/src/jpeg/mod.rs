@@ -10,6 +10,7 @@ mod bit_reader;
 mod chunk;
 mod huffman_table;
 mod quantization_table;
+mod colors;
 
 use chunk::{Chunk, Chunks};
 use huffman_table::HuffmanTables;
