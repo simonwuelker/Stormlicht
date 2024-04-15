@@ -38,7 +38,7 @@ const MAX_QUANTIZATION_TABLES: usize = 4;
 #[derive(Clone, Debug, Default)]
 pub struct QuantizationTables {
     /// Stored in a `Box` to not use too much stack
-    tables: Box<[QuantizationTable; MAX_QUANTIZATION_TABLES]>,
+    tables: Box<[Option<QuantizationTable>; MAX_QUANTIZATION_TABLES]>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -51,8 +51,10 @@ type QuantizationTable = [[u16; 8]; 8];
 
 impl QuantizationTables {
     #[must_use]
-    pub fn get(&self, index: u8) -> &QuantizationTable {
-        &self.tables[index as usize]
+    pub fn get(&self, index: u8) -> Result<&QuantizationTable, Error> {
+        self.tables[index as usize]
+            .as_ref()
+            .ok_or(Error::UndefinedQuantizationTable)
     }
 
     pub fn add_tables(&mut self, tables: &[u8]) -> Result<(), Error> {
@@ -103,7 +105,7 @@ impl QuantizationTables {
                 },
             };
 
-            self.tables[destination] = elements;
+            self.tables[destination] = Some(elements);
         }
 
         Ok(())

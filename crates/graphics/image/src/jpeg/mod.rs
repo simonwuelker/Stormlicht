@@ -23,6 +23,7 @@ pub enum Error {
     UnknownChunk,
     UnexpectedChunk,
     IncompleteImage,
+    UndefinedQuantizationTable,
 
     /// Failed to parse frame data
     BadFrame,
