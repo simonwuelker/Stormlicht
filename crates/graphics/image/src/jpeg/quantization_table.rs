@@ -50,6 +50,11 @@ enum Precision {
 type QuantizationTable = [[u16; 8]; 8];
 
 impl QuantizationTables {
+    #[must_use]
+    pub fn get(&self, index: u8) -> &QuantizationTable {
+        &self.tables[index as usize]
+    }
+
     pub fn add_tables(&mut self, tables: &[u8]) -> Result<(), Error> {
         let mut byte_stream = ByteStream::new(tables);
 
