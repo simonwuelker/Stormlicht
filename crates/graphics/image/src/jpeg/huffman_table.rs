@@ -28,7 +28,7 @@ impl HuffmanTable {
         let base = code << mask.trailing_zeros();
         let repeat_count = (1 << mask.trailing_zeros()) - 1;
 
-        let entry = HuffmanTableEntry { code, mask, symbol };
+        let entry = HuffmanTableEntry { mask, symbol };
         for i in 0..repeat_count {
             self.lookup_table[(base + i) as usize] = entry;
         }
@@ -56,7 +56,6 @@ impl Default for HuffmanTable {
     fn default() -> Self {
         // All codes must be initialized to zero to make the logic in insert_symbol work
         let initial_symbol = HuffmanTableEntry {
-            code: 0,
             mask: NonZeroU16::new(1).expect("1 is not zero"),
             symbol: 0,
         };
@@ -69,8 +68,6 @@ impl Default for HuffmanTable {
 
 #[derive(Clone, Copy, Debug)]
 struct HuffmanTableEntry {
-    code: u16,
-
     /// Masks the relevant input bits, left aligned.
     ///
     /// For example, if the symbol code has a length of 3
