@@ -51,7 +51,11 @@ impl<'a> BitReader<'a> {
         let mut result = (second_byte as u16) << 8 | (third_byte as u16);
 
         let bits_from_first_byte = 8 - self.bit_offset();
-        let first_mask = (1_u8 << bits_from_first_byte) - 1;
+        let first_mask = if bits_from_first_byte == 8 {
+            u8::MAX
+        } else {
+            (1_u8 << bits_from_first_byte) - 1
+        };
 
         // Put the bits from the first byte at the very front
         result >>= bits_from_first_byte;
