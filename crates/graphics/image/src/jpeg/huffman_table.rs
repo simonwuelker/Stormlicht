@@ -104,15 +104,15 @@ impl HuffmanTables {
 
         // Remaining bytes are the data values to be mapped
         // Build the Huffman map of (length, code) -> value
-        let mut bytes = bytes.iter();
+        let mut bytes = bytes[17..].iter();
 
         let mut code: u16 = 0;
         let mut table = HuffmanTable::default();
-        for code_length in 0..16 {
+        for code_length in 1..=16 {
             // This computes mask as an integer whose first code_length + 1 bits are 1 and 0 otherwise
-            let mask = NonZeroU16::new(!((1 << (u16::BITS - code_length - 1)) - 1))
-                .expect("cannot be zero");
-            let n_codes_with_this_length = counts[code_length as usize];
+            let mask =
+                NonZeroU16::new(!((1 << (u16::BITS - code_length)) - 1)).expect("cannot be zero");
+            let n_codes_with_this_length = counts[code_length as usize - 1];
 
             for _ in 0..n_codes_with_this_length {
                 let symbol = *bytes.next().ok_or(Error::BadHuffmanTable)?;
