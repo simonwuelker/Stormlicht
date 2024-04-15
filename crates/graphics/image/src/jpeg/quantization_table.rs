@@ -3,6 +3,7 @@ use sl_std::{bytestream::ByteStream, safe_casts::Plain};
 use super::Error;
 
 #[rustfmt::skip]
+#[allow(dead_code)] // Only needed for encoder
 pub const ORDER_TO_MATRIX_INDEX: [(i32, i32); 64] = [
     (0,0),
     (0,1), (1,0),         
