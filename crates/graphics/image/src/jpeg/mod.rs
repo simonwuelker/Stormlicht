@@ -10,6 +10,7 @@ mod bit_reader;
 mod chunk;
 mod colors;
 mod cosine_transform;
+mod frame_header;
 mod huffman_table;
 mod quantization_table;
 
@@ -19,6 +20,8 @@ use huffman_table::HuffmanTables;
 use quantization_table::{QuantizationTable, QuantizationTables};
 
 use crate::{jpeg::cosine_transform::dequantize_and_perform_idct, Texture};
+
+use self::frame_header::{CodingScheme, EntropyCoding, FrameHeader, IsDifferential};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -133,6 +136,21 @@ impl Decoder {
 
     fn process_frame(&mut self, subscript: u8, bytes: &[u8]) -> Result<(), Error> {
         let frame_header = FrameHeader::new(subscript, bytes)?;
+
+        if frame_header.is_differential == IsDifferential::Yes {
+            log::warn!("Differential encodings are not implemented")
+        }
+
+        if frame_header.entropy_coding == EntropyCoding::Arithmetic {
+            log::warn!("Arithmetic entropy encodings are not implemented")
+        }
+
+        if frame_header.coding_scheme != CodingScheme::SequentialDiscreteCosineTransform {
+            log::warn!(
+                "Lossless/Progressive coding schemes are not implemented (image uses {:?})",
+                frame_header.coding_scheme
+            );
+        }
 
         let texture = Texture::new(
             frame_header.samples_per_line as usize,
@@ -326,72 +344,4 @@ fn decode_coefficients(
     }
 
     Ok(())
-}
-
-#[derive(Clone, Copy, Debug)]
-struct FrameHeader {
-    /// Specifies whether the encoding process is baseline sequential, extended sequential,
-    /// progressive, or lossless, as well as which entropy encoding procedure is used.
-    ///
-    /// The values are as follows:
-    /// * `0`: Baseline DCT
-    /// * `1`: Extended sequential DCT, Huffman coding
-    /// * `2`: Progressive DCT, Huffman coding
-    /// * `3`: Lossless (sequential), Huffman coding
-    /// * `9`: Extended sequential DCT, arithmetic coding
-    /// * `10`: Progressive DCT, arithmetic coding
-    /// * `11`: Lossless (sequential), arithmetic coding
-    #[allow(dead_code)] // We only support one of these for now
-    subscript: u8,
-
-    /// Sample precision in bits
-    #[allow(dead_code)] // FIXME: use this
-    sample_precision: u8,
-
-    /// The height of the image
-    ///
-    /// If there are multiple components then this is the height of the largest one.
-    number_of_lines: u16,
-
-    /// The width of the image
-    ///
-    /// If there are multiple components then this is the width of the largest one.
-    samples_per_line: u16,
-    num_image_components: u8,
-}
-
-impl FrameHeader {
-    fn new(subscript: u8, bytes: &[u8]) -> Result<Self, Error> {
-        if bytes.len() < 6 {
-            return Err(Error::BadChunk);
-        }
-
-        if subscript != 0 {
-            log::error!("Implement image types other than baseline dct");
-            return Err(Error::Unsupported);
-        }
-
-        let sample_precision = bytes[0];
-        let number_of_lines = u16::from_be_bytes(
-            bytes[1..3]
-                .try_into()
-                .expect("Slice is exactly two elements long"),
-        );
-        let samples_per_line = u16::from_be_bytes(
-            bytes[3..5]
-                .try_into()
-                .expect("Slice is exactly two elements long"),
-        );
-        let num_image_components = bytes[5];
-
-        let header = Self {
-            subscript,
-            sample_precision,
-            number_of_lines,
-            samples_per_line,
-            num_image_components,
-        };
-
-        Ok(header)
-    }
 }
