@@ -906,8 +906,7 @@ impl<P: ParseErrorHandler> Parser<P> {
         }
 
         // 3. Let entry be the last (most recently added) element in the list of active formatting elements.
-        let mut entry_index = self.active_formatting_elements.elements().len();
-
+        let mut entry_index = self.active_formatting_elements.elements().len() - 1;
         loop {
             // 4. Rewind: If there are no entries before entry in the list of active formatting elements, then jump to the step labeled create.
             if entry_index == 0 {
@@ -945,9 +944,11 @@ impl<P: ParseErrorHandler> Parser<P> {
                     tag,
                 });
 
-            // 10. If the entry for new element in the list of active formatting elements is not the last entry in the list, return to the step labeled advance.
-            // NOTE: Because "Advance" is so simple, we just replicate the step here to avoid making the
-            //       control flow even more confusing than it already is
+            // 10. If the entry for new element in the list of active formatting elements is not the last entry in the list,
+            //     return to the step labeled advance.
+            if entry_index == self.active_formatting_elements.elements().len() - 1 {
+                break;
+            }
             entry_index += 1;
         }
     }
