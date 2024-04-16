@@ -13,13 +13,13 @@ impl<'a> BitReader<'a> {
 
     #[inline]
     #[must_use]
-    const fn byte_offset(&self) -> usize {
+    pub const fn byte_offset(&self) -> usize {
         self.offset >> 3
     }
 
     #[inline]
     #[must_use]
-    const fn bit_offset(&self) -> u8 {
+    pub const fn bit_offset(&self) -> u8 {
         (self.offset & 0b111) as u8
     }
 
@@ -62,5 +62,27 @@ impl<'a> BitReader<'a> {
         result |= ((first_byte & first_mask) as u16) << (16 - bits_from_first_byte);
 
         result
+    }
+
+    /// Consume up to 16 bits at once and sign-extend them
+    pub fn get_bits_extended(&mut self, length: u8) -> i16 {
+        if length == 0 {
+            return 0;
+        }
+
+        let value = self.peek_u16() >> (16 - length);
+        self.advance(length as usize);
+        extend(value, length)
+    }
+}
+
+/// F.12
+#[must_use]
+fn extend(v: u16, length: u8) -> i16 {
+    let vt = 1 << (length as u16 - 1);
+    if v < vt {
+        v as i16 + (-1 << length as i16) + 1
+    } else {
+        v as i16
     }
 }

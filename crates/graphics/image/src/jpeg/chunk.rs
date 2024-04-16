@@ -21,7 +21,7 @@ pub(super) enum Chunk<'a> {
     DefineRestartInterval(&'a [u8]),
 
     /// `SOS`
-    StartOfScan { header: ScanHeader, scan: Vec<u8> },
+    StartOfScan { header: &'a [u8], scan: Vec<u8> },
 
     /// `RST`
     Restart(u8),
@@ -34,26 +34,6 @@ pub(super) enum Chunk<'a> {
 
     /// `EOI`
     EndOfImage,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct ScanHeader {
-    num_image_components: u8,
-    // FIXME: include the rest of the header here
-}
-
-impl ScanHeader {
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-        let Some(byte) = bytes.get(0) else {
-            return Err(Error::BadChunk);
-        };
-
-        let header = Self {
-            num_image_components: *byte,
-        };
-
-        Ok(header)
-    }
 }
 
 impl<'a> Chunk<'a> {
@@ -107,14 +87,13 @@ impl<'a> Chunk<'a> {
                 )
             },
             Self::SOS => {
-                let data = read_variable_sized_chunk(&bytes[2..])?;
-                let header = ScanHeader::from_bytes(data)?;
+                let header = read_variable_sized_chunk(&bytes[2..])?;
 
-                let remaining_bytes = &bytes[data.len() + 4..];
+                let remaining_bytes = &bytes[header.len() + 4..];
                 let (scan, scan_length) = read_compressed_data(remaining_bytes)?;
 
                 let chunk = Self::StartOfScan { header, scan };
-                (chunk, data.len() + scan_length + 2)
+                (chunk, header.len() + scan_length + 2)
             },
             n @ (Self::RST_BEGIN..=Self::RST_END) => (Self::Restart(n - Self::RST_BEGIN), 0),
             n @ (Self::APP_BEGIN..=Self::APP_END) => {
@@ -171,11 +150,6 @@ impl<'a> Chunks<'a> {
         Self {
             remaining_bytes: bytes,
         }
-    }
-
-    #[must_use]
-    pub const fn remaining(&self) -> &[u8] {
-        self.remaining_bytes
     }
 }
 
