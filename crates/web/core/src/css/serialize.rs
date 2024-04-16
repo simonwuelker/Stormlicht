@@ -52,15 +52,6 @@ pub trait Serializer: Sized + fmt::Write {
         self.serialize_list_with_separator(list, ", ")
     }
 
-    /// <https://www.w3.org/TR/cssom-1/#serialize-a-whitespace-separated-list>
-    fn serialize_whitespace_seperated_list<T, I>(&mut self, list: I) -> fmt::Result
-    where
-        I: IntoIterator<Item = T>,
-        T: Serialize,
-    {
-        self.serialize_list_with_separator(list, ' ')
-    }
-
     fn serialize_list_with_separator<T, I, S>(&mut self, list: I, separator: S) -> fmt::Result
     where
         I: IntoIterator<Item = T>,
@@ -87,12 +78,6 @@ impl Serializer for &mut String {}
 
 pub trait Serialize {
     fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result;
-
-    fn serialize_to_string(&self) -> Result<String, fmt::Error> {
-        let mut result = String::new();
-        self.serialize_to(&mut result)?;
-        Ok(result)
-    }
 }
 
 impl Serialize for &str {
