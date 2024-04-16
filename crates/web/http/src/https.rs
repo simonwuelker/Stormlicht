@@ -7,6 +7,8 @@ use crate::request::HTTPError;
 
 static CERTIFICATE_STORE: OnceLock<Arc<rustls::RootCertStore>> = OnceLock::new();
 
+const TLS_PORT: u16 = 443;
+
 fn root_certificates() -> Arc<rustls::RootCertStore> {
     CERTIFICATE_STORE
         .get_or_init(|| {
@@ -20,8 +22,9 @@ fn root_certificates() -> Arc<rustls::RootCertStore> {
 
 pub(crate) fn establish_connection(
     domain_name: String,
+    port: Option<u16>,
 ) -> Result<rustls::StreamOwned<rustls::ClientConnection, TcpStream>, HTTPError> {
-    let socket = TcpStream::connect((domain_name.as_str(), 443))?;
+    let socket = TcpStream::connect((domain_name.as_str(), port.unwrap_or(TLS_PORT)))?;
     let server_name = rustls::pki_types::ServerName::try_from(domain_name).expect("invalid domain");
 
     let config = rustls::ClientConfig::builder()

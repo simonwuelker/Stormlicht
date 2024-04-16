@@ -143,6 +143,7 @@ impl Request {
     pub fn send(&mut self) -> Result<Response, HTTPError> {
         // Establish a connection with the host
         let host = self.context.url.host().expect("url does not have a host");
+        let port = self.context.url.port();
         match self.context.url.scheme().as_str() {
             "http" => {
                 // Resolve the hostname
@@ -154,13 +155,13 @@ impl Request {
                     Host::EmptyHost => todo!(),
                 };
 
-                let stream = TcpStream::connect(SocketAddr::new(ip, 80))?;
+                let stream = TcpStream::connect(SocketAddr::new(ip, port.unwrap_or(80)))?;
                 self.send_on_stream(stream)
             },
             "https" => {
                 let stream = match host {
                     Host::Domain(host) | Host::OpaqueHost(host) => {
-                        https::establish_connection(host.to_string())?
+                        https::establish_connection(host.to_string(), port)?
                     },
                     _ => todo!(),
                 };
