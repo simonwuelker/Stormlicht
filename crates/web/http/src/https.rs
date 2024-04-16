@@ -3,6 +3,8 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
+use crate::request::HTTPError;
+
 static CERTIFICATE_STORE: OnceLock<Arc<rustls::RootCertStore>> = OnceLock::new();
 
 fn root_certificates() -> Arc<rustls::RootCertStore> {
@@ -18,8 +20,8 @@ fn root_certificates() -> Arc<rustls::RootCertStore> {
 
 pub(crate) fn establish_connection(
     domain_name: String,
-) -> Result<rustls::StreamOwned<rustls::ClientConnection, TcpStream>, rustls::Error> {
-    let socket = TcpStream::connect((domain_name.as_str(), 443)).expect("Connection failed");
+) -> Result<rustls::StreamOwned<rustls::ClientConnection, TcpStream>, HTTPError> {
+    let socket = TcpStream::connect((domain_name.as_str(), 443))?;
     let server_name = rustls::pki_types::ServerName::try_from(domain_name).expect("invalid domain");
 
     let config = rustls::ClientConfig::builder()

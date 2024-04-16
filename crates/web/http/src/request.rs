@@ -24,6 +24,7 @@ pub enum HTTPError {
     Gzip(gzip::Error),
     Brotli(brotli::Error),
     Zlib(zlib::Error),
+    Tls(rustls::Error),
     RedirectLoop,
     NonHTTPRedirect,
     NonHTTPURl,
@@ -159,8 +160,7 @@ impl Request {
             "https" => {
                 let stream = match host {
                     Host::Domain(host) | Host::OpaqueHost(host) => {
-                        https::establish_connection(host.to_string())
-                            .expect("Establishing connection failed")
+                        https::establish_connection(host.to_string())?
                     },
                     _ => todo!(),
                 };
@@ -253,5 +253,11 @@ impl From<brotli::Error> for HTTPError {
 impl From<zlib::Error> for HTTPError {
     fn from(value: zlib::Error) -> Self {
         Self::Zlib(value)
+    }
+}
+
+impl From<rustls::Error> for HTTPError {
+    fn from(value: rustls::Error) -> Self {
+        Self::Tls(value)
     }
 }
