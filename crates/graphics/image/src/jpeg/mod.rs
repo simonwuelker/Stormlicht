@@ -101,8 +101,7 @@ impl Decoder {
                         return Err(Error::Unsupported);
                     }
 
-                    let frame_header = FrameHeader::new(subscript, data)?;
-                    decoder.process_frame(frame_header, chunks.remaining())?;
+                    decoder.process_frame(subscript, data)?;
                 },
                 Chunk::DefineHuffmanTable(huffman_table) => {
                     decoder.huffman_tables.add_table(huffman_table)?;
@@ -124,11 +123,9 @@ impl Decoder {
         todo!();
     }
 
-    fn process_frame(
-        &mut self,
-        frame_header: FrameHeader,
-        frame_bytes: &[u8],
-    ) -> Result<(), Error> {
+    fn process_frame(&mut self, subscript: u8, bytes: &[u8]) -> Result<(), Error> {
+        let frame_header = FrameHeader::new(subscript, bytes)?;
+
         let texture = Texture::new(
             frame_header.samples_per_line as usize,
             frame_header.number_of_lines as usize,
@@ -150,6 +147,7 @@ impl Decoder {
             )
         }
 
+        let mut bytes = bytes[6..].iter();
         for component_id in 0..frame_header.num_image_components {
             let _id = *bytes.next().ok_or(Error::BadFrame)?;
             let _sampling_factor = *bytes.next().ok_or(Error::BadFrame)?;
