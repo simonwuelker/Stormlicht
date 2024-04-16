@@ -1,5 +1,7 @@
 use super::quantization_table::QuantizationTable;
 
+use std::num::Wrapping;
+
 #[rustfmt::skip]
 #[allow(dead_code)] // Only needed for encoder
 pub const ORDER_TO_MATRIX_INDEX: [(i32, i32); 64] = [
@@ -32,13 +34,19 @@ pub const MATRIX_INDEX_TO_ORDER: [[usize; 8]; 8] = [
     [35, 36, 48, 49, 57, 58, 62, 63],
 ];
 
+#[inline]
+#[must_use]
+fn dequantize(coefficient: i16, quantization: u16) -> Wrapping<i32> {
+    Wrapping(coefficient as i32) * Wrapping(quantization as i32)
+}
+
 pub fn dequantize_and_perform_idct(
     coefficients: &[i16; 64],
     quantization_table: &QuantizationTable,
     output: &mut [u8],
 ) {
     // Similar to stbi__idct_block in stb_image
-    let mut tmp = [0; 64];
+    let mut tmp = [Wrapping(0); 64];
 
     // Columns
     for i in 0..8 {
@@ -49,7 +57,7 @@ pub fn dequantize_and_perform_idct(
             && coefficients[i + 48] == 0
             && coefficients[i + 56] == 0
         {
-            let dc_term = (coefficients[i] as i32 * quantization_table[i] as i32) << 2;
+            let dc_term = dequantize(coefficients[i], quantization_table[i]) << 2;
 
             tmp[i] = dc_term;
             tmp[i + 8] = dc_term;
@@ -60,16 +68,16 @@ pub fn dequantize_and_perform_idct(
             tmp[i + 48] = dc_term;
             tmp[i + 56] = dc_term;
         } else {
-            let s0 = coefficients[i] as i32 * quantization_table[i] as i32;
-            let s1 = coefficients[i + 8] as i32 * quantization_table[i + 8] as i32;
-            let s2 = coefficients[i + 16] as i32 * quantization_table[i + 16] as i32;
-            let s3 = coefficients[i + 24] as i32 * quantization_table[i + 24] as i32;
-            let s4 = coefficients[i + 32] as i32 * quantization_table[i + 32] as i32;
-            let s5 = coefficients[i + 40] as i32 * quantization_table[i + 40] as i32;
-            let s6 = coefficients[i + 48] as i32 * quantization_table[i + 48] as i32;
-            let s7 = coefficients[i + 56] as i32 * quantization_table[i + 56] as i32;
+            let s0 = dequantize(coefficients[i], quantization_table[i]);
+            let s1 = dequantize(coefficients[i + 8], quantization_table[i + 8]);
+            let s2 = dequantize(coefficients[i + 16], quantization_table[i + 16]);
+            let s3 = dequantize(coefficients[i + 24], quantization_table[i + 24]);
+            let s4 = dequantize(coefficients[i + 32], quantization_table[i + 32]);
+            let s5 = dequantize(coefficients[i + 40], quantization_table[i + 40]);
+            let s6 = dequantize(coefficients[i + 48], quantization_table[i + 48]);
+            let s7 = dequantize(coefficients[i + 56], quantization_table[i + 56]);
 
-            let [x0, x1, x2, x3] = make_kernel_x(s0, s2, s4, s6, 512);
+            let [x0, x1, x2, x3] = make_kernel_x(s0, s2, s4, s6, Wrapping(512));
             let [t0, t1, t2, t3] = make_kernel_y(s1, s3, s5, s7);
 
             tmp[i] = (x0 + t3) >> 10;
@@ -91,10 +99,10 @@ pub fn dequantize_and_perform_idct(
         // so we want to round that, which means adding 0.5 * 1<<17,
         // aka 65536. Also, we'll end up with -128 to 127 that we want
         // to encode as 0..255 by adding 128, so we'll add that before the shift
-        const X_SCALE: i32 = 65536 + (128 << 17);
+        const X_SCALE: Wrapping<i32> = Wrapping(65536 + (128 << 17));
 
         let [s0, rest @ ..] = tmp_row;
-        if *rest == [0; 7] {
+        if *rest == [Wrapping(0); 7] {
             let dc_term = stbi_clamp((stbi_fsh(*s0) + X_SCALE) >> 17);
             out_row.fill(dc_term);
         } else {
@@ -114,17 +122,23 @@ pub fn dequantize_and_perform_idct(
 
 #[inline]
 #[must_use]
-const fn make_kernel(
-    [s0, s1, s2, s3, s4, s5, s6, s7]: [i32; 8],
-    x_scale: i32,
-) -> ([i32; 4], [i32; 4]) {
+fn make_kernel(
+    [s0, s1, s2, s3, s4, s5, s6, s7]: [Wrapping<i32>; 8],
+    x_scale: Wrapping<i32>,
+) -> ([Wrapping<i32>; 4], [Wrapping<i32>; 4]) {
     (
         make_kernel_x(s0, s2, s4, s6, x_scale),
         make_kernel_y(s1, s3, s5, s7),
     )
 }
 
-const fn make_kernel_x(s0: i32, s2: i32, s4: i32, s6: i32, x_scale: i32) -> [i32; 4] {
+fn make_kernel_x(
+    s0: Wrapping<i32>,
+    s2: Wrapping<i32>,
+    s4: Wrapping<i32>,
+    s6: Wrapping<i32>,
+    x_scale: Wrapping<i32>,
+) -> [Wrapping<i32>; 4] {
     let p2 = s2;
     let p3 = s6;
     let p1 = (p2 + p3) * stbi_f2f(0.5411961);
@@ -144,7 +158,12 @@ const fn make_kernel_x(s0: i32, s2: i32, s4: i32, s6: i32, x_scale: i32) -> [i32
 
 #[inline]
 #[must_use]
-const fn make_kernel_y(s1: i32, s3: i32, s5: i32, s7: i32) -> [i32; 4] {
+fn make_kernel_y(
+    s1: Wrapping<i32>,
+    s3: Wrapping<i32>,
+    s5: Wrapping<i32>,
+    s7: Wrapping<i32>,
+) -> [Wrapping<i32>; 4] {
     let p1 = s7 + s1;
     let p2 = s5 + s3;
     let p3 = s7 + s3;
@@ -166,20 +185,20 @@ const fn make_kernel_y(s1: i32, s3: i32, s5: i32, s7: i32) -> [i32; 4] {
 
 #[inline]
 #[must_use]
-const fn stbi_f2f(x: f32) -> i32 {
-    (x * 4096.0 + 0.5) as i32
+const fn stbi_f2f(x: f32) -> Wrapping<i32> {
+    Wrapping((x * 4096.0 + 0.5) as i32)
 }
 
 #[inline]
 #[must_use]
-const fn stbi_fsh(x: i32) -> i32 {
+fn stbi_fsh(x: Wrapping<i32>) -> Wrapping<i32> {
     x << 12
 }
 
 #[inline]
 #[must_use]
-fn stbi_clamp(x: i32) -> u8 {
-    x.clamp(0, 255) as u8
+fn stbi_clamp(x: Wrapping<i32>) -> u8 {
+    x.0.clamp(0, 255) as u8
 }
 
 #[cfg(test)]
