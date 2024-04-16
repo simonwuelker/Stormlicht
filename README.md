@@ -25,7 +25,10 @@ If you want to follow the development, you can visit [#stormlicht:matrix.org](ht
 ## 1.1. Design goals
 I strive for Correctness, Performance and Safety, in that order.
 
-This is also a "for fun" project, so I do try and implement as much of the functionality as possible without relying on third party crates. (currently, we only need [glazier](https://github.com/linebender/glazier) and [softbuffer](https://github.com/rust-windowing/softbuffer) for cross-platform window management, [log](https://github.com/rust-lang/log) and [env-logger](https://github.com/rust-cli/env_logger) for logging as well as [syn](https://github.com/dtolnay/syn)/[quote](https://github.com/dtolnay/quote)/[proc-macro2](https://github.com/dtolnay/proc-macro2) during compilation)
+This is also a "for fun" project, so I do try and implement as much of the functionality as possible without relying on third party crates.
+The engine implements its own font rendering, http stack and image parsing, among other things.
+
+Despite being a "hobby project", Stormlicht is making good progress and has already helped fix bugs in web specifications and implemented [WPT](https://github.com/web-platform-tests/wpt) tests.
 
 | Rendering the [Acid1](https://www.w3.org/Style/CSS/Test/CSS1/current/test5526c.htm) test            | Reference Rendering (Mozilla Firefox 122.0)                                                         |
 | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
@@ -57,7 +60,7 @@ to set the log level. Refer to the documentation of [env-logger](https://docs.rs
 For example:
 ```console
 # Log "debug" and above
-RUST_LOG=debug cargo r
+RUST_LOG=debug ./stormlicht.py run
 ```
 Available levels are `trace`, `debug`, `info`, `warn` and `error`, in ascending order.
 
@@ -81,7 +84,6 @@ I would love to have a GUI! But actually writing one in rust is *hard*[^2], most
 There are currently very smart people working to solve these issues[^3], but I am not one of them. If you want to try implementing a  GUI, please do!
 
 But there is another reason: A browser engine is really just a highly complex framework for implementing user interfaces. If I procrastinate on implementing a GUI library long enough, i can just write it in HTML!
-
 
 ## 1.5. Credits
 This project is inspired by [Andreas Kling](https://github.com/awesomekling)/[the Ladybird Browser](https://awesomekling.github.io/Ladybird-a-new-cross-platform-browser-project/)
