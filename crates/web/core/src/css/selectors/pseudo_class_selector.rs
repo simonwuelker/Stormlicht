@@ -57,7 +57,6 @@ impl<'a> CSSParse<'a> for PseudoClassSelector {
 
 impl Selector for PseudoClassSelector {
     fn matches(&self, _element: &DomPtr<Element>) -> bool {
-        log::warn!("FIXME: Pseudo Class selector matching");
         false
     }
 
