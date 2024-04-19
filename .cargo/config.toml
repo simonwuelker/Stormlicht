@@ -1,6 +1,3 @@
-[build]
-rustflags = ["-Ctarget-cpu=native"]
-
 [env]
 BASE_DIR = { value = ".", relative = true }
 DOWNLOAD_DIR = { value = "downloads", relative = true }
