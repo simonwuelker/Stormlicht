@@ -4,7 +4,7 @@ use sl_std::chars::ReversibleCharIterator;
 use super::{
     lookup_character_reference,
     token::{DocTypeBuilder, TagBuilder},
-    HtmlParseError, ParseErrorHandler, TagData, Token,
+    HtmlParseError, ParseErrorHandler, Token,
 };
 use crate::infra;
 use std::{collections::VecDeque, marker::PhantomData, mem};
@@ -324,31 +324,34 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
         P::handle(variant)
     }
 
-    fn emit(&mut self, token: Token) {
-        if let Token::Tag(TagData {
-            opening: true,
-            name,
-            ..
-        }) = &token
-        {
-            self.last_emitted_start_tag_name = Some(name.to_string());
-        }
-        self.token_buffer.push_back(token);
-    }
-
     fn emit_current_tag_token(&mut self) {
+        if self.current_tag.is_opening {
+            self.last_emitted_start_tag_name = Some(self.current_tag.name.clone());
+        }
         let tag = mem::take(&mut self.current_tag).finish();
-        self.emit(tag);
+        self.token_buffer.push_back(tag);
     }
 
+    #[inline]
+    fn emit_character_token(&mut self, c: char) {
+        self.token_buffer.push_back(Token::Character(c))
+    }
+
+    #[inline]
+    fn emit_eof_token(&mut self) {
+        self.token_buffer.push_back(Token::EOF);
+    }
+
+    #[inline]
     fn emit_current_comment_token(&mut self) {
         let comment = Token::Comment(mem::take(&mut self.current_comment));
-        self.emit(comment);
+        self.token_buffer.push_back(comment);
     }
 
+    #[inline]
     fn emit_current_doctype_token(&mut self) {
         let doctype = Token::DOCTYPE(mem::take(&mut self.current_doctype).finish());
-        self.emit(doctype);
+        self.token_buffer.push_back(doctype);
     }
 
     fn reconsume_in(&mut self, new_state: TokenizerState) {
@@ -356,6 +359,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
         self.switch_to(new_state)
     }
 
+    #[inline]
     pub fn set_last_start_tag(&mut self, last_start_tag: Option<String>) {
         self.last_emitted_start_tag_name = last_start_tag;
     }
@@ -386,7 +390,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
         } else {
             mem::take(&mut self.buffer)
                 .chars()
-                .for_each(|c| self.emit(Token::Character(c)));
+                .for_each(|c| self.emit_character_token(c));
         }
     }
 
@@ -442,15 +446,15 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(UNICODE_REPLACEMENT));
+                        self.emit_character_token(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     None => {
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -473,15 +477,15 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(UNICODE_REPLACEMENT));
+                        self.emit_character_token(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     None => {
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -498,15 +502,15 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(UNICODE_REPLACEMENT));
+                        self.emit_character_token(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     None => {
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -523,15 +527,15 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(UNICODE_REPLACEMENT));
+                        self.emit_character_token(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     None => {
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -544,15 +548,15 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(UNICODE_REPLACEMENT));
+                        self.emit_character_token(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     None => {
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -588,7 +592,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::InvalidFirstCharacterOfTagName);
 
                         // Emit a U+003C LESS-THAN SIGN character token.
-                        self.emit(Token::Character('<'));
+                        self.emit_character_token('<');
 
                         // Reconsume in the data state.
                         self.reconsume_in(TokenizerState::Data);
@@ -599,8 +603,8 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
                         // Emit a U+003C LESS-THAN SIGN
                         // character token and an end-of-file token.
-                        self.emit(Token::Character('<'));
-                        self.emit(Token::EOF);
+                        self.emit_character_token('<');
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -639,9 +643,9 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // Emit a U+003C LESS-THAN SIGN character token,
                         // a U+002F SOLIDUS character token and an end-of-file
                         // token.
-                        self.emit(Token::Character('<'));
-                        self.emit(Token::Character('/'));
-                        self.emit(Token::EOF);
+                        self.emit_character_token('<');
+                        self.emit_character_token('/');
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -684,7 +688,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInTag);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -701,7 +705,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token.
-                        self.emit(Token::Character('<'));
+                        self.emit_character_token('<');
 
                         // Reconsume in the RCDATA state.
                         self.reconsume_in(TokenizerState::RCDATA);
@@ -722,8 +726,8 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token and a U+002F SOLIDUS
                         // character token.
-                        self.emit(Token::Character('<'));
-                        self.emit(Token::Character('/'));
+                        self.emit_character_token('<');
+                        self.emit_character_token('/');
 
                         // Reconsume in the RCDATA state.
                         self.reconsume_in(TokenizerState::RCDATA);
@@ -765,10 +769,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // Emit a U+003C LESS-THAN SIGN character token, a U+002F SOLIDUS character
                         // token, and a character token for each of the characters in the temporary
                         // buffer (in the order they were added to the buffer).
-                        self.emit(Token::Character('<'));
-                        self.emit(Token::Character('/'));
+                        self.emit_character_token('<');
+                        self.emit_character_token('/');
                         for c in mem::take(&mut self.buffer).chars() {
-                            self.emit(Token::Character(c));
+                            self.emit_character_token(c);
                         }
 
                         // Reconsume in the RCDATA state.
@@ -788,7 +792,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token.
-                        self.emit(Token::Character('<'));
+                        self.emit_character_token('<');
 
                         // Reconsume in the RAWTEXT state.
                         self.reconsume_in(TokenizerState::RAWTEXT);
@@ -809,8 +813,8 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token and a U+002F SOLIDUS
                         // character token.
-                        self.emit(Token::Character('<'));
-                        self.emit(Token::Character('/'));
+                        self.emit_character_token('<');
+                        self.emit_character_token('/');
 
                         // Reconsume in the RAWTEXT state.
                         self.reconsume_in(TokenizerState::RAWTEXT);
@@ -853,10 +857,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // Emit a U+003C LESS-THAN SIGN character token, a U+002F SOLIDUS character
                         // token, and a character token for each of the characters in the temporary
                         // buffer (in the order they were added to the buffer).
-                        self.emit(Token::Character('<'));
-                        self.emit(Token::Character('/'));
+                        self.emit_character_token('<');
+                        self.emit_character_token('/');
                         for c in mem::take(&mut self.buffer).chars() {
-                            self.emit(Token::Character(c));
+                            self.emit_character_token(c);
                         }
 
                         // Reconsume in the RAWTEXT state.
@@ -881,12 +885,12 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
                         // Emit a U+003C LESS-THAN SIGN character token and a
                         // U+0021 EXCLAMATION MARK character token.
-                        self.emit(Token::Character('<'));
-                        self.emit(Token::Character('!'));
+                        self.emit_character_token('<');
+                        self.emit_character_token('!');
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token.
-                        self.emit(Token::Character('<'));
+                        self.emit_character_token('<');
 
                         // Reconsume in the script data state.
                         self.reconsume_in(TokenizerState::ScriptData);
@@ -907,8 +911,8 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token and a U+002F SOLIDUS
                         // character token.
-                        self.emit(Token::Character('<'));
-                        self.emit(Token::Character('/'));
+                        self.emit_character_token('<');
+                        self.emit_character_token('/');
 
                         // Reconsume in the script data state.
                         self.reconsume_in(TokenizerState::ScriptData);
@@ -952,10 +956,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // Emit a U+003C LESS-THAN SIGN character token, a U+002F SOLIDUS character
                         // token, and a character token for each of the characters in the temporary
                         // buffer (in the order they were added to the buffer).
-                        self.emit(Token::Character('<'));
-                        self.emit(Token::Character('/'));
+                        self.emit_character_token('<');
+                        self.emit_character_token('/');
                         for c in mem::take(&mut self.buffer).chars() {
-                            self.emit(Token::Character(c));
+                            self.emit_character_token(c);
                         }
 
                         // Reconsume in the script data state.
@@ -972,7 +976,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::ScriptDataEscapeStartDash);
 
                         // Emit a U+002D HYPHEN-MINUS character token.
-                        self.emit(Token::Character('-'));
+                        self.emit_character_token('-');
                     },
                     _ => {
                         // Reconsume in the script data state.
@@ -989,7 +993,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::ScriptDataEscapedDashDash);
 
                         // Emit a U+002D HYPHEN-MINUS character token.
-                        self.emit(Token::Character('-'));
+                        self.emit_character_token('-');
                     },
                     _ => {
                         // Reconsume in the script data state.
@@ -1006,7 +1010,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::ScriptDataEscapedDash);
 
                         // Emit a U+002D HYPHEN-MINUS character token.
-                        self.emit(Token::Character('-'));
+                        self.emit_character_token('-');
                     },
                     Some('<') => {
                         // Switch to the script data escaped less-than sign state.
@@ -1017,18 +1021,18 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
-                        self.emit(Token::Character(UNICODE_REPLACEMENT));
+                        self.emit_character_token(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     None => {
                         // This is an eof-in-script-html-comment-like-text parse error.
                         self.parse_error(HtmlParseError::EOFInScriptHtmlCommentLikeText);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1041,7 +1045,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::ScriptDataEscapedDashDash);
 
                         // Emit a U+002D HYPHEN-MINUS character token.
-                        self.emit(Token::Character('-'));
+                        self.emit_character_token('-');
                     },
                     Some('<') => {
                         // Switch to the script data escaped less-than sign state.
@@ -1052,21 +1056,21 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
-                        self.emit(Token::Character(UNICODE_REPLACEMENT));
+                        self.emit_character_token(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Switch to the script data escaped state.
                         self.switch_to(TokenizerState::ScriptDataEscaped);
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     None => {
                         // This is an eof-in-script-html-comment-like-text parse error.
                         self.parse_error(HtmlParseError::EOFInScriptHtmlCommentLikeText);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1076,7 +1080,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('-') => {
                         // Emit a U+002D HYPHEN-MINUS character token.
-                        self.emit(Token::Character('-'));
+                        self.emit_character_token('-');
                     },
                     Some('<') => {
                         // Switch to the script data escaped less-than sign state.
@@ -1087,28 +1091,28 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::ScriptData);
 
                         // Emit a U+003E GREATER-THAN SIGN character token.
-                        self.emit(Token::Character('>'));
+                        self.emit_character_token('>');
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
-                        self.emit(Token::Character(UNICODE_REPLACEMENT));
+                        self.emit_character_token(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Switch to the script data escaped state.
                         self.switch_to(TokenizerState::ScriptDataEscaped);
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     None => {
                         // This is an eof-in-script-html-comment-like-text parse error.
                         self.parse_error(HtmlParseError::EOFInScriptHtmlCommentLikeText);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1128,14 +1132,14 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.buffer.clear();
 
                         // Emit a U+003C LESS-THAN SIGN character token.
-                        self.emit(Token::Character('<'));
+                        self.emit_character_token('<');
 
                         // Reconsume in the script data double escape start state.
                         self.reconsume_in(TokenizerState::ScriptDataDoubleEscapeStart);
                     },
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token.
-                        self.emit(Token::Character('<'));
+                        self.emit_character_token('<');
 
                         // Reconsume in the script data escaped state.
                         self.reconsume_in(TokenizerState::ScriptDataEscaped);
@@ -1156,8 +1160,8 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     _ => {
                         // Emit a U+003C LESS-THAN SIGN character token and a U+002F SOLIDUS
                         // character token.
-                        self.emit(Token::Character('<'));
-                        self.emit(Token::Character('/'));
+                        self.emit_character_token('<');
+                        self.emit_character_token('/');
 
                         // Reconsume in the script data escaped state.
                         self.reconsume_in(TokenizerState::ScriptDataEscaped);
@@ -1202,10 +1206,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                                 // Emit a U+003C LESS-THAN SIGN character token, a U+002F SOLIDUS character
                                 // token, and a character token for each of the characters in the temporary
                                 // buffer (in the order they were added to the buffer).
-                                self.emit(Token::Character('<'));
-                                self.emit(Token::Character('/'));
+                                self.emit_character_token('<');
+                                self.emit_character_token('/');
                                 for c in mem::take(&mut self.buffer).chars() {
-                                    self.emit(Token::Character(c));
+                                    self.emit_character_token(c);
                                 }
 
                                 // Reconsume in the script data escaped state.
@@ -1229,7 +1233,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                             self.switch_to(TokenizerState::ScriptDataEscaped);
                         }
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     Some(c @ 'A'..='Z') => {
                         // Append the lowercase version of the current input character (add 0x0020
@@ -1237,14 +1241,14 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.add_to_buffer(c.to_ascii_lowercase());
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     Some(c @ 'a'..='z') => {
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     _ => {
                         // Reconsume in the script data escaped state.
@@ -1261,32 +1265,32 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::ScriptDataDoubleEscapedDash);
 
                         // Emit a U+002D HYPHEN-MINUS character token.
-                        self.emit(Token::Character('-'));
+                        self.emit_character_token('-');
                     },
                     Some('<') => {
                         // Switch to the script data double escaped less-than sign state.
                         self.switch_to(TokenizerState::ScriptDataDoubleEscapedLessThanSign);
 
                         // Emit a U+003C LESS-THAN SIGN character token.
-                        self.emit(Token::Character('<'));
+                        self.emit_character_token('<');
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
-                        self.emit(Token::Character(UNICODE_REPLACEMENT));
+                        self.emit_character_token(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     None => {
                         // This is an eof-in-script-html-comment-like-text parse error.
                         self.parse_error(HtmlParseError::EOFInScriptHtmlCommentLikeText);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1299,14 +1303,14 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::ScriptDataDoubleEscapedDashDash);
 
                         // Emit a U+002D HYPHEN-MINUS character token.
-                        self.emit(Token::Character('-'));
+                        self.emit_character_token('-');
                     },
                     Some('<') => {
                         // Switch to the script data double escaped less-than sign state.
                         self.switch_to(TokenizerState::ScriptDataDoubleEscapedLessThanSign);
 
                         // Emit a U+003C LESS-THAN SIGN character token.
-                        self.emit(Token::Character('<'));
+                        self.emit_character_token('<');
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -1316,21 +1320,21 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
 
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
-                        self.emit(Token::Character(UNICODE_REPLACEMENT));
+                        self.emit_character_token(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Switch to the script data double escaped state.
                         self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     None => {
                         // This is an eof-in-script-html-comment-like-text parse error.
                         self.parse_error(HtmlParseError::EOFInScriptHtmlCommentLikeText);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1340,21 +1344,21 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('-') => {
                         // Emit a U+002D HYPHEN-MINUS character token.
-                        self.emit(Token::Character('-'));
+                        self.emit_character_token('-');
                     },
                     Some('<') => {
                         // Switch to the script data double escaped less-than sign state.
                         self.switch_to(TokenizerState::ScriptDataDoubleEscapedLessThanSign);
 
                         // Emit a U+003C LESS-THAN SIGN character token.
-                        self.emit(Token::Character('<'));
+                        self.emit_character_token('<');
                     },
                     Some('>') => {
                         // Switch to the script data state.
                         self.switch_to(TokenizerState::ScriptData);
 
                         // Emit a U+003E GREATER-THAN SIGN character token.
-                        self.emit(Token::Character('>'));
+                        self.emit_character_token('>');
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -1364,21 +1368,21 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
 
                         // Emit a U+FFFD REPLACEMENT CHARACTER character token.
-                        self.emit(Token::Character(UNICODE_REPLACEMENT));
+                        self.emit_character_token(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Switch to the script data double escaped state.
                         self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     None => {
                         // This is an eof-in-script-html-comment-like-text parse error.
                         self.parse_error(HtmlParseError::EOFInScriptHtmlCommentLikeText);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1394,7 +1398,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::ScriptDataDoubleEscapeEnd);
 
                         // Emit a U+002F SOLIDUS character token.
-                        self.emit(Token::Character('/'));
+                        self.emit_character_token('/');
                     },
                     _ => {
                         // Reconsume in the script data double escaped state.
@@ -1416,7 +1420,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                             self.switch_to(TokenizerState::ScriptDataDoubleEscaped);
                         }
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     Some(c @ 'A'..='Z') => {
                         // Append the lowercase version of the current input character (add
@@ -1424,14 +1428,14 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.add_to_buffer(c.to_ascii_lowercase());
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     Some(c @ 'a'..='z') => {
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
 
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     _ => {
                         // Reconsume in the script data double escaped state.
@@ -1546,7 +1550,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInTag);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1612,7 +1616,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInTag);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1649,7 +1653,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInTag);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1698,7 +1702,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInTag);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1731,7 +1735,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInTag);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1761,7 +1765,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInTag);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1792,7 +1796,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_comment_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1884,7 +1888,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_comment_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -1922,7 +1926,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_comment_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2015,7 +2019,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_comment_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2055,7 +2059,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_comment_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2101,7 +2105,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_comment_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2136,7 +2140,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2201,7 +2205,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF)
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2247,7 +2251,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2274,7 +2278,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                     Some(_) => {
                         // NOTE: the next tests include the current input character,
@@ -2389,7 +2393,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2448,7 +2452,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2498,7 +2502,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2548,7 +2552,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2613,7 +2617,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2663,7 +2667,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2733,7 +2737,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2790,7 +2794,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2840,7 +2844,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2890,7 +2894,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2928,7 +2932,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2956,7 +2960,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2970,14 +2974,14 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     },
                     Some(c) => {
                         // Emit the current input character as a character token.
-                        self.emit(Token::Character(c));
+                        self.emit_character_token(c);
                     },
                     None => {
                         // This is an eof-in-cdata parse error.
                         self.parse_error(HtmlParseError::EOFInCDATA);
 
                         // Emit an end-of-file token.
-                        self.emit(Token::EOF);
+                        self.emit_eof_token();
                     },
                 }
             },
@@ -2991,7 +2995,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     },
                     _ => {
                         // Emit a U+005D RIGHT SQUARE BRACKET character token.
-                        self.emit(Token::Character(']'));
+                        self.emit_character_token(']');
 
                         // Reconsume in the CDATA section state.
                         self.reconsume_in(TokenizerState::CDATASection);
@@ -3004,7 +3008,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some(']') => {
                         // Emit a U+005D RIGHT SQUARE BRACKET character token.
-                        self.emit(Token::Character(']'));
+                        self.emit_character_token(']');
                     },
                     Some('>') => {
                         // Switch to the data state.
@@ -3012,8 +3016,8 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     },
                     _ => {
                         // Emit two U+005D RIGHT SQUARE BRACKET character tokens.
-                        self.emit(Token::Character(']'));
-                        self.emit(Token::Character(']'));
+                        self.emit_character_token(']');
+                        self.emit_character_token(']');
 
                         // Reconsume in the CDATA section state.
                         self.reconsume_in(TokenizerState::CDATASection);
@@ -3045,7 +3049,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // NOTE: we are supposed to flush the buffer as tokens - but we just set it to "&".
                         //       Let's just emit a single '&' token i guess?
                         //       Sorry to future me if this causes any bugs :^)
-                        self.emit(Token::Character('&'));
+                        self.emit_character_token('&');
 
                         // Reconsume in the return state.
                         self.reconsume_in(self.return_state.unwrap());
@@ -3107,7 +3111,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         } else {
                             // Otherwise, emit the current input character as a character
                             // token.
-                            self.emit(Token::Character(c));
+                            self.emit_character_token(c);
                         }
                     },
                     Some(';') => {
