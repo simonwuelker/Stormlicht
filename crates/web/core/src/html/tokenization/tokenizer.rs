@@ -281,6 +281,9 @@ pub struct Tokenizer<P: ParseErrorHandler> {
     /// The current tag being parsed, if any
     current_tag: TagBuilder,
 
+    /// The current comment being parsed, if any
+    current_comment: String,
+
     /// A general-purpose temporary buffer
     buffer: String,
 
@@ -305,6 +308,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
             character_reference_code: 0,
 
             current_tag: TagBuilder::default(),
+            current_comment: String::new(),
 
             buffer: String::default(),
             done: false,
@@ -338,6 +342,11 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
     fn emit_current_tag_token(&mut self) {
         let tag = mem::take(&mut self.current_tag).finish();
         self.emit(tag);
+    }
+
+    fn emit_current_comment_token(&mut self) {
+        let comment = Token::Comment(mem::take(&mut self.current_comment));
+        self.emit(comment);
     }
 
     fn reconsume_in(&mut self, new_state: TokenizerState) {
@@ -567,7 +576,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     Some('?') => {
                         // This is an unexpected-question-mark-instead-of-tag-name parse error.
                         // Create a comment token whose data is the empty string.
-                        self.current_token.create_comment();
+                        self.current_comment.clear();
 
                         // Reconsume in the bogus comment state.
                         self.reconsume_in(TokenizerState::BogusComment);
@@ -616,7 +625,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::InvalidFirstCharacterOfTagName);
 
                         // Create a comment token whose data is the empty string.
-                        self.current_token.create_comment();
+                        self.current_comment.clear();
 
                         // Reconsume in the bogus comment state.
                         self.reconsume_in(TokenizerState::BogusComment);
@@ -1763,22 +1772,22 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current comment token.
-                        self.emit_current_token();
+                        self.emit_current_comment_token();
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the comment token's data.
-                        self.current_token.append_to_comment(UNICODE_REPLACEMENT);
+                        self.current_comment.push(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Append the current input character to the comment token's data.
-                        self.current_token.append_to_comment(c);
+                        self.current_comment.push(c);
                     },
                     None => {
                         // Emit the comment.
-                        self.emit_current_token();
+                        self.emit_current_comment_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -1792,7 +1801,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     // Consume those two characters, create a comment token whose data is the empty
                     // string, and switch to the comment start state.
                     let _ = self.source.advance_by(2);
-                    self.current_token.create_comment();
+                    self.current_comment.clear();
                     self.switch_to(TokenizerState::CommentStart);
                 } else if self.source.remaining()[..7].eq_ignore_ascii_case("DOCTYPE") {
                     // Consume those characters and switch to the DOCTYPE state.
@@ -1810,7 +1819,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     self.parse_error(HtmlParseError::IncorrectlyOpenedComment);
 
                     // Create a comment token whose data is the empty string.
-                    self.current_token.create_comment();
+                    self.current_comment.clear();
 
                     // Switch to the bogus comment state (don't consume anything in the current state).
                     self.switch_to(TokenizerState::BogusComment);
@@ -1832,7 +1841,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current comment token.
-                        self.emit_current_token();
+                        self.emit_current_comment_token();
                     },
                     _ => {
                         // Reconsume in the comment state.
@@ -1856,11 +1865,11 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current comment token.
-                        self.emit_current_token();
+                        self.emit_current_comment_token();
                     },
                     Some(_) => {
                         // Append a U+002D HYPHEN-MINUS character (-) to the comment token's data.
-                        self.current_token.append_to_comment('-');
+                        self.current_comment.push('-');
 
                         // Reconsume in the comment state.
                         self.reconsume_in(TokenizerState::Comment);
@@ -1870,7 +1879,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInComment);
 
                         // Emit the current comment token.
-                        self.emit_current_token();
+                        self.emit_current_comment_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -1883,7 +1892,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('>') => {
                         // Append the current input character to the comment token's data.
-                        self.current_token.append_to_comment('<');
+                        self.current_comment.push('<');
 
                         // Switch to the comment less-than sign state.
                         self.switch_to(TokenizerState::CommentLessThanSign);
@@ -1897,18 +1906,18 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the comment token's data.
-                        self.current_token.append_to_comment(UNICODE_REPLACEMENT);
+                        self.current_comment.push(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Append the current input character to the comment token's data.
-                        self.current_token.append_to_comment(c);
+                        self.current_comment.push(c);
                     },
                     None => {
                         // This is an eof-in-comment parse error.
                         self.parse_error(HtmlParseError::EOFInComment);
 
                         // Emit the current comment token.
-                        self.emit_current_token();
+                        self.emit_current_comment_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -1921,14 +1930,14 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('!') => {
                         // Append the current input character to the comment token's data.
-                        self.current_token.append_to_comment('!');
+                        self.current_comment.push('!');
 
                         // Switch to the comment less-than sign bang state.
                         self.switch_to(TokenizerState::CommentLessThanSignBang);
                     },
                     Some('<') => {
                         // Append the current input character to the comment token's data.
-                        self.current_token.append_to_comment('<');
+                        self.current_comment.push('<');
                     },
                     _ => {
                         // Reconsume in the comment state.
@@ -1991,7 +2000,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     },
                     Some(_) => {
                         // Append a U+002D HYPHEN-MINUS character (-) to the comment token's data.
-                        self.current_token.append_to_comment('-');
+                        self.current_comment.push('-');
 
                         // Reconsume in the comment state.
                         self.reconsume_in(TokenizerState::Comment);
@@ -2001,7 +2010,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInComment);
 
                         // Emit the current comment token.
-                        self.emit_current_token();
+                        self.emit_current_comment_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2013,9 +2022,11 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 // Consume the next input character:
                 match self.read_next() {
                     Some('>') => {
-                        // Switch to the data state. Emit the current comment token.
+                        // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
-                        self.emit_current_token();
+
+                        // Emit the current comment token.
+                        self.emit_current_comment_token();
                     },
                     Some('!') => {
                         // Switch to the comment end bang state.
@@ -2023,13 +2034,13 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     },
                     Some('-') => {
                         // Append a U+002D HYPHEN-MINUS character (-) to the comment token's data.
-                        self.current_token.append_to_comment('-');
+                        self.current_comment.push('-');
                     },
                     Some(_) => {
                         // Append two U+002D HYPHEN-MINUS characters (-) to the comment token's
                         // data.
-                        self.current_token.append_to_comment('-');
-                        self.current_token.append_to_comment('-');
+                        self.current_comment.push('-');
+                        self.current_comment.push('-');
 
                         // Reconsume in the comment state.
                         self.reconsume_in(TokenizerState::Comment);
@@ -2039,7 +2050,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInComment);
 
                         // Emit the current comment token.
-                        self.emit_current_token();
+                        self.emit_current_comment_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2053,9 +2064,9 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     Some('-') => {
                         // Append two U+002D HYPHEN-MINUS characters (-) and a U+0021 EXCLAMATION
                         // MARK character (!) to the comment token's data.
-                        self.current_token.append_to_comment('-');
-                        self.current_token.append_to_comment('-');
-                        self.current_token.append_to_comment('!');
+                        self.current_comment.push('-');
+                        self.current_comment.push('-');
+                        self.current_comment.push('!');
 
                         // Switch to the comment end dash state.
                         self.switch_to(TokenizerState::CommentEndDash);
@@ -2068,14 +2079,14 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current comment token.
-                        self.emit_current_token();
+                        self.emit_current_comment_token();
                     },
                     Some(_) => {
                         // Append two U+002D HYPHEN-MINUS characters (-) and a U+0021 EXCLAMATION
                         // MARK character (!) to the comment token's data.
-                        self.current_token.append_to_comment('-');
-                        self.current_token.append_to_comment('-');
-                        self.current_token.append_to_comment('!');
+                        self.current_comment.push('-');
+                        self.current_comment.push('-');
+                        self.current_comment.push('!');
 
                         // Reconsume in the comment state.
                         self.reconsume_in(TokenizerState::Comment);
@@ -2085,7 +2096,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInComment);
 
                         // Emit the current comment token.
-                        self.emit_current_token();
+                        self.emit_current_comment_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);

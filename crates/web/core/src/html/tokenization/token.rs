@@ -20,7 +20,6 @@ pub struct CurrentToken {
 #[derive(Debug, Clone)]
 pub enum TokenBuilder {
     Doctype(DocTypeBuilder),
-    Comment(String),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -47,10 +46,6 @@ pub struct TagBuilder {
 }
 
 impl CurrentToken {
-    pub fn create_comment(&mut self) {
-        self.current_token = Some(TokenBuilder::Comment(String::new()))
-    }
-
     pub fn create_doctype(&mut self) {
         self.current_token = Some(TokenBuilder::Doctype(DocTypeBuilder::default()))
     }
@@ -122,16 +117,9 @@ impl CurrentToken {
         }
     }
 
-    pub fn append_to_comment(&mut self, c: char) {
-        if let Some(TokenBuilder::Comment(ref mut comment)) = self.current_token {
-            comment.push(c);
-        }
-    }
-
     pub fn build(&mut self) -> Token {
         match self.current_token.take() {
             Some(TokenBuilder::Doctype(d)) => Token::DOCTYPE(d.build()),
-            Some(TokenBuilder::Comment(c)) => Token::Comment(c),
             None => {
                 panic!("Trying to emit a token but no token has been constructed")
             },
