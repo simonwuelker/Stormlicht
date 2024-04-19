@@ -3049,7 +3049,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
             // https://html.spec.whatwg.org/multipage/parsing.html#named-character-reference-state
             TokenizerState::NamedCharacterReference => {
                 match lookup_character_reference(self.source.remaining()) {
-                    Some((resolved_reference, matched_str)) => {
+                    Some((matched_str, resolved_reference)) => {
                         let _ = self.source.advance_by(matched_str.len());
 
                         // FIXME:
@@ -3070,7 +3070,8 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // the character reference name (as given by the
                         // second column of the named character references
                         // table) to the temporary buffer.
-                        self.buffer = resolved_reference.to_string();
+                        self.buffer.clear();
+                        self.buffer.push_str(resolved_reference);
 
                         // Flush code points consumed as a character reference.
                         self.flush_code_points_consumed_as_character_reference();
