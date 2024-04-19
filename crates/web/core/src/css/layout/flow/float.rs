@@ -132,6 +132,7 @@ impl FloatingBox {
                 height: total_height,
             },
             self.side,
+            containing_block,
         );
 
         let content_offset = Vec2D::new(
@@ -163,7 +164,7 @@ impl FloatingBox {
 pub struct FloatContext {
     /// The highest y-coordinate where floats may be placed
     ///
-    /// Relative to the upper edge of the containing block
+    /// Relative to the upper content edge of the formatting context root
     float_ceiling: Pixels,
 
     containing_block: ContainingBlock,
@@ -211,7 +212,7 @@ impl FloatContext {
     }
 
     pub fn lower_float_ceiling(&mut self, new_ceiling: Pixels) {
-        self.float_ceiling = new_ceiling;
+        self.float_ceiling = self.float_ceiling.max(new_ceiling)
     }
 
     /// Place a float in a given position.
@@ -275,9 +276,26 @@ impl FloatContext {
         }
     }
 
-    fn find_position_for_float(&self, float_width: Pixels, side: FloatSide) -> Placement {
+    /// Computes a suitable position for a floating element
+    ///
+    /// `containing_block_area` describes the position of the containing block for the float
+    /// relative to the root of the current formatting context that the float is positioned in.
+    fn find_position_for_float(
+        &self,
+        float_width: Pixels,
+        side: FloatSide,
+        containing_block: ContainingBlock,
+    ) -> Placement {
         debug_assert!(!self.content_bands.is_empty());
 
+        // While the float is positioned relative to the formatting context root, it may not
+        // be placed outside its containing block
+        let min_left = containing_block
+            .position_relative_to_formatting_context_root
+            .x;
+        let max_right = min_left + containing_block.width();
+
+        // Search the first suitable band that the float can be placed in
         let mut cursor = Pixels::ZERO;
         let mut band_to_place_float_in = self.content_bands.len() - 1;
         for (index, content_band) in self.content_bands[..self.content_bands.len() - 1]
@@ -290,7 +308,12 @@ impl FloatContext {
                 continue;
             }
 
-            if !content_band.box_fits(float_width, side, self.containing_block.width) {
+            if !content_band.box_fits(
+                float_width,
+                side,
+                (min_left, max_right),
+                self.containing_block.width,
+            ) {
                 // The float does not fit here
                 cursor += content_band.height;
                 continue;
@@ -306,11 +329,12 @@ impl FloatContext {
         let chosen_band = &self.content_bands[band_to_place_float_in];
         let y_position = cmp::max(cursor, self.float_ceiling);
         let x_position = match side {
-            FloatSide::Left => chosen_band.inset_left.unwrap_or_default(),
+            FloatSide::Left => chosen_band.inset_left.unwrap_or_default().max(min_left),
             FloatSide::Right => {
-                self.containing_block.width()
-                    - float_width
-                    - chosen_band.inset_right.unwrap_or_default()
+                let right_edge = (self.containing_block.width()
+                    - chosen_band.inset_right.unwrap_or_default())
+                .min(max_right);
+                right_edge - float_width
             },
         };
 
@@ -330,10 +354,11 @@ impl FloatContext {
         &mut self,
         margin_area: Size<Pixels>,
         side: FloatSide,
+        containing_block: ContainingBlock,
     ) -> Vec2D<Pixels> {
-        let placement = self.find_position_for_float(margin_area.width, side);
+        let placement = self.find_position_for_float(margin_area.width, side, containing_block);
         self.place_float(margin_area, side, placement);
-        placement.position
+        placement.position - containing_block.position_relative_to_formatting_context_root
     }
 }
 
@@ -353,40 +378,85 @@ struct ContentBand {
 }
 
 impl ContentBand {
+    /// When determining whether or not a float fits in a content band there are effectively
+    /// two constraints to consider:
+    /// * The box must be positioned inside the band (governed by float positioning rules)
+    /// * The box must be positioned
     fn box_fits(
         &self,
         box_width: Pixels,
         place_on_side: FloatSide,
-        width_of_containing_block: Pixels,
+        (min_left, max_right): (Pixels, Pixels),
+        width_of_formatting_context_root: Pixels,
     ) -> bool {
         // The algorithm is the same for left- and right-floating boxes.
         // So instead of duplicating code, we only implement it for left-floating boxes
-        // and switch the insets on the two sides if necessary
+        // and mirror the two sides if we're right-floating
 
-        let (this_side, opposing_side) = match place_on_side {
-            FloatSide::Left => (self.inset_left, self.inset_right),
-            FloatSide::Right => (self.inset_right, self.inset_left),
+        #[derive(Debug)]
+        struct OrientationIndependentFloatInfo {
+            has_floating_box_to_the_left: bool,
+
+            /// The horizontal position that the box will be placed at, assuming it fits
+            position: Pixels,
+            right_edge_of_containing_block: Pixels,
+            closest_floating_edge_on_the_right: Option<Pixels>,
+        }
+
+        let positioning_info = match place_on_side {
+            FloatSide::Left => OrientationIndependentFloatInfo {
+                has_floating_box_to_the_left: self.inset_left.is_some(),
+                position: self.left_edge().max(min_left),
+                right_edge_of_containing_block: max_right,
+                closest_floating_edge_on_the_right: self.inset_right,
+            },
+            FloatSide::Right => OrientationIndependentFloatInfo {
+                has_floating_box_to_the_left: self.inset_right.is_some(),
+                position: self
+                    .right_edge()
+                    .max(width_of_formatting_context_root - max_right),
+                right_edge_of_containing_block: width_of_formatting_context_root - min_left,
+                closest_floating_edge_on_the_right: self.inset_left,
+            },
         };
 
-        let position = this_side.unwrap_or_default();
-        let right_edge = position + box_width;
+        let right_box_edge = positioning_info.position + box_width;
 
         // Rule 7:
         // > A left-floating box that has another left-floating box to its left may not have its right
         // > outer edge to the right of its containing block’s right edge.
         // > An analogous rule holds for right-floating elements.
-        if this_side.is_some() && width_of_containing_block < right_edge {
+        if positioning_info.has_floating_box_to_the_left
+            && positioning_info.right_edge_of_containing_block < right_box_edge
+        {
             return false;
         }
 
         // Rule 3:
         // > The right outer edge of a left-floating box may not be to the right of the left outer edge
         // > of any right-floating box that is next to it. Analogous rules hold for right-floating elements.
-        if opposing_side.is_some_and(|inset| width_of_containing_block - inset < right_edge) {
+        if positioning_info
+            .closest_floating_edge_on_the_right
+            .is_some_and(|inset| width_of_formatting_context_root - inset < right_box_edge)
+        {
             return false;
         }
 
         true
+    }
+
+    /// Compute the inset of the left edge relative to the formatting context root
+    #[inline]
+    #[must_use]
+    fn left_edge(&self) -> Pixels {
+        self.inset_left.unwrap_or_default()
+    }
+
+    /// Compute the inset of the right edge relative to the formatting context root
+    #[inline]
+    #[must_use]
+    fn right_edge(&self) -> Pixels {
+        self.inset_right.unwrap_or_default()
     }
 }
 

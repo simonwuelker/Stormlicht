@@ -156,7 +156,8 @@ impl AbsolutelyPositionedBox {
         let padding_area = borders.surround(content_area);
         let margin_area = margins.surround(padding_area);
 
-        let containing_block = ContainingBlock::new(width).with_height(height);
+        let containing_block =
+            ContainingBlock::new(width, Vec2D::new(Pixels::ZERO, Pixels::ZERO)).with_height(height);
 
         // Absolute elements establish a new formatting context for their elements
         let fragments = match &self.content {

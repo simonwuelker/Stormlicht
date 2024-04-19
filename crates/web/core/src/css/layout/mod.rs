@@ -105,15 +105,21 @@ pub struct ContainingBlock {
     /// `Some` if the height is defined (for example, using the CSS "height" property)
     /// or `None` if the height depends on the content.
     height: Option<Pixels>,
+
+    position_relative_to_formatting_context_root: Vec2D<Pixels>,
 }
 
 impl ContainingBlock {
     #[inline]
     #[must_use]
-    pub const fn new(width: Pixels) -> Self {
+    pub const fn new(
+        width: Pixels,
+        position_relative_to_formatting_context_root: Vec2D<Pixels>,
+    ) -> Self {
         Self {
             width,
             height: None,
+            position_relative_to_formatting_context_root,
         }
     }
 

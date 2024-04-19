@@ -196,8 +196,16 @@ impl InFlowBlockBox {
             formatting_context.prevent_margin_collapse();
         }
 
+        let position_relative_to_formatting_context_root =
+            containing_block.position_relative_to_formatting_context_root + top_left;
+
+        // Floats may never be placed above the top edge of their containing block
+        formatting_context
+            .float_context
+            .lower_float_ceiling(position_relative_to_formatting_context_root.y);
+
         let content_info = self.contents.layout(
-            dimensions.as_containing_block(),
+            dimensions.as_containing_block(position_relative_to_formatting_context_root),
             length_resolution_context,
             formatting_context,
         );
@@ -369,9 +377,14 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
                 self.respect_clearance(float_box.style.clear());
 
                 // Floats are placed at or below the flow position
+                let new_ceiling = self.cursor.y
+                    + self
+                        .containing_block
+                        .position_relative_to_formatting_context_root
+                        .y;
                 self.block_formatting_context
                     .float_context
-                    .lower_float_ceiling(self.cursor.y);
+                    .lower_float_ceiling(new_ceiling);
 
                 let box_fragment = float_box.layout(
                     self.containing_block,
@@ -688,10 +701,14 @@ impl BlockDimensions {
     }
 
     #[must_use]
-    fn as_containing_block(&self) -> ContainingBlock {
+    fn as_containing_block(
+        &self,
+        position_relative_to_formatting_context_root: Vec2D<Pixels>,
+    ) -> ContainingBlock {
         ContainingBlock {
             width: self.width,
             height: self.height.into_option(),
+            position_relative_to_formatting_context_root,
         }
     }
 }

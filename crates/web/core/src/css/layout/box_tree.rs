@@ -1,5 +1,7 @@
 use std::fmt;
 
+use math::Vec2D;
+
 use crate::{
     css::{
         computed_style::ComputedStyle,
@@ -56,7 +58,8 @@ impl BoxTree {
     pub fn compute_fragments(&self, viewport: Size<Pixels>) -> FragmentTree {
         // The initial containing block always has the size of the viewport
         let initial_containing_block =
-            ContainingBlock::new(viewport.width).with_height(viewport.height);
+            ContainingBlock::new(viewport.width, Vec2D::new(Pixels::ZERO, Pixels::ZERO))
+                .with_height(viewport.height);
         let length_resolution_context = length::ResolutionContext {
             font_size: DEFAULT_FONT_SIZE,
             root_font_size: DEFAULT_FONT_SIZE,
