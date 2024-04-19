@@ -13,16 +13,6 @@ pub enum Token {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct CurrentToken {
-    current_token: Option<TokenBuilder>,
-}
-
-#[derive(Debug, Clone)]
-pub enum TokenBuilder {
-    Doctype(DocTypeBuilder),
-}
-
-#[derive(Debug, Clone, Default)]
 pub struct DocTypeBuilder {
     pub name: Option<String>,
     pub public_ident: Option<String>,
@@ -45,98 +35,6 @@ pub struct TagBuilder {
     pub attributes: Vec<(InternedString, InternedString)>,
 }
 
-impl CurrentToken {
-    pub fn create_doctype(&mut self) {
-        self.current_token = Some(TokenBuilder::Doctype(DocTypeBuilder::default()))
-    }
-
-    pub fn set_force_quirks(&mut self) {
-        if let Some(TokenBuilder::Doctype(DocTypeBuilder {
-            ref mut force_quirks,
-            ..
-        })) = self.current_token
-        {
-            *force_quirks = true;
-        }
-    }
-
-    pub fn append_to_doctype_name(&mut self, c: char) {
-        match self.current_token {
-            Some(TokenBuilder::Doctype(DocTypeBuilder {
-                name: Some(ref mut name_str),
-                ..
-            })) => name_str.push(c),
-            Some(TokenBuilder::Doctype(DocTypeBuilder { ref mut name, .. })) => {
-                *name = Some(c.to_string())
-            },
-            _ => {},
-        }
-    }
-
-    pub fn append_to_doctype_public_ident(&mut self, c: char) {
-        if let Some(TokenBuilder::Doctype(DocTypeBuilder {
-            public_ident: Some(ref mut public_ident_str),
-            ..
-        })) = self.current_token
-        {
-            public_ident_str.push(c);
-        }
-    }
-
-    pub fn init_doctype_public_ident(&mut self) {
-        if let Some(TokenBuilder::Doctype(DocTypeBuilder {
-            ref mut public_ident,
-            ..
-        })) = self.current_token
-        {
-            *public_ident = Some(String::new());
-        }
-    }
-
-    pub fn append_to_doctype_system_ident(&mut self, c: char) {
-        match self.current_token {
-            Some(TokenBuilder::Doctype(DocTypeBuilder {
-                system_ident: Some(ref mut system_ident_str),
-                ..
-            })) => system_ident_str.push(c),
-            Some(TokenBuilder::Doctype(DocTypeBuilder {
-                ref mut system_ident,
-                ..
-            })) => *system_ident = Some(c.to_string()),
-            _ => {},
-        }
-    }
-
-    pub fn init_doctype_system_ident(&mut self) {
-        if let Some(TokenBuilder::Doctype(DocTypeBuilder {
-            ref mut system_ident,
-            ..
-        })) = self.current_token
-        {
-            *system_ident = Some(String::new());
-        }
-    }
-
-    pub fn build(&mut self) -> Token {
-        match self.current_token.take() {
-            Some(TokenBuilder::Doctype(d)) => Token::DOCTYPE(d.build()),
-            None => {
-                panic!("Trying to emit a token but no token has been constructed")
-            },
-        }
-    }
-}
-
-impl DocTypeBuilder {
-    pub fn build(self) -> Doctype {
-        Doctype {
-            name: self.name.map(InternedString::new),
-            public_ident: self.public_ident.map(InternedString::new),
-            system_ident: self.system_ident.map(InternedString::new),
-            force_quirks: self.force_quirks,
-        }
-    }
-}
 #[derive(Debug, Default, Clone)]
 pub struct Doctype {
     pub name: Option<InternedString>,
@@ -162,6 +60,43 @@ pub struct TagData {
     ///
     /// For example, the tag `<tag foo=bar baz=boo>` has two attributes, `("foo", "bar")` and `("baz", "boo")`.
     pub attributes: Vec<(InternedString, InternedString)>,
+}
+
+impl DocTypeBuilder {
+    pub fn set_force_quirks(&mut self) {
+        self.force_quirks = true;
+    }
+
+    pub fn push_to_name(&mut self, c: char) {
+        self.name.get_or_insert_default().push(c);
+    }
+
+    pub fn push_to_public_ident(&mut self, c: char) {
+        self.public_ident.get_or_insert_default().push(c);
+    }
+
+    pub fn push_to_system_ident(&mut self, c: char) {
+        self.system_ident.get_or_insert_default().push(c);
+    }
+
+    /// Mark the public identifier as empty (not missing)
+    pub fn init_public_identifier(&mut self) {
+        self.public_ident = Some(String::new());
+    }
+
+    /// Mark the system identifier as empty (not missing)
+    pub fn init_system_identifier(&mut self) {
+        self.system_ident = Some(String::new());
+    }
+
+    pub fn finish(self) -> Doctype {
+        Doctype {
+            name: self.name.map(InternedString::new),
+            public_ident: self.public_ident.map(InternedString::new),
+            system_ident: self.system_ident.map(InternedString::new),
+            force_quirks: self.force_quirks,
+        }
+    }
 }
 
 impl TagBuilder {

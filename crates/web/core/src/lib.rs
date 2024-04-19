@@ -5,7 +5,8 @@
     lazy_cell,
     iter_advance_by,
     extend_one,
-    const_fn_floating_point_arithmetic
+    const_fn_floating_point_arithmetic,
+    option_get_or_insert_default
 )]
 
 mod browsing_context;

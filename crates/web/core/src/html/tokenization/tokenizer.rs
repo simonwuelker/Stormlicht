@@ -3,7 +3,7 @@ use sl_std::chars::ReversibleCharIterator;
 
 use super::{
     lookup_character_reference,
-    token::{CurrentToken, TagBuilder},
+    token::{DocTypeBuilder, TagBuilder},
     HtmlParseError, ParseErrorHandler, TagData, Token,
 };
 use crate::infra;
@@ -284,10 +284,12 @@ pub struct Tokenizer<P: ParseErrorHandler> {
     /// The current comment being parsed, if any
     current_comment: String,
 
+    /// The doctype token currently being parsed, if any
+    current_doctype: DocTypeBuilder,
+
     /// A general-purpose temporary buffer
     buffer: String,
 
-    current_token: CurrentToken,
     character_reference_code: u32,
     phantom_data: PhantomData<P>,
 }
@@ -303,12 +305,12 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
             source: ReversibleCharIterator::new(source),
             state: TokenizerState::Data,
             return_state: None,
-            current_token: CurrentToken::default(),
             last_emitted_start_tag_name: None,
             character_reference_code: 0,
 
             current_tag: TagBuilder::default(),
             current_comment: String::new(),
+            current_doctype: DocTypeBuilder::default(),
 
             buffer: String::default(),
             done: false,
@@ -334,11 +336,6 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
         self.token_buffer.push_back(token);
     }
 
-    fn emit_current_token(&mut self) {
-        let token = self.current_token.build();
-        self.emit(token);
-    }
-
     fn emit_current_tag_token(&mut self) {
         let tag = mem::take(&mut self.current_tag).finish();
         self.emit(tag);
@@ -347,6 +344,11 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
     fn emit_current_comment_token(&mut self) {
         let comment = Token::Comment(mem::take(&mut self.current_comment));
         self.emit(comment);
+    }
+
+    fn emit_current_doctype_token(&mut self) {
+        let doctype = Token::DOCTYPE(mem::take(&mut self.current_doctype).finish());
+        self.emit(doctype);
     }
 
     fn reconsume_in(&mut self, new_state: TokenizerState) {
@@ -2127,13 +2129,11 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Create a new DOCTYPE token.
-                        self.current_token.create_doctype();
-
                         // Set its force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2149,12 +2149,9 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
                     Some(c @ 'A'..='Z') => {
                         // Create a new DOCTYPE token.
-                        self.current_token.create_doctype();
-
                         // Set the token's name to the lowercase version of the current input character (add 0x0020 to the
                         // character's code point).
-                        self.current_token
-                            .append_to_doctype_name(c.to_ascii_lowercase());
+                        self.current_doctype.push_to_name(c.to_ascii_lowercase());
 
                         // Switch to the DOCTYPE name state.
                         self.switch_to(TokenizerState::DOCTYPEName);
@@ -2164,11 +2161,8 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Create a new DOCTYPE token.
-                        self.current_token.create_doctype();
-
                         // Set the token's name to a U+FFFD REPLACEMENT CHARACTER character.
-                        self.current_token
-                            .append_to_doctype_name(UNICODE_REPLACEMENT);
+                        self.current_doctype.push_to_name(UNICODE_REPLACEMENT);
 
                         // Switch to the DOCTYPE name state.
                         self.switch_to(TokenizerState::DOCTYPEName);
@@ -2178,23 +2172,19 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::MissingDoctypeName);
 
                         // Create a new DOCTYPE token.
-                        self.current_token.create_doctype();
-
                         // Set its force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
                     },
                     Some(c) => {
                         // Create a new DOCTYPE token.
-                        self.current_token.create_doctype();
-
                         // Set the token's name to the current input character.
-                        self.current_token.append_to_doctype_name(c);
+                        self.current_doctype.push_to_name(c);
 
                         // Switch to the DOCTYPE name state.
                         self.switch_to(TokenizerState::DOCTYPEName);
@@ -2204,13 +2194,11 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Create a new DOCTYPE token.
-                        self.current_token.create_doctype();
-
                         // Set its force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF)
@@ -2226,37 +2214,37 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::AfterDOCTYPEName);
                     },
                     Some('>') => {
-                        // Switch to the data state. Emit the current DOCTYPE token.
+                        // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
-                        self.emit_current_token();
+
+                        // Emit the current DOCTYPE token.
+                        self.emit_current_doctype_token();
                     },
                     Some(c @ 'A'..='Z') => {
                         // Append the lowercase version of the current input character (add 0x0020
                         // to the character's code point) to the current DOCTYPE token's name.
-                        self.current_token
-                            .append_to_doctype_name(c.to_ascii_lowercase());
+                        self.current_doctype.push_to_name(c.to_ascii_lowercase());
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's name.
-                        self.current_token
-                            .append_to_doctype_name(UNICODE_REPLACEMENT);
+                        self.current_doctype.push_to_name(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's name.
-                        self.current_token.append_to_doctype_name(c);
+                        self.current_doctype.push_to_name(c);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2269,19 +2257,21 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
                     Some('>') => {
-                        // Switch to the data state. Emit the current DOCTYPE token.
+                        // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
-                        self.emit_current_token();
+
+                        // Emit the current DOCTYPE token.
+                        self.emit_current_doctype_token();
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2320,7 +2310,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::InvalidCharacterSequenceAfterDoctypeName);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPE);
@@ -2347,7 +2337,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
                         // Set the current DOCTYPE token's public identifier to the empty string
                         // (not missing),
-                        self.current_token.init_doctype_public_ident();
+                        self.current_doctype.init_public_identifier();
 
                         // then switch to the DOCTYPE public identifier (double-quoted) state.
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierDoublequoted);
@@ -2360,7 +2350,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
                         // Set the current DOCTYPE token's public identifier to the empty string
                         // (not missing),
-                        self.current_token.init_doctype_public_ident();
+                        self.current_doctype.init_public_identifier();
 
                         // then switch to the DOCTYPE public identifier (single-quoted) state.
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierSinglequoted);
@@ -2370,20 +2360,20 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::MissingDoctypePublicIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-public-identifier parse error.
                         self.parse_error(HtmlParseError::MissingQuoteBeforeDoctypePublicIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPE);
@@ -2393,10 +2383,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2411,7 +2401,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     Some('"') => {
                         // Set the current DOCTYPE token's public identifier to the empty string
                         // (not missing),
-                        self.current_token.init_doctype_public_ident();
+                        self.current_doctype.init_public_identifier();
 
                         // then switch to the DOCTYPE public identifier (double-quoted) state.
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierDoublequoted);
@@ -2419,7 +2409,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     Some('\'') => {
                         // Set the current DOCTYPE token's public identifier to the empty string
                         // (not missing),
-                        self.current_token.init_doctype_public_ident();
+                        self.current_doctype.init_public_identifier();
 
                         // then switch to the DOCTYPE public identifier (single-quoted) state.
                         self.switch_to(TokenizerState::DOCTYPEPublicIdentifierSinglequoted);
@@ -2429,20 +2419,20 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::MissingDoctypePublicIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-public-identifier parse error.
                         self.parse_error(HtmlParseError::MissingQuoteBeforeDoctypePublicIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPE);
@@ -2452,10 +2442,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2476,36 +2466,36 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's public
                         // identifier.
-                        self.current_token
-                            .append_to_doctype_public_ident(UNICODE_REPLACEMENT);
+                        self.current_doctype
+                            .push_to_public_ident(UNICODE_REPLACEMENT);
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-public-identifier parse error.
                         self.parse_error(HtmlParseError::AbruptDoctypePublicIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
                     },
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's
                         // public identifier.
-                        self.current_token.append_to_doctype_public_ident(c);
+                        self.current_doctype.push_to_public_ident(c);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2526,36 +2516,36 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's public
                         // identifier.
-                        self.current_token
-                            .append_to_doctype_public_ident(UNICODE_REPLACEMENT);
+                        self.current_doctype
+                            .push_to_public_ident(UNICODE_REPLACEMENT);
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-public-identifier parse error.
                         self.parse_error(HtmlParseError::AbruptDoctypePublicIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
                     },
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's public
                         // identifier.
-                        self.current_token.append_to_doctype_public_ident(c);
+                        self.current_doctype.push_to_public_ident(c);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2571,9 +2561,11 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::BetweenDOCTYPEPublicAndSystemIdentifiers);
                     },
                     Some('>') => {
-                        // Switch to the data state. Emit the current DOCTYPE token.
+                        // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
-                        self.emit_current_token();
+
+                        // Emit the current DOCTYPE token.
+                        self.emit_current_doctype_token();
                     },
                     Some('"') => {
                         // This is a
@@ -2583,7 +2575,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
                         // Set the current DOCTYPE token's system identifier to the empty
                         // string (not missing),
-                        self.current_token.init_doctype_system_ident();
+                        self.current_doctype.init_system_identifier();
 
                         // then switch to the DOCTYPE system identifier (double-quoted) state.
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequoted);
@@ -2595,7 +2587,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
                         // Set the current DOCTYPE token's system identifier to
                         // the empty string (not missing),
-                        self.current_token.init_doctype_system_ident();
+                        self.current_doctype.init_system_identifier();
 
                         // then switch to the DOCTYPE system identifier (single-quoted) state.
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequoted);
@@ -2605,7 +2597,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::MissingQuoteBeforeDoctypeSystemIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPE);
@@ -2615,10 +2607,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2631,22 +2623,23 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some(TAB | LINE_FEED | FORM_FEED | SPACE) => {}, // Ignore the character.
                     Some('>') => {
-                        // Switch to the data state. Emit the current DOCTYPE token.
+                        // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
-                        self.emit_current_token();
+                        // Emit the current DOCTYPE token.
+                        self.emit_current_doctype_token();
                     },
                     Some('"') => {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (double-quoted) state.
-                        self.current_token.init_doctype_system_ident();
+                        self.current_doctype.init_system_identifier();
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequoted);
                     },
                     Some('\'') => {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (single-quoted) state.
-                        self.current_token.init_doctype_system_ident();
+                        self.current_doctype.init_system_identifier();
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequoted);
                     },
                     Some(_) => {
@@ -2654,7 +2647,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::MissingQuoteBeforeDoctypeSystemIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPE);
@@ -2664,10 +2657,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2691,7 +2684,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (double-quoted) state.
-                        self.current_token.init_doctype_system_ident();
+                        self.current_doctype.init_system_identifier();
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequoted);
                     },
                     Some('\'') => {
@@ -2703,7 +2696,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (single-quoted) state.
-                        self.current_token.init_doctype_system_ident();
+                        self.current_doctype.init_system_identifier();
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequoted);
                     },
                     Some('>') => {
@@ -2711,20 +2704,20 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::MissingDoctypeSystemIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-system-identifier parse error.
                         self.parse_error(HtmlParseError::MissingQuoteBeforeDoctypeSystemIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPE);
@@ -2734,10 +2727,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2753,14 +2746,14 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (double-quoted) state.
-                        self.current_token.init_doctype_system_ident();
+                        self.current_doctype.init_system_identifier();
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierDoublequoted);
                     },
                     Some('\'') => {
                         // Set the current DOCTYPE token's system identifier to the empty string
                         // (not missing), then switch to the DOCTYPE system identifier
                         // (single-quoted) state.
-                        self.current_token.init_doctype_system_ident();
+                        self.current_doctype.init_system_identifier();
                         self.switch_to(TokenizerState::DOCTYPESystemIdentifierSinglequoted);
                     },
                     Some('>') => {
@@ -2768,20 +2761,20 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::MissingDoctypeSystemIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
                     },
                     Some(_) => {
                         // This is a missing-quote-before-doctype-system-identifier parse error.
                         self.parse_error(HtmlParseError::MissingQuoteBeforeDoctypeSystemIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
                         self.reconsume_in(TokenizerState::BogusDOCTYPE);
@@ -2791,10 +2784,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2815,36 +2808,36 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current
                         // DOCTYPE token's system identifier.
-                        self.current_token
-                            .append_to_doctype_system_ident(UNICODE_REPLACEMENT);
+                        self.current_doctype
+                            .push_to_system_ident(UNICODE_REPLACEMENT);
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-system-identifier parse error.
                         self.parse_error(HtmlParseError::AbruptDoctypeSystemIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
                     },
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's system
                         // identifier.
-                        self.current_token.append_to_doctype_system_ident(c);
+                        self.current_doctype.push_to_system_ident(c);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2865,36 +2858,36 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current DOCTYPE token's system
                         // identifier.
-                        self.current_token
-                            .append_to_doctype_system_ident(UNICODE_REPLACEMENT);
+                        self.current_doctype
+                            .push_to_system_ident(UNICODE_REPLACEMENT);
                     },
                     Some('>') => {
                         // This is an abrupt-doctype-system-identifier parse error.
                         self.parse_error(HtmlParseError::AbruptDoctypeSystemIdentifier);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
                     },
                     Some(c) => {
                         // Append the current input character to the current DOCTYPE token's system
                         // identifier.
-                        self.current_token.append_to_doctype_system_ident(c);
+                        self.current_doctype.push_to_system_ident(c);
                     },
                     None => {
                         // This is an eof-in-doctype parse error.
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2911,7 +2904,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
                     },
                     Some(_) => {
                         // This is an unexpected-character-after-doctype-system-identifier parse
@@ -2929,10 +2922,10 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::EOFInDoctype);
 
                         // Set the current DOCTYPE token's force-quirks flag to on.
-                        self.current_token.set_force_quirks();
+                        self.current_doctype.set_force_quirks();
 
                         // Emit the current DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
@@ -2947,7 +2940,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
                         // Emit the DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
@@ -2960,7 +2953,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     },
                     None => {
                         // Emit the DOCTYPE token.
-                        self.emit_current_token();
+                        self.emit_current_doctype_token();
 
                         // Emit an end-of-file token.
                         self.emit(Token::EOF);
