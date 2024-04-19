@@ -3,7 +3,7 @@ use sl_std::chars::ReversibleCharIterator;
 
 use super::{
     lookup_character_reference,
-    token::{CurrentToken, TagBuilder, TokenBuilder},
+    token::{CurrentToken, TagBuilder},
     HtmlParseError, ParseErrorHandler, TagData, Token,
 };
 use crate::infra;
@@ -278,6 +278,9 @@ pub struct Tokenizer<P: ParseErrorHandler> {
     return_state: Option<TokenizerState>,
     last_emitted_start_tag_name: Option<String>,
 
+    /// The current tag being parsed, if any
+    current_tag: TagBuilder,
+
     /// A general-purpose temporary buffer
     buffer: String,
 
@@ -300,6 +303,9 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
             current_token: CurrentToken::default(),
             last_emitted_start_tag_name: None,
             character_reference_code: 0,
+
+            current_tag: TagBuilder::default(),
+
             buffer: String::default(),
             done: false,
             token_buffer: VecDeque::new(),
@@ -329,6 +335,11 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
         self.emit(token);
     }
 
+    fn emit_current_tag_token(&mut self) {
+        let tag = mem::take(&mut self.current_tag).finish();
+        self.emit(tag);
+    }
+
     fn reconsume_in(&mut self, new_state: TokenizerState) {
         self.source.go_back();
         self.switch_to(new_state)
@@ -346,29 +357,21 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
         // * there was a start token emitted previously
         // * the token currently being emitted is an end token
         // * the name of the end token matches that of the start token
-        match (
-            &self.last_emitted_start_tag_name,
-            &self.current_token.inner(),
-        ) {
-            (
-                Some(open_name),
-                Some(TokenBuilder::Tag(TagBuilder {
-                    opening: false,
-                    name: close_name,
-                    ..
-                })),
-            ) => open_name == close_name,
-            _ => false,
-        }
+        self.last_emitted_start_tag_name
+            .as_ref()
+            .is_some_and(|last_emitted_start_tag_name| {
+                !self.current_tag.is_opening
+                    && &self.current_tag.name == last_emitted_start_tag_name
+            })
     }
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#flush-code-points-consumed-as-a-character-reference>
     fn flush_code_points_consumed_as_character_reference(&mut self) {
         let is_inside_attribute = self.is_inside_attribute();
         if is_inside_attribute {
-            self.buffer
-                .chars()
-                .for_each(|c| self.current_token.append_to_attribute_value(c));
+            self.current_tag
+                .current_attribute_value
+                .push_str(&self.buffer);
         } else {
             mem::take(&mut self.buffer)
                 .chars()
@@ -556,7 +559,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     },
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new start tag token, set its tag name to the empty string.
-                        self.current_token.create_start_tag();
+                        self.current_tag = TagBuilder::opening();
 
                         // Reconsume in the tag name state.
                         self.reconsume_in(TokenizerState::TagName);
@@ -596,7 +599,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new end tag token, set its tag name to the empty string.
-                        self.current_token.create_end_tag();
+                        self.current_tag = TagBuilder::closing();
 
                         // Reconsume in the tag name state.
                         self.reconsume_in(TokenizerState::TagName);
@@ -646,25 +649,24 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     Some('>') => {
                         // Switch to the data state. Emit the current tag token.
                         self.switch_to(TokenizerState::Data);
-                        self.emit_current_token();
+                        self.emit_current_tag_token();
                     },
-                    Some(mut c @ 'A'..='Z') => {
+                    Some(c @ 'A'..='Z') => {
                         // Append the lowercase version of the current input character (add
                         // 0x0020 to the character's code point) to the current tag token's tag
                         // name.
-                        c.make_ascii_lowercase();
-                        self.current_token.append_to_tag_name(c);
+                        self.current_tag.name.push(c.to_ascii_lowercase());
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current tag token's tag name.
-                        self.current_token.append_to_tag_name(UNICODE_REPLACEMENT);
+                        self.current_tag.name.push(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Append the current input character to the current tag token's tag name.
-                        self.current_token.append_to_tag_name(c);
+                        self.current_tag.name.push(c);
                     },
                     None => {
                         // This is an eof-in-tag parse error.
@@ -701,7 +703,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new end tag token, set its tag name to the empty string.
-                        self.current_token.create_end_tag();
+                        self.current_tag = TagBuilder::closing();
 
                         // Reconsume in the RCDATA end tag name state.
                         self.reconsume_in(TokenizerState::RCDATAEndTagName);
@@ -732,19 +734,18 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     (Some('>'), true) => {
                         // Switch to the data state and emit the current tag token
                         self.switch_to(TokenizerState::Data);
-                        self.emit_current_token();
+                        self.emit_current_tag_token();
                     },
-                    (Some(mut c @ 'A'..='Z'), _) => {
+                    (Some(c @ 'A'..='Z'), _) => {
                         // Append the lowercase version of the current input character (add 0x0020
                         // to the character's code point) to the current tag token's tag name.
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
-                        c.make_ascii_lowercase();
-                        self.current_token.append_to_tag_name(c);
+                        self.current_tag.name.push(c.to_ascii_lowercase());
                     },
                     (Some(c @ 'a'..='z'), _) => {
                         // Append the current input character to the current tag token's tag name.
-                        self.current_token.append_to_tag_name(c);
+                        self.current_tag.name.push(c);
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
@@ -789,7 +790,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new end tag token, set its tag name to the empty string.
-                        self.current_token.create_end_tag();
+                        self.current_tag = TagBuilder::closing();
 
                         // Reconsume in the RAWTEXT end tag name state.
                         self.reconsume_in(TokenizerState::RAWTEXTEndTagName);
@@ -820,20 +821,19 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     (Some('>'), true) => {
                         // Switch to the data state and emit the current tag token
                         self.switch_to(TokenizerState::Data);
-                        self.emit_current_token();
+                        self.emit_current_tag_token();
                     },
                     (Some(c @ 'A'..='Z'), _) => {
                         // Append the lowercase version of the current input character (add 0x0020
                         // to the character's code point) to the current tag token's tag name.
-                        self.current_token
-                            .append_to_tag_name(c.to_ascii_lowercase());
+                        self.current_tag.name.push(c.to_ascii_lowercase());
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
                     },
                     (Some(c @ 'a'..='z'), _) => {
                         // Append the current input character to the current tag token's tag name.
-                        self.current_token.append_to_tag_name(c);
+                        self.current_tag.name.push(c);
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
@@ -888,7 +888,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new end tag token, set its tag name to the empty string.
-                        self.current_token.create_end_tag();
+                        self.current_tag = TagBuilder::closing();
 
                         // Reconsume in the script data end tag name state.
                         self.reconsume_in(TokenizerState::ScriptDataEndTagName);
@@ -919,21 +919,20 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     (Some('>'), true) => {
                         // Switch to the data state and emit the current tag token
                         self.switch_to(TokenizerState::Data);
-                        self.emit_current_token();
+                        self.emit_current_tag_token();
                     },
                     (Some(c @ 'A'..='Z'), _) => {
                         // Append the lowercase version of the current input character (add
                         // 0x0020 to the character's code point) to the current tag token's tag
                         // name.
-                        self.current_token
-                            .append_to_tag_name(c.to_ascii_lowercase());
+                        self.current_tag.name.push(c.to_ascii_lowercase());
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
                     },
                     (Some(c @ 'a'..='z'), _) => {
                         // Append the current input character to the current tag token's tag name.
-                        self.current_token.append_to_tag_name(c);
+                        self.current_tag.name.push(c);
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
@@ -1138,7 +1137,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('a'..='z' | 'A'..='Z') => {
                         // Create a new end tag token, set its tag name to the empty string.
-                        self.current_token.create_end_tag();
+                        self.current_tag = TagBuilder::closing();
 
                         // Reconsume in the script data escaped end tag name state.
                         self.reconsume_in(TokenizerState::ScriptDataEscapedEndTagName);
@@ -1161,15 +1160,14 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     Some(c @ 'A'..='Z') => {
                         // Append the lowercase version of the current input character (add 0x0020
                         // to the character's code point) to the current tag token's tag name.
-                        self.current_token
-                            .append_to_tag_name(c.to_ascii_lowercase());
+                        self.current_tag.name.push(c.to_ascii_lowercase());
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
                     },
                     Some(c @ 'a'..='z') => {
                         // Append the current input character to the current tag token's tag name.
-                        self.current_token.append_to_tag_name(c);
+                        self.current_tag.name.push(c);
 
                         // Append the current input character to the temporary buffer.
                         self.add_to_buffer(c);
@@ -1187,7 +1185,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                             (Some('>'), true) => {
                                 // Switch to the data state and emit the current tag token.
                                 self.switch_to(TokenizerState::Data);
-                                self.emit_current_token();
+                                self.emit_current_tag_token();
                             },
                             _ => {
                                 // Emit a U+003C LESS-THAN SIGN character token, a U+002F SOLIDUS character
@@ -1444,10 +1442,9 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::UnexpectedEqualsSignBeforeAttributeName);
 
                         // Start a new attribute in the current tag token.
-                        self.current_token.start_new_attribute();
-
                         // Set that attribute's name to the current input character, and its value to the empty string.
-                        self.current_token.append_to_attribute_name('=');
+                        self.current_tag.start_a_new_attribute();
+                        self.current_tag.current_attribute_name.push('=');
 
                         // Switch to the attribute name state.
                         self.switch_to(TokenizerState::AttributeName);
@@ -1455,7 +1452,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     _ => {
                         // Start a new attribute in the current tag token. Set that attribute name
                         // and value to the empty string.
-                        self.current_token.start_new_attribute();
+                        self.current_tag.start_a_new_attribute();
 
                         // Reconsume in the attribute name state.
                         self.reconsume_in(TokenizerState::AttributeName);
@@ -1481,27 +1478,29 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     Some(c @ 'A'..='Z') => {
                         // Append the lowercase version of the current input character (add 0x0020
                         // to the character's code point) to the current attribute's name.
-                        self.current_token
-                            .append_to_attribute_name(c.to_ascii_lowercase());
+                        self.current_tag
+                            .current_attribute_name
+                            .push(c.to_ascii_lowercase());
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current attribute's name.
-                        self.current_token
-                            .append_to_attribute_name(UNICODE_REPLACEMENT);
+                        self.current_tag
+                            .current_attribute_name
+                            .push(UNICODE_REPLACEMENT);
                     },
                     Some(c @ ('"' | '\'' | '<')) => {
                         // This is an unexpected-character-in-attribute-name parse error.
                         self.parse_error(HtmlParseError::UnexpectedCharacterInAttributeName);
 
                         // Treat it as per the "anything else" entry below.
-                        self.current_token.append_to_attribute_name(c);
+                        self.current_tag.current_attribute_name.push(c);
                     },
                     Some(c) => {
                         // Append the current input character to the current attribute's name.
-                        self.current_token.append_to_attribute_name(c);
+                        self.current_tag.current_attribute_name.push(c);
                     },
                 }
             },
@@ -1521,12 +1520,12 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     Some('>') => {
                         // Switch to the data state. Emit the current tag token.
                         self.switch_to(TokenizerState::Data);
-                        self.emit_current_token();
+                        self.emit_current_tag_token();
                     },
                     Some(_) => {
                         // Start a new attribute in the current tag token.
                         // Set that attribute name and value to the empty string.
-                        self.current_token.start_new_attribute();
+                        self.current_tag.start_a_new_attribute();
 
                         // Reconsume in the attribute name state.
                         self.reconsume_in(TokenizerState::AttributeName);
@@ -1561,7 +1560,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current tag token.
-                        self.emit_current_token();
+                        self.emit_current_tag_token();
                     },
                     _ => {
                         // Reconsume in the attribute value (unquoted) state.
@@ -1589,12 +1588,13 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current attribute's value.
-                        self.current_token
-                            .append_to_attribute_value(UNICODE_REPLACEMENT);
+                        self.current_tag
+                            .current_attribute_value
+                            .push(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Append the current input character to the current attribute's value.
-                        self.current_token.append_to_attribute_value(c);
+                        self.current_tag.current_attribute_value.push(c);
                     },
                     None => {
                         // This is an eof-in-tag parse error.
@@ -1625,12 +1625,13 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.parse_error(HtmlParseError::UnexpectedNullCharacter);
 
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current attribute's value.
-                        self.current_token
-                            .append_to_attribute_value(UNICODE_REPLACEMENT);
+                        self.current_tag
+                            .current_attribute_value
+                            .push(UNICODE_REPLACEMENT);
                     },
                     Some(c) => {
                         // Append the current input character to the current attribute's value.
-                        self.current_token.append_to_attribute_value(c);
+                        self.current_tag.current_attribute_value.push(c);
                     },
                     None => {
                         // This is an eof-in-tag parse error.
@@ -1659,13 +1660,14 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     Some('>') => {
                         // Switch to the data state. Emit the current tag token.
                         self.switch_to(TokenizerState::Data);
-                        self.emit_current_token();
+                        self.emit_current_tag_token();
                     },
                     Some('\0') => {
                         // This is an unexpected-null-character parse error.
                         // Append a U+FFFD REPLACEMENT CHARACTER character to the current attribute's value.
-                        self.current_token
-                            .append_to_attribute_value(UNICODE_REPLACEMENT);
+                        self.current_tag
+                            .current_attribute_value
+                            .push(UNICODE_REPLACEMENT);
                     },
                     Some(c @ ('"' | '\'' | '<' | '=' | '`')) => {
                         // This is an unexpected-character-in-unquoted-attribute-value parse error.
@@ -1674,11 +1676,11 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         );
 
                         // Treat it as per the "anything else" entry below.
-                        self.current_token.append_to_attribute_value(c);
+                        self.current_tag.current_attribute_value.push(c);
                     },
                     Some(c) => {
                         // Append the current input character to the current attribute's value.
-                        self.current_token.append_to_attribute_value(c);
+                        self.current_tag.current_attribute_value.push(c);
                     },
                     None => {
                         // This is an eof-in-tag parse error.
@@ -1704,7 +1706,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                     Some('>') => {
                         // Switch to the data state. Emit the current tag token.
                         self.switch_to(TokenizerState::Data);
-                        self.emit_current_token();
+                        self.emit_current_tag_token();
                     },
                     Some(_) => {
                         // This is a missing-whitespace-between-attributes parse error.
@@ -1728,13 +1730,13 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                 match self.read_next() {
                     Some('>') => {
                         // Set the self-closing flag of the current tag token.
-                        self.current_token.set_self_closing();
+                        self.current_tag.is_self_closing = true;
 
                         // Switch to the data state.
                         self.switch_to(TokenizerState::Data);
 
                         // Emit the current tag token.
-                        self.emit_current_token();
+                        self.emit_current_tag_token();
                     },
                     Some(_) => {
                         // This is an unexpected-solidus-in-tag parse error.
@@ -3097,7 +3099,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         if self.is_inside_attribute() {
                             // then append the current input character to the current attribute's
                             // value.
-                            self.current_token.append_to_attribute_value(c);
+                            self.current_tag.current_attribute_value.push(c);
                         } else {
                             // Otherwise, emit the current input character as a character
                             // token.

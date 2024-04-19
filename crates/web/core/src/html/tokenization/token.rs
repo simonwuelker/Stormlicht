@@ -1,3 +1,5 @@
+use std::mem;
+
 use crate::{static_interned, InternedString};
 
 #[derive(Debug, Clone)]
@@ -18,7 +20,6 @@ pub struct CurrentToken {
 #[derive(Debug, Clone)]
 pub enum TokenBuilder {
     Doctype(DocTypeBuilder),
-    Tag(TagBuilder),
     Comment(String),
 }
 
@@ -30,28 +31,22 @@ pub struct DocTypeBuilder {
     pub force_quirks: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct TagBuilder {
-    pub opening: bool,
+    /// The name of the attribute currently being constructed
+    pub current_attribute_name: String,
+
+    /// The value of the attribute currently being constructed
+    pub current_attribute_value: String,
     pub name: String,
-    pub self_closing: bool,
-    pub attributes: Vec<(String, String)>,
+    pub is_opening: bool,
+    pub is_self_closing: bool,
+
+    /// The list of finished attributes
+    pub attributes: Vec<(InternedString, InternedString)>,
 }
 
 impl CurrentToken {
-    // FIXME: this is an ugly escape hatch, we shouldn't need this
-    pub(crate) fn inner(&self) -> Option<&TokenBuilder> {
-        self.current_token.as_ref()
-    }
-
-    pub fn create_start_tag(&mut self) {
-        self.current_token = Some(TokenBuilder::Tag(TagBuilder::new_opening()))
-    }
-
-    pub fn create_end_tag(&mut self) {
-        self.current_token = Some(TokenBuilder::Tag(TagBuilder::new_closing()))
-    }
-
     pub fn create_comment(&mut self) {
         self.current_token = Some(TokenBuilder::Comment(String::new()))
     }
@@ -127,62 +122,9 @@ impl CurrentToken {
         }
     }
 
-    pub fn append_to_tag_name(&mut self, c: char) {
-        if let Some(TokenBuilder::Tag(TagBuilder { ref mut name, .. })) = self.current_token {
-            name.push(c);
-        }
-    }
-
     pub fn append_to_comment(&mut self, c: char) {
         if let Some(TokenBuilder::Comment(ref mut comment)) = self.current_token {
             comment.push(c);
-        }
-    }
-
-    pub fn set_self_closing(&mut self) {
-        if let Some(TokenBuilder::Tag(TagBuilder {
-            ref mut self_closing,
-            ..
-        })) = self.current_token
-        {
-            *self_closing = true;
-        }
-    }
-
-    pub fn start_new_attribute(&mut self) {
-        if let Some(TokenBuilder::Tag(TagBuilder {
-            opening: true,
-            ref mut attributes,
-            ..
-        })) = self.current_token
-        {
-            attributes.push((String::new(), String::new()));
-        }
-    }
-
-    pub fn append_to_attribute_name(&mut self, c: char) {
-        if let Some(TokenBuilder::Tag(TagBuilder {
-            opening: true,
-            ref mut attributes,
-            ..
-        })) = self.current_token
-        {
-            if let Some(last_attribute) = attributes.last_mut() {
-                last_attribute.0.push(c);
-            }
-        }
-    }
-
-    pub fn append_to_attribute_value(&mut self, c: char) {
-        if let Some(TokenBuilder::Tag(TagBuilder {
-            opening: true,
-            ref mut attributes,
-            ..
-        })) = self.current_token
-        {
-            if let Some(last_attribute) = attributes.last_mut() {
-                last_attribute.1.push(c);
-            }
         }
     }
 
@@ -190,43 +132,9 @@ impl CurrentToken {
         match self.current_token.take() {
             Some(TokenBuilder::Doctype(d)) => Token::DOCTYPE(d.build()),
             Some(TokenBuilder::Comment(c)) => Token::Comment(c),
-            Some(TokenBuilder::Tag(t)) => Token::Tag(t.build()),
             None => {
                 panic!("Trying to emit a token but no token has been constructed")
             },
-        }
-    }
-}
-
-impl TagBuilder {
-    pub(crate) fn new_opening() -> Self {
-        Self {
-            opening: true,
-            name: String::default(),
-            self_closing: false,
-            attributes: Vec::new(),
-        }
-    }
-
-    pub(crate) fn new_closing() -> Self {
-        Self {
-            opening: false,
-            name: String::default(),
-            self_closing: false,
-            attributes: Vec::new(),
-        }
-    }
-
-    pub fn build(self) -> TagData {
-        TagData {
-            opening: self.opening,
-            name: InternedString::new(self.name),
-            self_closing: self.self_closing,
-            attributes: self
-                .attributes
-                .into_iter()
-                .map(|(k, v)| (InternedString::new(k), InternedString::new(v)))
-                .collect(),
         }
     }
 }
@@ -266,6 +174,58 @@ pub struct TagData {
     ///
     /// For example, the tag `<tag foo=bar baz=boo>` has two attributes, `("foo", "bar")` and `("baz", "boo")`.
     pub attributes: Vec<(InternedString, InternedString)>,
+}
+
+impl TagBuilder {
+    #[must_use]
+    pub fn opening() -> Self {
+        Self {
+            is_opening: true,
+            ..Default::default()
+        }
+    }
+
+    #[must_use]
+    pub fn closing() -> Self {
+        Self {
+            is_opening: false,
+            ..Default::default()
+        }
+    }
+
+    /// Prepares for a new attribute to be added
+    ///
+    /// Finishes a potential previous attribute and resets the current
+    /// attribute name/value.
+    pub fn start_a_new_attribute(&mut self) {
+        // Finish the previous attribute
+        if self.current_attribute_name.is_empty() {
+            // HTML tag names cannot be empty. If we come here, it menas
+            // there *is* no previous attribute to finish
+            return;
+        }
+
+        let new_attribute = (
+            InternedString::new(mem::take(&mut self.current_attribute_name)),
+            InternedString::new(mem::take(&mut self.current_attribute_value)),
+        );
+        self.attributes.push(new_attribute);
+    }
+
+    #[must_use]
+    pub fn finish(mut self) -> Token {
+        // Finish the current attribute
+        self.start_a_new_attribute();
+
+        let tag_data = TagData {
+            opening: self.is_opening,
+            self_closing: self.is_self_closing,
+            name: InternedString::new(self.name),
+            attributes: self.attributes,
+        };
+
+        Token::Tag(tag_data)
+    }
 }
 
 impl TagData {
