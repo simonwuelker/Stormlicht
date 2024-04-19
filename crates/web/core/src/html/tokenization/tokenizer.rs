@@ -2323,7 +2323,7 @@ impl<P: ParseErrorHandler> Tokenizer<P> {
                         self.current_token.set_force_quirks();
 
                         // Reconsume in the bogus DOCTYPE state.
-                        self.current_token.set_force_quirks();
+                        self.reconsume_in(TokenizerState::BogusDOCTYPE);
 
                         // Note: we reconsume, but because we already decremented
                         // self.ptr (above) we don't need to do it again
