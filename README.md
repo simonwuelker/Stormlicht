@@ -32,7 +32,7 @@ Despite being a "hobby project", Stormlicht is making good progress and has alre
 
 | Rendering the [Acid1](https://www.w3.org/Style/CSS/Test/CSS1/current/test5526c.htm) test            | Reference Rendering (Mozilla Firefox 122.0)                                                         |
 | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| ![image](https://github.com/Wuelle/Stormlicht/assets/58120269/42b6aee1-639b-4013-afdc-a23bfd441d63) | ![image](https://github.com/Wuelle/Stormlicht/assets/58120269/0f16b696-d771-4f84-ae14-492becf2b9ab) |
+| ![image](https://github.com/Wuelle/Stormlicht/assets/58120269/53e2a029-fa0f-4d0d-b76e-c1204e5089b3) | ![image](https://github.com/Wuelle/Stormlicht/assets/58120269/0f16b696-d771-4f84-ae14-492becf2b9ab) |
 
 
 
