@@ -30,6 +30,7 @@ members = [
     "crates/js",
     "crates/gc",
     "crates/encodings",
+    "crates/ipc",
 ]
 resolver = "2"
 
@@ -59,12 +60,14 @@ hash = { path = "crates/crypto/hash" }
 tls = { path = "crates/crypto/tls" }
 js = { path = "crates/js" }
 gc = { path = "crates/gc" }
+ipc = { path = "crates/ipc" }
 
 log = "0.4"
 criterion = { version = "0.4", features = ["html_reports"] }
 syn = "2"
 quote = "1"
 proc-macro2 = "^1.0.60"
+libc = { version = "0.2" }
 env_logger = { version = "0.10" }
 
 [workspace.package]
