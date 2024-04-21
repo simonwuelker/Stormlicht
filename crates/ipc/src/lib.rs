@@ -1,7 +1,7 @@
 use libc::{
     accept, bind, close, cmsghdr, connect, iovec, listen, msghdr, recvmsg, sa_family_t, sendmsg,
-    sockaddr, sockaddr_un, socket, socklen_t, strncpy, unlink, AF_UNIX, CMSG_DATA, CMSG_FIRSTHDR,
-    CMSG_LEN, CMSG_SPACE, SCM_RIGHTS, SOCK_STREAM, SOL_SOCKET,
+    sockaddr, sockaddr_un, socket, socketpair, socklen_t, strncpy, unlink, AF_UNIX, CMSG_DATA,
+    CMSG_FIRSTHDR, CMSG_LEN, CMSG_SPACE, SCM_RIGHTS, SOCK_STREAM, SOL_SOCKET,
 };
 use std::{ffi, io, mem, ptr};
 
@@ -99,6 +99,27 @@ pub struct IpcClient {
 }
 
 impl IpcClient {
+    pub fn pair() -> io::Result<(Self, Self)> {
+        let mut fds = [0; 2];
+        let status = unsafe {
+            socketpair(
+                AF_UNIX,
+                SOCK_STREAM,
+                0,
+                &mut fds as *mut _ as *mut ffi::c_int,
+            )
+        };
+        if status == -1 {
+            log::error!("Failed create connected sockets");
+            return Err(io::Error::last_os_error());
+        }
+
+        let first = Self { fd: fds[0] };
+        let second = Self { fd: fds[1] };
+
+        Ok((first, second))
+    }
+
     pub fn connect() -> io::Result<Self> {
         let fd = IpcSetupServer::init_socket()?;
         let addr = IpcSetupServer::get_sockaddr();
@@ -117,6 +138,56 @@ impl IpcClient {
         let client = Self { fd };
 
         Ok(client)
+    }
+
+    pub fn send_bytes(&self, bytes: &mut [u8]) -> io::Result<()> {
+        let mut io_vec = iovec {
+            iov_base: bytes.as_mut_ptr() as *mut _ as *mut ffi::c_void,
+            iov_len: bytes.len(),
+        };
+
+        let message = msghdr {
+            msg_name: ptr::null_mut(),
+            msg_namelen: 0,
+            msg_iov: &mut io_vec,
+            msg_iovlen: 1,
+            msg_control: ptr::null_mut(),
+            msg_controllen: 0,
+            msg_flags: 0,
+        };
+
+        let status = unsafe { sendmsg(self.fd, &message, 0) };
+        if status == -1 {
+            log::error!("Failed to send bytes");
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(())
+    }
+
+    pub fn recv_bytes(&self, buf: &mut [u8]) -> io::Result<()> {
+        let mut io_vec = iovec {
+            iov_base: buf.as_mut_ptr() as *mut _ as *mut ffi::c_void,
+            iov_len: buf.len(),
+        };
+
+        let mut message = msghdr {
+            msg_name: ptr::null_mut(),
+            msg_namelen: 0,
+            msg_iov: &mut io_vec,
+            msg_iovlen: 1,
+            msg_control: ptr::null_mut(),
+            msg_controllen: 0,
+            msg_flags: 0,
+        };
+
+        let status = unsafe { recvmsg(self.fd, &mut message, 0) };
+        if status == -1 {
+            log::error!("Failed to read bytes from socket");
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(())
     }
 
     pub fn send_fd(&self, fd: ffi::c_int) -> io::Result<()> {
@@ -138,7 +209,7 @@ impl IpcClient {
         }
 
         let message = msghdr {
-            msg_name: std::ptr::null_mut(),
+            msg_name: ptr::null_mut(),
             msg_namelen: 0,
             msg_iov: &mut io_vec,
             msg_iovlen: 1,
