@@ -13,6 +13,7 @@ members = [
     "crates/util/buildutils",
     "crates/util/cli",
     "crates/util/cli-derive",
+    "crates/util/html-treebuilding-match",
     "crates/util/mime",
     "crates/util/serialization/serialize",
     "crates/util/serialization/serialize-derive",
@@ -45,6 +46,7 @@ dns = { path = "crates/dns" }
 dom-derive = { path = "crates/dom-derive" }
 render = { path = "crates/graphics/render" }
 font = { path = "crates/graphics/font" }
+html-treebuilding-match = { path = "crates/util/html-treebuilding-match" }
 image = { path = "crates/graphics/image" }
 math = { path = "crates/graphics/math" }
 compression = { path = "crates/compression" }
@@ -86,10 +88,12 @@ rust_2018_idioms = { level = "warn", priority = 1 }
 # Ideally this would only affect the "stormlicht" crate,
 # but there's no way to both inherit workspace lints *and*
 # add crate-specific ones. Either way, its not a big deal.
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(chrome, values("gtk", "glazier"))'] }
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(chrome, values("gtk", "glazier"))',
+] }
 
 [workspace.lints.clippy]
-correctness = { level = "deny", priority = 1}
+correctness = { level = "deny", priority = 1 }
 perf = { level = "deny", priority = 1 }
 
 # "-1 * x" can be more readable than "-x", especially in complex expressions
