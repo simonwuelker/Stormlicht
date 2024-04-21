@@ -1,0 +1,220 @@
+use std::{collections::HashMap, hash::Hash, marker::PhantomData};
+
+use crate::{
+    deserialization::{Error, MapAccess, SequentialAccess},
+    Deserialize, Deserializer, Visitor,
+};
+
+impl Deserialize for String {
+    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+        struct StringVisitor;
+
+        impl Visitor for StringVisitor {
+            type Value = String;
+
+            const EXPECTS: &'static str = "a String";
+
+            fn visit_string<E>(&self, value: String) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(value)
+            }
+        }
+
+        deserializer.deserialize_string(StringVisitor)
+    }
+}
+
+impl Deserialize for u8 {
+    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+        struct U8Visitor;
+
+        impl Visitor for U8Visitor {
+            type Value = u8;
+
+            const EXPECTS: &'static str = "a u8";
+
+            fn visit_usize<E>(&self, value: usize) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                let value = Self::Value::try_from(value).map_err(|_| E::expected(Self::EXPECTS))?;
+                Ok(value)
+            }
+        }
+
+        deserializer.deserialize_usize(U8Visitor)
+    }
+}
+
+impl Deserialize for u16 {
+    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+        struct U16Visitor;
+
+        impl Visitor for U16Visitor {
+            type Value = u16;
+
+            const EXPECTS: &'static str = "a u16";
+
+            fn visit_usize<E>(&self, value: usize) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                let value = Self::Value::try_from(value).map_err(|_| E::expected(Self::EXPECTS))?;
+                Ok(value)
+            }
+        }
+
+        deserializer.deserialize_usize(U16Visitor)
+    }
+}
+
+impl Deserialize for u32 {
+    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+        struct U32Visitor;
+
+        impl Visitor for U32Visitor {
+            type Value = u32;
+
+            const EXPECTS: &'static str = "a u32";
+
+            fn visit_usize<E>(&self, value: usize) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                let value = Self::Value::try_from(value).map_err(|_| E::expected(Self::EXPECTS))?;
+                Ok(value)
+            }
+        }
+
+        deserializer.deserialize_usize(U32Visitor)
+    }
+}
+
+impl Deserialize for u64 {
+    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+        struct U64Visitor;
+
+        impl Visitor for U64Visitor {
+            type Value = u64;
+
+            const EXPECTS: &'static str = "a u64";
+
+            fn visit_usize<E>(&self, value: usize) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                let value = Self::Value::try_from(value).map_err(|_| E::expected(Self::EXPECTS))?;
+                Ok(value)
+            }
+        }
+
+        deserializer.deserialize_usize(U64Visitor)
+    }
+}
+
+impl Deserialize for u128 {
+    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+        struct U128Visitor;
+
+        impl Visitor for U128Visitor {
+            type Value = u128;
+
+            const EXPECTS: &'static str = "a u128";
+
+            fn visit_usize<E>(&self, value: usize) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                let value = Self::Value::try_from(value).map_err(|_| E::expected(Self::EXPECTS))?;
+                Ok(value)
+            }
+        }
+
+        deserializer.deserialize_usize(U128Visitor)
+    }
+}
+
+impl<T: Deserialize> Deserialize for Vec<T> {
+    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+        struct VecVisitor<T> {
+            marker: PhantomData<T>,
+        }
+
+        impl<T> Visitor for VecVisitor<T>
+        where
+            T: Deserialize,
+        {
+            type Value = Vec<T>;
+
+            const EXPECTS: &'static str = "a sequence of values";
+
+            fn visit_sequence<S>(&self, mut sequence: S) -> Result<Self::Value, S::Error>
+            where
+                S: SequentialAccess,
+            {
+                let mut result = vec![];
+                loop {
+                    let element = sequence.next_element()?;
+
+                    match element {
+                        Some(element) => result.push(element),
+                        None => break,
+                    }
+                }
+                Ok(result)
+            }
+        }
+
+        deserializer.deserialize_sequence(VecVisitor {
+            marker: PhantomData,
+        })
+    }
+}
+
+impl<K, V> Deserialize for HashMap<K, V>
+where
+    K: Deserialize + Hash + Eq,
+    V: Deserialize,
+{
+    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+        struct HashMapVisitor<K, V> {
+            marker: PhantomData<(K, V)>,
+        }
+
+        impl<K, V> Visitor for HashMapVisitor<K, V>
+        where
+            K: Deserialize + Hash + Eq,
+            V: Deserialize,
+        {
+            type Value = HashMap<K, V>;
+
+            const EXPECTS: &'static str = "a map";
+
+            fn visit_map<M>(&self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess,
+            {
+                let mut result = HashMap::new();
+
+                loop {
+                    let element = map.next_key_value_pair()?;
+
+                    match element {
+                        Some((key, value)) => {
+                            result.insert(key, value);
+                        },
+                        None => break,
+                    }
+                }
+
+                Ok(result)
+            }
+        }
+
+        deserializer.deserialize_map(HashMapVisitor {
+            marker: PhantomData,
+        })
+    }
+}

@@ -1,10 +1,25 @@
 use sl_std::chars::ReversibleCharIterator;
 
-use crate::{Deserialize, Deserializer, Map, Sequence};
+use crate::{
+    deserialization::{Error, MapAccess, SequentialAccess},
+    Deserialize, Deserializer, Visitor,
+};
 
 #[derive(Clone, Debug)]
 pub enum JsonError {
+    Expected(&'static str),
+    UnknownField(String),
     UnexpectedToken,
+}
+
+impl Error for JsonError {
+    fn expected(expectation: &'static str) -> Self {
+        Self::Expected(expectation)
+    }
+
+    fn unknown_field(field: String) -> Self {
+        Self::UnknownField(field)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -38,16 +53,6 @@ impl<'a> JsonDeserializer<'a> {
             Ok(())
         } else {
             Err(JsonError::UnexpectedToken)
-        }
-    }
-
-    fn deserialize_optional<T: Deserialize>(&mut self) -> Option<T> {
-        let old_pos = self.chars.position();
-        if let Ok(value) = T::deserialize(self) {
-            Some(value)
-        } else {
-            self.chars.set_position(old_pos);
-            None
         }
     }
 
@@ -201,93 +206,136 @@ impl<'a> JsonDeserializer<'a> {
 impl<'a> Deserializer for JsonDeserializer<'a> {
     type Error = JsonError;
 
-    fn start_struct(&mut self) -> Result<(), Self::Error> {
-        self.expect_next_token(Token::CurlyBraceOpen)
-    }
-
-    fn end_struct(&mut self) -> Result<(), Self::Error> {
-        self.expect_next_token(Token::CurlyBraceClose)
-    }
-
-    fn deserialize_field<T: Deserialize>(&mut self, name: &str) -> Result<T, Self::Error> {
-        self.expect_next_token(Token::String(name.to_string()))?;
-        self.expect_next_token(Token::Colon)?;
-        let value = T::deserialize(self)?;
-
-        // Not entirely json compliant: the comma is always optional
-        let old_position = self.chars.position();
-        if self.next_token() != Some(Token::Comma) {
-            self.chars.set_position(old_position);
-        }
-        Ok(value)
-    }
-
-    fn deserialize_sequence<S: Sequence>(&mut self) -> Result<S, Self::Error>
+    fn deserialize_sequence<V>(&mut self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        S::Item: Deserialize,
+        V: Visitor,
     {
         self.expect_next_token(Token::BracketOpen)?;
-        let mut values = S::default();
-        if let Some(value) = self.deserialize_optional() {
-            values.add_item(value);
-        }
-        while self.peek_token() == Some(Token::Comma) {
-            self.next_token(); // discard the comma
 
-            values.add_item(S::Item::deserialize(self)?);
-        }
-        self.expect_next_token(Token::BracketClose)?;
-        Ok(values)
+        let sequence = JsonSequence {
+            done: false,
+            deserializer: self,
+        };
+
+        visitor.visit_sequence(sequence)
     }
 
-    fn deserialize_map<M: Map>(&mut self) -> Result<M, Self::Error>
+    fn deserialize_map<V>(&mut self, visitor: V) -> Result<V::Value, Self::Error>
     where
-        M::Value: Deserialize,
+        V: Visitor,
     {
-        self.start_struct()?;
+        self.expect_next_token(Token::CurlyBraceOpen)?;
 
-        let mut map = M::default();
-        if let Ok(key) = self.deserialize_string() {
-            self.expect_next_token(Token::Colon)?;
-            let value = M::Value::deserialize(self)?;
-            map.add_key_value(key, value);
-        }
+        let map = JsonMap {
+            done: false,
+            deserializer: self,
+        };
 
-        while self.peek_token() == Some(Token::Comma) {
-            _ = self.next_token(); // discard the comma
-
-            let key = self.deserialize_string()?;
-            self.expect_next_token(Token::Colon)?;
-            let value = M::Value::deserialize(self)?;
-            map.add_key_value(key.clone(), value);
-        }
-
-        self.end_struct()?;
-
-        Ok(map)
+        visitor.visit_map(map)
     }
 
-    fn deserialize_string(&mut self) -> Result<String, Self::Error> {
+    fn deserialize_string<V>(&mut self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor,
+    {
         if let Some(Token::String(s)) = self.next_token() {
-            Ok(s)
+            visitor.visit_string(s)
         } else {
             Err(JsonError::UnexpectedToken)
         }
     }
 
-    fn deserialize_usize(&mut self) -> Result<usize, Self::Error> {
-        if let Some(Token::Numeric(num)) = self.next_token() {
-            Ok(num as usize)
-        } else {
-            Err(JsonError::UnexpectedToken)
+    fn deserialize_usize<V>(&mut self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor,
+    {
+        let Some(Token::Numeric(num)) = self.next_token() else {
+            return Err(JsonError::UnexpectedToken);
+        };
+
+        visitor.visit_usize(num as usize)
+    }
+}
+
+struct JsonSequence<'a, 'b> {
+    done: bool,
+    deserializer: &'a mut JsonDeserializer<'b>,
+}
+
+impl<'a, 'b> SequentialAccess for JsonSequence<'a, 'b> {
+    type Error = <JsonDeserializer<'b> as Deserializer>::Error;
+
+    fn next_element<T>(&mut self) -> Result<Option<T>, Self::Error>
+    where
+        T: Deserialize,
+    {
+        if self.done {
+            return Ok(None);
         }
+
+        let value = T::deserialize(self.deserializer)?;
+
+        if self.deserializer.peek_token() == Some(Token::Comma) {
+            _ = self.deserializer.next_token();
+
+            // The sequence *may* end with a trailing comma
+            if self.deserializer.peek_token() == Some(Token::BracketClose) {
+                _ = self.deserializer.next_token();
+                self.done = true;
+            }
+        } else {
+            // If there is no comma then the sequence is finished
+            self.deserializer.expect_next_token(Token::BracketClose)?;
+            self.done = true;
+        }
+
+        Ok(Some(value))
+    }
+}
+
+struct JsonMap<'a, 'b> {
+    done: bool,
+    deserializer: &'a mut JsonDeserializer<'b>,
+}
+
+impl<'a, 'b> MapAccess for JsonMap<'a, 'b> {
+    type Error = <JsonDeserializer<'b> as Deserializer>::Error;
+
+    fn next_key_value_pair<K, V>(&mut self) -> Result<Option<(K, V)>, Self::Error>
+    where
+        K: Deserialize,
+        V: Deserialize,
+    {
+        if self.done {
+            return Ok(None);
+        }
+
+        let key = K::deserialize(self.deserializer)?;
+        self.deserializer.expect_next_token(Token::Colon)?;
+        let value = V::deserialize(self.deserializer)?;
+
+        if self.deserializer.peek_token() == Some(Token::Comma) {
+            _ = self.deserializer.next_token();
+
+            // The map *may* end with a trailing comma
+            if self.deserializer.peek_token() == Some(Token::CurlyBraceClose) {
+                _ = self.deserializer.next_token();
+                self.done = true;
+            }
+        } else {
+            // If there is no comma then the map is finished
+            self.deserializer
+                .expect_next_token(Token::CurlyBraceClose)?;
+            self.done = true;
+        }
+
+        Ok(Some((key, value)))
     }
 }
 
 #[cfg(test)]
 mod tests {
-
-    use super::{JsonDeserializer, Token};
+    use super::*;
 
     #[test]
     fn tokenize() {

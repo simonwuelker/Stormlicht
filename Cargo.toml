@@ -64,7 +64,7 @@ ipc = { path = "crates/ipc" }
 
 log = "0.4"
 criterion = { version = "0.4", features = ["html_reports"] }
-syn = "2"
+syn = { version = "2", features = ["full"] }
 quote = "1"
 proc-macro2 = "^1.0.60"
 libc = { version = "0.2" }
