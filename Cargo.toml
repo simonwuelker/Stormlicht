@@ -65,6 +65,7 @@ criterion = { version = "0.4", features = ["html_reports"] }
 syn = "2"
 quote = "1"
 proc-macro2 = "^1.0.60"
+env_logger = { version = "0.10" }
 
 [workspace.package]
 authors = ["Simon Wülker"]
