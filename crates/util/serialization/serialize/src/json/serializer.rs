@@ -167,19 +167,3 @@ where
         write!(self.0.writer, "}}")
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn serialize_struct() {
-        let mut result = String::new();
-        let mut serializer = JsonSerializer {
-            writer: &mut result,
-        };
-        serializer.serialize_sequence(|_| Ok(())).unwrap();
-        serializer.serialize_bool(false).unwrap();
-        todo!()
-    }
-}
