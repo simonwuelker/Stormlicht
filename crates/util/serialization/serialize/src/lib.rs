@@ -6,6 +6,7 @@ pub use serialize_derive::Deserialize;
 mod compound_types;
 pub mod deserialization;
 pub mod json;
+pub mod serialization;
 mod visitor;
 
 pub use compound_types::{Map, Sequence};
