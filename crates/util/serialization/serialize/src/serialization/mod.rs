@@ -9,15 +9,15 @@ pub trait Serialize {
 pub trait Serializer {
     type Error;
 
-    type SequenceSerializer<'a>: SerializeSequence
+    type SequenceSerializer<'a>: SerializeSequence<Error = Self::Error>
     where
         Self: 'a;
 
-    type MapSerializer<'a>: SerializeMap
+    type MapSerializer<'a>: SerializeMap<Error = Self::Error>
     where
         Self: 'a;
 
-    type StructSerializer<'a>: SerializeStruct
+    type StructSerializer<'a>: SerializeStruct<Error = Self::Error>
     where
         Self: 'a;
 
