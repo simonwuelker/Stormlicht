@@ -102,11 +102,11 @@ where
     W: Write,
 {
     fn start(&mut self) -> Result<(), std::io::Error> {
-        write!(self.0.writer, "{{")
+        write!(self.0.writer, "[")
     }
 
     fn end(&mut self) -> Result<(), std::io::Error> {
-        write!(self.0.writer, "}}")
+        write!(self.0.writer, "]")
     }
 }
 
