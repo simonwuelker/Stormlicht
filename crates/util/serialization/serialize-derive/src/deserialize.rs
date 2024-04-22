@@ -58,7 +58,7 @@ pub(crate) fn deserialize_struct(input: syn::ItemStruct) -> TokenStream {
                     }
                 }
 
-                deserializer.deserialize_map(StructVisitor)
+                deserializer.deserialize_struct(StructVisitor)
             }
         }
     )
