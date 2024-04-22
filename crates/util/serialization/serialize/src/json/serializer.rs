@@ -1,18 +1,33 @@
-use std::io::Write;
+use std::{fmt, fmt::Write};
 
-use crate::serialization::{SerializeMap, SerializeSequence, SerializeStruct, Serializer};
+use crate::{
+    serialization::{SerializeMap, SerializeSequence, SerializeStruct, Serializer},
+    Serialize,
+};
 
 pub struct JsonSerializer<W> {
     writer: W,
 }
 
-impl<W> JsonSerializer<W> where W: Write {}
+impl JsonSerializer<String> {
+    pub fn serialize_to_string<T>(value: T) -> Result<String, fmt::Error>
+    where
+        T: Serialize,
+    {
+        let mut serializer = Self {
+            writer: String::new(),
+        };
+        value.serialize_to(&mut serializer)?;
+
+        Ok(serializer.writer)
+    }
+}
 
 impl<W> Serializer for JsonSerializer<W>
 where
     W: Write,
 {
-    type Error = std::io::Error;
+    type Error = fmt::Error;
     type SequenceSerializer<'a> = SequenceSerializer<'a, W> where Self: 'a;
     type MapSerializer<'a> = MapSerializer<'a, W> where Self: 'a;
     type StructSerializer<'a> = StructSerializer<'a, W> where Self: 'a;
@@ -131,11 +146,11 @@ impl<'a, W> SequenceSerializer<'a, W>
 where
     W: Write,
 {
-    fn start(&mut self) -> Result<(), std::io::Error> {
+    fn start(&mut self) -> Result<(), fmt::Error> {
         write!(self.0.writer, "[")
     }
 
-    fn end(&mut self) -> Result<(), std::io::Error> {
+    fn end(&mut self) -> Result<(), fmt::Error> {
         write!(self.0.writer, "]")
     }
 }
@@ -144,11 +159,11 @@ impl<'a, W> MapSerializer<'a, W>
 where
     W: Write,
 {
-    fn start(&mut self) -> Result<(), std::io::Error> {
+    fn start(&mut self) -> Result<(), fmt::Error> {
         write!(self.0.writer, "{{")
     }
 
-    fn end(&mut self) -> Result<(), std::io::Error> {
+    fn end(&mut self) -> Result<(), fmt::Error> {
         write!(self.0.writer, "}}")
     }
 }
@@ -159,7 +174,7 @@ mod tests {
 
     #[test]
     fn serialize_struct() {
-        let mut result = Vec::new();
+        let mut result = String::new();
         let mut serializer = JsonSerializer {
             writer: &mut result,
         };
