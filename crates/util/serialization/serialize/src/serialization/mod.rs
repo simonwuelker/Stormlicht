@@ -1,3 +1,5 @@
+mod impls;
+
 pub trait Serialize {
     fn serialize_to<S>(&self, serializer: &mut S) -> Result<(), S::Error>
     where
@@ -6,10 +8,16 @@ pub trait Serialize {
 
 pub trait Serializer {
     type Error;
+
     type SequenceSerializer<'a>: SerializeSequence
     where
         Self: 'a;
+
     type MapSerializer<'a>: SerializeMap
+    where
+        Self: 'a;
+
+    type StructSerializer<'a>: SerializeStruct
     where
         Self: 'a;
 
@@ -22,6 +30,9 @@ pub trait Serializer {
     fn serialize_map<'a, F>(&'a mut self, f: F) -> Result<(), Self::Error>
     where
         F: FnOnce(&mut Self::MapSerializer<'a>) -> Result<(), Self::Error>;
+    fn serialize_struct<'a, F>(&'a mut self, f: F) -> Result<(), Self::Error>
+    where
+        F: FnOnce(&mut Self::StructSerializer<'a>) -> Result<(), Self::Error>;
 }
 
 pub trait SerializeSequence {
@@ -39,4 +50,12 @@ pub trait SerializeMap {
     where
         K: Serialize,
         V: Serialize;
+}
+
+pub trait SerializeStruct {
+    type Error;
+
+    fn serialize_field<T>(&mut self, name: &str, value: T) -> Result<(), Self::Error>
+    where
+        T: Serialize;
 }

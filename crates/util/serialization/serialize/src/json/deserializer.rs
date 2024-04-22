@@ -234,6 +234,13 @@ impl<'a> Deserializer for JsonDeserializer<'a> {
         visitor.visit_map(map)
     }
 
+    fn deserialize_struct<V>(&mut self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor,
+    {
+        self.deserialize_map(visitor)
+    }
+
     fn deserialize_string<V>(&mut self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor,

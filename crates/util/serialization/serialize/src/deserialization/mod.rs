@@ -17,6 +17,7 @@ pub trait Deserializer {
 
     fn deserialize_sequence<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
     fn deserialize_map<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
+    fn deserialize_struct<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
     fn deserialize_string<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
     fn deserialize_usize<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
 }
