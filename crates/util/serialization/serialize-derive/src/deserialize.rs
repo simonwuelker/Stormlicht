@@ -20,6 +20,7 @@ pub(crate) fn deserialize_struct(input: syn::ItemStruct) -> TokenStream {
     quote!(
         impl ::serialize::Deserialize for #struct_ident {
             fn deserialize<T: ::serialize::Deserializer>(deserializer: &mut T) -> Result<Self, T::Error> {
+                #[allow(non_camel_case_types)]
                 enum Field {
                     #(#idents,)*
                 }
