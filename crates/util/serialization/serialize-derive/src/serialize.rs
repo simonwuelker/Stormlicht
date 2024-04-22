@@ -23,7 +23,7 @@ pub(crate) fn serialize_struct(input: syn::ItemStruct) -> TokenStream {
                 serializer.serialize_struct(|struct_serializer| {
                     #(
                         struct_serializer.serialize_field(
-                            stringify!(#idents), self.#idents,
+                            stringify!(#idents), &self.#idents,
                         )?;
                     )*
 

@@ -84,7 +84,7 @@ where
 {
     type Error = <JsonSerializer<W> as Serializer>::Error;
 
-    fn serialize_element<T>(&mut self, element: T) -> Result<(), Self::Error>
+    fn serialize_element<T>(&mut self, element: &T) -> Result<(), Self::Error>
     where
         T: crate::serialization::Serialize,
     {
@@ -100,7 +100,7 @@ where
 {
     type Error = <JsonSerializer<W> as Serializer>::Error;
 
-    fn serialize_key_value_pair<K, V>(&mut self, key: K, value: V) -> Result<(), Self::Error>
+    fn serialize_key_value_pair<K, V>(&mut self, key: &K, value: &V) -> Result<(), Self::Error>
     where
         K: crate::serialization::Serialize,
         V: crate::serialization::Serialize,
@@ -119,11 +119,11 @@ where
 {
     type Error = <JsonSerializer<W> as Serializer>::Error;
 
-    fn serialize_field<T>(&mut self, name: &str, value: T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, name: &str, value: &T) -> Result<(), Self::Error>
     where
         T: crate::serialization::Serialize,
     {
-        self.0.serialize_key_value_pair(name, value)
+        self.0.serialize_key_value_pair(&name, value)
     }
 }
 

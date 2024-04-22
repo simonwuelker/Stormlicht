@@ -38,7 +38,7 @@ pub trait Serializer {
 pub trait SerializeSequence {
     type Error;
 
-    fn serialize_element<T>(&mut self, element: T) -> Result<(), Self::Error>
+    fn serialize_element<T>(&mut self, element: &T) -> Result<(), Self::Error>
     where
         T: Serialize;
 }
@@ -46,7 +46,7 @@ pub trait SerializeSequence {
 pub trait SerializeMap {
     type Error;
 
-    fn serialize_key_value_pair<K, V>(&mut self, key: K, value: V) -> Result<(), Self::Error>
+    fn serialize_key_value_pair<K, V>(&mut self, key: &K, value: &V) -> Result<(), Self::Error>
     where
         K: Serialize,
         V: Serialize;
@@ -55,7 +55,7 @@ pub trait SerializeMap {
 pub trait SerializeStruct {
     type Error;
 
-    fn serialize_field<T>(&mut self, name: &str, value: T) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, name: &str, value: &T) -> Result<(), Self::Error>
     where
         T: Serialize;
 }
