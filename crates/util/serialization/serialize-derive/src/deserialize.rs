@@ -70,7 +70,7 @@ pub(crate) fn deserialize_struct(input: syn::ItemStruct) -> TokenStream {
 
                         loop {
                             let Some(key) = value.next_key()? else {
-                                return Err(Error::missing_field());
+                                break;
                             };
 
                             match key {
@@ -82,7 +82,7 @@ pub(crate) fn deserialize_struct(input: syn::ItemStruct) -> TokenStream {
 
                         let instance = Self::Value {
                             #(
-                                #idents: #idents.ok_or(Error::missing_field())?,
+                                #idents: #idents.ok_or(Error::missing_field(stringify!(#idents)))?,
                             )*
                         };
 

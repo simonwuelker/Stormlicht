@@ -9,7 +9,7 @@ use crate::{
 pub enum JsonError {
     Expected(&'static str),
     UnknownField(String),
-    MissingField,
+    MissingField(&'static str),
     UnexpectedToken,
 }
 
@@ -22,8 +22,8 @@ impl Error for JsonError {
         Self::UnknownField(field)
     }
 
-    fn missing_field() -> Self {
-        Self::MissingField
+    fn missing_field(field: &'static str) -> Self {
+        Self::MissingField(field)
     }
 }
 

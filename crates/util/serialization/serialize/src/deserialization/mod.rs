@@ -6,7 +6,7 @@ use crate::Visitor;
 pub trait Error {
     fn expected(expectation: &'static str) -> Self;
     fn unknown_field(field: String) -> Self;
-    fn missing_field() -> Self;
+    fn missing_field(field: &'static str) -> Self;
 }
 
 pub trait Deserialize: Sized {
