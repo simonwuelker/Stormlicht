@@ -28,6 +28,7 @@ use sl_std::iter::IteratorExtensions;
 const TAB: char = '\u{0009}';
 const LINE_FEED: char = '\u{000A}';
 const FORM_FEED: char = '\u{000C}';
+const CARRIAGE_RETURN: char = '\u{000D}';
 const WHITESPACE: char = '\u{0020}';
 
 // FIXME: We should also consider the object namespaces here (and in every other scope)
@@ -3134,7 +3135,78 @@ impl<P: ParseErrorHandler> Parser<P> {
             InsertionMode::InCaption => todo!("implement InCaption mode"),
 
             // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-incolgroup
-            InsertionMode::InColumnGroup => todo!("implement InColumnGroup mode"),
+            InsertionMode::InColumnGroup => {
+                match token {
+                    Token::Character(
+                        c @ (TAB | LINE_FEED | FORM_FEED | CARRIAGE_RETURN | WHITESPACE),
+                    ) => {
+                        // Insert the character.
+                        self.insert_character(c);
+                    },
+                    Token::Comment(comment) => {
+                        // Insert a comment.
+                        self.insert_comment(comment);
+                    },
+                    Token::DOCTYPE(_) => {
+                        // Parse error. Ignore the token.
+                    },
+                    Token::Tag(ref tag) if tag.opening && tag.name == static_interned!("html") => {
+                        // Process the token using the rules for the "in body" insertion mode.
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                    },
+                    Token::Tag(ref tag) if tag.opening && tag.name == static_interned!("col") => {
+                        // Insert an HTML element for the token.
+                        // Immediately pop the current node off the stack of open elements.
+                        self.insert_html_element_for_token(tag);
+                        self.pop_from_open_elements();
+
+                        // Acknowledge the token's self-closing flag, if it is set.
+                        if tag.self_closing {
+                            self.acknowledge_self_closing_flag_if_set(tag);
+                        }
+                    },
+                    Token::Tag(tag) if !tag.opening && tag.name == static_interned!("colgroup") => {
+                        // If the current node is not a colgroup element, then this is a parse error; ignore the token.
+                        if self.current_node().borrow().local_name() != static_interned!("colgroup")
+                        {
+                            return;
+                        }
+
+                        // Otherwise, pop the current node from the stack of open elements.
+                        self.pop_from_open_elements();
+
+                        // Switch the insertion mode to "in table".
+                        self.insertion_mode = InsertionMode::InTable;
+                    },
+                    Token::Tag(tag) if !tag.opening && tag.name == static_interned!("col") => {
+                        // Parse error. Ignore the token.
+                    },
+                    Token::Tag(ref tag) if tag.name == static_interned!("template") => {
+                        // Process the token using the rules for the "in head" insertion mode.
+                        self.consume_in_mode(InsertionMode::InHead, token);
+                    },
+                    Token::EOF => {
+                        // Process the token using the rules for the "in body" insertion mode.
+                        self.consume_in_mode(InsertionMode::InBody, token);
+                    },
+                    _ => {
+                        // If the current node is not a colgroup element, then this is a parse error; ignore the token.
+                        if self.current_node().borrow().local_name() != static_interned!("colgroup")
+                        {
+                            return;
+                        }
+
+                        // Otherwise, pop the current node from the stack of open elements.
+                        self.pop_from_open_elements();
+
+                        // Switch the insertion mode to "in table".
+                        self.insertion_mode = InsertionMode::InTable;
+
+                        // Reprocess the token.
+                        self.consume(token);
+                    },
+                }
+            },
 
             // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intbody
             InsertionMode::InTableBody => {
