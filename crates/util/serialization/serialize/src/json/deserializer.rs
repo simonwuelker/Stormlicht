@@ -281,6 +281,11 @@ impl<'a, 'b> SequentialAccess for JsonSequence<'a, 'b> {
     where
         T: Deserialize,
     {
+        if self.deserializer.peek_token() == Some(Token::BracketClose) {
+            let _ = self.deserializer.next_token();
+            self.done = true;
+        }
+
         if self.done {
             return Ok(None);
         }
@@ -317,6 +322,11 @@ impl<'a, 'b> MapAccess for JsonMap<'a, 'b> {
     where
         K: Deserialize,
     {
+        if self.deserializer.peek_token() == Some(Token::CurlyBraceClose) {
+            let _ = self.deserializer.next_token();
+            self.done = true;
+        }
+
         if self.done {
             return Ok(None);
         }
