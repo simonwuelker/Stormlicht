@@ -21,6 +21,7 @@ pub trait Deserializer {
     fn deserialize_struct<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
     fn deserialize_string<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
     fn deserialize_usize<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
+    fn deserialize_enum<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
 }
 
 pub trait SequentialAccess {
@@ -41,4 +42,21 @@ pub trait MapAccess {
     fn next_value<V>(&mut self) -> Result<V, Self::Error>
     where
         V: Deserialize;
+}
+
+pub trait EnumAccess {
+    type Error: Error;
+    type Variant: EnumVariantAccess;
+
+    fn variant<V>(self) -> Result<(V, Self::Variant), Self::Error>
+    where
+        V: Deserialize;
+}
+
+pub trait EnumVariantAccess {
+    type Error: Error;
+
+    fn variant_data<D>(self) -> Result<D, Self::Error>
+    where
+        D: Deserialize;
 }

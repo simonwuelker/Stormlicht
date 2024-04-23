@@ -1,6 +1,6 @@
 mod bool_visitor;
 
-use crate::deserialization::{Error, MapAccess, SequentialAccess};
+use crate::deserialization::{EnumAccess, Error, MapAccess, SequentialAccess};
 
 pub trait Visitor {
     type Value;
@@ -45,5 +45,13 @@ pub trait Visitor {
     {
         _ = value;
         Err(M::Error::expected(Self::EXPECTS))
+    }
+
+    fn visit_enum<E>(&self, value: E) -> Result<Self::Value, E::Error>
+    where
+        E: EnumAccess,
+    {
+        _ = value;
+        Err(E::Error::expected(Self::EXPECTS))
     }
 }

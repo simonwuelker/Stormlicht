@@ -1,7 +1,7 @@
 use sl_std::chars::ReversibleCharIterator;
 
 use crate::{
-    deserialization::{Error, MapAccess, SequentialAccess},
+    deserialization::{EnumAccess, EnumVariantAccess, Error, MapAccess, SequentialAccess},
     Deserialize, Deserializer, Visitor,
 };
 
@@ -267,6 +267,15 @@ impl<'a> Deserializer for JsonDeserializer<'a> {
 
         visitor.visit_usize(num as usize)
     }
+
+    fn deserialize_enum<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error> {
+        // Enums are stored as { variant: data}
+        self.expect_next_token(Token::CurlyBraceOpen)?;
+
+        let enumeration = JsonEnum { deserializer: self };
+
+        visitor.visit_enum(enumeration)
+    }
 }
 
 struct JsonSequence<'a, 'b> {
@@ -357,6 +366,51 @@ impl<'a, 'b> MapAccess for JsonMap<'a, 'b> {
                 .expect_next_token(Token::CurlyBraceClose)?;
             self.done = true;
         }
+
+        Ok(value)
+    }
+}
+
+struct JsonEnum<'a, 'b> {
+    deserializer: &'a mut JsonDeserializer<'b>,
+}
+
+struct JsonEnumVariant<'a, 'b> {
+    deserializer: &'a mut JsonDeserializer<'b>,
+}
+
+impl<'a, 'b> EnumAccess for JsonEnum<'a, 'b> {
+    type Error = <JsonDeserializer<'b> as Deserializer>::Error;
+    type Variant = JsonEnumVariant<'a, 'b>;
+
+    fn variant<V>(self) -> Result<(V, Self::Variant), Self::Error>
+    where
+        V: Deserialize,
+    {
+        let variant = V::deserialize(self.deserializer)?;
+        self.deserializer.expect_next_token(Token::Colon)?;
+
+        // What follows is either a sequence (tuple enum variant) or a map (struct enum variant)
+        let variant_data = JsonEnumVariant {
+            deserializer: self.deserializer,
+        };
+
+        Ok((variant, variant_data))
+    }
+}
+
+impl<'a, 'b> EnumVariantAccess for JsonEnumVariant<'a, 'b> {
+    type Error = <JsonDeserializer<'b> as Deserializer>::Error;
+
+    fn variant_data<D>(self) -> Result<D, Self::Error>
+    where
+        D: Deserialize,
+    {
+        let value = D::deserialize(self.deserializer)?;
+
+        // Close the outer group that the enum variant is stored in
+        self.deserializer
+            .expect_next_token(Token::CurlyBraceClose)?;
 
         Ok(value)
     }
