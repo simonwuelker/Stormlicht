@@ -9,6 +9,7 @@ use crate::{
 pub enum JsonError {
     Expected(&'static str),
     UnknownField(String),
+    MissingField,
     UnexpectedToken,
 }
 
@@ -19,6 +20,10 @@ impl Error for JsonError {
 
     fn unknown_field(field: String) -> Self {
         Self::UnknownField(field)
+    }
+
+    fn missing_field() -> Self {
+        Self::MissingField
     }
 }
 
@@ -308,16 +313,23 @@ struct JsonMap<'a, 'b> {
 impl<'a, 'b> MapAccess for JsonMap<'a, 'b> {
     type Error = <JsonDeserializer<'b> as Deserializer>::Error;
 
-    fn next_key_value_pair<K, V>(&mut self) -> Result<Option<(K, V)>, Self::Error>
+    fn next_key<K>(&mut self) -> Result<Option<K>, Self::Error>
     where
         K: Deserialize,
-        V: Deserialize,
     {
         if self.done {
             return Ok(None);
         }
 
         let key = K::deserialize(self.deserializer)?;
+
+        Ok(Some(key))
+    }
+
+    fn next_value<V>(&mut self) -> Result<V, Self::Error>
+    where
+        V: Deserialize,
+    {
         self.deserializer.expect_next_token(Token::Colon)?;
         let value = V::deserialize(self.deserializer)?;
 
@@ -336,7 +348,7 @@ impl<'a, 'b> MapAccess for JsonMap<'a, 'b> {
             self.done = true;
         }
 
-        Ok(Some((key, value)))
+        Ok(value)
     }
 }
 

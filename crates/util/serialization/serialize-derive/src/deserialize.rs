@@ -20,29 +20,37 @@ pub(crate) fn deserialize_struct(input: syn::ItemStruct) -> TokenStream {
     quote!(
         impl ::serialize::Deserialize for #struct_ident {
             fn deserialize<T: ::serialize::Deserializer>(deserializer: &mut T) -> Result<Self, T::Error> {
+                use ::serialize::deserialization::Error;
+
                 #[allow(non_camel_case_types)]
                 enum Field {
                     #(#idents,)*
                 }
 
-                struct FieldVisitor;
+                impl ::serialize::Deserialize for Field {
+                    fn deserialize<T: ::serialize::Deserializer>(deserializer: &mut T) -> Result<Self, T::Error> {
+                        struct FieldVisitor;
 
-                impl ::serialize::Visitor for FieldVisitor {
-                    type Value = Field;
+                        impl ::serialize::Visitor for FieldVisitor {
+                            type Value = Field;
 
-                    const EXPECTS: &'static str = #expecting;
+                            const EXPECTS: &'static str = #expecting;
 
-                    fn visit_string<E>(&self, value: String) -> Result<Self::Value, E>
-                    where
-                        E: ::serialize::deserialization::Error,
-                    {
-                        let field = match value.as_str() {
-                            #(
-                                stringify!(#idents) => Field::#idents,
-                            )*
-                            _ => return Err(E::unknown_field(value)),
-                        };
-                        Ok(field)
+                            fn visit_string<E>(&self, value: String) -> Result<Self::Value, E>
+                            where
+                                E: ::serialize::deserialization::Error,
+                            {
+                                let field = match value.as_str() {
+                                    #(
+                                        stringify!(#idents) => Field::#idents,
+                                    )*
+                                    _ => return Err(E::unknown_field(value)),
+                                };
+                                Ok(field)
+                            }
+                        }
+
+                        deserializer.deserialize_string(FieldVisitor)
                     }
                 }
 
@@ -53,9 +61,32 @@ pub(crate) fn deserialize_struct(input: syn::ItemStruct) -> TokenStream {
 
                     const EXPECTS: &'static str = "a map";
 
-                    fn visit_map<M>(&self, value: M) -> Result<Self::Value, M::Error>
+                    fn visit_map<M>(&self, mut value: M) -> Result<Self::Value, M::Error>
                     where M: ::serialize::deserialization::MapAccess {
-                        todo!()
+                        #(
+                            let mut #idents = None;
+                        )*
+
+
+                        loop {
+                            let Some(key) = value.next_key()? else {
+                                return Err(Error::missing_field());
+                            };
+
+                            match key {
+                                #(
+                                    Field::#idents => #idents = Some(value.next_value()?),
+                                )*
+                            }
+                        }
+
+                        let instance = Self::Value {
+                            #(
+                                #idents: #idents.ok_or(Error::missing_field())?,
+                            )*
+                        };
+
+                        Ok(instance)
                     }
                 }
 

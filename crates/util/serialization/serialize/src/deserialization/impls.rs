@@ -136,6 +136,28 @@ impl Deserialize for u128 {
     }
 }
 
+impl Deserialize for usize {
+    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+        struct UsizeVisitor;
+
+        impl Visitor for UsizeVisitor {
+            type Value = usize;
+
+            const EXPECTS: &'static str = "a usize";
+
+            fn visit_usize<E>(&self, value: usize) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                let value = Self::Value::try_from(value).map_err(|_| E::expected(Self::EXPECTS))?;
+                Ok(value)
+            }
+        }
+
+        deserializer.deserialize_usize(UsizeVisitor)
+    }
+}
+
 impl<T: Deserialize> Deserialize for Vec<T> {
     fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
         struct VecVisitor<T> {
@@ -199,14 +221,12 @@ where
                 let mut result = HashMap::new();
 
                 loop {
-                    let element = map.next_key_value_pair()?;
+                    let Some(key) = map.next_key()? else {
+                        break;
+                    };
 
-                    match element {
-                        Some((key, value)) => {
-                            result.insert(key, value);
-                        },
-                        None => break,
-                    }
+                    let value = map.next_value()?;
+                    result.insert(key, value);
                 }
 
                 Ok(result)

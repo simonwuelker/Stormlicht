@@ -6,6 +6,7 @@ use crate::Visitor;
 pub trait Error {
     fn expected(expectation: &'static str) -> Self;
     fn unknown_field(field: String) -> Self;
+    fn missing_field() -> Self;
 }
 
 pub trait Deserialize: Sized {
@@ -33,8 +34,11 @@ pub trait SequentialAccess {
 pub trait MapAccess {
     type Error: Error;
 
-    fn next_key_value_pair<K, V>(&mut self) -> Result<Option<(K, V)>, Self::Error>
+    fn next_key<K>(&mut self) -> Result<Option<K>, Self::Error>
     where
-        K: Deserialize,
+        K: Deserialize;
+
+    fn next_value<V>(&mut self) -> Result<V, Self::Error>
+    where
         V: Deserialize;
 }
