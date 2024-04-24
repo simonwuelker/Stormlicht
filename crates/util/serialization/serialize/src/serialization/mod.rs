@@ -44,7 +44,7 @@ pub trait Serializer {
     /// Serialize an enum variant without any associated data.
     ///
     /// Implementations should not usually need to override this.
-    fn serialize_enum<'a, F>(&'a mut self, variant_name: &str) -> Result<(), Self::Error> {
+    fn serialize_enum<'a>(&'a mut self, variant_name: &str) -> Result<(), Self::Error> {
         self.serialize_tuple_enum(variant_name)?.finish()
     }
 
