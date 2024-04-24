@@ -28,7 +28,7 @@ where
     W: Write,
 {
     type Error = fmt::Error;
-    type SequenceSerializer<'a> = SequenceSerializer<'a, W> where Self: 'a;
+    type SequenceSerializer<'a> = SequenceSerializer<'a, W> where Self: 'a, W: 'a;
     type MapSerializer<'a> = MapSerializer<'a, W> where Self: 'a;
     type StructSerializer<'a> = StructSerializer<'a, W> where Self: 'a;
 
@@ -49,40 +49,25 @@ where
         write!(self.writer, "{value}")
     }
 
-    fn serialize_sequence<'a, F>(&'a mut self, f: F) -> Result<(), Self::Error>
-    where
-        F: FnOnce(&mut Self::SequenceSerializer<'a>) -> Result<(), Self::Error>,
-    {
-        let mut sequence_serializer = SequenceSerializer(self);
-        sequence_serializer.start()?;
-        f(&mut sequence_serializer)?;
-        sequence_serializer.end()?;
+    fn serialize_sequence<'a>(&'a mut self) -> Result<Self::SequenceSerializer<'a>, Self::Error> {
+        write!(self.writer, "[")?;
+        let sequence_serializer = SequenceSerializer(self);
 
-        Ok(())
+        Ok(sequence_serializer)
     }
 
-    fn serialize_map<'a, F>(&'a mut self, f: F) -> Result<(), Self::Error>
-    where
-        F: FnOnce(&mut Self::MapSerializer<'a>) -> Result<(), Self::Error>,
-    {
-        let mut map_serializer = MapSerializer(self);
-        map_serializer.start()?;
-        f(&mut map_serializer)?;
-        map_serializer.end()?;
+    fn serialize_map<'a>(&'a mut self) -> Result<Self::MapSerializer<'a>, Self::Error> {
+        write!(self.writer, "{{")?;
+        let map_serializer = MapSerializer(self);
 
-        Ok(())
+        Ok(map_serializer)
     }
 
-    fn serialize_struct<'a, F>(&'a mut self, f: F) -> Result<(), Self::Error>
-    where
-        F: FnOnce(&mut Self::StructSerializer<'a>) -> Result<(), Self::Error>,
-    {
-        let mut struct_serializer = StructSerializer(MapSerializer(self));
-        struct_serializer.0.start()?;
-        f(&mut struct_serializer)?;
-        struct_serializer.0.end()?;
+    fn serialize_struct<'a>(&'a mut self) -> Result<Self::StructSerializer<'a>, Self::Error> {
+        write!(self.writer, "{{")?;
+        let struct_serializer = StructSerializer(MapSerializer(self));
 
-        Ok(())
+        Ok(struct_serializer)
     }
 }
 
@@ -107,6 +92,10 @@ where
         write!(self.0.writer, ",")?;
         Ok(())
     }
+
+    fn finish(self) -> Result<(), Self::Error> {
+        write!(self.0.writer, "]")
+    }
 }
 
 impl<'a, W> SerializeMap for MapSerializer<'a, W>
@@ -126,6 +115,10 @@ where
         write!(self.0.writer, ",")?;
         Ok(())
     }
+
+    fn finish(self) -> Result<(), Self::Error> {
+        write!(self.0.writer, "}}")
+    }
 }
 
 impl<'a, W> SerializeStruct for StructSerializer<'a, W>
@@ -140,30 +133,8 @@ where
     {
         self.0.serialize_key_value_pair(&name, value)
     }
-}
 
-impl<'a, W> SequenceSerializer<'a, W>
-where
-    W: Write,
-{
-    fn start(&mut self) -> Result<(), fmt::Error> {
-        write!(self.0.writer, "[")
-    }
-
-    fn end(&mut self) -> Result<(), fmt::Error> {
-        write!(self.0.writer, "]")
-    }
-}
-
-impl<'a, W> MapSerializer<'a, W>
-where
-    W: Write,
-{
-    fn start(&mut self) -> Result<(), fmt::Error> {
-        write!(self.0.writer, "{{")
-    }
-
-    fn end(&mut self) -> Result<(), fmt::Error> {
-        write!(self.0.writer, "}}")
+    fn finish(self) -> Result<(), Self::Error> {
+        self.0.finish()
     }
 }

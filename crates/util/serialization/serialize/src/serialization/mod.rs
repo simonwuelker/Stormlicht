@@ -22,17 +22,16 @@ pub trait Serializer {
         Self: 'a;
 
     fn serialize_bool(&mut self, value: bool) -> Result<(), Self::Error>;
+
     fn serialize_string(&mut self, value: &str) -> Result<(), Self::Error>;
+
     fn serialize_usize(&mut self, value: usize) -> Result<(), Self::Error>;
-    fn serialize_sequence<'a, F>(&'a mut self, f: F) -> Result<(), Self::Error>
-    where
-        F: FnOnce(&mut Self::SequenceSerializer<'a>) -> Result<(), Self::Error>;
-    fn serialize_map<'a, F>(&'a mut self, f: F) -> Result<(), Self::Error>
-    where
-        F: FnOnce(&mut Self::MapSerializer<'a>) -> Result<(), Self::Error>;
-    fn serialize_struct<'a, F>(&'a mut self, f: F) -> Result<(), Self::Error>
-    where
-        F: FnOnce(&mut Self::StructSerializer<'a>) -> Result<(), Self::Error>;
+
+    fn serialize_sequence<'a>(&'a mut self) -> Result<Self::SequenceSerializer<'a>, Self::Error>;
+
+    fn serialize_map<'a>(&'a mut self) -> Result<Self::MapSerializer<'a>, Self::Error>;
+
+    fn serialize_struct<'a>(&'a mut self) -> Result<Self::StructSerializer<'a>, Self::Error>;
 }
 
 pub trait SerializeSequence {
@@ -41,6 +40,8 @@ pub trait SerializeSequence {
     fn serialize_element<T>(&mut self, element: &T) -> Result<(), Self::Error>
     where
         T: Serialize;
+
+    fn finish(self) -> Result<(), Self::Error>;
 }
 
 pub trait SerializeMap {
@@ -50,6 +51,8 @@ pub trait SerializeMap {
     where
         K: Serialize,
         V: Serialize;
+
+    fn finish(self) -> Result<(), Self::Error>;
 }
 
 pub trait SerializeStruct {
@@ -58,4 +61,6 @@ pub trait SerializeStruct {
     fn serialize_field<T>(&mut self, name: &str, value: &T) -> Result<(), Self::Error>
     where
         T: Serialize;
+
+    fn finish(self) -> Result<(), Self::Error>;
 }
