@@ -19,6 +19,7 @@ pub fn serialize(input: TokenStream) -> TokenStream {
 
     match item {
         syn::Item::Struct(item_struct) => serialize::serialize_struct(item_struct),
+        syn::Item::Enum(item_enum) => serialize::serialize_enum(item_enum),
         _ => panic!("Cannot impl Serialize for this kind of item"),
     }
 }
