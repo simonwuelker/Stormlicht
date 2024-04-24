@@ -84,7 +84,7 @@ where
         &'a mut self,
         variant_name: &str,
     ) -> Result<Self::StructVariantSerializer<'a>, Self::Error> {
-        write!(self.writer, "{{{variant_name:?}:")?;
+        write!(self.writer, "{{{variant_name:?}:{{")?;
 
         let struct_variant_serializer = StructVariantSerializer(CommaSeparatedSequence::new(self));
 
@@ -95,7 +95,7 @@ where
         &'a mut self,
         variant_name: &str,
     ) -> Result<Self::TupleVariantSerializer<'a>, Self::Error> {
-        write!(self.writer, "{{{variant_name:?}:")?;
+        write!(self.writer, "{{{variant_name:?}:[")?;
 
         let struct_variant_serializer = TupleVariantSerializer(CommaSeparatedSequence::new(self));
 
