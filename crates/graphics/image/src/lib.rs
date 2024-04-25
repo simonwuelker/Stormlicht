@@ -1,9 +1,4 @@
-#![feature(
-    array_chunks,
-    generic_nonzero,
-    non_zero_count_ones,
-    const_fn_floating_point_arithmetic
-)]
+#![feature(array_chunks, non_zero_count_ones, const_fn_floating_point_arithmetic)]
 
 pub mod bmp;
 pub mod jpeg;
