@@ -286,3 +286,21 @@ impl Drop for IpcClient {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pair_client() {
+        let (a, b) = IpcClient::pair().unwrap();
+
+        let mut send_buf = [1, 2, 3];
+        let mut recv_buf = [0; 3];
+
+        a.send_bytes(&mut send_buf).unwrap();
+        b.recv_bytes(&mut recv_buf).unwrap();
+
+        assert_eq!(send_buf, recv_buf);
+    }
+}
