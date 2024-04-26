@@ -1,4 +1,4 @@
-use core::{event, BrowsingContext};
+use core::BrowsingContext;
 use image::{Rgbaf32, Texture};
 use url::URL;
 
@@ -100,74 +100,6 @@ impl glazier::WinHandler for BrowserApplication {
     fn request_close(&mut self) {
         self.window_handle.close();
         glazier::Application::global().quit();
-    }
-
-    fn pointer_down(&mut self, glazier_event: &glazier::PointerEvent) {
-        let button = match glazier_event.button {
-            glazier::PointerButton::Primary => event::MouseButton::Left,
-            glazier::PointerButton::Auxiliary => event::MouseButton::Middle,
-            glazier::PointerButton::Secondary => event::MouseButton::Right,
-            _ => {
-                // Some kind of button we don't support
-                return;
-            },
-        };
-        let position = math::Vec2D {
-            x: glazier_event.pos.x.round() as i32,
-            y: glazier_event.pos.y.round() as i32,
-        };
-        let mouse_event = event::MouseEvent {
-            position,
-            kind: event::MouseEventKind::Down(button),
-        };
-
-        self.dispatch_event(event::Event::Mouse(mouse_event));
-    }
-
-    fn pointer_move(&mut self, glazier_event: &glazier::PointerEvent) {
-        let position = math::Vec2D {
-            x: glazier_event.pos.x.round() as i32,
-            y: glazier_event.pos.y.round() as i32,
-        };
-        let mouse_event = event::MouseEvent {
-            position,
-            kind: event::MouseEventKind::Move,
-        };
-
-        self.dispatch_event(event::Event::Mouse(mouse_event));
-    }
-
-    fn pointer_up(&mut self, glazier_event: &glazier::PointerEvent) {
-        let button = match glazier_event.button {
-            glazier::PointerButton::Primary => event::MouseButton::Left,
-            glazier::PointerButton::Auxiliary => event::MouseButton::Middle,
-            glazier::PointerButton::Secondary => event::MouseButton::Right,
-            _ => {
-                // Some kind of button we don't support
-                return;
-            },
-        };
-        let position = math::Vec2D {
-            x: glazier_event.pos.x.round() as i32,
-            y: glazier_event.pos.y.round() as i32,
-        };
-        let mouse_event = event::MouseEvent {
-            position,
-            kind: event::MouseEventKind::Up(button),
-        };
-
-        self.dispatch_event(event::Event::Mouse(mouse_event));
-    }
-}
-
-impl BrowserApplication {
-    /// Forwards an event to the browsing context and repaints if necessary
-    pub fn dispatch_event(&mut self, event: event::Event) {
-        let needs_repaint = self.browsing_context.handle_event(event);
-
-        if needs_repaint {
-            self.window_handle.invalidate();
-        }
     }
 }
 

@@ -11,9 +11,7 @@ use crate::{
         StyleComputer, Stylesheet,
     },
     dom::{dom_objects, DomPtr},
-    event,
     html::{self, tokenization::IgnoreParseErrors},
-    Selection,
 };
 
 /// The Browsing Context takes care of coordinating loads, layout calculations and paints
@@ -21,7 +19,6 @@ pub struct BrowsingContext {
     document: DomPtr<dom_objects::Document>,
     fragment_tree: FragmentTree,
     stylesheets: Vec<Stylesheet>,
-    selection: Option<Selection>,
 }
 
 #[derive(Debug)]
@@ -61,7 +58,6 @@ impl BrowsingContext {
             document,
             fragment_tree: FragmentTree::default(),
             stylesheets,
-            selection: None,
         })
     }
 
@@ -92,43 +88,5 @@ impl BrowsingContext {
             .fill_display_list(&mut painter, viewport_size);
 
         painter.paint(to);
-    }
-
-    pub fn handle_event(&mut self, event: event::Event) -> bool {
-        match event {
-            event::Event::Mouse(mouse_event) => {
-                let _position = mouse_event.position.map(|x| Pixels::from(x as f32));
-
-                match mouse_event.kind {
-                    event::MouseEventKind::Down(event::MouseButton::Left) => {
-                        // if let Some(clicked_point) = self.fragment_tree.hit_test(position) {
-                        //     self.selection =
-                        //         Some(Selection::new(clicked_point.clone(), clicked_point));
-                        //     return true;
-                        // }
-                    },
-
-                    event::MouseEventKind::Up(event::MouseButton::Left) => {
-                        if let Some(selection) = self.selection.as_mut() {
-                            selection.is_modifiable = false;
-                        }
-                    },
-                    event::MouseEventKind::Move => {
-                        // Update the current selection range if necessary
-                        // if let Some(selection) = self.selection.as_mut() {
-                        //     if selection.is_modifiable {
-                        //         if let Some(clicked_point) = self.fragment_tree.hit_test(position) {
-                        //             selection.extend_to(clicked_point);
-                        //             return true;
-                        //         }
-                        //     }
-                        // }
-                    },
-                    _ => {},
-                };
-            },
-        }
-
-        false
     }
 }
