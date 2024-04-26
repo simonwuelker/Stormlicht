@@ -112,12 +112,10 @@ pub fn run(url: Option<&str>) -> ExitCode {
         },
     };
 
-    let browsing_context = match BrowsingContext::load(&url) {
-        Ok(context) => context,
-        Err(error) => {
-            log::error!("Failed to load {}: {error:?}", url.to_string());
-            return ExitCode::FAILURE;
-        },
+    let mut browsing_context = BrowsingContext::default();
+    if let Err(error) = browsing_context.load(&url) {
+        log::error!("Failed to load {}: {error:?}", url.to_string());
+        return ExitCode::FAILURE;
     };
 
     // The view buffer is initialized once the window size method is called on startup.

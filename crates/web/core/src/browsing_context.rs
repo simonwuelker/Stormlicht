@@ -15,7 +15,13 @@ use crate::{
 };
 
 /// The Browsing Context takes care of coordinating loads, layout calculations and paints
+#[derive(Default)]
 pub struct BrowsingContext {
+    /// The currently loaded web page, or none if no page is loaded
+    current_page: Option<CurrentPage>,
+}
+
+struct CurrentPage {
     document: DomPtr<dom_objects::Document>,
     fragment_tree: FragmentTree,
     stylesheets: Vec<Stylesheet>,
@@ -28,7 +34,7 @@ pub enum BrowsingContextError {
 }
 
 impl BrowsingContext {
-    pub fn load(location: &URL) -> Result<Self, BrowsingContextError> {
+    pub fn load(&mut self, location: &URL) -> Result<(), BrowsingContextError> {
         // Load the content at the given url
         let resource = mime::Resource::load(location).map_err(BrowsingContextError::Loading)?;
 
@@ -54,19 +60,27 @@ impl BrowsingContext {
             parse_end.duration_since(parse_start).as_millis()
         );
 
-        Ok(Self {
+        let current_page = CurrentPage {
             document,
             fragment_tree: FragmentTree::default(),
             stylesheets,
-        })
+        };
+
+        self.current_page = Some(current_page);
+
+        Ok(())
     }
 
     pub fn paint(&mut self, to: &mut Composition, viewport_size: (u16, u16)) {
+        let Some(current_page) = &mut self.current_page else {
+            return;
+        };
+
         let layout_start = time::Instant::now();
-        let style_computer = StyleComputer::new(&self.stylesheets);
+        let style_computer = StyleComputer::new(&current_page.stylesheets);
 
         // Build a box tree for the parsed document
-        let box_tree = BoxTree::new(self.document.clone(), style_computer);
+        let box_tree = BoxTree::new(current_page.document.clone(), style_computer);
         log::info!("\n{:?}", box_tree);
 
         // Build a fragment tree by fragmenting the boxes
@@ -74,7 +88,7 @@ impl BrowsingContext {
             width: Pixels(viewport_size.0 as f32),
             height: Pixels(viewport_size.1 as f32),
         };
-        self.fragment_tree = box_tree.compute_fragments(viewport_size);
+        current_page.fragment_tree = box_tree.compute_fragments(viewport_size);
 
         let layout_end = time::Instant::now();
         log::info!(
@@ -84,7 +98,8 @@ impl BrowsingContext {
 
         // Paint the fragment_tree to the screen
         let mut painter = Painter::default();
-        self.fragment_tree
+        current_page
+            .fragment_tree
             .fill_display_list(&mut painter, viewport_size);
 
         painter.paint(to);
