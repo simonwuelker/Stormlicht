@@ -4,8 +4,28 @@ using Adw 1;
 template $StormlichtWindow: Adw.ApplicationWindow {
     title: "Stormlicht";
     
-    Label {
-        styles ["heading"]
-        label: _("Hello, world!");
+    Adw.ToolbarView {
+        top-bar-style: raised_border;
+        bottom-bar-style: raised_border;
+
+        [top]
+        Adw.HeaderBar header_bar {
+            [title]
+            Adw.Clamp {
+                hexpand: true;
+
+                Entry search_bar {
+                    placeholder-text: _("Enter a URL to open…");
+                    input-purpose: url;
+                    input-hints: no_spellcheck;
+                    activate => $handle_url_entered(template) swapped;
+                }
+            }
+        }
+
+        content: $WebView web_view {
+            hexpand: true;
+            vexpand: true;
+        };
     }
 }

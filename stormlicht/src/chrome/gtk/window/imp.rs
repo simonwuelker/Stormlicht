@@ -1,11 +1,21 @@
 use adw::subclass::prelude::*;
-use gtk::{glib, CompositeTemplate};
+use gtk::prelude::*;
+use gtk::{glib, CompositeTemplate, Entry};
 
 use glib::subclass::InitializingObject;
+use url::URL;
+
+use crate::chrome::gtk::WebView;
 
 #[derive(CompositeTemplate, Default)]
 #[template(resource = "/rs/stormlicht/ui/window.ui")]
-pub struct Window {}
+pub struct Window {
+    #[template_child]
+    pub search_bar: TemplateChild<Entry>,
+
+    #[template_child]
+    pub web_view: TemplateChild<WebView>,
+}
 
 #[glib::object_subclass]
 impl ObjectSubclass for Window {
@@ -16,6 +26,7 @@ impl ObjectSubclass for Window {
 
     fn class_init(klass: &mut Self::Class) {
         klass.bind_template();
+        klass.bind_template_callbacks();
     }
 
     fn instance_init(obj: &InitializingObject<Self>) {
@@ -23,8 +34,34 @@ impl ObjectSubclass for Window {
     }
 }
 
-impl ObjectImpl for Window {}
+impl ObjectImpl for Window {
+    fn constructed(&self) {
+        self.parent_constructed();
+        // self.picture.set_file(Some(&gtk::gio::File::for_path(
+        //     "/home/alaska/Pictures/girl.jpg",
+        // )));
+        // self.picture.set_paintable(Some(&self.web_view));
+    }
+}
+
 impl AdwApplicationWindowImpl for Window {}
 impl WidgetImpl for Window {}
 impl WindowImpl for Window {}
 impl ApplicationWindowImpl for Window {}
+
+#[gtk::template_callbacks]
+impl Window {
+    #[template_callback]
+    fn handle_url_entered(&self) {
+        let text = self.search_bar.buffer().text();
+        let url = match URL::from_user_input(text.as_str()) {
+            Ok(parsed_url) => parsed_url,
+            Err(error) => {
+                log::error!("Failed to parse {text:?} as a URL: {error:?}");
+                return;
+            },
+        };
+
+        self.web_view.load(&url);
+    }
+}

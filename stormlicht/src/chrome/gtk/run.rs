@@ -8,7 +8,8 @@ use gtk::{gio, glib, prelude::*};
 
 const APP_ID: &str = "rs.stormlicht.browser";
 
-pub fn run() -> ExitCode {
+pub fn run(url: Option<&str>) -> ExitCode {
+    _ = url;
     gio::resources_register_include!("composite_template.gresource")
         .expect("Failed to register resources.");
 

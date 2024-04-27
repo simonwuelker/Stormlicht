@@ -40,6 +40,9 @@ def run_stormlicht(args, unknown_args):
     else:
         arguments = ["run"]
 
+    if args.chrome == "gtk":
+        arguments += ["--no-default-features", "--features=chrome-gtk"]
+
     cmd = util.Command.create("cargo").with_environment(environment).with_arguments(arguments).with_forwarded_arguments(unknown_args)
 
     if args.release:
