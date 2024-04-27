@@ -32,6 +32,16 @@ impl_plain!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128,);
 
 unsafe impl<T: Plain, const N: usize> Plain for [T; N] {}
 
+pub fn cast_slice<A, B>(source: &[A]) -> &[B] {
+    let result_ptr = source.as_ptr() as *const B;
+    assert!(result_ptr.is_aligned());
+
+    let length = mem::size_of_val(source);
+    assert!(length % mem::size_of::<B>() == 0);
+
+    unsafe { std::slice::from_raw_parts(result_ptr, length / mem::size_of::<B>()) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -50,5 +60,17 @@ mod tests {
     fn cast_to_different_size() {
         let x: u32 = 0xdeadbeef;
         let _: u64 = x.cast();
+    }
+
+    #[test]
+    fn cast_slice_valid() {
+        let x: &[u16] = &[0xdead, 0xbeef];
+        let y: &[u8] = cast_slice(x);
+
+        let mut result = vec![];
+        result.extend(0xdead_u16.to_ne_bytes());
+        result.extend(0xbeef_u16.to_ne_bytes());
+
+        assert_eq!(y, &result);
     }
 }
