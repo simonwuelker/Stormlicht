@@ -2,7 +2,12 @@
 
 use std::{mem, ptr};
 
-/// Marker traits for types that are simply data that cannot be in an invalid state and doesn't have padding
+/// Implemented by types that are simply data that cannot be in an invalid state and doesn't have padding
+///
+/// # Safety
+///
+/// Implementing this trait causes undefined behaviour if there is a combination of bits that would make `Self`
+/// invalid (like all zeros for a `NonNull<T>`)
 pub unsafe trait Plain {
     fn cast<P: Plain>(self) -> P
     where
