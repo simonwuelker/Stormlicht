@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 cli = { workspace = true }
-core = { workspace = true }
+webcore = { workspace = true }

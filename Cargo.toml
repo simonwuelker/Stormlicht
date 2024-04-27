@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/core",
+    "crates/webcore",
     "crates/http",
     "crates/url",
     "crates/dns",
@@ -36,7 +36,7 @@ resolver = "2"
 
 [workspace.dependencies]
 buildutils = { path = "crates/util/buildutils" }
-core = { path = "crates/core" }
+webcore = { path = "crates/webcore" }
 http = { path = "crates/http" }
 url = { path = "crates/url" }
 dns = { path = "crates/dns" }

@@ -1,5 +1,5 @@
 [package]
-name = "core"
+name = "webcore"
 version = "0.1.0"
 build = "build/main.rs"
 authors.workspace = true
