@@ -35,7 +35,7 @@ li {
     display: list-item
 }
 
-head {
+head, script {
     display: none
 }
 
