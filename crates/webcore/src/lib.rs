@@ -20,7 +20,7 @@ pub mod event;
 pub mod html;
 pub mod infra;
 
-pub use browsing_context::BrowsingContext;
+pub use browsing_context::{BrowsingContext, BrowsingContextError};
 pub use interned_string::InternedString;
 pub use selection::Selection;
 pub use tree_debug::{TreeDebug, TreeFormatter};
