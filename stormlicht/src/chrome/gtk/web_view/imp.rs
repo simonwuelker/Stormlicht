@@ -70,12 +70,11 @@ impl WidgetImpl for WebView {
 
         self.state
             .borrow_mut()
-            .paint(window_width as u16, window_height as u16);
+            .paint(device_width as u16, device_height as u16);
 
         let state = self.state.borrow();
         let buffer_bytes: &[u8] = cast_slice(state.view_buffer.data());
 
-        // let (device_width, device_height) = self.scale_down(width, height);
         gdk::MemoryTexture::new(
             window_width as i32,
             window_height as i32,
