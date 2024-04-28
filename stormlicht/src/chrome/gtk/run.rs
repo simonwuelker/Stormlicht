@@ -24,6 +24,8 @@ pub fn run(url: Option<&str>) -> ExitCode {
     application.set_accels_for_action("app.quit", &["<Primary>Q"]);
     application.add_action(&quit);
 
+    application.set_accels_for_action("open-file", &["<Ctrl>O"]);
+
     application.connect_activate(build_ui);
 
     let glib_exit_code = application.run();

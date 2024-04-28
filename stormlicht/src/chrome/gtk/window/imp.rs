@@ -30,6 +30,20 @@ impl ObjectSubclass for Window {
     fn class_init(klass: &mut Self::Class) {
         klass.bind_template();
         klass.bind_template_callbacks();
+
+        klass.install_action_async(
+            "open-file",
+            None,
+            |win, _action_name, _action_target| async move {
+                match win.open_file_dialog().await {
+                    Ok(file_path) => {
+                        let url = URL::from(file_path.as_path());
+                        win.imp().web_view.load(&url);
+                    },
+                    Err(error) => log::error!("Error loading file: {error}"),
+                }
+            },
+        );
     }
 
     fn instance_init(obj: &InitializingObject<Self>) {
