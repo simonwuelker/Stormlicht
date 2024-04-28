@@ -1,6 +1,6 @@
 //! Implements a [circular buffer](https://en.wikipedia.org/wiki/Circular_buffer) which can hold a fixed number of items.
 
-use std::mem;
+use std::{iter::FusedIterator, mem};
 
 /// A circular buffer capable of storing up to `N` items at once
 #[derive(Debug)]
@@ -90,7 +90,7 @@ impl<T, const N: usize> RingBuffer<T, N> {
 
     /// Peek `n` elements ahead of the current one
     #[must_use]
-    pub fn peek_front(&mut self, n: usize) -> Option<&T> {
+    pub fn peek_front(&self, n: usize) -> Option<&T> {
         if self.len() <= n {
             return None;
         }
@@ -164,6 +164,15 @@ impl<T, const N: usize> RingBuffer<T, N> {
 
         Some(element)
     }
+
+    #[inline]
+    #[must_use]
+    pub const fn iter<'a>(&'a self) -> RingBufferIterator<'a, T, N> {
+        RingBufferIterator {
+            current_index: 0,
+            ring_buffer: self,
+        }
+    }
 }
 
 impl<T, const N: usize> Drop for RingBuffer<T, N> {
@@ -183,6 +192,35 @@ impl<T, const N: usize> From<[T; N]> for RingBuffer<T, N> {
             buffer.push(element);
         }
         buffer
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct RingBufferIterator<'a, T, const N: usize> {
+    current_index: usize,
+    ring_buffer: &'a RingBuffer<T, N>,
+}
+
+impl<'a, T, const N: usize> Iterator for RingBufferIterator<'a, T, N> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let element = self.ring_buffer.peek_front(self.current_index);
+        self.current_index += 1;
+        element
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let elements_left = self.ring_buffer.len() - self.current_index;
+        (elements_left, Some(elements_left))
+    }
+}
+
+impl<'a, T, const N: usize> FusedIterator for RingBufferIterator<'a, T, N> {}
+
+impl<'a, T, const N: usize> ExactSizeIterator for RingBufferIterator<'a, T, N> {
+    fn len(&self) -> usize {
+        self.ring_buffer.len() - self.current_index
     }
 }
 
@@ -294,5 +332,23 @@ mod tests {
 
         // Peeking back outside of the buffer should always fail
         assert!(buffer.peek_back(3).is_none());
+    }
+
+    #[test]
+    fn iter() {
+        let mut buffer = unaligned_ringbuf();
+
+        buffer.push(1);
+        buffer.push(2);
+        buffer.push(3);
+
+        let mut items = buffer.iter();
+
+        assert_eq!(items.len(), 3);
+
+        assert_matches!(items.next(), Some(1));
+        assert_matches!(items.next(), Some(2));
+        assert_matches!(items.next(), Some(3));
+        assert!(items.next().is_none());
     }
 }
