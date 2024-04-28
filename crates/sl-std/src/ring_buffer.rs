@@ -195,6 +195,29 @@ impl<T, const N: usize> From<[T; N]> for RingBuffer<T, N> {
     }
 }
 
+impl<T, const N: usize> Clone for RingBuffer<T, N>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        let mut elements = mem::MaybeUninit::uninit_array();
+
+        for (i, element) in self.iter().enumerate() {
+            elements[i].write(element.clone());
+        }
+        let write_head = self.len() % N;
+
+        let elem = Self {
+            elements: elements,
+            write_head,
+            read_head: 0,
+            is_full: self.is_full,
+        };
+
+        elem
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct RingBufferIterator<'a, T, const N: usize> {
     current_index: usize,
@@ -350,5 +373,22 @@ mod tests {
         assert_matches!(items.next(), Some(2));
         assert_matches!(items.next(), Some(3));
         assert!(items.next().is_none());
+    }
+
+    #[test]
+    fn clone() {
+        let mut buffer = unaligned_ringbuf();
+
+        buffer.push(1);
+        buffer.push(2);
+        buffer.push(3);
+
+        let cloned_buffer = buffer.clone();
+
+        assert_eq!(cloned_buffer.len(), buffer.len());
+
+        for (a, b) in buffer.iter().zip(cloned_buffer.iter()) {
+            assert_eq!(a, b);
+        }
     }
 }
