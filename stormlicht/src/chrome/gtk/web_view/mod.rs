@@ -17,6 +17,10 @@ impl WebView {
     pub fn load(&self, url: &URL) {
         self.imp().load_url(url).unwrap();
     }
+
+    pub fn reload(&self) {
+        self.imp().reload().unwrap();
+    }
 }
 
 impl Default for WebView {

@@ -10,6 +10,14 @@ template $StormlichtWindow: Adw.ApplicationWindow {
 
         [top]
         Adw.HeaderBar header_bar {
+            [start]
+            Button reload_button {
+                icon-name: "view-refresh";
+                tooltip-text: "Reload Page";
+                focus-on-click: false;
+                clicked => $handle_reload_page(template) swapped;
+            }
+
             [title]
             Adw.Clamp {
                 hexpand: true;

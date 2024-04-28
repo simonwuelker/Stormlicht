@@ -18,6 +18,7 @@ struct State {
     view_buffer: Texture,
     browsing_context: BrowsingContext,
     composition: render::Composition,
+    url: Option<URL>,
 }
 
 impl Default for State {
@@ -26,6 +27,7 @@ impl Default for State {
             view_buffer: Texture::new(0, 0),
             browsing_context: BrowsingContext::default(),
             composition: render::Composition::default(),
+            url: None,
         }
     }
 }
@@ -88,10 +90,19 @@ impl WidgetImpl for WebView {
 
 impl WebView {
     pub fn load_url(&self, url: &URL) -> Result<(), BrowsingContextError> {
-        self.state.borrow_mut().browsing_context.load(url)?;
+        let mut state = self.state.borrow_mut();
+        state.browsing_context.load(url)?;
+        state.url = Some(url.clone());
         self.obj().queue_draw();
-
         Ok(())
+    }
+
+    pub fn reload(&self) -> Result<(), BrowsingContextError> {
+        let Some(url) = self.state.borrow().url.clone() else {
+            return Ok(());
+        };
+
+        self.load_url(&url)
     }
 }
 

@@ -1,6 +1,6 @@
 use adw::subclass::prelude::*;
 use gtk::prelude::*;
-use gtk::{glib, CompositeTemplate, Entry};
+use gtk::{glib, CompositeTemplate};
 
 use glib::subclass::InitializingObject;
 use url::URL;
@@ -11,7 +11,10 @@ use crate::chrome::gtk::WebView;
 #[template(resource = "/rs/stormlicht/ui/window.ui")]
 pub struct Window {
     #[template_child]
-    pub search_bar: TemplateChild<Entry>,
+    pub reload_button: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub search_bar: TemplateChild<gtk::Entry>,
 
     #[template_child]
     pub web_view: TemplateChild<WebView>,
@@ -37,10 +40,6 @@ impl ObjectSubclass for Window {
 impl ObjectImpl for Window {
     fn constructed(&self) {
         self.parent_constructed();
-        // self.picture.set_file(Some(&gtk::gio::File::for_path(
-        //     "/home/alaska/Pictures/girl.jpg",
-        // )));
-        // self.picture.set_paintable(Some(&self.web_view));
     }
 }
 
@@ -63,5 +62,10 @@ impl Window {
         };
 
         self.web_view.load(&url);
+    }
+
+    #[template_callback]
+    fn handle_reload_page(&self) {
+        self.web_view.reload()
     }
 }
