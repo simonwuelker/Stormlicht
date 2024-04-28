@@ -1,6 +1,11 @@
 //! Implements <https://url.spec.whatwg.org>
 
-use std::{fmt::Display, io, path, str::FromStr};
+use std::{
+    fmt::Display,
+    io,
+    path::{self, Path},
+    str::FromStr,
+};
 
 use sl_std::{ascii, chars::ReversibleCharIterator};
 
@@ -450,6 +455,37 @@ impl Display for URL {
 
 #[derive(Clone, Copy, Debug)]
 pub struct InvalidFilePath;
+
+impl From<&Path> for URL {
+    fn from(value: &Path) -> Self {
+        let absolute_path = value.canonicalize().expect("Failed to canonicalize path");
+
+        let mut path_segments = vec![];
+        for part in absolute_path.iter().skip(1) {
+            let bytes = part.as_encoded_bytes();
+
+            let Some(ascii_str) = ascii::Str::from_bytes(bytes) else {
+                panic!(
+                    "Path contains non-ascii data: {:?}",
+                    absolute_path.display()
+                );
+            };
+
+            path_segments.push(ascii_str.to_owned());
+        }
+
+        Self {
+            scheme: ascii::String::try_from("file").unwrap(),
+            username: ascii::String::new(),
+            password: ascii::String::new(),
+            host: Some(Host::OpaqueHost(ascii::String::new())),
+            port: None,
+            path: path_segments,
+            query: None,
+            fragment: None,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
