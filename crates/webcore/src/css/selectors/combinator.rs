@@ -47,39 +47,49 @@ impl Combinator {
 
     #[must_use]
     pub fn next_combinator(parser: &mut Parser<'_>) -> Result<Option<Self>, ParseError> {
-        let combinator = match parser.peek_token_ignoring_whitespace(0) {
+        let has_whitespace = parser.peek_token(0).is_some_and(Token::is_whitespace);
+
+        if has_whitespace {
+            _ = parser.next_token();
+        }
+
+        let combinator = match parser.peek_token(0) {
             None | Some(Token::Comma) => {
                 // There are no more units
                 return Ok(None);
             },
             Some(Token::Delim('>')) => {
-                _ = parser.next_token_ignoring_whitespace();
+                _ = parser.next_token();
                 Combinator::Child
             },
             Some(Token::Delim('+')) => {
-                _ = parser.next_token_ignoring_whitespace();
+                _ = parser.next_token();
                 Combinator::NextSibling
             },
             Some(Token::Delim('~')) => {
-                _ = parser.next_token_ignoring_whitespace();
+                _ = parser.next_token();
                 Combinator::SubsequentSibling
             },
             Some(Token::Delim('|')) => {
-                _ = parser.next_token_ignoring_whitespace();
-                if !matches!(parser.next_token(), Some(Token::Delim('|'))) {
-                    return Err(ParseError);
-                }
+                // This is either the beginning of a column combinator or a descendant combinator with a type selector afterwards
+                if matches!(parser.peek_token(1), Some(Token::Delim('|'))) {
+                    _ = parser.next_token();
+                    _ = parser.next_token();
 
-                Combinator::Column
+                    Combinator::Column
+                } else {
+                    // not a combinator
+                    if has_whitespace {
+                        Combinator::Descendant
+                    } else {
+                        return Err(ParseError);
+                    }
+                }
             },
             Some(_) => {
                 // There is no combinator between these two complex selector units.
                 // There *must* be at least one whitespace (descendant combinator)
-                if !parser
-                    .next_token()
-                    .as_ref()
-                    .is_some_and(Token::is_whitespace)
-                {
+                if !has_whitespace {
                     return Err(ParseError);
                 }
 
