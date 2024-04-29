@@ -420,4 +420,29 @@ mod tests {
         assert!(Selector::parse_from_str("foo | *").is_err());
         assert!(Selector::parse_from_str("* | *").is_err());
     }
+
+    #[test]
+    fn parse_type_selector_with_empty_prefix_that_looks_like_combinator() {
+        // This is a id selector(#foo), a descendant combinator (whitespace)
+        // and a type selector (|bar)
+
+        // The parser should not misinterpret the "|" as the beginning of a column combinator
+        let source = "#foo |bar";
+
+        let selector = Selector::parse_from_str(source).unwrap();
+        let mut components = selector.components();
+
+        let id_reference = SelectorComponent::Id("foo".into());
+        let type_reference = SelectorComponent::Type(TypeSelector::Typename(
+            WellQualifiedName::without_namespace("bar".into()),
+        ));
+
+        assert_eq!(components.next(), Some(&id_reference));
+        assert!(components.next().is_none());
+
+        assert_eq!(components.next_component(), Some(Combinator::Descendant));
+
+        assert_eq!(components.next(), Some(&type_reference));
+        assert!(components.next().is_none());
+    }
 }
