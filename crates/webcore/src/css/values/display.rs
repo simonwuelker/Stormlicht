@@ -234,9 +234,13 @@ impl<'a> CSSParse<'a> for Display {
         // A display value always consists of up to three identifiers
         let mut idents = vec![];
         for _ in 0..3 {
-            match parser.next_token_ignoring_whitespace() {
-                Some(Token::Ident(ident)) => idents.push(ident),
-                None => break,
+            match parser.peek_token_ignoring_whitespace(0) {
+                Some(Token::Ident(ident)) => {
+                    let ident = *ident;
+                    let _ = parser.next_token_ignoring_whitespace();
+                    idents.push(ident)
+                },
+                Some(Token::Semicolon | Token::CurlyBraceClose) => break,
                 _ => return Err(ParseError),
             }
         }
