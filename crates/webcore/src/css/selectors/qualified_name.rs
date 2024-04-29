@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-wq-name>
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct WellQualifiedName {
     pub prefix: Option<NamespacePrefix>,
     pub ident: InternedString,
@@ -30,15 +30,57 @@ impl WellQualifiedName {
 impl<'a> CSSParse<'a> for WellQualifiedName {
     // <https://drafts.csswg.org/selectors-4/#typedef-wq-name>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let prefix = parser
-            .parse_optional_value(Option::<NamespacePrefix>::parse)
-            .flatten();
+        let name = match parser.next_token_ignoring_whitespace() {
+            Some(Token::Delim('|')) => {
+                let Some(Token::Ident(ident)) = parser.next_token_ignoring_whitespace() else {
+                    return Err(ParseError);
+                };
 
-        if let Some(Token::Ident(ident)) = parser.next_token_ignoring_whitespace() {
-            Ok(WellQualifiedName { prefix, ident })
-        } else {
-            Err(ParseError)
-        }
+                Self {
+                    prefix: None,
+                    ident,
+                }
+            },
+            Some(Token::Delim('*')) => {
+                parser.expect_token(Token::Delim('|'))?;
+
+                let Some(Token::Ident(ident)) = parser.next_token_ignoring_whitespace() else {
+                    return Err(ParseError);
+                };
+
+                Self {
+                    prefix: Some(NamespacePrefix::Asterisk),
+                    ident,
+                }
+            },
+            Some(Token::Ident(ident)) => {
+                if matches!(
+                    parser.peek_token_ignoring_whitespace(0),
+                    Some(Token::Delim('|'))
+                ) {
+                    _ = parser.next_token_ignoring_whitespace();
+                    // The identifier was the namespace prefix
+                    let Some(Token::Ident(local_name)) = parser.next_token_ignoring_whitespace()
+                    else {
+                        return Err(ParseError);
+                    };
+
+                    Self {
+                        prefix: Some(NamespacePrefix::Ident(ident)),
+                        ident: local_name,
+                    }
+                } else {
+                    // No namespace prefix
+                    Self {
+                        prefix: None,
+                        ident,
+                    }
+                }
+            },
+            _ => return Err(ParseError),
+        };
+
+        Ok(name)
     }
 }
 

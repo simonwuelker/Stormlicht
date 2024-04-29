@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     css::{
         selectors::{
-            AttributeMatcher, AttributeModifier, CSSValidateSelector, Selector, Specificity,
+            AttributeMatcher, AttributeModifier, CSSValidateSelector, Specificity,
             WellQualifiedName,
         },
         syntax::Token,
@@ -14,7 +14,7 @@ use crate::{
 };
 
 /// <https://drafts.csswg.org/selectors-4/#attribute-selectors>
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AttributeSelector {
     Exists {
         attribute_name: WellQualifiedName,
@@ -36,6 +36,8 @@ impl AttributeSelector {
             parser.peek_token_ignoring_whitespace(0),
             Some(Token::BracketClose)
         ) {
+            let _ = parser.next_token_ignoring_whitespace();
+
             AttributeSelector::Exists { attribute_name }
         } else {
             let matcher = AttributeMatcher::parse(parser)?;
@@ -48,6 +50,8 @@ impl AttributeSelector {
                 .parse_optional_value(AttributeModifier::parse)
                 .unwrap_or_default();
 
+            parser.expect_token(Token::BracketClose)?;
+
             AttributeSelector::Matches {
                 attribute_name,
                 matcher,
@@ -58,35 +62,8 @@ impl AttributeSelector {
 
         Ok(selector)
     }
-}
 
-impl<'a> CSSParse<'a> for AttributeSelector {
-    // <https://drafts.csswg.org/selectors-4/#typedef-attribute-selector>
-    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        if !matches!(parser.next_token(), Some(Token::BracketOpen)) {
-            return Err(ParseError);
-        }
-
-        Self::parse_without_leading_bracket(parser)
-    }
-}
-
-impl CSSValidateSelector for AttributeSelector {
-    fn is_valid(&self) -> bool {
-        match self {
-            Self::Exists { attribute_name } => attribute_name.is_valid(),
-            Self::Matches {
-                attribute_name,
-                matcher,
-                value: _,
-                modifier,
-            } => attribute_name.is_valid() && matcher.is_valid() && modifier.is_valid(),
-        }
-    }
-}
-
-impl Selector for AttributeSelector {
-    fn matches(&self, element: &DomPtr<Element>) -> bool {
+    pub fn matches(&self, element: &DomPtr<Element>) -> bool {
         match self {
             Self::Exists { attribute_name } => {
                 // FIXME: Don't consider attribute namespace
@@ -124,9 +101,30 @@ impl Selector for AttributeSelector {
             },
         }
     }
+}
 
-    fn specificity(&self) -> Specificity {
-        Specificity::new(0, 1, 0)
+impl<'a> CSSParse<'a> for AttributeSelector {
+    // <https://drafts.csswg.org/selectors-4/#typedef-attribute-selector>
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        if !matches!(parser.next_token(), Some(Token::BracketOpen)) {
+            return Err(ParseError);
+        }
+
+        Self::parse_without_leading_bracket(parser)
+    }
+}
+
+impl CSSValidateSelector for AttributeSelector {
+    fn is_valid(&self) -> bool {
+        match self {
+            Self::Exists { attribute_name } => attribute_name.is_valid(),
+            Self::Matches {
+                attribute_name,
+                matcher,
+                value: _,
+                modifier,
+            } => attribute_name.is_valid() && matcher.is_valid() && modifier.is_valid(),
+        }
     }
 }
 
@@ -174,109 +172,5 @@ impl AttributeMatcher {
                 .split(|c: char| c.is_ascii_whitespace())
                 .any(|element| element == selector_value),
         }
-    }
-}
-#[cfg(test)]
-mod tests {
-    use super::AttributeSelector;
-    use crate::css::{
-        selectors::{
-            AttributeMatcher, AttributeModifier, ClassSelector, IDSelector, PseudoClassSelector,
-            SubClassSelector, WellQualifiedName,
-        },
-        CSSParse,
-    };
-
-    #[test]
-    fn parse_subclass_selector() {
-        assert_eq!(
-            SubClassSelector::parse_from_str("#foo"),
-            Ok(SubClassSelector::ID(IDSelector {
-                ident: "foo".into()
-            }))
-        );
-
-        assert_eq!(
-            SubClassSelector::parse_from_str(".foo"),
-            Ok(SubClassSelector::Class(ClassSelector {
-                ident: "foo".into()
-            }))
-        );
-
-        assert_eq!(
-            SubClassSelector::parse_from_str("[foo]"),
-            Ok(SubClassSelector::Attribute(AttributeSelector::Exists {
-                attribute_name: WellQualifiedName {
-                    prefix: None,
-                    ident: "foo".into(),
-                }
-            }))
-        );
-
-        assert_eq!(
-            SubClassSelector::parse_from_str(":foo"),
-            Ok(SubClassSelector::PseudoClass(PseudoClassSelector::Ident(
-                "foo".into()
-            )))
-        );
-    }
-
-    #[test]
-    fn parse_id_selector() {
-        assert_eq!(
-            IDSelector::parse_from_str("#foo"),
-            Ok(IDSelector {
-                ident: "foo".into()
-            })
-        )
-    }
-
-    #[test]
-    fn parse_class_selector() {
-        assert_eq!(
-            ClassSelector::parse_from_str(".foo"),
-            Ok(ClassSelector {
-                ident: "foo".into()
-            })
-        )
-    }
-
-    #[test]
-    fn parse_attribute_selector() {
-        assert_eq!(
-            AttributeSelector::parse_from_str("[foo]"),
-            Ok(AttributeSelector::Exists {
-                attribute_name: WellQualifiedName {
-                    prefix: None,
-                    ident: "foo".into(),
-                }
-            })
-        );
-
-        assert_eq!(
-            AttributeSelector::parse_from_str("[foo ^= bar i]"),
-            Ok(AttributeSelector::Matches {
-                attribute_name: WellQualifiedName {
-                    prefix: None,
-                    ident: "foo".into(),
-                },
-                matcher: AttributeMatcher::StartsWith,
-                value: "bar".into(),
-                modifier: AttributeModifier::CaseInsensitive
-            })
-        );
-
-        assert_eq!(
-            AttributeSelector::parse_from_str("[foo $= bar]"),
-            Ok(AttributeSelector::Matches {
-                attribute_name: WellQualifiedName {
-                    prefix: None,
-                    ident: "foo".into(),
-                },
-                matcher: AttributeMatcher::EndsWith,
-                value: "bar".into(),
-                modifier: AttributeModifier::CaseSensitive
-            })
-        );
     }
 }

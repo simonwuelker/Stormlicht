@@ -4,7 +4,7 @@ use super::CSSValidateSelector;
 use crate::css::{syntax::Token, CSSParse, ParseError, Parser, Serialize, Serializer};
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-attr-matcher>
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AttributeMatcher {
     /// `~=`
     WhiteSpaceSeperatedListContaining,
@@ -28,17 +28,17 @@ pub enum AttributeMatcher {
 impl<'a> CSSParse<'a> for AttributeMatcher {
     // <https://drafts.csswg.org/selectors-4/#typedef-attr-matcher>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let attribute_matcher = parser
-            .parse_optional_value(|parser| match parser.next_token_ignoring_whitespace() {
-                Some(Token::Delim('~')) => Ok(AttributeMatcher::WhiteSpaceSeperatedListContaining),
-                Some(Token::Delim('|')) => Ok(AttributeMatcher::HyphenSeperatedListBeginningWith),
-                Some(Token::Delim('^')) => Ok(AttributeMatcher::StartsWith),
-                Some(Token::Delim('$')) => Ok(AttributeMatcher::EndsWith),
-                Some(Token::Delim('*')) => Ok(AttributeMatcher::ContainsSubstring),
-                _ => Err(ParseError),
-            })
-            .unwrap_or(AttributeMatcher::EqualTo);
+        let attribute_matcher = match parser.next_token_ignoring_whitespace() {
+            Some(Token::Delim('~')) => AttributeMatcher::WhiteSpaceSeperatedListContaining,
+            Some(Token::Delim('|')) => AttributeMatcher::HyphenSeperatedListBeginningWith,
+            Some(Token::Delim('^')) => AttributeMatcher::StartsWith,
+            Some(Token::Delim('$')) => AttributeMatcher::EndsWith,
+            Some(Token::Delim('*')) => AttributeMatcher::ContainsSubstring,
+            Some(Token::Delim('=')) => return Ok(Self::EqualTo),
+            _ => return Err(ParseError),
+        };
 
+        // No whitespace allowed here
         if let Some(Token::Delim('=')) = parser.next_token() {
             Ok(attribute_matcher)
         } else {

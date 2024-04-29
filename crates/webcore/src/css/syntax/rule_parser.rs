@@ -1,5 +1,5 @@
 use crate::css::{
-    selectors::SelectorList, syntax::Token, CSSParse, ParseError, Parser, StylePropertyDeclaration,
+    selectors::Selector, syntax::Token, CSSParse, ParseError, Parser, StylePropertyDeclaration,
 };
 
 /// Used to track state across an CSS Stylesheet.
@@ -14,8 +14,14 @@ impl RuleParser {
     pub fn parse_qualified_rule_prelude(
         &mut self,
         parser: &mut Parser<'_>,
-    ) -> Result<SelectorList, ParseError> {
-        SelectorList::parse_complete(parser)
+    ) -> Result<Vec<Selector>, ParseError> {
+        let selectors = parser.parse_comma_seperated_list(Selector::parse);
+
+        if selectors.is_empty() {
+            return Err(ParseError);
+        }
+
+        Ok(selectors)
     }
 
     pub fn parse_qualified_rule_block(

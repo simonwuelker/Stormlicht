@@ -118,11 +118,7 @@ impl<'a> StyleComputer<'a> {
 
         for stylesheet in self.stylesheets {
             for (rule_index, rule) in stylesheet.rules().iter().enumerate() {
-                if rule
-                    .selectors()
-                    .iter()
-                    .any(|selector| selector.matches(&element))
-                {
+                if rule.selectors().iter().any(|s| s.matches(&element)) {
                     let new_properties = rule.properties().iter().map(|prop| {
                         // FIXME: This should be the specificity of the most-specific matching selector,
                         //        not the sum
