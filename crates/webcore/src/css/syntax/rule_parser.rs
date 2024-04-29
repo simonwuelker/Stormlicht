@@ -36,9 +36,14 @@ impl RuleParser {
             if let Some(declaration) = parser.consume_declaration() {
                 properties.push(declaration);
 
-                if parser.expect_token(Token::Semicolon).is_err() {
+                if parser
+                    .peek_token_ignoring_whitespace(0)
+                    .is_some_and(Token::is_semicolon)
+                {
+                    _ = parser.next_token_ignoring_whitespace();
+                } else {
                     // If this is not the last property in the rule body, this is a parse error!
-                    parser.expect_exhausted()?;
+                    // The error itself would be caught later
                     break;
                 }
             }
