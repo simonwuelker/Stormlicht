@@ -635,7 +635,7 @@ impl Color {
 
     fn parse_as_hex_color(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
         // TODO: should we care about the hash flag here?
-        if let Some(Token::Hash(ident, _)) = parser.next_token() {
+        if let Some(Token::Hash(ident, _)) = parser.next_token_ignoring_whitespace() {
             let ident = ident.to_string();
             if ident.len() == 6 {
                 // 6-digit hex number
@@ -685,15 +685,13 @@ impl Color {
 
         // Legacy rgb color arguments can either be three numbers or three percentages,
         // but not a mix of both
-        let (red, uses_percentages) = match parser.next_token() {
+        let (red, uses_percentages) = match parser.next_token_ignoring_whitespace() {
             Some(Token::Percentage(percentage)) => (resolve_percentage(percentage), true),
             Some(Token::Number(n)) => (clamp_number(n)?, false),
             _ => return Err(ParseError),
         };
 
-        parser.skip_whitespace();
         parser.expect_token(Token::Comma)?;
-        parser.skip_whitespace();
 
         let green = if uses_percentages {
             resolve_percentage(parser.expect_percentage()?)
@@ -701,9 +699,7 @@ impl Color {
             clamp_number(parser.expect_number()?)?
         };
 
-        parser.skip_whitespace();
         parser.expect_token(Token::Comma)?;
-        parser.skip_whitespace();
 
         let blue = if uses_percentages {
             resolve_percentage(parser.expect_percentage()?)
@@ -711,16 +707,12 @@ impl Color {
             clamp_number(parser.expect_number()?)?
         };
 
-        parser.skip_whitespace();
-
         let alpha = parser
             .parse_optional_value(|p| {
                 p.expect_token(Token::Comma)?;
-                p.skip_whitespace();
                 parse_alpha_value(p)
             })
             .unwrap_or(u8::MAX);
-        parser.skip_whitespace();
 
         Ok(Self {
             red,
@@ -743,24 +735,22 @@ impl Color {
         let red = PercentageOr::<Number>::parse(parser)?
             .resolve_against(Number::Integer(u8::MAX as i32))
             .round_to_int() as u8;
-        parser.skip_whitespace();
 
         let green = PercentageOr::<Number>::parse(parser)?
             .resolve_against(Number::Integer(u8::MAX as i32))
             .round_to_int() as u8;
 
-        parser.skip_whitespace();
         let blue = PercentageOr::<Number>::parse(parser)?
             .resolve_against(Number::Integer(u8::MAX as i32))
             .round_to_int() as u8;
 
-        parser.skip_whitespace();
         // FIXME: Parse optional alpha value
         Ok(Self::rgb(red, green, blue))
     }
 
     fn parse_rgb_function(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
-        if let Some(Token::Function(function_identifier)) = parser.next_token() {
+        if let Some(Token::Function(function_identifier)) = parser.next_token_ignoring_whitespace()
+        {
             if function_identifier != static_interned!("rgb")
                 && function_identifier != static_interned!("rgba")
             {
@@ -799,12 +789,11 @@ impl<'a> CSSParse<'a> for Color {
 }
 
 fn parse_alpha_value(parser: &mut Parser<'_>) -> Result<u8, ParseError> {
-    let alpha = match parser.next_token() {
+    let alpha = match parser.next_token_ignoring_whitespace() {
         Some(Token::Number(n)) => n.round_to_int().clamp(0, 255) as u8,
         Some(Token::Percentage(p)) => resolve_percentage(p),
         _ => return Err(ParseError),
     };
-    parser.skip_whitespace();
     Ok(alpha)
 }
 

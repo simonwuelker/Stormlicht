@@ -23,9 +23,7 @@ impl<'a> CSSParse<'a> for WellQualifiedName {
             .parse_optional_value(Option::<NamespacePrefix>::parse)
             .flatten();
 
-        parser.skip_whitespace();
-
-        if let Some(Token::Ident(ident)) = parser.next_token() {
+        if let Some(Token::Ident(ident)) = parser.next_token_ignoring_whitespace() {
             Ok(WellQualifiedName { prefix, ident })
         } else {
             Err(ParseError)

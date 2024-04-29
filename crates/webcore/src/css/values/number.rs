@@ -50,7 +50,7 @@ impl ops::Mul<Percentage> for Number {
 
 impl<'a> CSSParse<'a> for Number {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        if let Some(Token::Number(n)) = parser.next_token() {
+        if let Some(Token::Number(n)) = parser.next_token_ignoring_whitespace() {
             Ok(n)
         } else {
             Err(ParseError)

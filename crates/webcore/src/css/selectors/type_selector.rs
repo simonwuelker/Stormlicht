@@ -31,8 +31,11 @@ impl<'a> CSSParse<'a> for TypeSelector {
         let ns_prefix = parser
             .parse_optional_value(Option::<NamespacePrefix>::parse)
             .flatten();
-        parser.skip_whitespace();
-        if matches!(parser.next_token(), Some(Token::Delim('*'))) {
+
+        if matches!(
+            parser.next_token_ignoring_whitespace(),
+            Some(Token::Delim('*'))
+        ) {
             Ok(TypeSelector::Universal(ns_prefix))
         } else {
             Err(ParseError)

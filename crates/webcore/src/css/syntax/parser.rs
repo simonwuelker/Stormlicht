@@ -14,6 +14,8 @@
 //! The term "whitespace" includes comments.
 //! Any parsing function should consume any trailing whitespace *after* it's input but not *before it*.
 
+use sl_std::ring_buffer::RingBuffer;
+
 use super::{
     rule_parser::RuleParser,
     tokenizer::{Token, Tokenizer},
@@ -30,6 +32,9 @@ use crate::{
 use std::fmt::Debug;
 
 const MAX_ITERATIONS: usize = 128;
+
+/// The maximum number of tokens that can be peeked ahead during parsing
+const MAX_LOOKAHEAD: usize = 4;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum MixedWithDeclarations {
@@ -51,10 +56,11 @@ pub enum WhitespaceAllowed {
     Yes,
     No,
 }
+
 #[derive(Clone, Debug)]
 pub struct Parser<'a> {
     tokenizer: Tokenizer<'a>,
-    buffered_token: Option<Token>,
+    queued_tokens: RingBuffer<Token, MAX_ITERATIONS>,
     stop_at: Option<ParserDelimiter>,
     stopped: bool,
     origin: Origin,
@@ -79,106 +85,129 @@ impl ParserDelimiter {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct ParserState {
-    pub position: usize,
-    buffered_token: Option<Token>,
-    stopped: bool,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ParseError;
 
 impl<'a> Parser<'a> {
+    #[must_use]
     pub fn new(source: &'a str, origin: Origin) -> Self {
-        let mut parser = Self {
+        Self {
             tokenizer: Tokenizer::new(source),
-            buffered_token: None,
+            queued_tokens: RingBuffer::default(),
             stop_at: None,
             stopped: false,
             origin,
-        };
-        parser.skip_whitespace();
-        parser
+        }
+    }
+
+    #[deprecated = "Use the new parsing api"]
+    pub fn state(&self) -> Self {
+        self.clone()
+    }
+
+    #[deprecated = "Use the new parsing api"]
+    pub fn set_state(&mut self, state: Self) {
+        *self = state;
+    }
+
+    pub fn resume(&mut self) {
+        debug_assert!(self.stopped, "Resuming a parser that never stopped");
+
+        self.stopped = false;
     }
 
     /// Create a parser from the same source that stops once it reaches a certain token.
     ///
     /// The final delimited parser position will be right **before** the delimiter token.
-    pub fn create_limited(&self, limit: ParserDelimiter) -> Self {
-        Self {
-            tokenizer: self.tokenizer,
-            buffered_token: self.buffered_token.clone(),
-            stop_at: Some(limit),
-            stopped: false,
-            origin: self.origin,
+    pub fn limit(&mut self, limit: ParserDelimiter) {
+        debug_assert!(!self.stop_at.is_some());
+
+        self.stop_at = Some(limit);
+    }
+
+    /// Make sure that there are at least `n` more tokens in the queue
+    ///
+    /// This collapses sequences of whitespace tokens, since they have no semantic meaning
+    fn queue_tokens(&mut self, n: usize) {
+        if n <= self.queued_tokens.len() {
+            return;
+        }
+
+        let mut last_token_was_whitespace = self
+            .queued_tokens
+            .peek_back(0)
+            .is_some_and(Token::is_whitespace);
+
+        for _ in 0..n - self.queued_tokens.len() {
+            while let Some(token) = self.tokenizer.next_token() {
+                if token.is_whitespace() {
+                    if last_token_was_whitespace {
+                        continue;
+                    } else {
+                        last_token_was_whitespace = true;
+                        self.queued_tokens.push(token);
+                        break;
+                    }
+                } else {
+                    self.queued_tokens.push(token);
+                    break;
+                }
+            }
         }
     }
 
+    #[must_use]
     pub fn next_token(&mut self) -> Option<Token> {
         if self.stopped {
             return None;
         }
 
-        let position_before_token = self.state();
-        let next_token = self
-            .buffered_token
-            .take()
-            .or_else(|| self.tokenizer.next_token())?;
-
-        if let Some(stop_at) = self.stop_at {
-            let should_stop = match next_token {
-                Token::CurlyBraceOpen => stop_at.contains(ParserDelimiter::CURLY_BRACE_OPEN),
-                Token::CurlyBraceClose => stop_at.contains(ParserDelimiter::CURLY_BRACE_CLOSE),
-                Token::Semicolon => stop_at.contains(ParserDelimiter::SEMICOLON),
-                _ => false,
-            };
-            if should_stop {
-                self.stopped = true;
-                self.set_state(position_before_token);
-                return None;
-            }
-        }
-
-        Some(next_token)
+        self.queue_tokens(1);
+        self.queued_tokens.pop_front()
     }
 
-    pub fn peek_token(&mut self) -> Option<Token> {
-        let next_token = self.next_token()?;
-        self.reconsume(next_token.clone());
-        Some(next_token)
+    #[must_use]
+    pub fn next_token_ignoring_whitespace(&mut self) -> Option<Token> {
+        if self.stopped {
+            return None;
+        }
+
+        let mut token = self.next_token()?;
+        while token.is_whitespace() {
+            token = self.next_token()?;
+        }
+
+        Some(token)
+    }
+
+    #[must_use]
+    pub fn peek_token(&mut self) -> Option<&Token> {
+        self.queue_tokens(1);
+        self.queued_tokens.peek_front(0)
+    }
+
+    #[must_use]
+    pub fn peek_token_ignoring_whitespace(&mut self) -> Option<&Token> {
+        self.queue_tokens(2);
+        let peeked_token = self.queued_tokens.peek_front(0)?;
+
+        // Since we collapsed whitespace sequences during tokenization we know
+        // that if the next token is whitespace then the one after that cannot
+        // be whitespace too.
+        if peeked_token.is_whitespace() {
+            self.queued_tokens.peek_front(1)
+        } else {
+            Some(peeked_token)
+        }
     }
 
     #[inline]
     pub fn expect_token(&mut self, expected_token: Token) -> Result<(), ParseError> {
-        if self.next_token() == Some(expected_token) {
+        if self.next_token_ignoring_whitespace() == Some(expected_token) {
             Ok(())
         } else {
             Err(ParseError)
         }
-    }
-
-    #[inline]
-    pub fn state(&self) -> ParserState {
-        ParserState {
-            position: self.tokenizer.get_position(),
-            buffered_token: self.buffered_token.clone(),
-            stopped: self.stopped,
-        }
-    }
-
-    #[inline]
-    pub fn set_state(&mut self, state: ParserState) {
-        self.tokenizer.set_position(state.position);
-        self.buffered_token = state.buffered_token;
-        self.stopped = state.stopped;
-    }
-
-    /// <https://drafts.csswg.org/css-syntax/#reconsume-the-current-input-token>
-    #[inline]
-    fn reconsume(&mut self, token: Token) {
-        assert!(self.buffered_token.is_none());
-        self.buffered_token = Some(token);
     }
 
     /// <https://drafts.csswg.org/css-syntax/#consume-list-of-rules>
@@ -192,24 +221,20 @@ impl<'a> Parser<'a> {
 
         // Repeatedly consume the next input token:
         loop {
-            match self.next_token() {
-                Some(Token::Whitespace) => {
-                    // Do nothing.
-                },
+            match self.peek_token_ignoring_whitespace() {
                 None => {
                     // Return the list of rules.
                     return rules;
                 },
-                Some(token @ (Token::CommentDeclarationOpen | Token::CommentDeclarationClose)) => {
+                Some(Token::CommentDeclarationOpen | Token::CommentDeclarationClose) => {
                     // If the top-level flag is set,
                     if top_level == TopLevel::Yes {
                         // do nothing.
+                        _ = self.next_token();
                     }
                     // Otherwise,
                     else {
-                        //  reconsume the current input token
-                        self.reconsume(token);
-
+                        // reconsume the current input token
                         // Consume a qualified rule
                         // If anything is returned, append it to the list of rules.
                         if let Ok(rule) = self
@@ -219,17 +244,14 @@ impl<'a> Parser<'a> {
                         }
                     }
                 },
-                Some(token @ Token::AtKeyword(_)) => {
+                Some(Token::AtKeyword(_)) => {
                     // Reconsume the current input token
-                    self.reconsume(token);
 
                     // Consume an at-rule, and append the returned value to the list of rules.
                     // rules.push(self.consume_at_rule());
                 },
-                Some(other_token) => {
+                Some(_) => {
                     // Reconsume the current input token
-                    self.reconsume(other_token);
-
                     // Consume a qualified rule. If anything is returned, append it to the list of rules.
                     if let Ok(rule) =
                         self.consume_qualified_rule(rule_parser, MixedWithDeclarations::default())
@@ -247,10 +269,6 @@ impl<'a> Parser<'a> {
         rule_parser: &mut RuleParser,
         mixed_with_declarations: MixedWithDeclarations,
     ) -> Result<StyleRule, ParseError> {
-        // NOTE: The spec sometimes returns "None" (not an error, but no rule.)
-        // Since "None" and "Err(_)" are treated the same (the parser ignores the rule and moves on),
-        // we never return None, always Err(_).
-
         // Create a delimited parser that only consumes the rule's prelude
         let prelude_ends_at = if mixed_with_declarations == MixedWithDeclarations::Yes {
             ParserDelimiter::CURLY_BRACE_OPEN.or(ParserDelimiter::SEMICOLON)
@@ -258,25 +276,23 @@ impl<'a> Parser<'a> {
             ParserDelimiter::CURLY_BRACE_OPEN
         };
 
-        let mut prelude_parser = self.create_limited(prelude_ends_at);
+        self.limit(prelude_ends_at);
 
-        let selectors = rule_parser.parse_qualified_rule_prelude(&mut prelude_parser)?;
+        let selectors = rule_parser.parse_qualified_rule_prelude(self)?;
 
-        prelude_parser.expect_exhausted()?;
+        // Done parsing selector block
+        self.resume();
 
-        self.set_state(prelude_parser.state());
         self.expect_token(Token::CurlyBraceOpen)?; // FIXME: this could be a semicolon
-        self.skip_whitespace();
 
         // Create a delimited parser that consumes the rule's block
-        let mut block_parser = self.create_limited(ParserDelimiter::CURLY_BRACE_CLOSE);
-        let properties = rule_parser.parse_qualified_rule_block(&mut block_parser)?;
+        self.limit(ParserDelimiter::CURLY_BRACE_CLOSE);
+        let properties = rule_parser.parse_qualified_rule_block(self)?;
         let qualified_rule = StyleRule::new(selectors, properties);
-        block_parser.expect_exhausted()?;
 
-        self.set_state(block_parser.state());
+        self.resume();
+
         self.expect_token(Token::CurlyBraceClose)?;
-        self.skip_whitespace();
 
         Ok(qualified_rule)
     }
@@ -297,20 +313,20 @@ impl<'a> Parser<'a> {
 
         // 1. If the next token is an <ident-token>, consume a token from input and set decl’s name to the token’s value.
         //    Otherwise, consume the remnants of a bad declaration from input, with nested, and return nothing.
-        let declaration_name = if let Some(Token::Ident(name)) = self.peek_token() {
-            self.next_token();
-            name
-        } else {
-            self.consume_remnants_of_bad_declaration(nested);
-            return None;
-        };
+        let declaration_name =
+            if let Some(Token::Ident(name)) = self.peek_token_ignoring_whitespace() {
+                let name = *name;
+                self.next_token();
+                name
+            } else {
+                self.consume_remnants_of_bad_declaration(nested);
+                return None;
+            };
 
         // 2. Discard whitespace from input.
-        self.skip_whitespace();
-
         // 3. If the next token is a <colon-token>, discard a token from input.
         //    Otherwise, consume the remnants of a bad declaration from input, with nested, and return nothing.
-        if let Some(Token::Colon) = self.peek_token() {
+        if let Some(Token::Colon) = self.peek_token_ignoring_whitespace() {
             self.next_token();
         } else {
             self.consume_remnants_of_bad_declaration(nested);
@@ -318,30 +334,29 @@ impl<'a> Parser<'a> {
         }
 
         // 4. Discard whitespace from input.
-        self.skip_whitespace();
 
         // NOTE: At this point we deviate from the spec because the spec gets a little silly
-        let mut property_parser =
-            self.create_limited(ParserDelimiter::SEMICOLON.or(ParserDelimiter::CURLY_BRACE_CLOSE));
-        let value =
-            if let Ok(value) = StyleProperty::parse_value(&mut property_parser, declaration_name) {
-                value
-            } else {
-                self.consume_remnants_of_bad_declaration(nested);
-                return None;
-            };
-        self.set_state(property_parser.state());
-        self.skip_whitespace();
+        self.limit(ParserDelimiter::SEMICOLON.or(ParserDelimiter::CURLY_BRACE_CLOSE));
+        let value = if let Ok(value) = StyleProperty::parse_value(self, declaration_name) {
+            value
+        } else {
+            self.consume_remnants_of_bad_declaration(nested);
+            return None;
+        };
+
+        self.resume();
 
         // Check for !important
-        if matches!(self.peek_token(), Some(Token::Delim('!'))) {
-            self.next_token();
+        if matches!(
+            self.peek_token_ignoring_whitespace(),
+            Some(Token::Delim('!'))
+        ) {
+            self.next_token_ignoring_whitespace();
 
             #[allow(clippy::redundant_guards)] // In this case, the guard helps with readability
             match self.next_token() {
                 Some(Token::Ident(i)) if i == static_interned!("important") => {
                     important = Important::Yes;
-                    self.skip_whitespace();
                 },
                 _ => {
                     self.consume_remnants_of_bad_declaration(nested);
@@ -363,7 +378,6 @@ impl<'a> Parser<'a> {
         // But for now, it should be more or less equivalent (we don't respect "}")
         // Process input:
         while !matches!(self.next_token(), Some(Token::Semicolon) | None) {}
-        self.skip_whitespace()
     }
 
     pub fn parse_stylesheet(&mut self, index: usize) -> Result<Stylesheet, ParseError> {
@@ -397,7 +411,6 @@ impl<'a> Parser<'a> {
         F: Fn(&mut Self) -> Result<T, ParseError>,
     {
         let mut parsed_tokens = vec![];
-        let mut state_before_last_token = self.state();
         let mut iterations = 0;
 
         while let Ok(parsed_value) = closure(self) {
@@ -407,22 +420,14 @@ impl<'a> Parser<'a> {
             }
 
             parsed_tokens.push(parsed_value);
-            state_before_last_token = self.state();
 
-            self.skip_whitespace();
-            if !matches!(self.next_token(), Some(Token::Comma)) {
+            if !matches!(self.peek_token_ignoring_whitespace(), Some(Token::Comma)) {
                 break;
             }
-            self.skip_whitespace();
+            _ = self.next_token_ignoring_whitespace();
 
             iterations += 1;
         }
-
-        // Don't consume the token that caused us to exit the loop
-        self.set_state(state_before_last_token);
-
-        // But consume the eventual whitespace after it :)
-        self.skip_whitespace();
 
         parsed_tokens
     }
@@ -437,14 +442,14 @@ impl<'a> Parser<'a> {
     {
         // Remember where we were at before we parsed a list
         let position = self.tokenizer.get_position();
-        let has_token_buffered = self.buffered_token.is_some();
+        let n_buffered_tokens = self.queued_tokens.len();
 
         // Apply the parser
         let parsed_token = closure(self)?;
 
         // Fail if our reader was not advanced
         if self.tokenizer.get_position() == position
-            && self.buffered_token.is_some() == has_token_buffered
+            && self.queued_tokens.len() == n_buffered_tokens
         {
             Err(ParseError)
         } else {
@@ -468,8 +473,10 @@ impl<'a> Parser<'a> {
     where
         F: Fn(&mut Self) -> Result<T, ParseError>,
     {
+        _ = whitespace_allowed; // TODO: remove this, not needed
+
         let mut parsed_tokens = vec![];
-        let mut state_before_end_token = self.state();
+        let mut state_before_end_token = self.clone();
         let mut iterations = 0;
 
         while let Ok(parsed_value) = closure(self) {
@@ -478,22 +485,15 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            state_before_end_token = self.state();
+            state_before_end_token = self.clone();
             parsed_tokens.push(parsed_value);
-
-            if whitespace_allowed == WhitespaceAllowed::Yes {
-                self.skip_whitespace();
-            }
 
             iterations += 1;
         }
 
         // Reset to the last valid state to avoid accidentally consuming too many tokens
-        self.set_state(state_before_end_token);
+        *self = state_before_end_token;
 
-        if whitespace_allowed == WhitespaceAllowed::Yes {
-            self.skip_whitespace();
-        }
         parsed_tokens
     }
 
@@ -507,12 +507,12 @@ impl<'a> Parser<'a> {
     where
         F: Fn(&mut Self) -> Result<T, ParseError>,
     {
-        let state = self.state();
+        let state = self.clone();
         let x = closure(self);
         match x {
             Ok(parsed_value) => Some(parsed_value),
             Err(_) => {
-                self.set_state(state);
+                *self = state;
                 None
             },
         }
@@ -549,19 +549,11 @@ impl<'a> Parser<'a> {
     ///
     /// If you want to ensure that at least one whitespace exists, call
     /// [expect_whitespace](Parser::expect_whitespace) beforehand.
-    pub fn skip_whitespace(&mut self) {
-        let mut state_before_non_whitespace = self.state();
-
-        // // FIXME: skip comments too
-        while let Some(Token::Whitespace) = self.next_token() {
-            state_before_non_whitespace = self.state();
-        }
-
-        self.set_state(state_before_non_whitespace);
-    }
+    #[deprecated = "Skip whitespace using next_token_ignoring_whitespace instead"]
+    pub fn skip_whitespace(&mut self) {}
 
     pub fn expect_percentage(&mut self) -> Result<Number, ParseError> {
-        if let Some(Token::Percentage(percentage)) = self.next_token() {
+        if let Some(Token::Percentage(percentage)) = self.next_token_ignoring_whitespace() {
             Ok(percentage)
         } else {
             Err(ParseError)
@@ -569,7 +561,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn expect_identifier(&mut self) -> Result<InternedString, ParseError> {
-        if let Some(Token::Ident(identifier)) = self.next_token() {
+        if let Some(Token::Ident(identifier)) = self.next_token_ignoring_whitespace() {
             Ok(identifier)
         } else {
             Err(ParseError)
@@ -577,7 +569,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn expect_number(&mut self) -> Result<Number, ParseError> {
-        if let Some(Token::Number(n)) = self.next_token() {
+        if let Some(Token::Number(n)) = self.next_token_ignoring_whitespace() {
             Ok(n)
         } else {
             Err(ParseError)
@@ -588,6 +580,7 @@ impl<'a> Parser<'a> {
         T::parse(self)
     }
 
+    #[must_use]
     pub fn parse_optional<T: CSSParse<'a>>(&mut self) -> Option<T> {
         self.parse_optional_value(T::parse)
     }
@@ -596,13 +589,11 @@ impl<'a> Parser<'a> {
         &mut self,
     ) -> Result<Sides<T>, ParseError> {
         let first: T = self.parse()?;
-        self.skip_whitespace();
 
         let Some(second) = self.parse_optional_value(T::parse) else {
             // If only one value is supplied, it is used for all four sides
             return Ok(Sides::all(first));
         };
-        self.skip_whitespace();
 
         let Some(third) = self.parse_optional_value(T::parse) else {
             // If two values are supplied then the first one is used for the
@@ -614,7 +605,6 @@ impl<'a> Parser<'a> {
                 left: second,
             });
         };
-        self.skip_whitespace();
 
         let Some(fourth) = self.parse_optional_value(T::parse) else {
             // If three values are supplied then the first one is used for the
@@ -626,7 +616,6 @@ impl<'a> Parser<'a> {
                 left: second,
             });
         };
-        self.skip_whitespace();
 
         Ok(Sides {
             top: first,

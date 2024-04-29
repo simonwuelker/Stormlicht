@@ -22,15 +22,13 @@ impl BackgroundImage {
 impl<'a> CSSParse<'a> for BackgroundImage {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let first_layer = parse_single_layer(parser)?;
-        parser.skip_whitespace();
 
         let mut layers = vec![first_layer];
-        while let Some(Token::Comma) = parser.peek_token() {
-            parser.next_token();
-            parser.skip_whitespace();
+        while let Some(Token::Comma) = parser.peek_token_ignoring_whitespace() {
+            let _ = parser.next_token_ignoring_whitespace();
+
             let layer = parse_single_layer(parser)?;
             layers.push(layer);
-            parser.skip_whitespace();
         }
 
         Ok(Self { layers })
@@ -38,9 +36,9 @@ impl<'a> CSSParse<'a> for BackgroundImage {
 }
 
 fn parse_single_layer(parser: &mut Parser<'_>) -> Result<Option<Url>, ParseError> {
-    let parsed_layer = match parser.peek_token() {
-        Some(Token::Ident(ident)) if ident == static_interned!("none") => {
-            parser.next_token();
+    let parsed_layer = match parser.peek_token_ignoring_whitespace() {
+        Some(Token::Ident(ident)) if *ident == static_interned!("none") => {
+            let _ = parser.next_token_ignoring_whitespace();
             None
         },
         _ => {

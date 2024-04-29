@@ -29,7 +29,7 @@ impl<'a> CSSParse<'a> for AttributeMatcher {
     // <https://drafts.csswg.org/selectors-4/#typedef-attr-matcher>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let attribute_matcher = parser
-            .parse_optional_value(|parser| match parser.next_token() {
+            .parse_optional_value(|parser| match parser.next_token_ignoring_whitespace() {
                 Some(Token::Delim('~')) => Ok(AttributeMatcher::WhiteSpaceSeperatedListContaining),
                 Some(Token::Delim('|')) => Ok(AttributeMatcher::HyphenSeperatedListBeginningWith),
                 Some(Token::Delim('^')) => Ok(AttributeMatcher::StartsWith),

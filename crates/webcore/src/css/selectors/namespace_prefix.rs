@@ -17,15 +17,14 @@ impl<'a> CSSParse<'a> for Option<NamespacePrefix> {
     /// like `|foo` (with an empty [NamespacePrefix]), [since thats equivalent
     /// to not having a namespace specified at all](https://drafts.csswg.org/css-namespaces/#terminology)
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let prefix = parser.parse_optional_value(|parser| match parser.next_token() {
-            Some(Token::Ident(ident)) => Ok(NamespacePrefix::Ident(ident)),
-            Some(Token::Delim('*')) => Ok(NamespacePrefix::Asterisk),
-            _ => Err(ParseError),
-        });
+        let prefix =
+            parser.parse_optional_value(|parser| match parser.next_token_ignoring_whitespace() {
+                Some(Token::Ident(ident)) => Ok(NamespacePrefix::Ident(ident)),
+                Some(Token::Delim('*')) => Ok(NamespacePrefix::Asterisk),
+                _ => Err(ParseError),
+            });
 
-        parser.skip_whitespace();
-
-        if let Some(Token::Delim('|')) = parser.next_token() {
+        if let Some(Token::Delim('|')) = parser.next_token_ignoring_whitespace() {
             Ok(prefix)
         } else {
             Err(ParseError)

@@ -29,12 +29,9 @@ impl RuleParser {
 
                 if parser.expect_token(Token::Semicolon).is_err() {
                     // If this is not the last property in the rule body, this is a parse error!
-                    parser.skip_whitespace();
                     parser.expect_exhausted()?;
                     break;
                 }
-
-                parser.skip_whitespace();
             }
         }
 
