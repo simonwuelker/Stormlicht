@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     css::{
         selectors::{CSSValidateSelector, Combinator, ComplexSelectorUnit, Selector, Specificity},
-        syntax::WhitespaceAllowed,
+        syntax::{Token, WhitespaceAllowed},
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
     dom::{dom_objects::Element, DomPtr},
@@ -26,10 +26,53 @@ impl<'a> CSSParse<'a> for ComplexSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-complex-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let first_unit = ComplexSelectorUnit::parse(parser)?;
-        let subsequent_units = parser.parse_any_number_of(
-            parse_complex_selector_unit_with_combinator,
-            WhitespaceAllowed::Yes,
-        );
+
+        let mut subsequent_units = vec![];
+        loop {
+            let combinator = match parser.peek_token_ignoring_whitespace(0) {
+                None => {
+                    // There are no more units
+                    break;
+                },
+                Some(Token::Delim('>')) => {
+                    _ = parser.next_token_ignoring_whitespace();
+                    Combinator::Child
+                },
+                Some(Token::Delim('+')) => {
+                    _ = parser.next_token_ignoring_whitespace();
+                    Combinator::NextSibling
+                },
+                Some(Token::Delim('~')) => {
+                    _ = parser.next_token_ignoring_whitespace();
+                    Combinator::SubsequentSibling
+                },
+                Some(Token::Delim('|')) => {
+                    _ = parser.next_token_ignoring_whitespace();
+                    if !matches!(parser.next_token(), Some(Token::Delim('|'))) {
+                        return Err(ParseError);
+                    }
+
+                    Combinator::Column
+                },
+                Some(_) => {
+                    // There is no combinator between these two complex selector units.
+                    // There *must* be at least one whitespace (descendant combinator)
+                    if !parser
+                        .next_token()
+                        .as_ref()
+                        .is_some_and(Token::is_whitespace)
+                    {
+                        return Err(ParseError);
+                    }
+
+                    Combinator::Descendant
+                },
+            };
+
+            let next_unit = ComplexSelectorUnit::parse(parser)?;
+
+            subsequent_units.push((combinator, next_unit));
+        }
 
         Ok(ComplexSelector {
             first_unit,
@@ -43,19 +86,6 @@ impl<'a> CSSParse<'a> for ComplexSelectorList {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         Ok(parser.parse_comma_seperated_list(ComplexSelector::parse))
     }
-}
-
-fn parse_complex_selector_unit_with_combinator(
-    parser: &mut Parser<'_>,
-) -> Result<(Combinator, ComplexSelectorUnit), ParseError> {
-    parser.skip_whitespace();
-    let combinator = parser
-        .parse_optional_value(Combinator::parse)
-        .unwrap_or_default();
-    parser.skip_whitespace();
-    let complex_selector_unit = ComplexSelectorUnit::parse(parser)?;
-
-    Ok((combinator, complex_selector_unit))
 }
 
 impl CSSValidateSelector for ComplexSelector {

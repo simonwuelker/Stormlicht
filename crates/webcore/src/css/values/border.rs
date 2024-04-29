@@ -88,7 +88,7 @@ impl LineWidth {
 
 impl<'a> CSSParse<'a> for LineWidth {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        match parser.peek_token_ignoring_whitespace() {
+        match parser.peek_token_ignoring_whitespace(0) {
             Some(Token::Ident(static_interned!("thin"))) => {
                 let _ = parser.next_token();
                 Ok(Self::THIN)

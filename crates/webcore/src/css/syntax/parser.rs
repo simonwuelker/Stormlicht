@@ -34,7 +34,7 @@ use std::fmt::Debug;
 const MAX_ITERATIONS: usize = 128;
 
 /// The maximum number of tokens that can be peeked ahead during parsing
-const MAX_LOOKAHEAD: usize = 4;
+const MAX_LOOKAHEAD: usize = 16;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum MixedWithDeclarations {
@@ -127,7 +127,9 @@ impl<'a> Parser<'a> {
 
     /// Make sure that there are at least `n` more tokens in the queue
     ///
-    /// This collapses sequences of whitespace tokens, since they have no semantic meaning
+    /// This collapses sequences of whitespace tokens, since they have no semantic meaning.
+    ///
+    /// The queue might not contain `n` elements afterwards if the end of file was reached.
     fn queue_tokens(&mut self, n: usize) {
         if n <= self.queued_tokens.len() {
             return;
@@ -186,19 +188,23 @@ impl<'a> Parser<'a> {
         self.queued_tokens.peek_front(0)
     }
 
+    #[inline]
     #[must_use]
-    pub fn peek_token_ignoring_whitespace(&mut self) -> Option<&Token> {
-        self.queue_tokens(2);
-        let peeked_token = self.queued_tokens.peek_front(0)?;
+    pub fn peek_token_ignoring_whitespace(&mut self, n: usize) -> Option<&Token> {
+        self.queue_tokens(2 * n);
 
-        // Since we collapsed whitespace sequences during tokenization we know
-        // that if the next token is whitespace then the one after that cannot
-        // be whitespace too.
-        if peeked_token.is_whitespace() {
-            self.queued_tokens.peek_front(1)
-        } else {
-            Some(peeked_token)
+        let mut tokens_seen = 0;
+
+        while let Some(token) = self.queued_tokens.peek_front(tokens_seen) {
+            if !token.is_whitespace() {
+                if tokens_seen == n {
+                    return Some(token);
+                }
+                tokens_seen += 1;
+            }
         }
+
+        None
     }
 
     #[inline]
@@ -221,7 +227,7 @@ impl<'a> Parser<'a> {
 
         // Repeatedly consume the next input token:
         loop {
-            match self.peek_token_ignoring_whitespace() {
+            match self.peek_token_ignoring_whitespace(0) {
                 None => {
                     // Return the list of rules.
                     return rules;
@@ -314,9 +320,9 @@ impl<'a> Parser<'a> {
         // 1. If the next token is an <ident-token>, consume a token from input and set decl’s name to the token’s value.
         //    Otherwise, consume the remnants of a bad declaration from input, with nested, and return nothing.
         let declaration_name =
-            if let Some(Token::Ident(name)) = self.peek_token_ignoring_whitespace() {
+            if let Some(Token::Ident(name)) = self.peek_token_ignoring_whitespace(0) {
                 let name = *name;
-                self.next_token();
+                let _ = self.next_token_ignoring_whitespace();
                 name
             } else {
                 self.consume_remnants_of_bad_declaration(nested);
@@ -326,8 +332,8 @@ impl<'a> Parser<'a> {
         // 2. Discard whitespace from input.
         // 3. If the next token is a <colon-token>, discard a token from input.
         //    Otherwise, consume the remnants of a bad declaration from input, with nested, and return nothing.
-        if let Some(Token::Colon) = self.peek_token_ignoring_whitespace() {
-            self.next_token();
+        if let Some(Token::Colon) = self.peek_token_ignoring_whitespace(0) {
+            let _ = self.next_token_ignoring_whitespace();
         } else {
             self.consume_remnants_of_bad_declaration(nested);
             return None;
@@ -348,10 +354,10 @@ impl<'a> Parser<'a> {
 
         // Check for !important
         if matches!(
-            self.peek_token_ignoring_whitespace(),
+            self.peek_token_ignoring_whitespace(0),
             Some(Token::Delim('!'))
         ) {
-            self.next_token_ignoring_whitespace();
+            let _ = self.next_token_ignoring_whitespace();
 
             #[allow(clippy::redundant_guards)] // In this case, the guard helps with readability
             match self.next_token() {
@@ -421,7 +427,7 @@ impl<'a> Parser<'a> {
 
             parsed_tokens.push(parsed_value);
 
-            if !matches!(self.peek_token_ignoring_whitespace(), Some(Token::Comma)) {
+            if !matches!(self.peek_token_ignoring_whitespace(0), Some(Token::Comma)) {
                 break;
             }
             _ = self.next_token_ignoring_whitespace();

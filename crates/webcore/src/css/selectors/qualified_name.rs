@@ -16,6 +16,17 @@ pub struct WellQualifiedName {
     pub ident: InternedString,
 }
 
+impl WellQualifiedName {
+    #[inline]
+    #[must_use]
+    pub const fn without_namespace(ident: InternedString) -> Self {
+        Self {
+            prefix: None,
+            ident,
+        }
+    }
+}
+
 impl<'a> CSSParse<'a> for WellQualifiedName {
     // <https://drafts.csswg.org/selectors-4/#typedef-wq-name>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {

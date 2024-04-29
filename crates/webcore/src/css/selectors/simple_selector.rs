@@ -3,6 +3,7 @@ use std::fmt;
 use crate::{
     css::{
         selectors::{CSSValidateSelector, Selector, SubClassSelector, TypeSelector},
+        syntax::Token,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
     dom::{dom_objects::Element, DomPtr},

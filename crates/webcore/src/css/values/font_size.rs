@@ -111,7 +111,7 @@ impl FontSize {
 
 impl<'a> CSSParse<'a> for FontSize {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let position = match parser.peek_token_ignoring_whitespace() {
+        let position = match parser.peek_token_ignoring_whitespace(0) {
             Some(Token::Ident(static_interned!("xx-small"))) => {
                 Self::Absolute(AbsoluteSize::XXSmall)
             },

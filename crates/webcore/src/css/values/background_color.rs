@@ -13,7 +13,7 @@ pub enum BackgroundColor {
 
 impl<'a> CSSParse<'a> for BackgroundColor {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        match parser.peek_token_ignoring_whitespace() {
+        match parser.peek_token_ignoring_whitespace(0) {
             Some(Token::Ident(static_interned!("transparent"))) => {
                 let _ = parser.next_token_ignoring_whitespace();
                 Ok(Self::Transparent)
