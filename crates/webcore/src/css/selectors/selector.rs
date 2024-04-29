@@ -382,7 +382,7 @@ mod tests {
 
     #[test]
     fn parse_type_selector_with_namespace() {
-        let selector = Selector::parse_from_str("foo | bar").unwrap();
+        let selector = Selector::parse_from_str("foo|bar").unwrap();
         let mut components = selector.components();
 
         let reference = TypeSelector::Typename(WellQualifiedName {
@@ -398,7 +398,7 @@ mod tests {
 
     #[test]
     fn parse_universal_selector_with_namespace() {
-        let selector = Selector::parse_from_str("foo | *").unwrap();
+        let selector = Selector::parse_from_str("foo|*").unwrap();
         let mut components = selector.components();
 
         let reference = TypeSelector::Universal(Some(NamespacePrefix::Ident("foo".into())));
