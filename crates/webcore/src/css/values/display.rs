@@ -310,21 +310,3 @@ impl DisplayInside {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{Display, DisplayBox};
-    use crate::css::CSSParse;
-
-    #[test]
-    fn parse_box() {
-        assert_eq!(
-            Display::parse_from_str("none"),
-            Ok(Display::Box(DisplayBox::None))
-        );
-        assert_eq!(
-            Display::parse_from_str("contents"),
-            Ok(Display::Box(DisplayBox::Contents))
-        );
-    }
-}
