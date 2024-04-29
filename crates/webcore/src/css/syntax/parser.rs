@@ -1,18 +1,6 @@
 //! Higher-level parsing functions.
 //!
-//! This is the next parsing stage after [Tokenization](crate::tokenizer).
-//!
-//! # Parsing Rules
-//! ## Error handling
-//! Parser functions usually return `Result<T, ParseError>`. If the `Result` is `Ok`,
-//! the parser will have consumed *exactly* the expected amount of tokens.
-//! If `Err` is returned, the state of the parser is undefined. Callers that want to handle
-//! optional values should backup the state beforehand with [Parser::state] and then set it
-//! after parsing with [Parser::set_state].
-//!
-//! ## Whitespace
-//! The term "whitespace" includes comments.
-//! Any parsing function should consume any trailing whitespace *after* it's input but not *before it*.
+//! This is the next parsing stage after [Tokenization](super::tokenizer).
 
 use sl_std::ring_buffer::RingBuffer;
 
