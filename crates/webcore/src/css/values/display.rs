@@ -234,12 +234,11 @@ impl<'a> CSSParse<'a> for Display {
         // A display value always consists of up to three identifiers
         let mut idents = vec![];
         for _ in 0..3 {
-            match parser.next_token() {
+            match parser.next_token_ignoring_whitespace() {
                 Some(Token::Ident(ident)) => idents.push(ident),
                 None => break,
                 _ => return Err(ParseError),
             }
-            parser.skip_whitespace();
         }
 
         if idents.len() == 1 {

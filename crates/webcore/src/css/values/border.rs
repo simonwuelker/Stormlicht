@@ -88,17 +88,17 @@ impl LineWidth {
 
 impl<'a> CSSParse<'a> for LineWidth {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        match parser.peek_token() {
+        match parser.peek_token_ignoring_whitespace() {
             Some(Token::Ident(static_interned!("thin"))) => {
-                parser.next_token();
+                let _ = parser.next_token();
                 Ok(Self::THIN)
             },
             Some(Token::Ident(static_interned!("medium"))) => {
-                parser.next_token();
+                let _ = parser.next_token();
                 Ok(Self::MEDIUM)
             },
             Some(Token::Ident(static_interned!("thick"))) => {
-                parser.next_token();
+                let _ = parser.next_token();
                 Ok(Self::THICK)
             },
             _ => {
@@ -128,7 +128,6 @@ impl<'a> CSSParse<'a> for Border {
                 && border_color.is_none()
             {
                 border_color = Some(color);
-                parser.skip_whitespace();
                 continue;
             }
 
@@ -136,7 +135,6 @@ impl<'a> CSSParse<'a> for Border {
                 && border_width.is_none()
             {
                 border_width = Some(width);
-                parser.skip_whitespace();
                 continue;
             }
 
@@ -144,7 +142,6 @@ impl<'a> CSSParse<'a> for Border {
                 && border_style.is_none()
             {
                 border_style = Some(style);
-                parser.skip_whitespace();
                 continue;
             }
 
