@@ -90,20 +90,10 @@ impl<'a> CSSParse<'a> for SelectorComponent {
                 Self::Class(ident)
             },
             Some(Token::BracketOpen) => {
-                if matches!(
-                    parser.peek_token_ignoring_whitespace(3),
-                    Some(Token::Delim('|'))
-                ) {
-                    // Namespace prefix of a type selecotr
-                    let type_selector = TypeSelector::parse(parser)?;
+                // Attribute selector
+                let attribute_selector = AttributeSelector::parse(parser)?;
 
-                    Self::Type(type_selector)
-                } else {
-                    // Attribute selector
-                    let attribute_selector = AttributeSelector::parse(parser)?;
-
-                    Self::Attribute(attribute_selector)
-                }
+                Self::Attribute(attribute_selector)
             },
             Some(Token::Delim('*')) => {
                 _ = parser.next_token_ignoring_whitespace();
