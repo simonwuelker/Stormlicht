@@ -299,7 +299,7 @@ impl<'a> Parser<'a> {
                     let _ = self.next_token_ignoring_whitespace();
                     break;
                 },
-                Some(Token::CurlyBraceClose) => break,
+                Some(Token::CurlyBraceClose) | None => break,
                 _ => {
                     let _ = self.next_token_ignoring_whitespace();
                 },
