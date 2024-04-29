@@ -19,7 +19,7 @@ pub const FONT_MEDIUM_PX: Pixels = Pixels(16.0);
 const LARGER_FONT_SIZE_RATIO: f32 = 1.2;
 
 /// <https://drafts.csswg.org/css2/#value-def-absolute-size>
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AbsoluteSize {
     /// <https://drafts.csswg.org/css2/#valdef-font-size-xx-small>
     XXSmall,
@@ -132,5 +132,70 @@ impl<'a> CSSParse<'a> for FontSize {
         let _ = parser.next_token_ignoring_whitespace();
 
         Ok(position)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::assert_matches::assert_matches;
+
+    use super::*;
+
+    #[test]
+    fn parse() {
+        assert_matches!(
+            FontSize::parse_from_str("xx-small"),
+            Ok(FontSize::Absolute(AbsoluteSize::XXSmall))
+        );
+
+        assert_matches!(
+            FontSize::parse_from_str("x-small"),
+            Ok(FontSize::Absolute(AbsoluteSize::XSmall))
+        );
+
+        assert_matches!(
+            FontSize::parse_from_str("small"),
+            Ok(FontSize::Absolute(AbsoluteSize::Small))
+        );
+
+        assert_matches!(
+            FontSize::parse_from_str("medium"),
+            Ok(FontSize::Absolute(AbsoluteSize::Medium))
+        );
+
+        assert_matches!(
+            FontSize::parse_from_str("large"),
+            Ok(FontSize::Absolute(AbsoluteSize::Large))
+        );
+
+        assert_matches!(
+            FontSize::parse_from_str("x-large"),
+            Ok(FontSize::Absolute(AbsoluteSize::XLarge))
+        );
+
+        assert_matches!(
+            FontSize::parse_from_str("xx-large"),
+            Ok(FontSize::Absolute(AbsoluteSize::XXLarge))
+        );
+
+        assert_matches!(
+            FontSize::parse_from_str("smaller"),
+            Ok(FontSize::Relative(RelativeSize::Smaller))
+        );
+
+        assert_matches!(
+            FontSize::parse_from_str("larger"),
+            Ok(FontSize::Relative(RelativeSize::Larger))
+        );
+
+        assert_matches!(
+            FontSize::parse_from_str("3em"),
+            Ok(FontSize::LengthPercentage(_))
+        );
+
+        assert_matches!(
+            FontSize::parse_from_str("5%"),
+            Ok(FontSize::LengthPercentage(_))
+        );
     }
 }

@@ -6,7 +6,8 @@
     iter_advance_by,
     extend_one,
     const_fn_floating_point_arithmetic,
-    option_get_or_insert_default
+    option_get_or_insert_default,
+    assert_matches
 )]
 
 mod browsing_context;
