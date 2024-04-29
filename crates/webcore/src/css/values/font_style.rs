@@ -1,5 +1,5 @@
 use crate::{
-    css::{values::Angle, CSSParse, ParseError, Parser},
+    css::{syntax::Token, values::Angle, CSSParse, ParseError, Parser},
     static_interned,
 };
 
@@ -19,7 +19,18 @@ impl<'a> CSSParse<'a> for FontStyle {
             static_interned!("normal") => Self::Normal,
             static_interned!("italic") => Self::Italic,
             static_interned!("oblique") => {
-                let angle: Angle = parser.parse_optional().unwrap_or(DEFAULT_OBLIQUE_ANGLE);
+                let angle = if let Some(Token::Dimension(value, dimension)) =
+                    parser.peek_token_ignoring_whitespace(0)
+                {
+                    if let Ok(angle) = Angle::from_dimension(*value, *dimension) {
+                        _ = parser.next_token_ignoring_whitespace();
+                        angle
+                    } else {
+                        DEFAULT_OBLIQUE_ANGLE
+                    }
+                } else {
+                    DEFAULT_OBLIQUE_ANGLE
+                };
 
                 if !(-90. ..=90.).contains(&angle.as_degrees()) {
                     return Err(ParseError);
