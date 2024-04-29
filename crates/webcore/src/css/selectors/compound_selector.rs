@@ -2,12 +2,16 @@ use std::fmt;
 
 use crate::{
     css::{
-        selectors::{CSSValidateSelector, Selector, Specificity, SubClassSelector, TypeSelector},
-        syntax::WhitespaceAllowed,
+        selectors::{
+            CSSValidateSelector, IDSelector, Selector, Specificity, SubClassSelector, TypeSelector,
+        },
+        syntax::{Token, WhitespaceAllowed},
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
     dom::{dom_objects::Element, DomPtr},
 };
+
+use super::{AttributeSelector, ClassSelector};
 
 /// <https://drafts.csswg.org/selectors-4/#compound>
 #[derive(Clone, Debug, PartialEq)]
@@ -18,6 +22,57 @@ pub struct CompoundSelector {
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-compound-selector-list>
 pub type CompoundSelectorList = Vec<CompoundSelector>;
+
+impl CompoundSelector {
+    /// Parse the remainder of a CompoundSelector
+    /// where a type selector (optional) and some subclass selectors have already been consumed
+    pub fn parse_subclass_selectors(
+        parser: &mut Parser<'_>,
+        type_selector: Option<TypeSelector>,
+        mut subclass_selectors: Vec<SubClassSelector>,
+    ) -> Result<Self, ParseError> {
+        loop {
+            // Whitespace is not allowed between the top components of a compound selector
+            match parser.peek_token() {
+                Some(Token::Hash(ident, ..)) => {
+                    let id_selector = IDSelector { ident: *ident };
+                    _ = parser.next_token();
+
+                    subclass_selectors.push(id_selector.into())
+                },
+                Some(Token::Delim('.')) => {
+                    // No whitespace allowed between the dot and the class name
+                    let Some(Token::Ident(ident)) = parser.next_token() else {
+                        return Err(ParseError);
+                    };
+
+                    let class_selector = ClassSelector { ident };
+                    subclass_selectors.push(class_selector.into());
+                },
+                Some(Token::BracketOpen) => {
+                    let _ = parser.next_token();
+                    let attribute_selector =
+                        AttributeSelector::parse_without_leading_bracket(parser)?;
+
+                    subclass_selectors.push(attribute_selector.into())
+                },
+
+                _ => break,
+            }
+        }
+
+        if type_selector.is_none() && subclass_selectors.is_empty() {
+            return Err(ParseError);
+        }
+
+        let compound_selector = Self {
+            type_selector,
+            subclass_selectors,
+        };
+
+        Ok(compound_selector)
+    }
+}
 
 impl<'a> CSSParse<'a> for CompoundSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-compound-selector>

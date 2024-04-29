@@ -211,7 +211,7 @@ where
     T: CSSParse<'a>,
 {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        match parser.peek_token_ignoring_whitespace() {
+        match parser.peek_token_ignoring_whitespace(0) {
             Some(Token::Ident(static_interned!("auto"))) => {
                 let _ = parser.next_token_ignoring_whitespace();
                 Ok(Self::Auto)

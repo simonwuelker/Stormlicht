@@ -27,6 +27,39 @@ pub enum AttributeSelector {
     },
 }
 
+impl AttributeSelector {
+    /// Parse an attribute selector where the initial `[` has already been consumed
+    pub fn parse_without_leading_bracket(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
+        let attribute_name = WellQualifiedName::parse(parser)?;
+
+        let selector = if matches!(
+            parser.peek_token_ignoring_whitespace(0),
+            Some(Token::BracketClose)
+        ) {
+            AttributeSelector::Exists { attribute_name }
+        } else {
+            let matcher = AttributeMatcher::parse(parser)?;
+            let value = match parser.next_token_ignoring_whitespace() {
+                Some(Token::String(value) | Token::Ident(value)) => value,
+                _ => return Err(ParseError),
+            };
+
+            let modifier = parser
+                .parse_optional_value(AttributeModifier::parse)
+                .unwrap_or_default();
+
+            AttributeSelector::Matches {
+                attribute_name,
+                matcher,
+                value: value.to_string(),
+                modifier,
+            }
+        };
+
+        Ok(selector)
+    }
+}
+
 impl<'a> CSSParse<'a> for AttributeSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-attribute-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
@@ -34,48 +67,8 @@ impl<'a> CSSParse<'a> for AttributeSelector {
             return Err(ParseError);
         }
 
-        parser.skip_whitespace();
-
-        // Both variants start with a wqname
-        let attribute_name = WellQualifiedName::parse(parser)?;
-
-        parser.skip_whitespace();
-
-        let value_matching_part = parser.parse_optional_value(parse_attribute_value_matcher);
-
-        if !matches!(
-            parser.next_token_ignoring_whitespace(),
-            Some(Token::BracketClose)
-        ) {
-            return Err(ParseError);
-        }
-
-        match value_matching_part {
-            Some((matcher, value, modifier)) => Ok(AttributeSelector::Matches {
-                attribute_name,
-                matcher,
-                value: value.to_string(),
-                modifier,
-            }),
-            None => Ok(AttributeSelector::Exists { attribute_name }),
-        }
+        Self::parse_without_leading_bracket(parser)
     }
-}
-
-fn parse_attribute_value_matcher(
-    parser: &mut Parser<'_>,
-) -> Result<(AttributeMatcher, InternedString, AttributeModifier), ParseError> {
-    let attribute_matcher = AttributeMatcher::parse(parser)?;
-    let attribute_value = match parser.next_token_ignoring_whitespace() {
-        Some(Token::String(value) | Token::Ident(value)) => value,
-        _ => return Err(ParseError),
-    };
-
-    let attribute_modifier = parser
-        .parse_optional_value(AttributeModifier::parse)
-        .unwrap_or_default();
-
-    Ok((attribute_matcher, attribute_value, attribute_modifier))
 }
 
 impl CSSValidateSelector for AttributeSelector {
