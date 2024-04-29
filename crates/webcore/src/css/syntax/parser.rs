@@ -60,7 +60,7 @@ pub enum WhitespaceAllowed {
 #[derive(Clone, Debug)]
 pub struct Parser<'a> {
     tokenizer: Tokenizer<'a>,
-    queued_tokens: RingBuffer<Token, MAX_ITERATIONS>,
+    queued_tokens: RingBuffer<Token, MAX_LOOKAHEAD>,
     stop_at: Option<ParserDelimiter>,
     stopped: bool,
     origin: Origin,
