@@ -92,3 +92,27 @@ impl Serialize for &SubClassSelector {
         }
     }
 }
+
+impl From<IDSelector> for SubClassSelector {
+    fn from(value: IDSelector) -> Self {
+        Self::ID(value)
+    }
+}
+
+impl From<ClassSelector> for SubClassSelector {
+    fn from(value: ClassSelector) -> Self {
+        Self::Class(value)
+    }
+}
+
+impl From<AttributeSelector> for SubClassSelector {
+    fn from(value: AttributeSelector) -> Self {
+        Self::Attribute(value)
+    }
+}
+
+impl From<PseudoClassSelector> for SubClassSelector {
+    fn from(value: PseudoClassSelector) -> Self {
+        Self::PseudoClass(value)
+    }
+}
