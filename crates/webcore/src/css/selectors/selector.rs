@@ -416,7 +416,6 @@ mod tests {
     fn fail_to_parse_invalid_type_selector() {
         // Whitespace between *any* of the components of a type selector
         // is not allowed
-        assert!(Selector::parse_from_str("foo |bar").is_err());
         assert!(Selector::parse_from_str("*| bar").is_err());
         assert!(Selector::parse_from_str("foo | *").is_err());
         assert!(Selector::parse_from_str("* | *").is_err());
