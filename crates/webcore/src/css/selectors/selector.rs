@@ -102,11 +102,12 @@ impl<'a> CSSParse<'a> for SelectorComponent {
 
                 Self::Type(type_selector)
             },
-            _ => {
+            Some(Token::Ident(_) | Token::Delim('|')) => {
                 let type_selector = TypeSelector::parse(parser)?;
 
                 Self::Type(type_selector)
             },
+            _ => return Err(ParseError),
         };
 
         Ok(component)
