@@ -193,15 +193,17 @@ impl<'a> Parser<'a> {
     pub fn peek_token_ignoring_whitespace(&mut self, n: usize) -> Option<&Token> {
         self.queue_tokens(2 * n + 2);
 
+        let mut non_whitespace_tokens_seen = 0;
         let mut tokens_seen = 0;
 
         while let Some(token) = self.queued_tokens.peek_front(tokens_seen) {
             if !token.is_whitespace() {
-                if tokens_seen == n {
+                if non_whitespace_tokens_seen == n {
                     return Some(token);
                 }
-                tokens_seen += 1;
+                non_whitespace_tokens_seen += 1;
             }
+            tokens_seen += 1;
         }
 
         None
