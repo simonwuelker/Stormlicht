@@ -20,24 +20,54 @@ pub enum TypeSelector {
 impl<'a> CSSParse<'a> for TypeSelector {
     // <https://drafts.csswg.org/selectors-4/#typedef-type-selector>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let start_state = parser.state();
-        if let Ok(wq_name) = WellQualifiedName::parse(parser) {
-            return Ok(TypeSelector::Typename(wq_name));
-        }
+        let type_selector = match parser.next_token_ignoring_whitespace() {
+            Some(Token::Delim('|')) => match parser.next_token() {
+                Some(Token::Delim('*')) => Self::Universal(None),
+                Some(Token::Ident(ident)) => {
+                    Self::Typename(WellQualifiedName::without_namespace(ident))
+                },
+                _ => return Err(ParseError),
+            },
+            Some(Token::Delim('*')) => {
+                if let Some(Token::Delim('|')) = parser.peek_token() {
+                    _ = parser.next_token();
 
-        parser.set_state(start_state);
-        let ns_prefix = parser
-            .parse_optional_value(Option::<NamespacePrefix>::parse)
-            .flatten();
+                    match parser.next_token() {
+                        Some(Token::Delim('*')) => Self::Universal(Some(NamespacePrefix::Asterisk)),
+                        Some(Token::Ident(ident)) => {
+                            Self::Typename(WellQualifiedName::without_namespace(ident))
+                        },
+                        _ => return Err(ParseError),
+                    }
+                } else {
+                    Self::Universal(None)
+                }
+            },
+            Some(Token::Ident(ident)) => {
+                if let Some(Token::Delim('|')) = parser.peek_token() {
+                    _ = parser.next_token();
 
-        if matches!(
-            parser.next_token_ignoring_whitespace(),
-            Some(Token::Delim('*'))
-        ) {
-            Ok(TypeSelector::Universal(ns_prefix))
-        } else {
-            Err(ParseError)
-        }
+                    match parser.next_token() {
+                        Some(Token::Delim('*')) => {
+                            Self::Universal(Some(NamespacePrefix::Ident(ident)))
+                        },
+                        Some(Token::Ident(typename)) => {
+                            let qualified_name = WellQualifiedName {
+                                prefix: Some(NamespacePrefix::Ident(ident)),
+                                ident: typename,
+                            };
+                            Self::Typename(qualified_name)
+                        },
+                        _ => return Err(ParseError),
+                    }
+                } else {
+                    Self::Typename(WellQualifiedName::without_namespace(ident))
+                }
+            },
+            _ => return Err(ParseError),
+        };
+
+        Ok(type_selector)
     }
 }
 
