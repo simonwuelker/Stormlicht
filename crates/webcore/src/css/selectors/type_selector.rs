@@ -29,7 +29,7 @@ impl<'a> CSSParse<'a> for TypeSelector {
                 _ => return Err(ParseError),
             },
             Some(Token::Delim('*')) => {
-                if let Some(Token::Delim('|')) = parser.peek_token() {
+                if let Some(Token::Delim('|')) = parser.peek_token(0) {
                     _ = parser.next_token();
 
                     match parser.next_token() {
@@ -44,7 +44,7 @@ impl<'a> CSSParse<'a> for TypeSelector {
                 }
             },
             Some(Token::Ident(ident)) => {
-                if let Some(Token::Delim('|')) = parser.peek_token() {
+                if let Some(Token::Delim('|')) = parser.peek_token(0) {
                     _ = parser.next_token();
 
                     match parser.next_token() {

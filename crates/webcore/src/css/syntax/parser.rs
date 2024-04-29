@@ -183,9 +183,9 @@ impl<'a> Parser<'a> {
     }
 
     #[must_use]
-    pub fn peek_token(&mut self) -> Option<&Token> {
-        self.queue_tokens(1);
-        self.queued_tokens.peek_front(0)
+    pub fn peek_token(&mut self, n: usize) -> Option<&Token> {
+        self.queue_tokens(n + 1);
+        self.queued_tokens.peek_front(n)
     }
 
     #[inline]
@@ -527,7 +527,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn is_exhausted(&mut self) -> bool {
-        self.peek_token().is_none()
+        self.peek_token(0).is_none()
     }
 
     /// Return an error if any tokens are left in the token stream.
