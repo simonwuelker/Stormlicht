@@ -19,10 +19,10 @@ impl Url {
 
 impl<'a> CSSParse<'a> for Url {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let url = match parser.next_token() {
+        let url = match parser.next_token_ignoring_whitespace() {
             Some(Token::Uri(url)) => url,
             Some(Token::Function(f)) if f == static_interned!("url") => {
-                let Some(Token::String(url)) = parser.next_token() else {
+                let Some(Token::String(url)) = parser.next_token_ignoring_whitespace() else {
                     return Err(ParseError);
                 };
                 parser.expect_token(Token::ParenthesisClose)?;

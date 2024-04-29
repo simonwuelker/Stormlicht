@@ -43,9 +43,10 @@ impl<'a> CSSParse<'a> for AttributeSelector {
 
         let value_matching_part = parser.parse_optional_value(parse_attribute_value_matcher);
 
-        parser.skip_whitespace();
-
-        if !matches!(parser.next_token(), Some(Token::BracketClose)) {
+        if !matches!(
+            parser.next_token_ignoring_whitespace(),
+            Some(Token::BracketClose)
+        ) {
             return Err(ParseError);
         }
 
@@ -65,12 +66,11 @@ fn parse_attribute_value_matcher(
     parser: &mut Parser<'_>,
 ) -> Result<(AttributeMatcher, InternedString, AttributeModifier), ParseError> {
     let attribute_matcher = AttributeMatcher::parse(parser)?;
-    parser.skip_whitespace();
-    let attribute_value = match parser.next_token() {
+    let attribute_value = match parser.next_token_ignoring_whitespace() {
         Some(Token::String(value) | Token::Ident(value)) => value,
         _ => return Err(ParseError),
     };
-    parser.skip_whitespace();
+
     let attribute_modifier = parser
         .parse_optional_value(AttributeModifier::parse)
         .unwrap_or_default();

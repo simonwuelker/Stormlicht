@@ -55,6 +55,14 @@ pub enum Token {
     Delim(char),
 }
 
+impl Token {
+    #[inline]
+    #[must_use]
+    pub const fn is_whitespace(&self) -> bool {
+        matches!(self, Token::Whitespace)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Tokenizer<'a> {
     source: ReversibleCharIterator<&'a str>,

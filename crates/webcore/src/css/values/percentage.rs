@@ -60,12 +60,11 @@ where
     T: CSSParse<'a>,
 {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        if let Some(Token::Percentage(n)) = parser.peek_token() {
-            let parsed_percentage: f32 = n.into();
+        if let Some(Token::Percentage(n)) = parser.peek_token_ignoring_whitespace() {
+            let parsed_percentage: f32 = (*n).into();
             let fraction = parsed_percentage / 100.;
 
-            parser.next_token();
-            parser.skip_whitespace();
+            let _ = parser.next_token_ignoring_whitespace();
             Ok(Self::Percentage(Percentage::from_fraction(fraction)))
         } else {
             let value = T::parse(parser)?;

@@ -19,8 +19,6 @@ impl<'a> CSSParse<'a> for FontStyle {
             static_interned!("normal") => Self::Normal,
             static_interned!("italic") => Self::Italic,
             static_interned!("oblique") => {
-                parser.skip_whitespace();
-
                 let angle: Angle = parser.parse_optional().unwrap_or(DEFAULT_OBLIQUE_ANGLE);
 
                 if !(-90. ..=90.).contains(&angle.as_degrees()) {

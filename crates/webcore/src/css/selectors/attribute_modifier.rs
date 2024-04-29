@@ -26,7 +26,7 @@ impl AttributeModifier {
 impl<'a> CSSParse<'a> for AttributeModifier {
     // <https://drafts.csswg.org/selectors-4/#typedef-attr-modifier>
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        match parser.next_token() {
+        match parser.next_token_ignoring_whitespace() {
             Some(Token::Ident(ident)) => match ident {
                 static_interned!("i") => Ok(AttributeModifier::CaseInsensitive),
                 static_interned!("s") => Ok(AttributeModifier::CaseSensitive),

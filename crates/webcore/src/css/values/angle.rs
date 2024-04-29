@@ -44,7 +44,8 @@ impl Angle {
 
 impl<'a> CSSParse<'a> for Angle {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let Some(Token::Dimension(value, dimension)) = parser.next_token() else {
+        let Some(Token::Dimension(value, dimension)) = parser.next_token_ignoring_whitespace()
+        else {
             return Err(ParseError);
         };
         let value = f32::from(value);
