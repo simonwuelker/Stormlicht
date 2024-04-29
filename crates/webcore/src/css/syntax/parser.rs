@@ -100,16 +100,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[deprecated = "Use the new parsing api"]
-    pub fn state(&self) -> Self {
-        self.clone()
-    }
-
-    #[deprecated = "Use the new parsing api"]
-    pub fn set_state(&mut self, state: Self) {
-        *self = state;
-    }
-
     pub fn resume(&mut self) {
         debug_assert!(self.stopped, "Resuming a parser that never stopped");
 
@@ -552,13 +542,6 @@ impl<'a> Parser<'a> {
             Err(ParseError)
         }
     }
-
-    /// Skip any potential whitespaces, possibly none.
-    ///
-    /// If you want to ensure that at least one whitespace exists, call
-    /// [expect_whitespace](Parser::expect_whitespace) beforehand.
-    #[deprecated = "Skip whitespace using next_token_ignoring_whitespace instead"]
-    pub fn skip_whitespace(&mut self) {}
 
     pub fn expect_percentage(&mut self) -> Result<Number, ParseError> {
         if let Some(Token::Percentage(percentage)) = self.next_token_ignoring_whitespace() {
