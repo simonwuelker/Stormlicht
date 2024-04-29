@@ -111,7 +111,7 @@ impl FontSize {
 
 impl<'a> CSSParse<'a> for FontSize {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let position = match parser.peek_token() {
+        let position = match parser.peek_token_ignoring_whitespace() {
             Some(Token::Ident(static_interned!("xx-small"))) => {
                 Self::Absolute(AbsoluteSize::XXSmall)
             },
@@ -129,7 +129,7 @@ impl<'a> CSSParse<'a> for FontSize {
             Some(Token::Ident(static_interned!("larger"))) => Self::Relative(RelativeSize::Larger),
             _ => return Ok(Self::LengthPercentage(CSSParse::parse(parser)?)),
         };
-        parser.next_token();
+        let _ = parser.next_token_ignoring_whitespace();
 
         Ok(position)
     }
