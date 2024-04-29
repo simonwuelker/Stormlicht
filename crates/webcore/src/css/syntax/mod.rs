@@ -4,6 +4,5 @@ pub mod parser;
 mod rule_parser;
 mod tokenizer;
 
-pub use parser::WhitespaceAllowed;
 pub(crate) use rule_parser::RuleParser;
-pub use tokenizer::{HashFlag, Token};
+pub use tokenizer::Token;
