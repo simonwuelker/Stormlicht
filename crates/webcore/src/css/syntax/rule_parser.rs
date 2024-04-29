@@ -29,7 +29,10 @@ impl RuleParser {
         parser: &mut Parser<'_>,
     ) -> Result<Vec<StylePropertyDeclaration>, ParseError> {
         let mut properties = vec![];
-        while !parser.is_exhausted() {
+        while !matches!(
+            parser.peek_token_ignoring_whitespace(0),
+            Some(Token::CurlyBraceClose)
+        ) {
             if let Some(declaration) = parser.consume_declaration() {
                 properties.push(declaration);
 
