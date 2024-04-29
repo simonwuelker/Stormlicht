@@ -1,9 +1,11 @@
 use crate::{
     css::{syntax::Token, CSSParse, ParseError, Parser},
-    static_interned,
+    static_interned, InternedString,
 };
 
 use std::fmt;
+
+use super::Number;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Angle {
@@ -40,14 +42,9 @@ impl Angle {
     pub const fn as_degrees(&self) -> f32 {
         self.turns * 360.
     }
-}
 
-impl<'a> CSSParse<'a> for Angle {
-    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let Some(Token::Dimension(value, dimension)) = parser.next_token_ignoring_whitespace()
-        else {
-            return Err(ParseError);
-        };
+    #[must_use]
+    pub fn from_dimension(value: Number, dimension: InternedString) -> Result<Self, ParseError> {
         let value = f32::from(value);
 
         let angle = match dimension {
@@ -74,6 +71,17 @@ impl<'a> CSSParse<'a> for Angle {
         };
 
         Ok(angle)
+    }
+}
+
+impl<'a> CSSParse<'a> for Angle {
+    fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
+        let Some(Token::Dimension(value, dimension)) = parser.next_token_ignoring_whitespace()
+        else {
+            return Err(ParseError);
+        };
+
+        Self::from_dimension(value, dimension)
     }
 }
 
