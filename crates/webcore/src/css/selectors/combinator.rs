@@ -48,7 +48,7 @@ impl Combinator {
     #[must_use]
     pub fn next_combinator(parser: &mut Parser<'_>) -> Result<Option<Self>, ParseError> {
         let combinator = match parser.peek_token_ignoring_whitespace(0) {
-            None => {
+            None | Some(Token::Comma) => {
                 // There are no more units
                 return Ok(None);
             },
