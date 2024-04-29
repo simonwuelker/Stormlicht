@@ -43,9 +43,7 @@ impl Stylesheet {
     #[must_use]
     pub fn user_agent_rules() -> Self {
         let default_css = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/default.css"));
-        Parser::new(default_css, Origin::UserAgent)
-            .parse_stylesheet(usize::MAX)
-            .expect("Parsing user agent CSS should never fail")
+        Parser::new(default_css, Origin::UserAgent).parse_stylesheet(usize::MAX)
     }
 
     #[inline]

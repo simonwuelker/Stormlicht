@@ -233,15 +233,14 @@ impl<P: ParseErrorHandler> Parser<P> {
         if element.underlying_type() == DomType::HtmlStyleElement {
             if let Some(first_child) = element.borrow().children().first() {
                 if let Some(text_node) = first_child.try_into_type::<Text>() {
-                    if let Ok(stylesheet) =
+                    let stylesheet =
                         css::Parser::new(text_node.borrow().content(), css::Origin::Author)
-                            .parse_stylesheet(self.stylesheets.len())
-                    {
-                        if !stylesheet.rules().is_empty() {
-                            self.stylesheets.push(stylesheet);
-                        } else {
-                            log::debug!("Dropping empty stylesheet");
-                        }
+                            .parse_stylesheet(self.stylesheets.len());
+
+                    if !stylesheet.rules().is_empty() {
+                        self.stylesheets.push(stylesheet);
+                    } else {
+                        log::debug!("Dropping empty stylesheet");
                     }
                 }
             }
@@ -255,14 +254,13 @@ impl<P: ParseErrorHandler> Parser<P> {
                         Ok(resource) => {
                             // FIXME: Check mime type here
                             let css = String::from_utf8_lossy(&resource.data);
-                            if let Ok(stylesheet) = css::Parser::new(&css, css::Origin::Author)
-                                .parse_stylesheet(self.stylesheets.len())
-                            {
-                                if !stylesheet.rules().is_empty() {
-                                    self.stylesheets.push(stylesheet);
-                                } else {
-                                    log::debug!("Dropping empty stylesheet");
-                                }
+                            let stylesheet = css::Parser::new(&css, css::Origin::Author)
+                                .parse_stylesheet(self.stylesheets.len());
+
+                            if !stylesheet.rules().is_empty() {
+                                self.stylesheets.push(stylesheet);
+                            } else {
+                                log::debug!("Dropping empty stylesheet");
                             }
                         },
                         Err(error) => {
