@@ -2,7 +2,7 @@
 
 use crate::{
     css::{syntax::Token, CSSParse, ParseError, Parser},
-    static_interned,
+    static_interned, InternedString,
 };
 
 use super::{Number, PercentageOr};
@@ -474,205 +474,197 @@ impl Color {
         }
     }
 
-    pub fn parse_from_name(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
-        if let Some(Token::Ident(name)) = parser.next_token() {
-            let color = match name {
-                static_interned!("aliceblue") => Self::ALICE_BLUE,
-                static_interned!("antiquewhite") => Self::ANTIQUE_WHITE,
-                static_interned!("aqua") => Self::AQUA,
-                static_interned!("aquamarine") => Self::AQUAMARINE,
-                static_interned!("azure") => Self::AZURE,
-                static_interned!("beige") => Self::BEIGE,
-                static_interned!("bisque") => Self::BISQUE,
-                static_interned!("black") => Self::BLACK,
-                static_interned!("blanchedalmond") => Self::BLANCHED_ALMOND,
-                static_interned!("blue") => Self::BLUE,
-                static_interned!("blueviolet") => Self::BLUE_VIOLET,
-                static_interned!("brown") => Self::BROWN,
-                static_interned!("burlywood") => Self::BURLY_WOOD,
-                static_interned!("cadetblue") => Self::CADET_BLUE,
-                static_interned!("chartreuse") => Self::CHARTREUSE,
-                static_interned!("chocolate") => Self::CHOCOLATE,
-                static_interned!("coral") => Self::CORAL,
-                static_interned!("cornflowerblue") => Self::CORNFLOWER_BLUE,
-                static_interned!("cornsilk") => Self::CORN_SILK,
-                static_interned!("crimson") => Self::CRIMSON,
-                static_interned!("cyan") => Self::CYAN,
-                static_interned!("darkblue") => Self::DARK_BLUE,
-                static_interned!("darkcyan") => Self::DARK_CYAN,
-                static_interned!("darkgoldenrod") => Self::DARK_GOLDEN_ROD,
-                static_interned!("darkgray") => Self::DARK_GRAY,
-                static_interned!("darkgreen") => Self::DARK_GREEN,
-                static_interned!("darkgrey") => Self::DARK_GREY,
-                static_interned!("darkkhaki") => Self::DARK_KHAKI,
-                static_interned!("darkmagenta") => Self::DARK_MAGENTA,
-                static_interned!("darkolivegreen") => Self::DARK_OLIVE_GREEN,
-                static_interned!("darkorange") => Self::DARK_ORANGE,
-                static_interned!("darkorchid") => Self::DARK_ORCHID,
-                static_interned!("darkred") => Self::DARK_RED,
-                static_interned!("darksalmon") => Self::DARK_SALMON,
-                static_interned!("darkseagreen") => Self::DARK_SEA_GREEN,
-                static_interned!("darkslateblue") => Self::DARK_SLATE_BLUE,
-                static_interned!("darkslategray") => Self::DARK_SLATE_GRAY,
-                static_interned!("darkslategrey") => Self::DARK_SLATE_GREY,
-                static_interned!("darkturquoise") => Self::DARK_TURQUOISE,
-                static_interned!("darkviolet") => Self::DARK_VIOLET,
-                static_interned!("deeppink") => Self::DEEP_PINK,
-                static_interned!("deepskyblue") => Self::DEEP_SKY_BLUE,
-                static_interned!("dimgray") => Self::DIM_GRAY,
-                static_interned!("dimgrey") => Self::DIM_GREY,
-                static_interned!("dodgerblue") => Self::DODGER_BLUE,
-                static_interned!("firebrick") => Self::FIRE_BRICK,
-                static_interned!("floralwhite") => Self::FLORAL_WHITE,
-                static_interned!("forestgreen") => Self::FOREST_GREEN,
-                static_interned!("fuchsia") => Self::FUCHSIA,
-                static_interned!("gainsboro") => Self::GAINSBORO,
-                static_interned!("ghostwhite") => Self::GHOST_WHITE,
-                static_interned!("gold") => Self::GOLD,
-                static_interned!("goldenrod") => Self::GOLDEN_ROD,
-                static_interned!("gray") => Self::GRAY,
-                static_interned!("green") => Self::GREEN,
-                static_interned!("greenyellow") => Self::GREEN_YELLOW,
-                static_interned!("grey") => Self::GREY,
-                static_interned!("honeydew") => Self::HONEYDEW,
-                static_interned!("hotpink") => Self::HOT_PINK,
-                static_interned!("indianred") => Self::INDIAN_RED,
-                static_interned!("indigo") => Self::INDIGO,
-                static_interned!("ivory") => Self::IVORY,
-                static_interned!("khaki") => Self::KHAKI,
-                static_interned!("lavender") => Self::LAVENDER,
-                static_interned!("lavenderblush") => Self::LAVENDER_BLUSH,
-                static_interned!("lawngreen") => Self::LAWN_GREEN,
-                static_interned!("lemonchiffon") => Self::LEMON_CHIFFON,
-                static_interned!("lightblue") => Self::LIGHT_BLUE,
-                static_interned!("lightcoral") => Self::LIGHT_CORAL,
-                static_interned!("lightcyan") => Self::LIGHT_CYAN,
-                static_interned!("lightgoldenrodyellow") => Self::LIGHT_GOLDEN_ROD_YELLOW,
-                static_interned!("lightgray") => Self::LIGHT_GRAY,
-                static_interned!("lightgreen") => Self::LIGHT_GREEN,
-                static_interned!("lightgrey") => Self::LIGHT_GREY,
-                static_interned!("lightpink") => Self::LIGHT_PINK,
-                static_interned!("lightsalmon") => Self::LIGHT_SALMON,
-                static_interned!("lightseagreen") => Self::LIGHT_SEA_GREEN,
-                static_interned!("lightskyblue") => Self::LIGHT_SKY_BLUE,
-                static_interned!("lightslategray") => Self::LIGHT_SLATE_GRAY,
-                static_interned!("lightslategrey") => Self::LIGHT_SLATE_GREY,
-                static_interned!("lightsteelblue") => Self::LIGHT_STEEL_BLUE,
-                static_interned!("lightyellow") => Self::LIGHT_YELLOW,
-                static_interned!("lime") => Self::LIME,
-                static_interned!("limegreen") => Self::LIME_GREEN,
-                static_interned!("linen") => Self::LINEN,
-                static_interned!("magenta") => Self::MAGENTA,
-                static_interned!("maroon") => Self::MAROON,
-                static_interned!("mediumaquamarine") => Self::MEDIUM_AQUAMARINE,
-                static_interned!("mediumblue") => Self::MEDIUM_BLUE,
-                static_interned!("mediumorchid") => Self::MEDIUM_ORCHID,
-                static_interned!("mediumpurple") => Self::MEDIUM_PURPLE,
-                static_interned!("mediumseagreeen") => Self::MEDIUM_SEA_GREEN,
-                static_interned!("mediumslateblue") => Self::MEDIUM_SLATE_BLUE,
-                static_interned!("mediumspringgreen") => Self::MEDIUM_SPRING_GREEN,
-                static_interned!("mediumturquoise") => Self::MEDIUM_TURQUOISE,
-                static_interned!("mediumvioletred") => Self::MEDIUM_VIOLET_RED,
-                static_interned!("midnightblue") => Self::MIDNIGHT_BLUE,
-                static_interned!("mintcream") => Self::MINT_CREAM,
-                static_interned!("mistyrose") => Self::MISTY_ROSE,
-                static_interned!("moccasin") => Self::MOCCASIN,
-                static_interned!("navajowhite") => Self::NAVAJO_WHITE,
-                static_interned!("navy") => Self::NAVY,
-                static_interned!("oldlace") => Self::OLD_LACE,
-                static_interned!("olive") => Self::OLIVE,
-                static_interned!("olivedrab") => Self::OLIVE_DRAB,
-                static_interned!("orange") => Self::ORANGE,
-                static_interned!("orangered") => Self::ORANGE_RED,
-                static_interned!("orchid") => Self::ORCHID,
-                static_interned!("palegoldenrod") => Self::PALE_GOLDEN_ROD,
-                static_interned!("palegreen") => Self::PALE_GREEN,
-                static_interned!("paleturquoise") => Self::PALE_TURQUOISE,
-                static_interned!("palevioletred") => Self::PALE_VIOLET_RED,
-                static_interned!("papayawhip") => Self::PAPAYA_WHIP,
-                static_interned!("peachpuff") => Self::PEACH_PUFF,
-                static_interned!("peru") => Self::PERU,
-                static_interned!("pink") => Self::PINK,
-                static_interned!("plum") => Self::PLUM,
-                static_interned!("powderblue") => Self::POWDER_BLUE,
-                static_interned!("purple") => Self::PURPLE,
-                static_interned!("rebeccapurple") => Self::REBECCA_PURPLE,
-                static_interned!("red") => Self::RED,
-                static_interned!("rosybrown") => Self::ROSY_BROWN,
-                static_interned!("royalblue") => Self::ROYAL_BLUE,
-                static_interned!("saddlebrown") => Self::SADDLE_BROWN,
-                static_interned!("salmon") => Self::SALMON,
-                static_interned!("sandybrown") => Self::SANDY_BROWN,
-                static_interned!("seagreen") => Self::SEA_GREEN,
-                static_interned!("seashell") => Self::SEASHELL,
-                static_interned!("sienna") => Self::SIENNA,
-                static_interned!("silver") => Self::SILVER,
-                static_interned!("skyblue") => Self::SKY_BLUE,
-                static_interned!("slateblue") => Self::SLATE_BLUE,
-                static_interned!("slategray") => Self::SLATE_GRAY,
-                static_interned!("slategrey") => Self::SLATE_GREY,
-                static_interned!("snow") => Self::SNOW,
-                static_interned!("springgreen") => Self::SPRING_GREEN,
-                static_interned!("steelblue") => Self::STEEL_BLUE,
-                static_interned!("tan") => Self::TAN,
-                static_interned!("teal") => Self::TEAL,
-                static_interned!("thistle") => Self::THISTLE,
-                static_interned!("tomato") => Self::TOMATO,
-                static_interned!("turquoise") => Self::TURQUOISE,
-                static_interned!("violet") => Self::VIOLET,
-                static_interned!("wheat") => Self::WHEAT,
-                static_interned!("white") => Self::WHITE,
-                static_interned!("whitesmoke") => Self::WHITE_SMOKE,
-                static_interned!("yellow") => Self::YELLOW,
-                static_interned!("yellowgreen") => Self::YELLOW_GREEN,
-                _ => return Err(ParseError),
-            };
-            Ok(color)
-        } else {
-            Err(ParseError)
-        }
+    pub fn from_name(name: InternedString) -> Result<Self, ParseError> {
+        let color = match name {
+            static_interned!("aliceblue") => Self::ALICE_BLUE,
+            static_interned!("antiquewhite") => Self::ANTIQUE_WHITE,
+            static_interned!("aqua") => Self::AQUA,
+            static_interned!("aquamarine") => Self::AQUAMARINE,
+            static_interned!("azure") => Self::AZURE,
+            static_interned!("beige") => Self::BEIGE,
+            static_interned!("bisque") => Self::BISQUE,
+            static_interned!("black") => Self::BLACK,
+            static_interned!("blanchedalmond") => Self::BLANCHED_ALMOND,
+            static_interned!("blue") => Self::BLUE,
+            static_interned!("blueviolet") => Self::BLUE_VIOLET,
+            static_interned!("brown") => Self::BROWN,
+            static_interned!("burlywood") => Self::BURLY_WOOD,
+            static_interned!("cadetblue") => Self::CADET_BLUE,
+            static_interned!("chartreuse") => Self::CHARTREUSE,
+            static_interned!("chocolate") => Self::CHOCOLATE,
+            static_interned!("coral") => Self::CORAL,
+            static_interned!("cornflowerblue") => Self::CORNFLOWER_BLUE,
+            static_interned!("cornsilk") => Self::CORN_SILK,
+            static_interned!("crimson") => Self::CRIMSON,
+            static_interned!("cyan") => Self::CYAN,
+            static_interned!("darkblue") => Self::DARK_BLUE,
+            static_interned!("darkcyan") => Self::DARK_CYAN,
+            static_interned!("darkgoldenrod") => Self::DARK_GOLDEN_ROD,
+            static_interned!("darkgray") => Self::DARK_GRAY,
+            static_interned!("darkgreen") => Self::DARK_GREEN,
+            static_interned!("darkgrey") => Self::DARK_GREY,
+            static_interned!("darkkhaki") => Self::DARK_KHAKI,
+            static_interned!("darkmagenta") => Self::DARK_MAGENTA,
+            static_interned!("darkolivegreen") => Self::DARK_OLIVE_GREEN,
+            static_interned!("darkorange") => Self::DARK_ORANGE,
+            static_interned!("darkorchid") => Self::DARK_ORCHID,
+            static_interned!("darkred") => Self::DARK_RED,
+            static_interned!("darksalmon") => Self::DARK_SALMON,
+            static_interned!("darkseagreen") => Self::DARK_SEA_GREEN,
+            static_interned!("darkslateblue") => Self::DARK_SLATE_BLUE,
+            static_interned!("darkslategray") => Self::DARK_SLATE_GRAY,
+            static_interned!("darkslategrey") => Self::DARK_SLATE_GREY,
+            static_interned!("darkturquoise") => Self::DARK_TURQUOISE,
+            static_interned!("darkviolet") => Self::DARK_VIOLET,
+            static_interned!("deeppink") => Self::DEEP_PINK,
+            static_interned!("deepskyblue") => Self::DEEP_SKY_BLUE,
+            static_interned!("dimgray") => Self::DIM_GRAY,
+            static_interned!("dimgrey") => Self::DIM_GREY,
+            static_interned!("dodgerblue") => Self::DODGER_BLUE,
+            static_interned!("firebrick") => Self::FIRE_BRICK,
+            static_interned!("floralwhite") => Self::FLORAL_WHITE,
+            static_interned!("forestgreen") => Self::FOREST_GREEN,
+            static_interned!("fuchsia") => Self::FUCHSIA,
+            static_interned!("gainsboro") => Self::GAINSBORO,
+            static_interned!("ghostwhite") => Self::GHOST_WHITE,
+            static_interned!("gold") => Self::GOLD,
+            static_interned!("goldenrod") => Self::GOLDEN_ROD,
+            static_interned!("gray") => Self::GRAY,
+            static_interned!("green") => Self::GREEN,
+            static_interned!("greenyellow") => Self::GREEN_YELLOW,
+            static_interned!("grey") => Self::GREY,
+            static_interned!("honeydew") => Self::HONEYDEW,
+            static_interned!("hotpink") => Self::HOT_PINK,
+            static_interned!("indianred") => Self::INDIAN_RED,
+            static_interned!("indigo") => Self::INDIGO,
+            static_interned!("ivory") => Self::IVORY,
+            static_interned!("khaki") => Self::KHAKI,
+            static_interned!("lavender") => Self::LAVENDER,
+            static_interned!("lavenderblush") => Self::LAVENDER_BLUSH,
+            static_interned!("lawngreen") => Self::LAWN_GREEN,
+            static_interned!("lemonchiffon") => Self::LEMON_CHIFFON,
+            static_interned!("lightblue") => Self::LIGHT_BLUE,
+            static_interned!("lightcoral") => Self::LIGHT_CORAL,
+            static_interned!("lightcyan") => Self::LIGHT_CYAN,
+            static_interned!("lightgoldenrodyellow") => Self::LIGHT_GOLDEN_ROD_YELLOW,
+            static_interned!("lightgray") => Self::LIGHT_GRAY,
+            static_interned!("lightgreen") => Self::LIGHT_GREEN,
+            static_interned!("lightgrey") => Self::LIGHT_GREY,
+            static_interned!("lightpink") => Self::LIGHT_PINK,
+            static_interned!("lightsalmon") => Self::LIGHT_SALMON,
+            static_interned!("lightseagreen") => Self::LIGHT_SEA_GREEN,
+            static_interned!("lightskyblue") => Self::LIGHT_SKY_BLUE,
+            static_interned!("lightslategray") => Self::LIGHT_SLATE_GRAY,
+            static_interned!("lightslategrey") => Self::LIGHT_SLATE_GREY,
+            static_interned!("lightsteelblue") => Self::LIGHT_STEEL_BLUE,
+            static_interned!("lightyellow") => Self::LIGHT_YELLOW,
+            static_interned!("lime") => Self::LIME,
+            static_interned!("limegreen") => Self::LIME_GREEN,
+            static_interned!("linen") => Self::LINEN,
+            static_interned!("magenta") => Self::MAGENTA,
+            static_interned!("maroon") => Self::MAROON,
+            static_interned!("mediumaquamarine") => Self::MEDIUM_AQUAMARINE,
+            static_interned!("mediumblue") => Self::MEDIUM_BLUE,
+            static_interned!("mediumorchid") => Self::MEDIUM_ORCHID,
+            static_interned!("mediumpurple") => Self::MEDIUM_PURPLE,
+            static_interned!("mediumseagreeen") => Self::MEDIUM_SEA_GREEN,
+            static_interned!("mediumslateblue") => Self::MEDIUM_SLATE_BLUE,
+            static_interned!("mediumspringgreen") => Self::MEDIUM_SPRING_GREEN,
+            static_interned!("mediumturquoise") => Self::MEDIUM_TURQUOISE,
+            static_interned!("mediumvioletred") => Self::MEDIUM_VIOLET_RED,
+            static_interned!("midnightblue") => Self::MIDNIGHT_BLUE,
+            static_interned!("mintcream") => Self::MINT_CREAM,
+            static_interned!("mistyrose") => Self::MISTY_ROSE,
+            static_interned!("moccasin") => Self::MOCCASIN,
+            static_interned!("navajowhite") => Self::NAVAJO_WHITE,
+            static_interned!("navy") => Self::NAVY,
+            static_interned!("oldlace") => Self::OLD_LACE,
+            static_interned!("olive") => Self::OLIVE,
+            static_interned!("olivedrab") => Self::OLIVE_DRAB,
+            static_interned!("orange") => Self::ORANGE,
+            static_interned!("orangered") => Self::ORANGE_RED,
+            static_interned!("orchid") => Self::ORCHID,
+            static_interned!("palegoldenrod") => Self::PALE_GOLDEN_ROD,
+            static_interned!("palegreen") => Self::PALE_GREEN,
+            static_interned!("paleturquoise") => Self::PALE_TURQUOISE,
+            static_interned!("palevioletred") => Self::PALE_VIOLET_RED,
+            static_interned!("papayawhip") => Self::PAPAYA_WHIP,
+            static_interned!("peachpuff") => Self::PEACH_PUFF,
+            static_interned!("peru") => Self::PERU,
+            static_interned!("pink") => Self::PINK,
+            static_interned!("plum") => Self::PLUM,
+            static_interned!("powderblue") => Self::POWDER_BLUE,
+            static_interned!("purple") => Self::PURPLE,
+            static_interned!("rebeccapurple") => Self::REBECCA_PURPLE,
+            static_interned!("red") => Self::RED,
+            static_interned!("rosybrown") => Self::ROSY_BROWN,
+            static_interned!("royalblue") => Self::ROYAL_BLUE,
+            static_interned!("saddlebrown") => Self::SADDLE_BROWN,
+            static_interned!("salmon") => Self::SALMON,
+            static_interned!("sandybrown") => Self::SANDY_BROWN,
+            static_interned!("seagreen") => Self::SEA_GREEN,
+            static_interned!("seashell") => Self::SEASHELL,
+            static_interned!("sienna") => Self::SIENNA,
+            static_interned!("silver") => Self::SILVER,
+            static_interned!("skyblue") => Self::SKY_BLUE,
+            static_interned!("slateblue") => Self::SLATE_BLUE,
+            static_interned!("slategray") => Self::SLATE_GRAY,
+            static_interned!("slategrey") => Self::SLATE_GREY,
+            static_interned!("snow") => Self::SNOW,
+            static_interned!("springgreen") => Self::SPRING_GREEN,
+            static_interned!("steelblue") => Self::STEEL_BLUE,
+            static_interned!("tan") => Self::TAN,
+            static_interned!("teal") => Self::TEAL,
+            static_interned!("thistle") => Self::THISTLE,
+            static_interned!("tomato") => Self::TOMATO,
+            static_interned!("turquoise") => Self::TURQUOISE,
+            static_interned!("violet") => Self::VIOLET,
+            static_interned!("wheat") => Self::WHEAT,
+            static_interned!("white") => Self::WHITE,
+            static_interned!("whitesmoke") => Self::WHITE_SMOKE,
+            static_interned!("yellow") => Self::YELLOW,
+            static_interned!("yellowgreen") => Self::YELLOW_GREEN,
+            _ => return Err(ParseError),
+        };
+        Ok(color)
     }
 
-    fn parse_as_hex_color(parser: &mut Parser<'_>) -> Result<Self, ParseError> {
+    fn from_hex_color(hash: InternedString) -> Result<Self, ParseError> {
         // TODO: should we care about the hash flag here?
-        if let Some(Token::Hash(ident, _)) = parser.next_token_ignoring_whitespace() {
-            let ident = ident.to_string();
-            if ident.len() == 6 {
-                // 6-digit hex number
-                Ok(Self {
-                    red: u8::from_str_radix(&ident[0..2], 16).map_err(|_| ParseError)?,
-                    green: u8::from_str_radix(&ident[2..4], 16).map_err(|_| ParseError)?,
-                    blue: u8::from_str_radix(&ident[4..6], 16).map_err(|_| ParseError)?,
-                    alpha: u8::MAX,
-                })
-            } else if ident.len() == 8 {
-                // 8-digit hex with alpha
-                Ok(Self {
-                    red: u8::from_str_radix(&ident[0..2], 16).map_err(|_| ParseError)?,
-                    green: u8::from_str_radix(&ident[2..4], 16).map_err(|_| ParseError)?,
-                    blue: u8::from_str_radix(&ident[4..6], 16).map_err(|_| ParseError)?,
-                    alpha: u8::from_str_radix(&ident[6..8], 16).map_err(|_| ParseError)?,
-                })
-            } else if ident.len() == 3 {
-                // Shorter version of 6-digit hex, each digit is "duplicated"
-                Ok(Self {
-                    red: u8::from_str_radix(&ident[0..1], 16).map_err(|_| ParseError)? * 0x11,
-                    green: u8::from_str_radix(&ident[1..2], 16).map_err(|_| ParseError)? * 0x11,
-                    blue: u8::from_str_radix(&ident[2..3], 16).map_err(|_| ParseError)? * 0x11,
-                    alpha: u8::MAX,
-                })
-            } else if ident.len() == 4 {
-                Ok(Self {
-                    red: u8::from_str_radix(&ident[0..1], 16).map_err(|_| ParseError)? * 0x11,
-                    green: u8::from_str_radix(&ident[1..2], 16).map_err(|_| ParseError)? * 0x11,
-                    blue: u8::from_str_radix(&ident[2..3], 16).map_err(|_| ParseError)? * 0x11,
-                    alpha: u8::from_str_radix(&ident[3..4], 16).map_err(|_| ParseError)? * 0x11,
-                })
-            } else {
-                // Invalid length
-                Err(ParseError)
-            }
+        let ident = hash.to_string();
+        if ident.len() == 6 {
+            // 6-digit hex number
+            Ok(Self {
+                red: u8::from_str_radix(&ident[0..2], 16).map_err(|_| ParseError)?,
+                green: u8::from_str_radix(&ident[2..4], 16).map_err(|_| ParseError)?,
+                blue: u8::from_str_radix(&ident[4..6], 16).map_err(|_| ParseError)?,
+                alpha: u8::MAX,
+            })
+        } else if ident.len() == 8 {
+            // 8-digit hex with alpha
+            Ok(Self {
+                red: u8::from_str_radix(&ident[0..2], 16).map_err(|_| ParseError)?,
+                green: u8::from_str_radix(&ident[2..4], 16).map_err(|_| ParseError)?,
+                blue: u8::from_str_radix(&ident[4..6], 16).map_err(|_| ParseError)?,
+                alpha: u8::from_str_radix(&ident[6..8], 16).map_err(|_| ParseError)?,
+            })
+        } else if ident.len() == 3 {
+            // Shorter version of 6-digit hex, each digit is "duplicated"
+            Ok(Self {
+                red: u8::from_str_radix(&ident[0..1], 16).map_err(|_| ParseError)? * 0x11,
+                green: u8::from_str_radix(&ident[1..2], 16).map_err(|_| ParseError)? * 0x11,
+                blue: u8::from_str_radix(&ident[2..3], 16).map_err(|_| ParseError)? * 0x11,
+                alpha: u8::MAX,
+            })
+        } else if ident.len() == 4 {
+            Ok(Self {
+                red: u8::from_str_radix(&ident[0..1], 16).map_err(|_| ParseError)? * 0x11,
+                green: u8::from_str_radix(&ident[1..2], 16).map_err(|_| ParseError)? * 0x11,
+                blue: u8::from_str_radix(&ident[2..3], 16).map_err(|_| ParseError)? * 0x11,
+                alpha: u8::from_str_radix(&ident[3..4], 16).map_err(|_| ParseError)? * 0x11,
+            })
         } else {
+            // Invalid length
             Err(ParseError)
         }
     }
@@ -773,18 +765,23 @@ impl Color {
 
 impl<'a> CSSParse<'a> for Color {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        if let Some(color) = parser.parse_optional_value(Self::parse_from_name) {
-            return Ok(color);
-        }
+        match parser.peek_token_ignoring_whitespace(0) {
+            Some(Token::Hash(hash, ..)) => {
+                // TODO: should we care about the hash flag here?
+                let hash = *hash;
+                let _ = parser.next_token_ignoring_whitespace();
 
-        if let Some(color) = parser.parse_optional_value(Self::parse_as_hex_color) {
-            return Ok(color);
-        }
+                Self::from_hex_color(hash)
+            },
+            Some(Token::Function(_)) => Self::parse_rgb_function(parser),
+            Some(Token::Ident(color_name)) => {
+                let color_name = *color_name;
+                let _ = parser.next_token_ignoring_whitespace();
 
-        if let Some(color) = parser.parse_optional_value(Self::parse_rgb_function) {
-            return Ok(color);
+                Self::from_name(color_name)
+            },
+            _ => Err(ParseError),
         }
-        Err(ParseError)
     }
 }
 
