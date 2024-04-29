@@ -1,9 +1,6 @@
 use std::fmt;
 
-use crate::css::{
-    selectors::CSSValidateSelector, syntax::Token, CSSParse, ParseError, Parser, Serialize,
-    Serializer,
-};
+use crate::css::{selectors::CSSValidateSelector, syntax::Token, CSSParse, ParseError, Parser};
 
 /// <https://drafts.csswg.org/selectors-4/#combinators>
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -128,18 +125,6 @@ impl CSSValidateSelector for Combinator {
         // We don't support *any* combinators
         // As per spec, we therefore treat them as invalid
         false
-    }
-}
-
-impl Serialize for Combinator {
-    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
-        match self {
-            Self::Descendant => serializer.serialize(' '),
-            Self::Child => serializer.serialize('>'),
-            Self::NextSibling => serializer.serialize('+'),
-            Self::SubsequentSibling => serializer.serialize('~'),
-            Self::Column => serializer.serialize("||"),
-        }
     }
 }
 

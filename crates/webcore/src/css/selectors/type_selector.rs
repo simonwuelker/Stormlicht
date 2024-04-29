@@ -4,7 +4,7 @@ use crate::{
     css::{
         selectors::{CSSValidateSelector, NamespacePrefix, Specificity, WellQualifiedName},
         syntax::Token,
-        CSSParse, ParseError, Parser, Serialize, Serializer,
+        CSSParse, ParseError, Parser,
     },
     dom::{dom_objects::Element, DomPtr},
 };
@@ -99,20 +99,5 @@ impl TypeSelector {
 
     pub fn specificity(&self) -> Specificity {
         Specificity::new(0, 0, 1)
-    }
-}
-
-impl Serialize for TypeSelector {
-    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
-        match self {
-            Self::Universal(namespace) => {
-                // FIXME: serialize ns prefix
-                _ = namespace;
-
-                serializer.serialize('*')?;
-                Ok(())
-            },
-            Self::Typename(type_name) => serializer.serialize(*type_name),
-        }
     }
 }
