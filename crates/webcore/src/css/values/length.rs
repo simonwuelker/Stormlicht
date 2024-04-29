@@ -275,7 +275,7 @@ impl TryFrom<InternedString> for Unit {
 
 impl<'a> CSSParse<'a> for Length {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        match parser.next_token() {
+        match parser.next_token_ignoring_whitespace() {
             Some(Token::Dimension(number, unit_name)) => {
                 let length = Self {
                     value: number.into(),
