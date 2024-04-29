@@ -61,6 +61,12 @@ impl Token {
     pub const fn is_whitespace(&self) -> bool {
         matches!(self, Token::Whitespace)
     }
+
+    #[inline]
+    #[must_use]
+    pub const fn is_semicolon(&self) -> bool {
+        matches!(self, Token::Semicolon)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
