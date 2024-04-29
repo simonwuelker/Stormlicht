@@ -54,10 +54,6 @@ impl Combinator {
         }
 
         let combinator = match parser.peek_token(0) {
-            None | Some(Token::Comma) => {
-                // There are no more units
-                return Ok(None);
-            },
             Some(Token::Delim('>')) => {
                 _ = parser.next_token();
                 Combinator::Child
@@ -86,14 +82,21 @@ impl Combinator {
                     }
                 }
             },
-            Some(_) => {
-                // There is no combinator between these two complex selector units.
+            // These tokens are valid starts of simple selectors
+            Some(
+                Token::Delim('*' | '.') | Token::Ident(_) | Token::Hash(..) | Token::BracketOpen,
+            ) => {
+                // There is no combinator between these two simple selectors.
                 // There *must* be at least one whitespace (descendant combinator)
                 if !has_whitespace {
                     return Err(ParseError);
                 }
 
                 Combinator::Descendant
+            },
+            _ => {
+                // There is no combinator here
+                return Ok(None);
             },
         };
 
