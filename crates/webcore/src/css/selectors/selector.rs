@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    css::{selectors::Specificity, syntax::Token, CSSParse, ParseError, Parser, Serializer},
+    css::{selectors::Specificity, syntax::Token, CSSParse, ParseError, Parser},
     dom::{dom_objects::Element, DomPtr},
     static_interned, InternedString,
 };

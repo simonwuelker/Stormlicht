@@ -7,7 +7,7 @@ use crate::{
             WellQualifiedName,
         },
         syntax::Token,
-        CSSParse, ParseError, Parser, Serialize, Serializer,
+        CSSParse, ParseError, Parser,
     },
     dom::{dom_objects::Element, DomPtr},
     InternedString,
@@ -125,33 +125,6 @@ impl CSSValidateSelector for AttributeSelector {
                 modifier,
             } => attribute_name.is_valid() && matcher.is_valid() && modifier.is_valid(),
         }
-    }
-}
-
-impl Serialize for AttributeSelector {
-    fn serialize_to<T: Serializer>(&self, serializer: &mut T) -> fmt::Result {
-        serializer.serialize('[')?;
-
-        match self {
-            Self::Exists { attribute_name } => serializer.serialize(*attribute_name)?,
-            Self::Matches {
-                attribute_name,
-                matcher,
-                value,
-                modifier,
-            } => {
-                serializer.serialize(*attribute_name)?;
-                serializer.serialize(*matcher)?;
-                serializer.serialize_identifier(&value.to_string())?;
-
-                if modifier.is_case_insensitive() {
-                    serializer.serialize(" i")?;
-                }
-            },
-        }
-
-        serializer.serialize(']')?;
-        Ok(())
     }
 }
 
