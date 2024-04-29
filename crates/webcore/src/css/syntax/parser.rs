@@ -61,28 +61,7 @@ pub enum WhitespaceAllowed {
 pub struct Parser<'a> {
     tokenizer: Tokenizer<'a>,
     queued_tokens: RingBuffer<Token, MAX_LOOKAHEAD>,
-    stop_at: Option<ParserDelimiter>,
-    stopped: bool,
     origin: Origin,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ParserDelimiter(u8);
-
-impl ParserDelimiter {
-    const CURLY_BRACE_OPEN: Self = Self(0b00000001);
-    const CURLY_BRACE_CLOSE: Self = Self(0b00000010);
-    const SEMICOLON: Self = Self(0b00000100);
-
-    #[must_use]
-    pub fn contains(&self, other: Self) -> bool {
-        (self.0 & other.0) == other.0
-    }
-
-    #[must_use]
-    pub fn or(&self, other: Self) -> Self {
-        Self(self.0 | other.0)
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -94,25 +73,8 @@ impl<'a> Parser<'a> {
         Self {
             tokenizer: Tokenizer::new(source),
             queued_tokens: RingBuffer::default(),
-            stop_at: None,
-            stopped: false,
             origin,
         }
-    }
-
-    pub fn resume(&mut self) {
-        debug_assert!(self.stopped, "Resuming a parser that never stopped");
-
-        self.stopped = false;
-    }
-
-    /// Create a parser from the same source that stops once it reaches a certain token.
-    ///
-    /// The final delimited parser position will be right **before** the delimiter token.
-    pub fn limit(&mut self, limit: ParserDelimiter) {
-        debug_assert!(!self.stop_at.is_some());
-
-        self.stop_at = Some(limit);
     }
 
     /// Make sure that there are at least `n` more tokens in the queue
@@ -150,20 +112,12 @@ impl<'a> Parser<'a> {
 
     #[must_use]
     pub fn next_token(&mut self) -> Option<Token> {
-        if self.stopped {
-            return None;
-        }
-
         self.queue_tokens(1);
         self.queued_tokens.pop_front()
     }
 
     #[must_use]
     pub fn next_token_ignoring_whitespace(&mut self) -> Option<Token> {
-        if self.stopped {
-            return None;
-        }
-
         let mut token = self.next_token()?;
         while token.is_whitespace() {
             token = self.next_token()?;
@@ -267,29 +221,15 @@ impl<'a> Parser<'a> {
         rule_parser: &mut RuleParser,
         mixed_with_declarations: MixedWithDeclarations,
     ) -> Result<StyleRule, ParseError> {
-        // Create a delimited parser that only consumes the rule's prelude
-        let prelude_ends_at = if mixed_with_declarations == MixedWithDeclarations::Yes {
-            ParserDelimiter::CURLY_BRACE_OPEN.or(ParserDelimiter::SEMICOLON)
-        } else {
-            ParserDelimiter::CURLY_BRACE_OPEN
-        };
+        _ = mixed_with_declarations;
 
-        self.limit(prelude_ends_at);
-
+        // Parse the rule prelude (selectors)
         let selectors = rule_parser.parse_qualified_rule_prelude(self)?;
-
-        // Done parsing selector block
-        self.resume();
-
         self.expect_token(Token::CurlyBraceOpen)?; // FIXME: this could be a semicolon
 
-        // Create a delimited parser that consumes the rule's block
-        self.limit(ParserDelimiter::CURLY_BRACE_CLOSE);
+        // Parse the rule block
         let properties = rule_parser.parse_qualified_rule_block(self)?;
         let qualified_rule = StyleRule::new(selectors, properties);
-
-        self.resume();
-
         self.expect_token(Token::CurlyBraceClose)?;
 
         Ok(qualified_rule)
@@ -334,15 +274,12 @@ impl<'a> Parser<'a> {
         // 4. Discard whitespace from input.
 
         // NOTE: At this point we deviate from the spec because the spec gets a little silly
-        self.limit(ParserDelimiter::SEMICOLON.or(ParserDelimiter::CURLY_BRACE_CLOSE));
         let value = if let Ok(value) = StyleProperty::parse_value(self, declaration_name) {
             value
         } else {
             self.consume_remnants_of_bad_declaration(nested);
             return None;
         };
-
-        self.resume();
 
         // Check for !important
         if matches!(
