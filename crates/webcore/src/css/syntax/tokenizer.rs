@@ -938,12 +938,14 @@ impl<'a> Iterator for Tokenizer<'a> {
 
 /// <https://drafts.csswg.org/css-syntax/#whitespace>
 #[inline]
+#[must_use]
 fn is_whitespace(c: char) -> bool {
     matches!(c, NEWLINE | TAB | WHITESPACE)
 }
 
 /// <https://drafts.csswg.org/css-syntax/#non-ascii-ident-code-point>
 #[inline]
+#[must_use]
 fn is_non_ascii_ident_code_point(c: char) -> bool {
     matches!(c, '\u{00B7}' | '\u{00C0}'..='\u{00D6}'
         | '\u{00D8}'..='\u{00F6}'
@@ -960,18 +962,21 @@ fn is_non_ascii_ident_code_point(c: char) -> bool {
 
 /// <https://drafts.csswg.org/css-syntax/#ident-start-code-point>
 #[inline]
+#[must_use]
 fn is_ident_start_code_point(c: char) -> bool {
     matches!(c, 'a'..='z' | 'A'..='Z' | '_') || is_non_ascii_ident_code_point(c)
 }
 
 /// <https://drafts.csswg.org/css-syntax/#ident-code-point>
 #[inline]
+#[must_use]
 fn is_ident_code_point(c: char) -> bool {
     matches!(c, '-' | '0'..='9') || is_ident_start_code_point(c)
 }
 
 /// <https://drafts.csswg.org/css-syntax/#check-if-three-code-points-would-start-an-ident-sequence>
 #[inline]
+#[must_use]
 fn is_valid_escape(c1: Option<char>, c2: Option<char>) -> bool {
     // If the first code point is not U+005C REVERSE SOLIDUS (\)
     if c1 != Some(BACKSLASH) {
