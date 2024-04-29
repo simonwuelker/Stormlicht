@@ -31,7 +31,7 @@ impl RuleParser {
         let mut properties = vec![];
         while !matches!(
             parser.peek_token_ignoring_whitespace(0),
-            Some(Token::CurlyBraceClose)
+            Some(Token::CurlyBraceClose) | None
         ) {
             if let Some(declaration) = parser.consume_declaration() {
                 properties.push(declaration);
