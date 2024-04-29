@@ -50,13 +50,6 @@ pub enum TopLevel {
     No,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum WhitespaceAllowed {
-    #[default]
-    Yes,
-    No,
-}
-
 #[derive(Clone, Debug)]
 pub struct Parser<'a> {
     tokenizer: Tokenizer<'a>,
@@ -400,16 +393,10 @@ impl<'a> Parser<'a> {
     ///
     /// # Specification
     /// <https://w3c.github.io/csswg-drafts/css-values-4/#mult-zero-plus>
-    pub fn parse_any_number_of<T: Debug, F>(
-        &mut self,
-        closure: F,
-        whitespace_allowed: WhitespaceAllowed,
-    ) -> Vec<T>
+    pub fn parse_any_number_of<T: Debug, F>(&mut self, closure: F) -> Vec<T>
     where
         F: Fn(&mut Self) -> Result<T, ParseError>,
     {
-        _ = whitespace_allowed; // TODO: remove this, not needed
-
         let mut parsed_tokens = vec![];
         let mut state_before_end_token = self.clone();
         let mut iterations = 0;
