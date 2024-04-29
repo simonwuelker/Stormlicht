@@ -86,14 +86,6 @@ impl<'a> Tokenizer<'a> {
         self.source.position()
     }
 
-    /// Set the position of the [Tokenizer]
-    ///
-    /// Valid positions should be obtained from [position](Tokenizer::get_position).
-    #[inline]
-    pub fn set_position(&mut self, position: usize) {
-        self.source.set_position(position)
-    }
-
     #[inline]
     fn reconsume(&mut self) {
         self.source.go_back();
