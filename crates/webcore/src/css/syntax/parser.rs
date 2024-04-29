@@ -293,7 +293,18 @@ impl<'a> Parser<'a> {
         // NOTE: This is not what the spec does.
         // But for now, it should be more or less equivalent (we don't respect "}")
         // Process input:
-        while !matches!(self.next_token(), Some(Token::Semicolon) | None) {}
+        loop {
+            match self.peek_token_ignoring_whitespace(0) {
+                Some(Token::Semicolon) => {
+                    let _ = self.next_token_ignoring_whitespace();
+                    break;
+                },
+                Some(Token::CurlyBraceClose) => break,
+                _ => {
+                    let _ = self.next_token_ignoring_whitespace();
+                },
+            }
+        }
     }
 
     pub fn parse_stylesheet(&mut self, index: usize) -> Stylesheet {
