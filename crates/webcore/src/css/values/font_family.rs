@@ -95,9 +95,9 @@ impl<'a> CSSParse<'a> for FontFamily {
 
 impl<'a> CSSParse<'a> for FontName {
     fn parse(parser: &mut css::Parser<'a>) -> Result<Self, css::ParseError> {
-        if let Some(Token::String(name)) = parser.peek_token() {
+        if let Some(Token::String(name)) = parser.peek_token_ignoring_whitespace() {
             let name = *name;
-            parser.next_token();
+            let _ = parser.next_token_ignoring_whitespace();
             Ok(Self::Family(name))
         } else {
             let generic_family = CSSParse::parse(parser)?;

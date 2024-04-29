@@ -57,26 +57,22 @@ impl<'a> CSSParse<'a> for JustifySelf {
             static_interned!("normal") => Self::Normal,
             static_interned!("stretch") => Self::Stretch,
             static_interned!("first") => {
-                parser.skip_whitespace();
                 let static_interned!("baseline") = parser.expect_identifier()? else {
                     return Err(css::ParseError);
                 };
                 Self::FirstBaseline
             },
             static_interned!("last") => {
-                parser.skip_whitespace();
                 let static_interned!("baseline") = parser.expect_identifier()? else {
                     return Err(css::ParseError);
                 };
                 Self::LastBaseline
             },
             static_interned!("safe") => {
-                parser.skip_whitespace();
                 let position = parser.parse()?;
                 Self::SelfPosition(OverflowPosition::Safe, position)
             },
             static_interned!("unsafe") => {
-                parser.skip_whitespace();
                 let position = parser.parse()?;
                 Self::SelfPosition(OverflowPosition::Unsafe, position)
             },
