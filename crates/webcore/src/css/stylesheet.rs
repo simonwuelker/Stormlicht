@@ -1,9 +1,4 @@
-use std::fmt;
-
-use super::{
-    selectors::{serialize_selector_list, SelectorList},
-    Parser, StylePropertyDeclaration,
-};
+use super::{selectors::Selector, Parser, StylePropertyDeclaration};
 
 /// <https://drafts.csswg.org/css-cascade-4/#cascading-origins>
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -70,14 +65,14 @@ impl Stylesheet {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StyleRule {
-    selectors: SelectorList,
+    selectors: Vec<Selector>,
     properties: Vec<StylePropertyDeclaration>,
 }
 
 impl StyleRule {
-    pub fn new(selectors: SelectorList, properties: Vec<StylePropertyDeclaration>) -> Self {
+    pub fn new(selectors: Vec<Selector>, properties: Vec<StylePropertyDeclaration>) -> Self {
         Self {
             selectors,
             properties,
@@ -85,25 +80,12 @@ impl StyleRule {
     }
 
     #[must_use]
-    pub fn selectors(&self) -> &SelectorList {
+    pub fn selectors(&self) -> &[Selector] {
         &self.selectors
     }
 
     #[must_use]
     pub fn properties(&self) -> &[StylePropertyDeclaration] {
         &self.properties
-    }
-}
-
-impl fmt::Debug for StyleRule {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut selectors = String::new();
-        serialize_selector_list(&self.selectors, &mut selectors)
-            .expect("Serializing into a string can never fail");
-
-        f.debug_struct("StyleRule")
-            .field("selector", &selectors)
-            .field("properties", &self.properties)
-            .finish()
     }
 }

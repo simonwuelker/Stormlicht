@@ -4,7 +4,7 @@ use crate::{
 };
 
 /// <https://drafts.csswg.org/selectors-4/#typedef-ns-prefix>
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NamespacePrefix {
     Ident(InternedString),
     Asterisk,

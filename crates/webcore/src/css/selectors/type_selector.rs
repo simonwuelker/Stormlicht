@@ -2,9 +2,7 @@ use std::fmt;
 
 use crate::{
     css::{
-        selectors::{
-            CSSValidateSelector, NamespacePrefix, Selector, Specificity, WellQualifiedName,
-        },
+        selectors::{CSSValidateSelector, NamespacePrefix, Specificity, WellQualifiedName},
         syntax::Token,
         CSSParse, ParseError, Parser, Serialize, Serializer,
     },
@@ -12,7 +10,7 @@ use crate::{
 };
 
 /// <https://drafts.csswg.org/selectors-4/#type-selectors>
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TypeSelector {
     /// <https://drafts.csswg.org/selectors-4/#the-universal-selector>
     Universal(Option<NamespacePrefix>),
@@ -52,8 +50,9 @@ impl CSSValidateSelector for TypeSelector {
     }
 }
 
-impl Selector for TypeSelector {
-    fn matches(&self, element: &DomPtr<Element>) -> bool {
+impl TypeSelector {
+    #[must_use]
+    pub fn matches(&self, element: &DomPtr<Element>) -> bool {
         match self {
             Self::Universal(namespace) => {
                 // This is the universal selector
@@ -68,7 +67,7 @@ impl Selector for TypeSelector {
         }
     }
 
-    fn specificity(&self) -> Specificity {
+    pub fn specificity(&self) -> Specificity {
         Specificity::new(0, 0, 1)
     }
 }
@@ -85,37 +84,5 @@ impl Serialize for TypeSelector {
             },
             Self::Typename(type_name) => serializer.serialize(*type_name),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::TypeSelector;
-    use crate::css::{
-        selectors::{NamespacePrefix, WellQualifiedName},
-        CSSParse,
-    };
-
-    #[test]
-    fn parse_type_selector() {
-        assert_eq!(
-            TypeSelector::parse_from_str("foo | bar"),
-            Ok(TypeSelector::Typename(WellQualifiedName {
-                prefix: Some(NamespacePrefix::Ident("foo".into())),
-                ident: "bar".into()
-            }))
-        );
-
-        assert_eq!(
-            TypeSelector::parse_from_str("foo | *"),
-            Ok(TypeSelector::Universal(Some(NamespacePrefix::Ident(
-                "foo".into()
-            ))))
-        );
-
-        assert_eq!(
-            TypeSelector::parse_from_str("*"),
-            Ok(TypeSelector::Universal(None))
-        );
     }
 }

@@ -44,6 +44,51 @@ impl Combinator {
     pub fn is_descendant(&self) -> bool {
         *self == Self::Descendant
     }
+
+    #[must_use]
+    pub fn next_combinator(parser: &mut Parser<'_>) -> Result<Option<Self>, ParseError> {
+        let combinator = match parser.peek_token_ignoring_whitespace(0) {
+            None => {
+                // There are no more units
+                return Ok(None);
+            },
+            Some(Token::Delim('>')) => {
+                _ = parser.next_token_ignoring_whitespace();
+                Combinator::Child
+            },
+            Some(Token::Delim('+')) => {
+                _ = parser.next_token_ignoring_whitespace();
+                Combinator::NextSibling
+            },
+            Some(Token::Delim('~')) => {
+                _ = parser.next_token_ignoring_whitespace();
+                Combinator::SubsequentSibling
+            },
+            Some(Token::Delim('|')) => {
+                _ = parser.next_token_ignoring_whitespace();
+                if !matches!(parser.next_token(), Some(Token::Delim('|'))) {
+                    return Err(ParseError);
+                }
+
+                Combinator::Column
+            },
+            Some(_) => {
+                // There is no combinator between these two complex selector units.
+                // There *must* be at least one whitespace (descendant combinator)
+                if !parser
+                    .next_token()
+                    .as_ref()
+                    .is_some_and(Token::is_whitespace)
+                {
+                    return Err(ParseError);
+                }
+
+                Combinator::Descendant
+            },
+        };
+
+        Ok(Some(combinator))
+    }
 }
 
 impl<'a> CSSParse<'a> for Combinator {
