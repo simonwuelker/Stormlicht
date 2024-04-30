@@ -1,4 +1,8 @@
-/* From https://www.w3.org/TR/CSS21/sample.html */
+/* 
+ * From https://www.w3.org/TR/CSS21/sample.html 
+ *
+ * With slight modifications (:
+ */
 
 html,
 address,
@@ -35,7 +39,12 @@ li {
     display: list-item
 }
 
-head, script {
+a {
+    color: blue;
+}
+
+head,
+script {
     display: none
 }
 
