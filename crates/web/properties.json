@@ -127,6 +127,13 @@
         "initial": "AutoOr::Auto"
     },
     {
+        "name": "line-height",
+        "specification": "https://drafts.csswg.org/css2/#propdef-line-height",
+        "inherited": true,
+        "value": "LineHeight",
+        "initial": "LineHeight::Normal"
+    },
+    {
         "name": "margin",
         "specification": "https://drafts.csswg.org/css-box-3/#margin-shorthand",
         "inherited": false,
