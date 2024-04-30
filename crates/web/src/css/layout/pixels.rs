@@ -18,6 +18,13 @@ impl Pixels {
     pub fn is_sign_negative(&self) -> bool {
         self.0.is_sign_negative()
     }
+
+    /// Return the numerical value in pixels
+    #[inline]
+    #[must_use]
+    pub const fn value(&self) -> f32 {
+        self.0
+    }
 }
 
 impl From<f32> for Pixels {
