@@ -1,6 +1,6 @@
 use crate::{
     css::{layout::Pixels, syntax::Token, CSSParse, ParseError, Parser},
-    static_interned,
+    static_interned, InternedString,
 };
 
 use super::{Color, Length};
@@ -41,28 +41,36 @@ pub enum LineStyle {
 }
 
 impl LineStyle {
+    #[must_use]
     pub const fn is_none(&self) -> bool {
         matches!(self, Self::None)
+    }
+
+    pub fn from_name(name: InternedString) -> Result<Self, ParseError> {
+        let line_style = match name {
+            static_interned!("none") => Self::None,
+            static_interned!("hidden") => Self::Hidden,
+            static_interned!("dotted") => Self::Dotted,
+            static_interned!("dashed") => Self::Dashed,
+            static_interned!("solid") => Self::Solid,
+            static_interned!("double") => Self::Double,
+            static_interned!("groove") => Self::Groove,
+            static_interned!("ridge") => Self::Ridge,
+            static_interned!("inset") => Self::Inset,
+            static_interned!("outset") => Self::Outset,
+            _ => return Err(ParseError),
+        };
+
+        Ok(line_style)
     }
 }
 
 impl<'a> CSSParse<'a> for LineStyle {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
-        let line_style = match parser.next_token() {
-            Some(Token::Ident(static_interned!("none"))) => Self::None,
-            Some(Token::Ident(static_interned!("hidden"))) => Self::Hidden,
-            Some(Token::Ident(static_interned!("dotted"))) => Self::Dotted,
-            Some(Token::Ident(static_interned!("dashed"))) => Self::Dashed,
-            Some(Token::Ident(static_interned!("solid"))) => Self::Solid,
-            Some(Token::Ident(static_interned!("double"))) => Self::Double,
-            Some(Token::Ident(static_interned!("groove"))) => Self::Groove,
-            Some(Token::Ident(static_interned!("ridge"))) => Self::Ridge,
-            Some(Token::Ident(static_interned!("inset"))) => Self::Inset,
-            Some(Token::Ident(static_interned!("outset"))) => Self::Outset,
-            _ => return Err(ParseError),
-        };
-
-        Ok(line_style)
+        match parser.next_token_ignoring_whitespace() {
+            Some(Token::Ident(name)) => Self::from_name(name),
+            _ => Err(ParseError),
+        }
     }
 }
 
@@ -86,20 +94,27 @@ impl LineWidth {
     }
 }
 
+impl LineWidth {
+    fn from_name(name: InternedString) -> Result<Self, ParseError> {
+        let line_width = match name {
+            static_interned!("thin") => Self::THIN,
+            static_interned!("medium") => Self::MEDIUM,
+            static_interned!("thick") => Self::THICK,
+            _ => return Err(ParseError),
+        };
+
+        Ok(line_width)
+    }
+}
+
 impl<'a> CSSParse<'a> for LineWidth {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         match parser.peek_token_ignoring_whitespace(0) {
-            Some(Token::Ident(static_interned!("thin"))) => {
-                let _ = parser.next_token();
-                Ok(Self::THIN)
-            },
-            Some(Token::Ident(static_interned!("medium"))) => {
-                let _ = parser.next_token();
-                Ok(Self::MEDIUM)
-            },
-            Some(Token::Ident(static_interned!("thick"))) => {
-                let _ = parser.next_token();
-                Ok(Self::THICK)
+            Some(Token::Ident(name)) => {
+                let width = Self::from_name(*name)?;
+                let _ = parser.next_token_ignoring_whitespace();
+
+                Ok(width)
             },
             _ => {
                 let length: Length = parser.parse()?;
@@ -124,29 +139,55 @@ impl<'a> CSSParse<'a> for Border {
         let mut border_style = None;
 
         for _ in 0..3 {
-            if let Some(color) = parser.parse_optional()
-                && border_color.is_none()
-            {
-                border_color = Some(color);
-                continue;
-            }
+            match parser.peek_token_ignoring_whitespace(0) {
+                Some(Token::Hash(..) | Token::Function(_)) => {
+                    border_color = Some(parser.parse()?);
+                },
+                Some(Token::Ident(
+                    name @ (static_interned!("thin")
+                    | static_interned!("medium")
+                    | static_interned!("thick")),
+                )) => {
+                    border_width = Some(LineWidth::from_name(*name)?);
+                    _ = parser.next_token_ignoring_whitespace();
+                },
+                Some(Token::Ident(
+                    name @ (static_interned!("none")
+                    | static_interned!("hidden")
+                    | static_interned!("dotted")
+                    | static_interned!("dashed")
+                    | static_interned!("solid")
+                    | static_interned!("double")
+                    | static_interned!("groove")
+                    | static_interned!("ridge")
+                    | static_interned!("inset")
+                    | static_interned!("outset")),
+                )) => {
+                    let style = LineStyle::from_name(*name)?;
+                    _ = parser.next_token_ignoring_whitespace();
 
-            if let Some(width) = parser.parse_optional()
-                && border_width.is_none()
-            {
-                border_width = Some(width);
-                continue;
-            }
+                    border_style = Some(style);
+                },
+                Some(Token::Dimension(value, unit_name)) => {
+                    let length = Length::from_dimension(*value, *unit_name)?;
+                    _ = parser.next_token_ignoring_whitespace();
 
-            if let Some(style) = parser.parse_optional()
-                && border_style.is_none()
-            {
-                border_style = Some(style);
-                continue;
-            }
+                    border_width = Some(length.into());
+                },
+                Some(Token::Number(n)) if n.is_zero() => {
+                    _ = parser.next_token_ignoring_whitespace();
 
-            // Could not make progress
-            break;
+                    border_width = Some(Length::ZERO.into());
+                },
+                Some(Token::Ident(other)) => {
+                    border_color = Some(Color::from_name(*other)?);
+                    _ = parser.next_token_ignoring_whitespace();
+                },
+                _ => {
+                    // Could not make progress
+                    break;
+                },
+            }
         }
 
         // If we didn't parse anything, that's an error
@@ -161,5 +202,11 @@ impl<'a> CSSParse<'a> for Border {
         };
 
         Ok(border)
+    }
+}
+
+impl From<Length> for LineWidth {
+    fn from(value: Length) -> Self {
+        Self(value)
     }
 }
