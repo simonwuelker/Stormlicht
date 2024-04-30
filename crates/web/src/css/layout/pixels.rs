@@ -47,6 +47,14 @@ impl ops::Mul<f32> for Pixels {
     }
 }
 
+impl ops::Mul<Pixels> for f32 {
+    type Output = Pixels;
+
+    fn mul(self, rhs: Pixels) -> Self::Output {
+        Pixels(self * rhs.0)
+    }
+}
+
 impl ops::Div<f32> for Pixels {
     type Output = Self;
 
