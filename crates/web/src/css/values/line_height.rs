@@ -1,11 +1,11 @@
 //! <https://drafts.csswg.org/css2/#propdef-line-height>
 
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{layout::Pixels, syntax::Token, CSSParse, ParseError, Parser},
     static_interned,
 };
 
-use super::{Length, Number, Percentage};
+use super::{length, Length, Number, Percentage};
 
 #[derive(Clone, Debug)]
 /// <https://drafts.csswg.org/css2/#propdef-line-height>
@@ -15,6 +15,17 @@ pub enum LineHeight {
     Number(Number),
     Percentage(Percentage),
     Length(Length),
+}
+
+impl LineHeight {
+    pub fn to_pixels(&self, resolution_context: length::ResolutionContext) -> Pixels {
+        match self {
+            Self::Normal => resolution_context.font_size,
+            Self::Length(length) => length.absolutize(resolution_context),
+            Self::Percentage(p) => p.as_fraction() * resolution_context.font_size,
+            Self::Number(n) => f32::from(*n) * resolution_context.font_size,
+        }
+    }
 }
 
 impl<'a> CSSParse<'a> for LineHeight {

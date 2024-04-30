@@ -114,6 +114,11 @@ impl TextRun {
             state.remaining_width_for_line_box(),
         );
 
+        let line_height = self
+            .style
+            .line_height()
+            .to_pixels(state.current_resolution_context());
+
         while let Some(text_line) = lines.next() {
             // https://drafts.csswg.org/css2/#white-space-model
             //
@@ -131,9 +136,10 @@ impl TextRun {
                 width: text_line.width,
                 style: self.style().get_inherited(),
             });
+
             let size = Size {
                 width: text_line.width,
-                height: font_metrics.size,
+                height: line_height,
             };
             state.push_line_item(line_item, size);
 
