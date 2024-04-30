@@ -3781,21 +3781,14 @@ impl<P: ParseErrorHandler> Parser<P> {
     /// Extracted into its own functions because the adoption agency algorithm makes use of this sequence
     /// of steps too.
     fn any_other_end_tag_in_body(&mut self, tag: TagData) {
-        fn is_html_element_with_name(node: &DomPtr<Element>, name: InternedString) -> bool {
-            if let Some(element) = node.try_into_type::<Element>() {
-                if element.borrow().local_name() == name {
-                    return node.is_a::<HtmlElement>();
-                }
-            }
-            false
-        }
         // Run these steps:
 
         // 1. Initialize node to be the current node (the bottommost node of the stack).
         // 2. Loop:
         for (index, node) in self.open_elements.iter().rev().enumerate() {
             // If node is an HTML element with the same tag name as the token, then:
-            if is_html_element_with_name(&node, tag.name) {
+            // FIXME: Verify html namespace
+            if tag.name == node.borrow().local_name() {
                 // 1. Generate implied end tags, except for HTML elements with the same tag name as the token.
                 self.generate_implied_end_tags_excluding(Some(tag.name));
 
