@@ -172,6 +172,13 @@
         "initial": "AutoOr::Auto"
     },
     {
+        "name": "vertical-align",
+        "specification": "https://drafts.csswg.org/css2/#propdef-vertical-align",
+        "inherited": false,
+        "value": "VerticalAlign",
+        "initial": "VerticalAlign::Baseline"
+    },
+    {
         "name": "width",
         "specification": "https://drafts.csswg.org/css2/#propdef-width",
         "inherited": false,
