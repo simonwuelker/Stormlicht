@@ -240,8 +240,10 @@ impl FloatContext {
             },
         };
 
-        if old_content_band.height > placement.offset_in_band + margin_area.height {
-            // There will be a new content_band *below* the floating box
+        let overhang = margin_area.height + placement.offset_in_band - old_content_band.height;
+        if overhang.value() < 0. {
+            // There will be a new content_band *below* the floating box that takes up the rest of
+            // vertical space from the old content band
             let area_below = ContentBand {
                 height: old_content_band.height - placement.offset_in_band - margin_area.height,
                 inset_left: old_content_band.inset_left,
@@ -249,6 +251,23 @@ impl FloatContext {
             };
 
             self.content_bands.insert(placement.band_index, area_below);
+        } else if overhang.value() > 0. {
+            // Rule 2: Any bands *below* the current bands are reduced in size (or removed entirely if empty)
+            // since the element sticks out of the bottom of its band
+            // This also preserves the property that the y position of a band is the prefix sums of all the
+            // previous bands
+            let mut band_modify_index = placement.band_index;
+            while band_modify_index < self.content_bands.len() {
+                self.content_bands[band_modify_index].height -= overhang;
+
+                if self.content_bands[band_modify_index].height <= Pixels::ZERO {
+                    // Remove it
+                    self.content_bands.remove(band_modify_index);
+                } else {
+                    // move on to the next one
+                    band_modify_index += 1;
+                }
+            }
         }
 
         let reduced_area = ContentBand {
