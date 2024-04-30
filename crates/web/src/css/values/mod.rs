@@ -15,6 +15,7 @@ mod number;
 mod percentage;
 mod position;
 mod url;
+mod vertical_align;
 
 pub use alignment::{Inset, JustifySelf};
 pub use angle::Angle;
@@ -33,6 +34,7 @@ pub use number::Number;
 pub use percentage::{Percentage, PercentageOr};
 pub use position::Position;
 pub use url::Url;
+pub use vertical_align::VerticalAlign;
 
 pub type Margin = AutoOr<PercentageOr<Length>>;
 pub type Padding = PercentageOr<Length>;

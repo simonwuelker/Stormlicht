@@ -24,6 +24,15 @@ impl Percentage {
 
     #[inline]
     #[must_use]
+    pub fn from_css_percentage(n: Number) -> Self {
+        let parsed_percentage: f32 = n.into();
+        let fraction = parsed_percentage / 100.;
+
+        Self::from_fraction(fraction)
+    }
+
+    #[inline]
+    #[must_use]
     pub const fn from_fraction(fraction: f32) -> Self {
         Self(fraction)
     }
@@ -61,11 +70,9 @@ where
 {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         if let Some(Token::Percentage(n)) = parser.peek_token_ignoring_whitespace(0) {
-            let parsed_percentage: f32 = (*n).into();
-            let fraction = parsed_percentage / 100.;
-
+            let percentage = Percentage::from_css_percentage(*n);
             let _ = parser.next_token_ignoring_whitespace();
-            Ok(Self::Percentage(Percentage::from_fraction(fraction)))
+            Ok(Self::Percentage(percentage))
         } else {
             let value = T::parse(parser)?;
             Ok(Self::NotPercentage(value))
