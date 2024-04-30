@@ -1,6 +1,6 @@
 use image::{Rgbaf32, Texture};
 use url::URL;
-use webcore::BrowsingContext;
+use web::BrowsingContext;
 
 use std::process::ExitCode;
 

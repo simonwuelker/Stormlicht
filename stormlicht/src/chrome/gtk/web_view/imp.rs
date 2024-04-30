@@ -1,7 +1,7 @@
 use image::{Rgbaf32, Texture};
 use sl_std::safe_casts::cast_slice;
 use url::URL;
-use webcore::{BrowsingContext, BrowsingContextError};
+use web::{BrowsingContext, BrowsingContextError};
 
 use std::{cell::RefCell, mem};
 

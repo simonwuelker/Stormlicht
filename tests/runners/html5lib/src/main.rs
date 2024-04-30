@@ -3,7 +3,7 @@
 mod escape;
 
 use cli::CommandLineArgumentParser;
-use webcore::html::tokenization::{
+use web::html::tokenization::{
     IgnoreParseErrors, ParseErrorHandler, Token, Tokenizer, TokenizerState,
 };
 

@@ -16,7 +16,7 @@ cli = { workspace = true }
 log = { workspace = true }
 render = { workspace = true }
 math = { workspace = true }
-webcore = { workspace = true }
+web = { workspace = true }
 url = { workspace = true }
 image = { workspace = true }
 sl-std = { workspace = true }
