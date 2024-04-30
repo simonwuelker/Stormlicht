@@ -364,6 +364,14 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
             _ => return,
         };
 
+        // The clear value is always relative to the formatting context root
+        // - make it relative to our containing block (which is where the cursor lives)
+        let clear_to = clear_to
+            - self
+                .containing_block
+                .position_relative_to_formatting_context_root
+                .y;
+
         if self.cursor.y < clear_to {
             // Introduce "clearance".
             // This prevents margin collapse
