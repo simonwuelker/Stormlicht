@@ -109,6 +109,20 @@ impl FloatingBox {
                     PercentageOr::NotPercentage(length) => AutoOr::NotAuto(length.absolutize(ctx)),
                 });
 
+        // Compute the containing block (us) that our children will be laid out in
+        let content_offset = Vec2D::new(
+            margin.left + border.left + padding.left,
+            margin.top + border.top + padding.top,
+        );
+        let position_relative_to_formatting_context_root =
+            containing_block.position_relative_to_formatting_context_root + content_offset;
+        let containing_block_for_children = if let AutoOr::NotAuto(height) = height {
+            ContainingBlock::new(width, position_relative_to_formatting_context_root)
+                .with_height(height)
+        } else {
+            ContainingBlock::new(width, position_relative_to_formatting_context_root)
+        };
+
         // Layout the floats contents to determine its size
         let content_info = match &self.contents {
             IndependentFormattingContext::Replaced(replaced_element) => {
@@ -116,8 +130,7 @@ impl FloatingBox {
                 todo!("implement floating replaced elements");
             },
             IndependentFormattingContext::NonReplaced(bfc) => {
-                // FIXME: This should be the elements font size
-                bfc.layout(containing_block, ctx)
+                bfc.layout(containing_block_for_children, ctx)
             },
         };
 
@@ -135,11 +148,6 @@ impl FloatingBox {
             },
             self.side,
             containing_block,
-        );
-
-        let content_offset = Vec2D::new(
-            margin.left + border.left + padding.left,
-            margin.top + border.top + padding.top,
         );
 
         let content_area = Rectangle::from_position_and_size(
