@@ -54,6 +54,9 @@ impl FloatingBox {
         ctx: length::ResolutionContext,
         float_context: &mut FloatContext,
     ) -> BoxFragment {
+        let font_size = self.style.font_size().to_pixels(ctx);
+        let ctx = ctx.with_font_size(font_size);
+
         let available_width = Length::pixels(containing_block.width);
         let resolve_margin = |margin: &values::Margin| {
             margin
