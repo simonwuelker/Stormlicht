@@ -32,6 +32,7 @@ pub struct TextRun {
 /// <https://drafts.csswg.org/css2/#inline-box>
 #[derive(Clone, Debug)]
 pub struct InlineBox {
+    font_size: Pixels,
     node: DomPtr<dom_objects::Node>,
     style: ComputedStyle,
     contents: Vec<InlineLevelBox>,
@@ -62,9 +63,7 @@ impl TextRun {
         &self.style
     }
 
-    fn find_suitable_font(&self, ctx: length::ResolutionContext) -> FontMetrics {
-        let font_size = self.style().font_size().to_pixels(ctx);
-
+    fn find_suitable_font(&self, font_size: Pixels) -> FontMetrics {
         // FIXME: Consider more than just the first specified font
         let family = match self.style().font_family().fonts()[0] {
             FontName::Family(name) => font::Family::Specific(name.to_string()),
@@ -94,7 +93,7 @@ impl TextRun {
     ) where
         'box_tree: 'state,
     {
-        let font_metrics = self.find_suitable_font(state.length_resolution_context);
+        let font_metrics = self.find_suitable_font(state.current_resolution_context().font_size);
 
         // Collapse sequences of whitespace in the text and remove newlines as defined in
         // https://drafts.csswg.org/css2/#white-space-model (3)
@@ -226,7 +225,7 @@ struct InlineFormattingContextState<'box_tree> {
     /// This is necessary because whitespace at the beginning of a line is removed
     at_beginning_of_line: bool,
 
-    length_resolution_context: length::ResolutionContext,
+    root_resolution_context: length::ResolutionContext,
 }
 
 #[derive(Clone, Debug)]
@@ -325,7 +324,7 @@ impl<'box_tree> InlineBoxItem<'box_tree> {
 impl<'box_tree> InlineFormattingContextState<'box_tree> {
     fn new(
         containing_block: ContainingBlock,
-        length_resolution_context: length::ResolutionContext,
+        root_resolution_context: length::ResolutionContext,
     ) -> Self {
         Self {
             line_box_under_construction: LineBoxUnderConstruction::default(),
@@ -336,7 +335,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
             has_seen_relevant_content: false,
             y_cursor: Pixels::ZERO,
             at_beginning_of_line: true,
-            length_resolution_context,
+            root_resolution_context,
         }
     }
 
@@ -356,6 +355,19 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
         self.containing_block.width() - self.line_box_under_construction.width
     }
 
+    fn current_resolution_context(&self) -> length::ResolutionContext {
+        let innermost_font_size = self
+            .inline_box_stack
+            .last()
+            .map(|container| container.inline_box.font_size);
+
+        if let Some(font_size) = innermost_font_size {
+            self.root_resolution_context.with_font_size(font_size)
+        } else {
+            self.root_resolution_context
+        }
+    }
+
     fn traverse<I: IntoIterator<Item = &'box_tree InlineLevelBox>>(&mut self, iterator: I) {
         for element in iterator {
             match element {
@@ -370,7 +382,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
                 InlineLevelBox::Replaced(replaced_element) => {
                     let size = replaced_element.used_size_if_it_was_inline(
                         self.containing_block,
-                        self.length_resolution_context,
+                        self.root_resolution_context,
                     );
                     let replaced_item = ReplacedItem {
                         replaced_element,
@@ -538,12 +550,19 @@ impl From<Vec<InlineLevelBox>> for InlineFormattingContext {
 impl InlineBox {
     #[inline]
     #[must_use]
-    pub fn new(node: DomPtr<dom_objects::Node>, style: ComputedStyle) -> Self {
+    pub fn new(node: DomPtr<dom_objects::Node>, style: ComputedStyle, font_size: Pixels) -> Self {
         Self {
             node,
             style,
+            font_size,
             contents: Vec::new(),
         }
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn font_size(&self) -> Pixels {
+        self.font_size
     }
 
     #[inline]
@@ -562,6 +581,7 @@ impl InlineBox {
             node: self.node.clone(),
             style: self.style.clone(),
             contents: vec![],
+            font_size: self.font_size,
         }
     }
 }

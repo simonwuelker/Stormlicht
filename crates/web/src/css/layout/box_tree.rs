@@ -30,7 +30,11 @@ pub struct BoxTree {
 
 impl BoxTree {
     #[must_use]
-    pub fn new(document: DomPtr<dom_objects::Document>, style_computer: StyleComputer<'_>) -> Self {
+    pub fn new(
+        document: DomPtr<dom_objects::Document>,
+        style_computer: StyleComputer<'_>,
+        viewport: Size<Pixels>,
+    ) -> Self {
         let html = document
             .borrow()
             .children()
@@ -42,10 +46,17 @@ impl BoxTree {
         let element_style =
             style_computer.get_computed_style(html.clone().upcast(), &ComputedStyle::default());
 
+        let root_resolution_context = length::ResolutionContext {
+            font_size: DEFAULT_FONT_SIZE,
+            root_font_size: DEFAULT_FONT_SIZE,
+            viewport,
+        };
+
         let contents = BlockContainerBuilder::build(
             DomPtr::clone(&html).upcast(),
             style_computer,
             &element_style,
+            root_resolution_context,
         );
 
         let root_box = InFlowBlockBox::new(element_style, Some(html.upcast()), contents).into();

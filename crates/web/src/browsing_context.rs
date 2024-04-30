@@ -76,18 +76,19 @@ impl BrowsingContext {
             return;
         };
 
-        let layout_start = time::Instant::now();
-        let style_computer = StyleComputer::new(&current_page.stylesheets);
-
-        // Build a box tree for the parsed document
-        let box_tree = BoxTree::new(current_page.document.clone(), style_computer);
-        log::info!("\n{:?}", box_tree);
-
-        // Build a fragment tree by fragmenting the boxes
         let viewport_size = Size {
             width: Pixels(viewport_size.0 as f32),
             height: Pixels(viewport_size.1 as f32),
         };
+
+        let layout_start = time::Instant::now();
+        let style_computer = StyleComputer::new(&current_page.stylesheets);
+
+        // Build a box tree for the parsed document
+        let box_tree = BoxTree::new(current_page.document.clone(), style_computer, viewport_size);
+        log::info!("\n{:?}", box_tree);
+
+        // Build a fragment tree by fragmenting the boxes
         current_page.fragment_tree = box_tree.compute_fragments(viewport_size);
 
         let layout_end = time::Instant::now();

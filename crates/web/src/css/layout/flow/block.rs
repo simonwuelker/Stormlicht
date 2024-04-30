@@ -64,11 +64,13 @@ impl BlockFormattingContext {
         element: DomPtr<dom_objects::Element>,
         element_style: ComputedStyle,
         style_computer: StyleComputer<'_>,
+        resolution_context: length::ResolutionContext,
     ) -> Self {
         let contents = BlockContainerBuilder::build(
             DomPtr::clone(&element).upcast(),
             style_computer,
             &element_style,
+            resolution_context,
         );
 
         Self { contents }
