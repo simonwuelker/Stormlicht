@@ -58,13 +58,6 @@ pub enum FontSize {
     LengthPercentage(PercentageOr<Length>),
 }
 
-/// Contains all values that the absolute value of a [FontSize] may depend on
-#[derive(Clone, Copy, Debug)]
-pub struct ResolutionContext {
-    pub inherited_font_size: Pixels,
-    pub length_context: length::ResolutionContext,
-}
-
 impl Default for FontSize {
     fn default() -> Self {
         Self::Absolute(AbsoluteSize::Medium)
@@ -96,14 +89,17 @@ impl RelativeSize {
 }
 
 impl FontSize {
-    pub fn to_pixels(self, ctx: ResolutionContext) -> Pixels {
+    /// Compute the absolute value of the `font-size` property
+    ///
+    /// Note that percentages and `em`/`ex` length values refer to the font size of the *parent*
+    /// element (ctx.font_size)
+    pub fn to_pixels(self, ctx: length::ResolutionContext) -> Pixels {
         match self {
             Self::Absolute(absolute_size) => absolute_size.to_pixels(),
-            Self::Relative(relative_size) => relative_size.to_pixels(ctx.inherited_font_size),
+            Self::Relative(relative_size) => relative_size.to_pixels(ctx.font_size),
             Self::LengthPercentage(percentage_or_length) => {
-                let length =
-                    percentage_or_length.resolve_against(Length::pixels(ctx.inherited_font_size));
-                length.absolutize(ctx.length_context)
+                let length = percentage_or_length.resolve_against(Length::pixels(ctx.font_size));
+                length.absolutize(ctx)
             },
         }
     }

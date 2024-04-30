@@ -5,10 +5,10 @@ use math::{Rectangle, Vec2D};
 
 use crate::{
     css::{
-        font_metrics::{self, DEFAULT_FONT_SIZE},
+        font_metrics,
         fragment_tree::{BoxFragment, Fragment, TextFragment},
         layout::{replaced::ReplacedElement, ContainingBlock, Pixels, Sides, Size},
-        values::{font_size, length, FontName},
+        values::{length, FontName},
         ComputedStyle, LineBreakIterator,
     },
     dom::{dom_objects, DomPtr},
@@ -62,7 +62,7 @@ impl TextRun {
         &self.style
     }
 
-    fn find_suitable_font(&self, ctx: font_size::ResolutionContext) -> FontMetrics {
+    fn find_suitable_font(&self, ctx: length::ResolutionContext) -> FontMetrics {
         let font_size = self.style().font_size().to_pixels(ctx);
 
         // FIXME: Consider more than just the first specified font
@@ -70,8 +70,6 @@ impl TextRun {
             FontName::Family(name) => font::Family::Specific(name.to_string()),
             FontName::Generic(name) => font::Family::Generic(name.to_string()),
         };
-
-        // let style = self.style()
 
         let properties = font::Properties {
             style: font::Style::Normal,
@@ -96,13 +94,7 @@ impl TextRun {
     ) where
         'box_tree: 'state,
     {
-        // FIXME: use the inherited font size here, not the default one
-        let ctx = font_size::ResolutionContext {
-            inherited_font_size: DEFAULT_FONT_SIZE,
-            length_context: state.length_resolution_context,
-        };
-
-        let font_metrics = self.find_suitable_font(ctx);
+        let font_metrics = self.find_suitable_font(state.length_resolution_context);
 
         // Collapse sequences of whitespace in the text and remove newlines as defined in
         // https://drafts.csswg.org/css2/#white-space-model (3)
