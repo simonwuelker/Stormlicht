@@ -3796,9 +3796,8 @@ impl<P: ParseErrorHandler> Parser<P> {
         for (index, node) in self.open_elements.iter().rev().enumerate() {
             // If node is an HTML element with the same tag name as the token, then:
             if is_html_element_with_name(&node, tag.name) {
-                // 1. Generate implied end tags,
-                // FIXME: except for HTML elements with the same tag name as the token.
-                self.generate_implied_end_tags_excluding(None);
+                // 1. Generate implied end tags, except for HTML elements with the same tag name as the token.
+                self.generate_implied_end_tags_excluding(Some(tag.name));
 
                 // 2. If node is not the current node,
                 if index != 0 {
