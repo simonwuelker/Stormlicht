@@ -7,7 +7,6 @@ use math::{Rectangle, Vec2D};
 use crate::{
     css::{
         computed_style::ComputedStyle,
-        font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::BoxFragment,
         layout::{
             formatting_context::IndependentFormattingContext, ContainingBlock, Pixels, Sides, Size,
@@ -118,7 +117,7 @@ impl FloatingBox {
             },
             IndependentFormattingContext::NonReplaced(bfc) => {
                 // FIXME: This should be the elements font size
-                bfc.layout(containing_block, ctx.with_font_size(DEFAULT_FONT_SIZE))
+                bfc.layout(containing_block, ctx)
             },
         };
 
