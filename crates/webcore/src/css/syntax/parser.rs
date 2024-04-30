@@ -439,21 +439,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn is_exhausted(&mut self) -> bool {
-        self.peek_token(0).is_none()
-    }
-
-    /// Return an error if any tokens are left in the token stream.
-    ///
-    /// If `Err` is returned, the state of the parser is unspecified.
-    pub fn expect_exhausted(&mut self) -> Result<(), ParseError> {
-        if self.next_token().is_none() {
-            Ok(())
-        } else {
-            Err(ParseError)
-        }
-    }
-
     /// Return an error if the next token is not a whitespace
     /// The whitespace is consumed.
     ///
@@ -551,8 +536,8 @@ pub trait CSSParse<'a>: Sized {
     #[cfg(test)]
     fn parse_from_str(source: &'a str) -> Result<Self, ParseError> {
         let mut parser = Parser::new(source, Origin::Author);
-        let parsed_value = Self::parse(&mut parser)?;
-        parser.expect_exhausted()?;
+        let parsed_value = Self::parse_complete(&mut parser)?;
+
         Ok(parsed_value)
     }
 
@@ -567,7 +552,10 @@ pub trait CSSParse<'a>: Sized {
 
     fn parse_complete(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let parsed_value = Self::parse(parser)?;
-        parser.expect_exhausted()?;
+
+        if parser.next_token_ignoring_whitespace().is_some() {
+            return Err(ParseError);
+        }
         Ok(parsed_value)
     }
 }
