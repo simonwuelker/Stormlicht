@@ -10,6 +10,8 @@ use crate::{
 
 use std::ops::Mul;
 
+use super::Number;
+
 /// <https://www.w3.org/TR/css-values-4/#length-value>
 #[derive(Clone, Copy, Debug)]
 pub struct Length {
@@ -206,6 +208,15 @@ impl Length {
             unit: Unit::Px,
         }
     }
+
+    pub fn from_dimension(value: Number, unit_name: InternedString) -> Result<Self, ParseError> {
+        let length = Self {
+            value: value.into(),
+            unit: Unit::try_from(unit_name)?,
+        };
+
+        Ok(length)
+    }
 }
 
 impl From<Pixels> for Length {
@@ -277,10 +288,7 @@ impl<'a> CSSParse<'a> for Length {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         match parser.next_token_ignoring_whitespace() {
             Some(Token::Dimension(number, unit_name)) => {
-                let length = Self {
-                    value: number.into(),
-                    unit: Unit::try_from(unit_name)?,
-                };
+                let length = Self::from_dimension(number, unit_name)?;
                 Ok(length)
             },
             Some(Token::Number(number)) if number.is_zero() => Ok(Self {
