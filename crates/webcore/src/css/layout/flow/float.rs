@@ -216,20 +216,16 @@ impl FloatContext {
     }
 
     /// Place a float in a given position.
-    ///
-    /// `y_offset` describes the offset within the height of the content band specified by `content_band_index`.
     fn place_float(&mut self, margin_area: Size<Pixels>, side: FloatSide, placement: Placement) {
         // Split the content band in up to three new bands
         let old_content_band = self.content_bands.remove(placement.band_index);
         let (new_inset_left, new_inset_right) = match side {
             FloatSide::Left => {
-                let inset_left =
-                    Some(old_content_band.inset_left.unwrap_or_default() + margin_area.width);
+                let inset_left = Some(placement.position.x + margin_area.width);
                 (inset_left, old_content_band.inset_right)
             },
             FloatSide::Right => {
-                let inset_right =
-                    Some(old_content_band.inset_right.unwrap_or_default() + margin_area.width);
+                let inset_right = Some(self.containing_block.width() - placement.position.x);
                 (old_content_band.inset_left, inset_right)
             },
         };
