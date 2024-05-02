@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, marker::PhantomData};
+use std::{ascii, collections::HashMap, hash::Hash, marker::PhantomData};
 
 use crate::{
     deserialization::{Error, MapAccess, SequentialAccess},
@@ -236,5 +236,15 @@ where
         deserializer.deserialize_map(HashMapVisitor {
             marker: PhantomData,
         })
+    }
+}
+
+impl Deserialize for ascii::Char {
+    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+        let byte = u8::deserialize(deserializer)?;
+        let c = Self::from_u8(byte)
+            .ok_or_else(|| D::Error::expected("a byte in the ascii value range"))?;
+
+        Ok(c)
     }
 }
