@@ -36,7 +36,7 @@ pub(crate) fn deserialize_struct(input: syn::ItemStruct) -> TokenStream {
 
                             const EXPECTS: &'static str = #expecting;
 
-                            fn visit_string<E>(&self, value: String) -> Result<Self::Value, E>
+                            fn visit_string<E>(&self, value: ::std::string::String) -> Result<Self::Value, E>
                             where
                                 E: ::serialize::deserialization::Error,
                             {
