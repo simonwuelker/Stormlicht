@@ -13,8 +13,7 @@
     bigint_helper_methods,
     array_chunks,
     maybe_uninit_uninit_array,
-    assert_matches,
-    non_null_convenience
+    assert_matches
 )]
 
 pub mod ascii;
