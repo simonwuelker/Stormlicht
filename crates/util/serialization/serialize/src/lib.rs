@@ -1,3 +1,5 @@
+#![feature(ascii_char)]
+
 #[cfg(feature = "derive")]
 pub use serialize_derive::{Deserialize, Serialize};
 
