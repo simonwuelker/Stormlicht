@@ -127,7 +127,7 @@ where
 
     fn serialize_element<T>(&mut self, element: &T) -> Result<(), Self::Error>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         self.0.start_element()?;
         element.serialize_to(self.0.serializer)?;
@@ -147,8 +147,8 @@ where
 
     fn serialize_key_value_pair<K, V>(&mut self, key: &K, value: &V) -> Result<(), Self::Error>
     where
-        K: Serialize,
-        V: Serialize,
+        K: ?Sized + Serialize,
+        V: ?Sized + Serialize,
     {
         self.0.start_element()?;
 
@@ -171,7 +171,7 @@ where
 
     fn serialize_field<T>(&mut self, name: &str, value: &T) -> Result<(), Self::Error>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         self.0.serialize_key_value_pair(&name, value)
     }
@@ -189,7 +189,7 @@ where
 
     fn serialize_field<T>(&mut self, name: &str, value: &T) -> Result<(), Self::Error>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         self.0.start_element()?;
         name.serialize_to(self.0.serializer)?;
@@ -212,7 +212,7 @@ where
 
     fn serialize_element<T>(&mut self, element: &T) -> Result<(), Self::Error>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         self.0.start_element()?;
         element.serialize_to(self.0.serializer)?;

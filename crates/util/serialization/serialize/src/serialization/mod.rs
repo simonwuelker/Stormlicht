@@ -64,7 +64,7 @@ pub trait SerializeSequence {
 
     fn serialize_element<T>(&mut self, element: &T) -> Result<(), Self::Error>
     where
-        T: Serialize;
+        T: ?Sized + Serialize;
 
     fn finish(self) -> Result<(), Self::Error>;
 }
@@ -74,8 +74,8 @@ pub trait SerializeMap {
 
     fn serialize_key_value_pair<K, V>(&mut self, key: &K, value: &V) -> Result<(), Self::Error>
     where
-        K: Serialize,
-        V: Serialize;
+        K: ?Sized + Serialize,
+        V: ?Sized + Serialize;
 
     fn finish(self) -> Result<(), Self::Error>;
 }
@@ -85,7 +85,7 @@ pub trait SerializeStruct {
 
     fn serialize_field<T>(&mut self, name: &str, value: &T) -> Result<(), Self::Error>
     where
-        T: Serialize;
+        T: ?Sized + Serialize;
 
     fn finish(self) -> Result<(), Self::Error>;
 }
@@ -95,7 +95,7 @@ pub trait SerializeStructVariant {
 
     fn serialize_field<T>(&mut self, name: &str, value: &T) -> Result<(), Self::Error>
     where
-        T: Serialize;
+        T: ?Sized + Serialize;
 
     fn finish(self) -> Result<(), Self::Error>;
 }
@@ -105,7 +105,7 @@ pub trait SerializeTupleVariant {
 
     fn serialize_element<T>(&mut self, element: &T) -> Result<(), Self::Error>
     where
-        T: Serialize;
+        T: ?Sized + Serialize;
 
     fn finish(self) -> Result<(), Self::Error>;
 }
