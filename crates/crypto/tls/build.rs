@@ -2,10 +2,8 @@
 
 use std::{env, fs, io, path::Path};
 
-use serialize::{
-    json::{JsonDeserializer, JsonError},
-    Deserialize,
-};
+use serialize::Deserialize;
+use serialize_json::{JsonDeserializer, JsonError};
 
 const OBJECT_IDENTIFIERS_PATH: &str = "object_identifiers.json";
 const OBJECTS_XREF_PATH: &str = "objects_xref.json";

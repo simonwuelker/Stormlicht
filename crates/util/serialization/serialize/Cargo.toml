@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 serialize-derive = { path = "../serialize-derive", optional = true }
-sl-std = { path = "../../../sl-std" }
 
 [features]
 default = ["derive"]

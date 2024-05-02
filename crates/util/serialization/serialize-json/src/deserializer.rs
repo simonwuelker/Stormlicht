@@ -1,6 +1,6 @@
 use sl_std::chars::ReversibleCharIterator;
 
-use crate::{
+use serialize::{
     deserialization::{EnumAccess, EnumVariantAccess, Error, MapAccess, SequentialAccess},
     Deserialize, Deserializer, Visitor,
 };

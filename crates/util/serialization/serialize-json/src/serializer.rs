@@ -1,6 +1,6 @@
 use std::{fmt, fmt::Write};
 
-use crate::{
+use serialize::{
     serialization::{
         SerializeMap, SerializeSequence, SerializeStruct, SerializeStructVariant,
         SerializeTupleVariant, Serializer,
