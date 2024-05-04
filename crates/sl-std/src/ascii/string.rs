@@ -1,6 +1,4 @@
-pub use std::ascii::Char;
-
-use std::{borrow::Borrow, fmt, mem, ops::Deref, string::String as Utf8String};
+use std::{ascii::Char, borrow::Borrow, fmt, mem, ops::Deref, string::String as Utf8String};
 
 use crate::punycode;
 
@@ -38,6 +36,10 @@ pub struct NotAscii;
 /// foo.push_str("abcde".try_into().unwrap());
 /// assert_eq!(foo.len(), 5);
 /// ```
+#[cfg_attr(
+    feature = "serialize",
+    derive(serialize::Serialize, serialize::Deserialize)
+)]
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct String {
     pub(super) chars: Vec<Char>,

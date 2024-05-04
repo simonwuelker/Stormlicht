@@ -12,6 +12,7 @@ license.workspace = true
 criterion = { workspace = true }
 
 [dependencies]
+serialize = { workspace = true, optional = true }
 
 [[bench]]
 name = "date_from_days_since_unix"
