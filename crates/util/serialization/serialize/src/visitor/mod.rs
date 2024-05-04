@@ -1,5 +1,3 @@
-mod bool_visitor;
-
 use crate::{
     deserialization::{EnumAccess, Error, MapAccess, SequentialAccess},
     Deserializer,
