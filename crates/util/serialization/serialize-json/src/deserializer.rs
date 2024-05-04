@@ -279,8 +279,8 @@ impl<'a> Deserializer for &mut JsonDeserializer<'a> {
     }
 
     fn deserialize_option<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        if self.chars.remaining().starts_with("null") {
-            let _ = self.chars.advance_by("null".len());
+        if self.peek_token() == Some(Token::Null) {
+            _ = self.next_token();
 
             visitor.visit_none()
         } else {
