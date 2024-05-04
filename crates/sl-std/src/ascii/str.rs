@@ -114,12 +114,37 @@ impl Str {
         }
     }
 
+    /// Convert to a utf8 `str`
+    ///
+    /// This conversion is zero-cost, because ascii is a subset of unicode.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #![feature(ascii_char_variants, ascii_char)]
+    /// # use sl_std::ascii;
+    /// let ascii_str: &ascii::Str = "example".try_into().unwrap();
+    ///
+    /// assert_eq!(ascii_str.as_str(), "example");
+    /// ```
     #[inline]
     #[must_use]
     pub const fn as_str(&self) -> &str {
         self.chars.as_str()
     }
 
+    /// Converts a ascii string slice to a byte slice. To convert the byte slice back
+    /// into a string slice, use the [`from_bytes`](Self::from_bytes) function.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #![feature(ascii_char_variants, ascii_char)]
+    /// # use sl_std::ascii;
+    /// let ascii_str: &ascii::Str = "example".try_into().unwrap();
+    ///
+    /// assert_eq!(ascii_str.as_bytes(), b"example");
+    /// ```
     #[inline]
     #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
