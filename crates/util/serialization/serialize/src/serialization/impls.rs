@@ -133,3 +133,15 @@ impl Serialize for ascii::Char {
         (*self as u8).serialize_to(serializer)
     }
 }
+
+impl<T> Serialize for Option<T>
+where
+    T: Serialize,
+{
+    fn serialize_to<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_option(self)
+    }
+}

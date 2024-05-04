@@ -10,18 +10,25 @@ pub trait Error {
 }
 
 pub trait Deserialize: Sized {
-    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error>;
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error>;
 }
 
 pub trait Deserializer {
     type Error: Error;
 
-    fn deserialize_sequence<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
-    fn deserialize_map<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
-    fn deserialize_struct<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
-    fn deserialize_string<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
-    fn deserialize_usize<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
-    fn deserialize_enum<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error>;
+    fn deserialize_sequence<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
+
+    fn deserialize_map<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
+
+    fn deserialize_struct<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
+
+    fn deserialize_string<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
+
+    fn deserialize_usize<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
+
+    fn deserialize_option<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
+
+    fn deserialize_enum<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
 }
 
 pub trait SequentialAccess {

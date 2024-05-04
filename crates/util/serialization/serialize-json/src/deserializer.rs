@@ -42,6 +42,7 @@ pub enum Token {
     Comma,
 }
 
+#[derive(Clone, Copy)]
 pub struct JsonDeserializer<'a> {
     chars: ReversibleCharIterator<&'a str>,
 }
@@ -208,10 +209,10 @@ impl<'a> JsonDeserializer<'a> {
     }
 }
 
-impl<'a> Deserializer for JsonDeserializer<'a> {
+impl<'a> Deserializer for &mut JsonDeserializer<'a> {
     type Error = JsonError;
 
-    fn deserialize_sequence<V>(&mut self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_sequence<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor,
     {
@@ -225,7 +226,7 @@ impl<'a> Deserializer for JsonDeserializer<'a> {
         visitor.visit_sequence(sequence)
     }
 
-    fn deserialize_map<V>(&mut self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor,
     {
@@ -239,14 +240,14 @@ impl<'a> Deserializer for JsonDeserializer<'a> {
         visitor.visit_map(map)
     }
 
-    fn deserialize_struct<V>(&mut self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_struct<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor,
     {
         self.deserialize_map(visitor)
     }
 
-    fn deserialize_string<V>(&mut self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor,
     {
@@ -257,7 +258,7 @@ impl<'a> Deserializer for JsonDeserializer<'a> {
         }
     }
 
-    fn deserialize_usize<V>(&mut self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_usize<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor,
     {
@@ -268,13 +269,23 @@ impl<'a> Deserializer for JsonDeserializer<'a> {
         visitor.visit_usize(num as usize)
     }
 
-    fn deserialize_enum<V: Visitor>(&mut self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_enum<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error> {
         // Enums are stored as { variant: data}
         self.expect_next_token(Token::CurlyBraceOpen)?;
 
         let enumeration = JsonEnum { deserializer: self };
 
         visitor.visit_enum(enumeration)
+    }
+
+    fn deserialize_option<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        if self.chars.remaining().starts_with("null") {
+            let _ = self.chars.advance_by("null".len());
+
+            visitor.visit_none()
+        } else {
+            visitor.visit_some(self)
+        }
     }
 }
 
@@ -284,7 +295,7 @@ struct JsonSequence<'a, 'b> {
 }
 
 impl<'a, 'b> SequentialAccess for JsonSequence<'a, 'b> {
-    type Error = <JsonDeserializer<'b> as Deserializer>::Error;
+    type Error = <&'b mut JsonDeserializer<'b> as Deserializer>::Error;
 
     fn next_element<T>(&mut self) -> Result<Option<T>, Self::Error>
     where
@@ -299,7 +310,7 @@ impl<'a, 'b> SequentialAccess for JsonSequence<'a, 'b> {
             return Ok(None);
         }
 
-        let value = T::deserialize(self.deserializer)?;
+        let value = T::deserialize(&mut *self.deserializer)?;
 
         if self.deserializer.peek_token() == Some(Token::Comma) {
             _ = self.deserializer.next_token();
@@ -325,7 +336,7 @@ struct JsonMap<'a, 'b> {
 }
 
 impl<'a, 'b> MapAccess for JsonMap<'a, 'b> {
-    type Error = <JsonDeserializer<'b> as Deserializer>::Error;
+    type Error = <&'b mut JsonDeserializer<'b> as Deserializer>::Error;
 
     fn next_key<K>(&mut self) -> Result<Option<K>, Self::Error>
     where
@@ -340,7 +351,7 @@ impl<'a, 'b> MapAccess for JsonMap<'a, 'b> {
             return Ok(None);
         }
 
-        let key = K::deserialize(self.deserializer)?;
+        let key = K::deserialize(&mut *self.deserializer)?;
 
         Ok(Some(key))
     }
@@ -350,7 +361,7 @@ impl<'a, 'b> MapAccess for JsonMap<'a, 'b> {
         V: Deserialize,
     {
         self.deserializer.expect_next_token(Token::Colon)?;
-        let value = V::deserialize(self.deserializer)?;
+        let value = V::deserialize(&mut *self.deserializer)?;
 
         if self.deserializer.peek_token() == Some(Token::Comma) {
             _ = self.deserializer.next_token();
@@ -380,19 +391,19 @@ struct JsonEnumVariant<'a, 'b> {
 }
 
 impl<'a, 'b> EnumAccess for JsonEnum<'a, 'b> {
-    type Error = <JsonDeserializer<'b> as Deserializer>::Error;
+    type Error = <&'b mut JsonDeserializer<'b> as Deserializer>::Error;
     type Variant = JsonEnumVariant<'a, 'b>;
 
     fn variant<V>(self) -> Result<(V, Self::Variant), Self::Error>
     where
         V: Deserialize,
     {
-        let variant = V::deserialize(self.deserializer)?;
+        let variant = V::deserialize(&mut *self.deserializer)?;
         self.deserializer.expect_next_token(Token::Colon)?;
 
         // What follows is either a sequence (tuple enum variant) or a map (struct enum variant)
         let variant_data = JsonEnumVariant {
-            deserializer: self.deserializer,
+            deserializer: &mut *self.deserializer,
         };
 
         Ok((variant, variant_data))
@@ -400,13 +411,13 @@ impl<'a, 'b> EnumAccess for JsonEnum<'a, 'b> {
 }
 
 impl<'a, 'b> EnumVariantAccess for JsonEnumVariant<'a, 'b> {
-    type Error = <JsonDeserializer<'b> as Deserializer>::Error;
+    type Error = <&'b mut JsonDeserializer<'b> as Deserializer>::Error;
 
     fn variant_data<D>(self) -> Result<D, Self::Error>
     where
         D: Deserialize,
     {
-        let value = D::deserialize(self.deserializer)?;
+        let value = D::deserialize(&mut *self.deserializer)?;
 
         // Close the outer group that the enum variant is stored in
         self.deserializer

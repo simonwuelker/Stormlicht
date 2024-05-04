@@ -59,6 +59,16 @@ where
         write!(self.writer, "{value}")
     }
 
+    fn serialize_option<T>(&mut self, value: &Option<T>) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        match value {
+            Some(value) => value.serialize_to(self),
+            None => write!(self.writer, "null"),
+        }
+    }
+
     fn serialize_sequence<'a>(&'a mut self) -> Result<Self::SequenceSerializer<'a>, Self::Error> {
         write!(self.writer, "[")?;
         let sequence_serializer = SequenceSerializer(CommaSeparatedSequence::new(self));

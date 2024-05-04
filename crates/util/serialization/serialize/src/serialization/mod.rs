@@ -35,6 +35,10 @@ pub trait Serializer {
 
     fn serialize_usize(&mut self, value: usize) -> Result<(), Self::Error>;
 
+    fn serialize_option<T>(&mut self, value: &Option<T>) -> Result<(), Self::Error>
+    where
+        T: Serialize;
+
     fn serialize_sequence<'a>(&'a mut self) -> Result<Self::SequenceSerializer<'a>, Self::Error>;
 
     fn serialize_map<'a>(&'a mut self) -> Result<Self::MapSerializer<'a>, Self::Error>;

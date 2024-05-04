@@ -6,7 +6,7 @@ use crate::{
 };
 
 impl Deserialize for String {
-    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
         struct StringVisitor;
 
         impl Visitor for StringVisitor {
@@ -27,7 +27,7 @@ impl Deserialize for String {
 }
 
 impl Deserialize for u8 {
-    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
         struct U8Visitor;
 
         impl Visitor for U8Visitor {
@@ -49,7 +49,7 @@ impl Deserialize for u8 {
 }
 
 impl Deserialize for u16 {
-    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
         struct U16Visitor;
 
         impl Visitor for U16Visitor {
@@ -71,7 +71,7 @@ impl Deserialize for u16 {
 }
 
 impl Deserialize for u32 {
-    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
         struct U32Visitor;
 
         impl Visitor for U32Visitor {
@@ -93,7 +93,7 @@ impl Deserialize for u32 {
 }
 
 impl Deserialize for u64 {
-    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
         struct U64Visitor;
 
         impl Visitor for U64Visitor {
@@ -115,7 +115,7 @@ impl Deserialize for u64 {
 }
 
 impl Deserialize for u128 {
-    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
         struct U128Visitor;
 
         impl Visitor for U128Visitor {
@@ -137,7 +137,7 @@ impl Deserialize for u128 {
 }
 
 impl Deserialize for usize {
-    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
         struct UsizeVisitor;
 
         impl Visitor for UsizeVisitor {
@@ -159,7 +159,7 @@ impl Deserialize for usize {
 }
 
 impl<T: Deserialize> Deserialize for Vec<T> {
-    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
         struct VecVisitor<T> {
             marker: PhantomData<T>,
         }
@@ -200,7 +200,7 @@ where
     K: Deserialize + Hash + Eq,
     V: Deserialize,
 {
-    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
         struct HashMapVisitor<K, V> {
             marker: PhantomData<(K, V)>,
         }
@@ -240,11 +240,52 @@ where
 }
 
 impl Deserialize for ascii::Char {
-    fn deserialize<D: Deserializer>(deserializer: &mut D) -> Result<Self, D::Error> {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
         let byte = u8::deserialize(deserializer)?;
         let c = Self::from_u8(byte)
             .ok_or_else(|| D::Error::expected("a byte in the ascii value range"))?;
 
         Ok(c)
+    }
+}
+
+impl<T> Deserialize for Option<T>
+where
+    T: Deserialize,
+{
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
+        struct OptionVisitor<T> {
+            marker: PhantomData<T>,
+        }
+
+        impl<T> Visitor for OptionVisitor<T>
+        where
+            T: Deserialize,
+        {
+            type Value = Option<T>;
+
+            // TODO: Can we make this a bit more helpful? (:
+            const EXPECTS: &'static str = concat!("Either something or nothing");
+
+            fn visit_none<E>(&self) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(None)
+            }
+
+            fn visit_some<D>(&self, deserializer: D) -> Result<Self::Value, D::Error>
+            where
+                D: Deserializer,
+            {
+                let value = T::deserialize(deserializer)?;
+
+                Ok(Some(value))
+            }
+        }
+
+        deserializer.deserialize_option(OptionVisitor {
+            marker: PhantomData,
+        })
     }
 }
