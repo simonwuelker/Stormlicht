@@ -19,7 +19,7 @@ pub(crate) fn deserialize_struct(input: syn::ItemStruct) -> TokenStream {
 
     quote!(
         impl ::serialize::Deserialize for #struct_ident {
-            fn deserialize<T: ::serialize::Deserializer>(deserializer: &mut T) -> Result<Self, T::Error> {
+            fn deserialize<T: ::serialize::Deserializer>(deserializer: T) -> Result<Self, T::Error> {
                 use ::serialize::deserialization::Error;
 
                 #[allow(non_camel_case_types)]
@@ -28,7 +28,7 @@ pub(crate) fn deserialize_struct(input: syn::ItemStruct) -> TokenStream {
                 }
 
                 impl ::serialize::Deserialize for Field {
-                    fn deserialize<T: ::serialize::Deserializer>(deserializer: &mut T) -> Result<Self, T::Error> {
+                    fn deserialize<T: ::serialize::Deserializer>(deserializer: T) -> Result<Self, T::Error> {
                         struct FieldVisitor;
 
                         impl ::serialize::Visitor for FieldVisitor {
