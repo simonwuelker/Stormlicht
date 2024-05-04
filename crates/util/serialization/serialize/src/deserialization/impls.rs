@@ -289,3 +289,24 @@ where
         })
     }
 }
+
+impl Deserialize for bool {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
+        struct BoolVisitor;
+
+        impl Visitor for BoolVisitor {
+            type Value = bool;
+
+            const EXPECTS: &'static str = "Either true or false";
+
+            fn visit_bool<E>(&self, value: bool) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(value)
+            }
+        }
+
+        deserializer.deserialize_bool(BoolVisitor)
+    }
+}

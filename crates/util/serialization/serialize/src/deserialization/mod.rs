@@ -22,6 +22,8 @@ pub trait Deserializer {
 
     fn deserialize_struct<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
 
+    fn deserialize_bool<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
+
     fn deserialize_string<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
 
     fn deserialize_usize<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;

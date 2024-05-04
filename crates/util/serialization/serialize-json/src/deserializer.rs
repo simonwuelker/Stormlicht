@@ -287,6 +287,14 @@ impl<'a> Deserializer for &mut JsonDeserializer<'a> {
             visitor.visit_some(self)
         }
     }
+
+    fn deserialize_bool<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        match self.next_token() {
+            Some(Token::True) => visitor.visit_bool(true),
+            Some(Token::False) => visitor.visit_bool(false),
+            _ => return Err(JsonError::UnexpectedToken),
+        }
+    }
 }
 
 struct JsonSequence<'a, 'b> {
