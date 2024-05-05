@@ -1,7 +1,7 @@
-use std::{ascii, collections::HashMap, hash::Hash, marker::PhantomData};
+use std::{ascii, collections::HashMap, hash::Hash, marker::PhantomData, net};
 
 use crate::{
-    deserialization::{Error, MapAccess, SequentialAccess},
+    deserialization::{EnumAccess, EnumVariantAccess, Error, MapAccess, SequentialAccess},
     Deserialize, Deserializer, Visitor,
 };
 
@@ -308,5 +308,116 @@ impl Deserialize for bool {
         }
 
         deserializer.deserialize_bool(BoolVisitor)
+    }
+}
+
+impl<T, const N: usize> Deserialize for [T; N]
+where
+    T: Deserialize,
+{
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
+        // FIXME: There's probably a way to do this without heap allocations
+        let items = <Vec<T> as Deserialize>::deserialize(deserializer)?;
+
+        let array = items
+            .try_into()
+            .map_err(|_| D::Error::expected("the correct number of elements"))?;
+
+        Ok(array)
+    }
+}
+
+impl Deserialize for net::Ipv4Addr {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
+        let octets = <[u8; 4] as Deserialize>::deserialize(deserializer)?;
+
+        let ipv4 = Self::new(octets[0], octets[1], octets[2], octets[3]);
+
+        Ok(ipv4)
+    }
+}
+
+impl Deserialize for net::Ipv6Addr {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
+        let segments = <[u16; 8] as Deserialize>::deserialize(deserializer)?;
+
+        let ipv4 = Self::new(
+            segments[0],
+            segments[1],
+            segments[2],
+            segments[3],
+            segments[4],
+            segments[5],
+            segments[6],
+            segments[7],
+        );
+
+        Ok(ipv4)
+    }
+}
+
+impl Deserialize for net::IpAddr {
+    fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
+        enum Variant {
+            V4,
+            V6,
+        }
+
+        impl Deserialize for Variant {
+            fn deserialize<D: Deserializer>(deserializer: D) -> Result<Self, D::Error> {
+                struct VariantVisitor;
+
+                impl Visitor for VariantVisitor {
+                    type Value = Variant;
+
+                    const EXPECTS: &'static str = "v4 or v6";
+
+                    fn visit_string<E>(&self, value: String) -> Result<Self::Value, E>
+                    where
+                        E: Error,
+                    {
+                        let variant = match value.as_str() {
+                            "v4" => Variant::V4,
+                            "v6" => Variant::V6,
+                            _ => return Err(E::unknown_variant(value)),
+                        };
+
+                        Ok(variant)
+                    }
+                }
+
+                deserializer.deserialize_string(VariantVisitor)
+            }
+        }
+
+        struct IpAddrVisitor;
+
+        impl Visitor for IpAddrVisitor {
+            type Value = net::IpAddr;
+
+            const EXPECTS: &'static str = "An IP address";
+
+            fn visit_enum<E>(&self, value: E) -> Result<Self::Value, E::Error>
+            where
+                E: EnumAccess,
+            {
+                let ip = match value.variant()? {
+                    (Variant::V4, variant_data) => {
+                        let ipv4 = variant_data.newtype_variant()?;
+
+                        net::IpAddr::V4(ipv4)
+                    },
+                    (Variant::V6, variant_data) => {
+                        let ipv4 = variant_data.newtype_variant()?;
+
+                        net::IpAddr::V6(ipv4)
+                    },
+                };
+
+                Ok(ip)
+            }
+        }
+
+        deserializer.deserialize_enum(IpAddrVisitor)
     }
 }

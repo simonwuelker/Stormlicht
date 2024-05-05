@@ -1,6 +1,6 @@
 use std::{ascii, collections::HashMap, net};
 
-use super::{Serialize, SerializeMap, SerializeSequence, SerializeTupleVariant, Serializer};
+use super::{Serialize, SerializeMap, SerializeSequence, Serializer};
 
 impl<'a> Serialize for &'a str {
     fn serialize_to<S>(&self, serializer: &mut S) -> Result<(), S::Error>
@@ -164,19 +164,9 @@ impl Serialize for net::IpAddr {
         S: Serializer,
     {
         match self {
-            Self::V4(ipv4) => {
-                let mut variant_serializer = serializer.serialize_tuple_enum("v4")?;
-                variant_serializer.serialize_element(ipv4)?;
-                variant_serializer.finish()?;
-            },
-            Self::V6(ipv6) => {
-                let mut variant_serializer = serializer.serialize_tuple_enum("v6")?;
-                variant_serializer.serialize_element(ipv6)?;
-                variant_serializer.finish()?;
-            },
+            Self::V4(ipv4) => serializer.serialize_newtype_variant("v4", ipv4),
+            Self::V6(ipv6) => serializer.serialize_newtype_variant("v6", ipv6),
         }
-
-        Ok(())
     }
 }
 
