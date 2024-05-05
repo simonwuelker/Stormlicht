@@ -11,6 +11,10 @@ license.workspace = true
 [dependencies]
 log = { workspace = true }
 sl-std = { workspace = true }
+serialize = { workspace = true, optional = true }
+
+[features]
+serialize = ["dep:serialize", "sl-std/serialize"]
 
 [lints]
 workspace = true

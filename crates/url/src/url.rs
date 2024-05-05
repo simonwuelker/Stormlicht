@@ -36,6 +36,10 @@ pub(crate) fn default_port_for_scheme(scheme: &ascii::Str) -> Option<Port> {
 /// A **U**niform **R**esource **L**ocator
 ///
 /// [Specification](https://url.spec.whatwg.org/#concept-url)
+#[cfg_attr(
+    feature = "serialize",
+    derive(serialize::Serialize, serialize::Deserialize)
+)]
 #[derive(Default, Clone, Debug)]
 pub struct URL {
     /// A [URL]’s scheme is an ASCII string that identifies the type of URL

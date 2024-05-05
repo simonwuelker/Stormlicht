@@ -44,6 +44,10 @@ fn is_forbidden_domain_code_point(c: ascii::Char) -> bool {
 ///
 /// [Specification](https://url.spec.whatwg.org/#concept-host)
 #[derive(PartialEq, Clone, Debug)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serialize::Serialize, serialize::Deserialize)
+)]
 pub enum Host {
     Domain(ascii::String),
     Ip(net::IpAddr),
