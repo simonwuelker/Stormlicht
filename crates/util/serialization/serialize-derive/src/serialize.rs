@@ -16,6 +16,7 @@ pub(crate) fn serialize_struct(input: syn::ItemStruct) -> TokenStream {
         .collect();
 
     quote!(
+        #[automatically_derived]
         impl ::serialize::Serialize for #struct_ident {
             fn serialize_to<T: ::serialize::Serializer>(&self, serializer: &mut T) -> Result<(), T::Error> {
                 use ::serialize::serialization::SerializeStruct;
@@ -84,6 +85,7 @@ pub(crate) fn serialize_enum(input: syn::ItemEnum) -> TokenStream {
     }
 
     quote!(
+        #[automatically_derived]
         impl ::serialize::Serialize for #enum_ident {
             fn serialize_to<T: ::serialize::Serializer>(&self, serializer: &mut T) -> Result<(), T::Error> {
                 use ::serialize::serialization::SerializeTupleVariant;

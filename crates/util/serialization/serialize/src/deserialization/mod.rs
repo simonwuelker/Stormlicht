@@ -6,6 +6,7 @@ use crate::Visitor;
 pub trait Error {
     fn expected(expectation: &'static str) -> Self;
     fn unknown_field(field: String) -> Self;
+    fn unknown_variant(name: String) -> Self;
     fn missing_field(field: &'static str) -> Self;
 }
 
@@ -55,7 +56,7 @@ pub trait MapAccess {
 
 pub trait EnumAccess {
     type Error: Error;
-    type Variant: EnumVariantAccess;
+    type Variant: EnumVariantAccess<Error = Self::Error>;
 
     fn variant<V>(self) -> Result<(V, Self::Variant), Self::Error>
     where
@@ -65,7 +66,9 @@ pub trait EnumAccess {
 pub trait EnumVariantAccess {
     type Error: Error;
 
-    fn variant_data<D>(self) -> Result<D, Self::Error>
-    where
-        D: Deserialize;
+    fn unit_variant(self) -> Result<(), Self::Error>;
+
+    fn struct_variant<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
+
+    fn tuple_variant<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
 }

@@ -9,6 +9,7 @@ use serialize::{
 pub enum JsonError {
     Expected(&'static str),
     UnknownField(String),
+    UnknownVariant(String),
     MissingField(&'static str),
     UnexpectedToken,
 }
@@ -20,6 +21,10 @@ impl Error for JsonError {
 
     fn unknown_field(field: String) -> Self {
         Self::UnknownField(field)
+    }
+
+    fn unknown_variant(name: String) -> Self {
+        Self::UnknownVariant(name)
     }
 
     fn missing_field(field: &'static str) -> Self {
@@ -421,13 +426,27 @@ impl<'a, 'b> EnumAccess for JsonEnum<'a, 'b> {
 impl<'a, 'b> EnumVariantAccess for JsonEnumVariant<'a, 'b> {
     type Error = <&'b mut JsonDeserializer<'b> as Deserializer>::Error;
 
-    fn variant_data<D>(self) -> Result<D, Self::Error>
-    where
-        D: Deserialize,
-    {
-        let value = D::deserialize(&mut *self.deserializer)?;
+    fn unit_variant(self) -> Result<(), Self::Error> {
+        self.deserializer.expect_next_token(Token::BracketOpen)?;
+        self.deserializer.expect_next_token(Token::BracketClose)?;
+        self.deserializer
+            .expect_next_token(Token::CurlyBraceClose)?;
 
-        // Close the outer group that the enum variant is stored in
+        Ok(())
+    }
+
+    fn tuple_variant<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        let value = self.deserializer.deserialize_sequence(visitor)?;
+
+        self.deserializer
+            .expect_next_token(Token::CurlyBraceClose)?;
+
+        Ok(value)
+    }
+
+    fn struct_variant<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        let value = self.deserializer.deserialize_struct(visitor)?;
+
         self.deserializer
             .expect_next_token(Token::CurlyBraceClose)?;
 

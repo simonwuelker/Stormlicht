@@ -9,6 +9,7 @@ pub fn deserialize(input: TokenStream) -> TokenStream {
 
     match item {
         syn::Item::Struct(item_struct) => deserialize::deserialize_struct(item_struct),
+        syn::Item::Enum(item_enum) => deserialize::deserialize_enum(item_enum),
         _ => panic!("Cannot impl Deserialize for this kind of item"),
     }
 }
