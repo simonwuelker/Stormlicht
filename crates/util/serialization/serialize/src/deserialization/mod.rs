@@ -66,9 +66,17 @@ pub trait EnumAccess {
 pub trait EnumVariantAccess {
     type Error: Error;
 
+    /// Variant containing no data, `Foo`
     fn unit_variant(self) -> Result<(), Self::Error>;
 
+    /// Variant containing struct fields, `Foo { bar: Bar, baz: Baz }`
     fn struct_variant<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
 
+    /// Tuple variant containing any number of values, `Foo(Bar, Baz)`
     fn tuple_variant<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
+
+    /// Tuple variant which only contains a single type `Foo(Bar)`
+    fn newtype_variant<T>(self) -> Result<T, Self::Error>
+    where
+        T: Deserialize;
 }

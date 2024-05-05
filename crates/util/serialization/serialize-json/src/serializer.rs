@@ -111,6 +111,21 @@ where
 
         Ok(struct_variant_serializer)
     }
+
+    fn serialize_newtype_variant<T>(
+        &mut self,
+        variant_name: &str,
+        value: &T,
+    ) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        write!(self.writer, "{{{variant_name:?}:")?;
+        value.serialize_to(self)?;
+        write!(self.writer, "}}")?;
+
+        Ok(())
+    }
 }
 
 struct CommaSeparatedSequence<'a, W> {

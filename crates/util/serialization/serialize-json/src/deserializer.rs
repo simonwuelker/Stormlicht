@@ -452,6 +452,17 @@ impl<'a, 'b> EnumVariantAccess for JsonEnumVariant<'a, 'b> {
 
         Ok(value)
     }
+
+    fn newtype_variant<T>(self) -> Result<T, Self::Error>
+    where
+        T: Deserialize,
+    {
+        let value = T::deserialize(&mut *self.deserializer)?;
+        self.deserializer
+            .expect_next_token(Token::CurlyBraceClose)?;
+
+        Ok(value)
+    }
 }
 
 #[cfg(test)]

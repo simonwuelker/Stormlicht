@@ -61,6 +61,14 @@ pub trait Serializer {
         &'a mut self,
         variant_name: &str,
     ) -> Result<Self::StructVariantSerializer<'a>, Self::Error>;
+
+    fn serialize_newtype_variant<T>(
+        &mut self,
+        variant_name: &str,
+        value: &T,
+    ) -> Result<(), Self::Error>
+    where
+        T: Serialize;
 }
 
 pub trait SerializeSequence {
