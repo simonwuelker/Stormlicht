@@ -43,7 +43,7 @@ fn is_forbidden_domain_code_point(c: ascii::Char) -> bool {
 /// where a network address is not required.
 ///
 /// [Specification](https://url.spec.whatwg.org/#concept-host)
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serialize::Serialize, serialize::Deserialize)
