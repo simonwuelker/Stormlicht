@@ -26,6 +26,7 @@ pub mod chars;
 pub mod datetime;
 pub mod fixed;
 pub mod iter;
+pub mod oneshot;
 pub mod punycode;
 pub mod rand;
 pub mod range;
