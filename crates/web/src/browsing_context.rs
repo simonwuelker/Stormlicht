@@ -1,6 +1,7 @@
 use std::time;
 
 use render::Composition;
+use resourceloader::{ResourceLoadError, RESOURCE_LOADER};
 use url::URL;
 
 use crate::{
@@ -29,14 +30,17 @@ struct CurrentPage {
 
 #[derive(Debug)]
 pub enum BrowsingContextError {
-    Loading(mime::ResourceLoadError),
+    Loading(ResourceLoadError),
     UnsupportedMIME,
 }
 
 impl BrowsingContext {
     pub fn load(&mut self, location: &URL) -> Result<(), BrowsingContextError> {
         // Load the content at the given url
-        let resource = mime::Resource::load(location).map_err(BrowsingContextError::Loading)?;
+        let resource = RESOURCE_LOADER
+            .schedule_load(location.clone())
+            .block()
+            .map_err(BrowsingContextError::Loading)?;
 
         if !resource.metadata.computed_mime_type.is_html() {
             log::error!(

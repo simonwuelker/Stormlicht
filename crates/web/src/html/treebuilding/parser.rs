@@ -23,7 +23,9 @@ use crate::{
     static_interned, InternedString,
 };
 
+use resourceloader::{PendingLoad, RESOURCE_LOADER};
 use sl_std::iter::IteratorExtensions;
+use url::URL;
 
 const TAB: char = '\u{0009}';
 const LINE_FEED: char = '\u{000A}';
@@ -154,6 +156,9 @@ pub struct Parser<P: ParseErrorHandler> {
     /// <https://html.spec.whatwg.org/multipage/parsing.html#foster-parent>
     is_foster_parenting_enabled: bool,
 
+    // Stylesheets that are asynchronously loaded during parsing
+    pending_stylesheets: Vec<(URL, PendingLoad)>,
+
     done: bool,
 
     stylesheets: Vec<Stylesheet>,
@@ -184,6 +189,7 @@ impl<P: ParseErrorHandler> Parser<P> {
             is_foster_parenting_enabled: false,
             done: false,
             stylesheets: vec![Stylesheet::user_agent_rules()],
+            pending_stylesheets: vec![],
         }
     }
 
@@ -221,6 +227,28 @@ impl<P: ParseErrorHandler> Parser<P> {
             .retain_mut(|element| !DomPtr::ptr_eq(to_remove, element))
     }
 
+    fn finish_loading_stylesheets(&mut self) {
+        for (url, pending_stylesheet) in mem::take(&mut self.pending_stylesheets) {
+            match pending_stylesheet.block() {
+                Ok(resource) => {
+                    // FIXME: Check mime type here
+                    let css = String::from_utf8_lossy(&resource.data);
+                    let stylesheet = css::Parser::new(&css, css::Origin::Author)
+                        .parse_stylesheet(self.stylesheets.len());
+
+                    if !stylesheet.rules().is_empty() {
+                        self.stylesheets.push(stylesheet);
+                    } else {
+                        log::debug!("Dropping empty stylesheet");
+                    }
+                },
+                Err(error) => {
+                    log::error!("Failed to load stylesheet: {url} could not be loaded ({error:?}",)
+                },
+            }
+        }
+    }
+
     fn pop_from_open_elements(&mut self) -> DomPtr<Element> {
         let element = self
             .open_elements
@@ -250,25 +278,8 @@ impl<P: ParseErrorHandler> Parser<P> {
             let link_element = link_element.borrow();
             if link_element.relationship() == links::Relationship::Stylesheet {
                 if let Some(url) = link_element.url() {
-                    match mime::Resource::load(&url) {
-                        Ok(resource) => {
-                            // FIXME: Check mime type here
-                            let css = String::from_utf8_lossy(&resource.data);
-                            let stylesheet = css::Parser::new(&css, css::Origin::Author)
-                                .parse_stylesheet(self.stylesheets.len());
-
-                            if !stylesheet.rules().is_empty() {
-                                self.stylesheets.push(stylesheet);
-                            } else {
-                                log::debug!("Dropping empty stylesheet");
-                            }
-                        },
-                        Err(error) => {
-                            log::error!(
-                                "Failed to load stylesheet: {url} could not be loaded ({error:?}"
-                            )
-                        },
-                    }
+                    let handle = RESOURCE_LOADER.schedule_load(url.clone());
+                    self.pending_stylesheets.push((url, handle));
                 }
             }
         }
@@ -576,8 +587,10 @@ impl<P: ParseErrorHandler> Parser<P> {
 
     /// <https://html.spec.whatwg.org/multipage/parsing.html#stop-parsing>
     fn stop_parsing(&mut self) {
-        self.done = true;
         // FIXME: this is ad-hoc, we don't support most of what is necessary here
+        self.done = true;
+
+        self.finish_loading_stylesheets();
 
         // FIXME: I assume this must be done at some point, but i can't find it in the spec
         let html_element = self

@@ -1,5 +1,7 @@
 use dom_derive::inherit;
 use image::Texture;
+use resourceloader::RESOURCE_LOADER;
+use url::URL;
 
 use crate::static_interned;
 
@@ -40,13 +42,15 @@ fn load_texture_for_img_element(html_element: &HtmlElement) -> Option<Texture> {
 
     let source_url = source_url.to_string();
 
-    let source_url = source_url.parse()
+    let source_url: URL = source_url.parse()
         .inspect_err(|error| {
             log::error!("Failed to load <img> content: \"src\" attribute ({source_url}) cannot be parsed as a URL ({error:?}")
         })
         .ok()?;
 
-    let resource = mime::Resource::load(&source_url)
+    let resource_handle = RESOURCE_LOADER.schedule_load(source_url.clone()).block();
+
+    let resource = resource_handle
         .inspect_err(|error| {
             log::error!("Failed to load <img> content: {source_url} could not be loaded ({error:?}")
         })
