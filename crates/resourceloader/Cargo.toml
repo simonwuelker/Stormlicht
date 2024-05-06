@@ -1,0 +1,20 @@
+[package]
+name = "resourceloader"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+url = { workspace = true, features = ["serialize"] }
+mime = { workspace = true }
+log = { workspace = true }
+sl-std = { workspace = true }
+# smol = { workspace = true }
+# async-task = { workspace = true }
+# serialize = { workspace = true }
+
+
+[lints]
+workspace = true

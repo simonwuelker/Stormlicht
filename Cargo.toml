@@ -32,6 +32,7 @@ members = [
     "crates/encodings",
     "crates/ipc",
     "crates/util/serialization/serialize-json",
+    "crates/resourceloader",
 ]
 resolver = "2"
 
@@ -63,6 +64,7 @@ js = { path = "crates/js" }
 gc = { path = "crates/gc" }
 ipc = { path = "crates/ipc" }
 serialize-json = { path = "crates/util/serialization/serialize-json" }
+resourceloader = { path = "crates/resourceloader" }
 
 log = "0.4"
 criterion = { version = "0.4", features = ["html_reports"] }
