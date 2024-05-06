@@ -1,5 +1,7 @@
 //! <https://www.rfc-editor.org/rfc/rfc2616#section-4.2>
 
+mod utils;
+
 use sl_std::ascii;
 use std::{collections::HashMap, fmt};
 
