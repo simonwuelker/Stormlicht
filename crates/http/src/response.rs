@@ -42,9 +42,9 @@ fn read_until<R: std::io::Read>(
 
 #[derive(Clone, Debug)]
 pub struct Response {
-    status: StatusCode,
-    headers: Headers,
-    body: Vec<u8>,
+    pub status: StatusCode,
+    pub headers: Headers,
+    pub body: Vec<u8>,
     context: Context,
 }
 

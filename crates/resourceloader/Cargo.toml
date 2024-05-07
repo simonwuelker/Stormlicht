@@ -11,6 +11,7 @@ url = { workspace = true, features = ["serialize"] }
 mime = { workspace = true }
 log = { workspace = true }
 sl-std = { workspace = true }
+http = { workspace = true }
 # smol = { workspace = true }
 # async-task = { workspace = true }
 # serialize = { workspace = true }

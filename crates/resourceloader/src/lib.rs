@@ -1,8 +1,10 @@
-#![feature(lazy_cell)]
+#![feature(lazy_cell, ascii_char, ascii_char_variants)]
 
 mod loader;
+mod resource;
 
 use loader::{LoadCompletion, ResourceLoadRequest, ResourceLoader};
+pub use resource::{Resource, ResourceLoadError};
 use sl_std::oneshot;
 
 use std::{
@@ -10,11 +12,7 @@ use std::{
     sync::{mpsc, LazyLock},
     thread,
 };
-
 use url::URL;
-
-// FIXME: All the resource-related stuff should live in this crate
-pub use mime::{Resource, ResourceLoadError};
 
 pub static RESOURCE_LOADER: LazyLock<ResourceThreadHandle> = LazyLock::new(|| {
     let (tx, rx) = mpsc::channel();

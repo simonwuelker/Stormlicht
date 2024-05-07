@@ -7,9 +7,11 @@ use std::{
 use sl_std::oneshot;
 use url::URL;
 
+use crate::{resource::ResourceLoadError, Resource};
+
 pub struct ResourceLoader {
     receiver: mpsc::Receiver<ResourceLoadRequest>,
-    cache: HashMap<URL, Arc<mime::Resource>>,
+    cache: HashMap<URL, Arc<Resource>>,
     pending_loads: Vec<ResourceLoadRequest>,
 }
 
@@ -26,7 +28,7 @@ pub struct ResourceLoadRequest {
     pub sender: oneshot::Sender<LoadCompletion>,
 }
 
-pub type LoadCompletion = Result<Arc<mime::Resource>, mime::ResourceLoadError>;
+pub type LoadCompletion = Result<Arc<Resource>, ResourceLoadError>;
 
 impl ResourceLoadRequest {
     #[must_use]
@@ -91,7 +93,7 @@ impl ResourceLoader {
 
     fn handle_pending_loads(&mut self) {
         for pending_load in mem::take(&mut self.pending_loads) {
-            let completion = mime::Resource::load(&pending_load.url).map(Arc::new);
+            let completion = Resource::load(&pending_load.url).map(Arc::new);
 
             if let Ok(resource) = &completion {
                 self.cache.insert(pending_load.url, resource.clone());

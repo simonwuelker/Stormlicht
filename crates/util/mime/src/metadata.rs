@@ -1,15 +1,13 @@
 //! <https://mimesniff.spec.whatwg.org/#resource>
 
-use std::{fs, io, str::FromStr};
+use std::str::FromStr;
 
 use crate::{
     sniff::{self, identify_audio_or_video_type, identify_image_type},
     sniff_tables, MIMEType,
 };
 
-use http::{request::HTTPError, Header};
-use sl_std::{ascii, base64};
-use url::{ExcludeFragment, URL};
+use http::Header;
 
 /// Whether or not the user agent should try to guess the computed [MIMEType] of a [Resource].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,130 +40,6 @@ pub struct Metadata {
     pub computed_mime_type: MIMEType,
     pub check_for_apache_bug: CheckForApacheBug,
     pub no_sniff: NoSniff,
-}
-
-#[derive(Clone, Debug)]
-pub struct Resource {
-    pub metadata: Metadata,
-    pub data: Vec<u8>,
-}
-
-#[derive(Debug)]
-pub enum ResourceLoadError {
-    HTTP(HTTPError),
-    Base64(base64::Error),
-    UnsupportedScheme,
-    InvalidFilePath,
-    InvalidDataURL,
-    IO(io::Error),
-}
-
-impl From<HTTPError> for ResourceLoadError {
-    fn from(value: HTTPError) -> Self {
-        Self::HTTP(value)
-    }
-}
-
-impl From<io::Error> for ResourceLoadError {
-    fn from(value: io::Error) -> Self {
-        Self::IO(value)
-    }
-}
-
-impl From<base64::Error> for ResourceLoadError {
-    fn from(value: base64::Error) -> Self {
-        Self::Base64(value)
-    }
-}
-
-impl Resource {
-    pub fn load(url: &URL) -> Result<Resource, ResourceLoadError> {
-        log::info!(
-            "Starting load of {}",
-            url.serialize(url::ExcludeFragment::Yes)
-        );
-
-        let (data, metadata) = match url.scheme().as_str() {
-            "http" | "https" => {
-                // Fetch the file via http
-                let response = http::request::Request::get(url).send()?;
-                log::info!(
-                    "Successfully loaded {}",
-                    response.context().url.serialize(ExcludeFragment::Yes)
-                );
-
-                let metadata =
-                    Metadata::for_http_request(response.body(), response.headers(), NoSniff::No);
-                (response.into_body(), metadata)
-            },
-            "file" => {
-                // Fetch the file from the local filesystem
-                let data = match url.as_file_path() {
-                    Ok(path) => fs::read(path)?,
-                    Err(_) => {
-                        log::error!(
-                            "Failed to load {}: Invalid file path for current platform",
-                            url.serialize(url::ExcludeFragment::Yes)
-                        );
-                        return Err(ResourceLoadError::InvalidFilePath);
-                    },
-                };
-                let metadata = Metadata::new(&data, NoSniff::No);
-
-                (data, metadata)
-            },
-            "data" => {
-                // Load data encoded directly in the URL
-                // https://www.rfc-editor.org/rfc/rfc2397#section-2
-                if !url.has_opaque_path() {
-                    log::error!(
-                        "Failed to load {}: data URLs need to have an opaque path",
-                        url.serialize(url::ExcludeFragment::Yes)
-                    );
-                    return Err(ResourceLoadError::InvalidDataURL);
-                }
-
-                let opaque_path = &url.path()[0];
-                let (mut before_data, data) = match opaque_path.split_once(ascii::Char::Comma) {
-                    Some(segments) => segments,
-                    None => return Err(ResourceLoadError::InvalidDataURL),
-                };
-
-                let is_b64 = if before_data.as_bytes().ends_with(b";base64") {
-                    before_data = &before_data[..before_data.len() - b";base64".len()];
-                    true
-                } else {
-                    false
-                };
-
-                let mut supplied_mime_type = None;
-                if !before_data.is_empty() {
-                    // We treat parse errors in the provided mime type as if no mime type
-                    // had been provided
-                    supplied_mime_type = before_data.as_str().parse().ok();
-                }
-
-                let data = if is_b64 {
-                    base64::b64decode(data)?
-                } else {
-                    url::percent_decode(data).to_vec()
-                };
-
-                let metadata =
-                    Metadata::with_supplied_mime_type(&data, supplied_mime_type, NoSniff::No);
-                (data, metadata)
-            },
-            other => {
-                log::error!(
-                    "Failed to load unknown url scheme: {other} from {}",
-                    url.serialize(url::ExcludeFragment::Yes)
-                );
-                return Err(ResourceLoadError::UnsupportedScheme);
-            },
-        };
-
-        Ok(Resource { metadata, data })
-    }
 }
 
 impl Metadata {

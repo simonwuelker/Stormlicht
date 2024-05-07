@@ -56,15 +56,15 @@ fn load_texture_for_img_element(html_element: &HtmlElement) -> Option<Texture> {
         })
         .ok()?;
 
-    if !resource.metadata.computed_mime_type.is_image() {
+    if !resource.mime_metadata().computed_mime_type.is_image() {
         log::error!(
             "Failed to load <img> content: Expected image, found {}",
-            resource.metadata.computed_mime_type
+            resource.mime_metadata().computed_mime_type
         );
         return None;
     }
 
-    let texture = Texture::from_bytes(&resource.data)
+    let texture = Texture::from_bytes(&resource.data())
         .inspect_err(|error| {
             log::error!(
                 "Failed to load <img> content: Failed to load {source_url} as an image ({error:?})",

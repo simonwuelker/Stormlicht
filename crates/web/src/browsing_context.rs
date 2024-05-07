@@ -42,16 +42,16 @@ impl BrowsingContext {
             .block()
             .map_err(BrowsingContextError::Loading)?;
 
-        if !resource.metadata.computed_mime_type.is_html() {
+        if !resource.mime_metadata().computed_mime_type.is_html() {
             log::error!(
                 "Cannot display unknown MIME type: {}",
-                resource.metadata.computed_mime_type
+                resource.mime_metadata().computed_mime_type
             );
             return Err(BrowsingContextError::UnsupportedMIME);
         }
 
         // FIXME: resource might not be utf-8
-        let html_source = String::from_utf8_lossy(&resource.data);
+        let html_source = String::from_utf8_lossy(&resource.data());
 
         // Parse the data into a html document
         let parse_start = time::Instant::now();

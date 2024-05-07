@@ -5,10 +5,10 @@
 
 #![feature(ascii_char_variants, ascii_char)]
 
+mod metadata;
 mod mime_type;
-mod resource;
 mod sniff;
 mod sniff_tables;
 
+pub use metadata::{Metadata, NoSniff};
 pub use mime_type::{MIMEParseError, MIMEType};
-pub use resource::{Metadata, NoSniff, Resource, ResourceLoadError};

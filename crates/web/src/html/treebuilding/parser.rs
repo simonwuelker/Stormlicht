@@ -232,7 +232,7 @@ impl<P: ParseErrorHandler> Parser<P> {
             match pending_stylesheet.block() {
                 Ok(resource) => {
                     // FIXME: Check mime type here
-                    let css = String::from_utf8_lossy(&resource.data);
+                    let css = String::from_utf8_lossy(&resource.data());
                     let stylesheet = css::Parser::new(&css, css::Origin::Author)
                         .parse_stylesheet(self.stylesheets.len());
 

@@ -1,6 +1,6 @@
 //! Algorithms for determining a [MIMEType](crate::MIMEType) from the first few bytes in a file
 
-use crate::{resource::SniffScriptable, sniff_tables, MIMEType};
+use crate::{metadata::SniffScriptable, sniff_tables, MIMEType};
 
 /// <https://mimesniff.spec.whatwg.org/#rules-for-identifying-an-unknown-mime-type>
 pub fn identify_unknown_mime_type(
