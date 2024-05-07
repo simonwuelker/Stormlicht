@@ -37,7 +37,7 @@ pub enum SniffScriptable {
 
 /// <https://mimesniff.spec.whatwg.org/#resource>
 #[derive(Clone, Debug)]
-pub struct ResourceMetadata {
+pub struct Metadata {
     pub supplied_mime_type: Option<MIMEType>,
     pub computed_mime_type: MIMEType,
     pub check_for_apache_bug: CheckForApacheBug,
@@ -46,7 +46,7 @@ pub struct ResourceMetadata {
 
 #[derive(Clone, Debug)]
 pub struct Resource {
-    pub metadata: ResourceMetadata,
+    pub metadata: Metadata,
     pub data: Vec<u8>,
 }
 
@@ -85,10 +85,7 @@ impl Resource {
             url.serialize(url::ExcludeFragment::Yes)
         );
 
-        let mut supplied_type = None;
-        let mut check_for_apache_bug = CheckForApacheBug::default();
-
-        let data = match url.scheme().as_str() {
+        let (data, metadata) = match url.scheme().as_str() {
             "http" | "https" => {
                 // Fetch the file via http
                 let response = http::request::Request::get(url).send()?;
@@ -97,27 +94,13 @@ impl Resource {
                     response.context().url.serialize(ExcludeFragment::Yes)
                 );
 
-                if let Some(content_type_string) = response.headers().get(Header::CONTENT_TYPE) {
-                    if let Ok(content_type) = MIMEType::from_str(content_type_string) {
-                        supplied_type = Some(content_type);
-                    }
-
-                    if matches!(
-                        content_type_string,
-                        "text/plain"
-                            | "text/plain; charset=ISO-8859-1"
-                            | "text/plain; charset=iso-8859-1"
-                            | "text/plain; charset=UTF-8"
-                    ) {
-                        check_for_apache_bug = CheckForApacheBug::Yes;
-                    }
-                }
-
-                response.into_body()
+                let metadata =
+                    Metadata::for_http_request(response.body(), response.headers(), NoSniff::No);
+                (response.into_body(), metadata)
             },
             "file" => {
                 // Fetch the file from the local filesystem
-                match url.as_file_path() {
+                let data = match url.as_file_path() {
                     Ok(path) => fs::read(path)?,
                     Err(_) => {
                         log::error!(
@@ -126,7 +109,10 @@ impl Resource {
                         );
                         return Err(ResourceLoadError::InvalidFilePath);
                     },
-                }
+                };
+                let metadata = Metadata::new(&data, NoSniff::No);
+
+                (data, metadata)
             },
             "data" => {
                 // Load data encoded directly in the URL
@@ -152,17 +138,22 @@ impl Resource {
                     false
                 };
 
+                let mut supplied_mime_type = None;
                 if !before_data.is_empty() {
                     // We treat parse errors in the provided mime type as if no mime type
                     // had been provided
-                    supplied_type = before_data.as_str().parse().ok();
+                    supplied_mime_type = before_data.as_str().parse().ok();
                 }
 
-                if is_b64 {
+                let data = if is_b64 {
                     base64::b64decode(data)?
                 } else {
                     url::percent_decode(data).to_vec()
-                }
+                };
+
+                let metadata =
+                    Metadata::with_supplied_mime_type(&data, supplied_mime_type, NoSniff::No);
+                (data, metadata)
             },
             other => {
                 log::error!(
@@ -173,20 +164,38 @@ impl Resource {
             },
         };
 
-        let metadata =
-            ResourceMetadata::new(supplied_type, check_for_apache_bug, NoSniff::No, &data);
-
         Ok(Resource { metadata, data })
     }
 }
 
-impl ResourceMetadata {
-    pub fn new(
-        supplied_mime_type: Option<MIMEType>,
-        check_for_apache_bug: CheckForApacheBug,
-        no_sniff: NoSniff,
+impl Metadata {
+    /// Construct information about the resource, taking data
+    /// from HTTP headers as necessary
+    #[must_use]
+    pub fn for_http_request(
         resource_data: &[u8],
+        headers: &http::Headers,
+        no_sniff: NoSniff,
     ) -> Self {
+        let mut supplied_mime_type = None;
+        let mut check_for_apache_bug = CheckForApacheBug::No;
+
+        if let Some(content_type_string) = headers.get(Header::CONTENT_TYPE) {
+            if let Ok(content_type) = MIMEType::from_str(content_type_string) {
+                supplied_mime_type = Some(content_type);
+            }
+
+            if matches!(
+                content_type_string,
+                "text/plain"
+                    | "text/plain; charset=ISO-8859-1"
+                    | "text/plain; charset=iso-8859-1"
+                    | "text/plain; charset=UTF-8"
+            ) {
+                check_for_apache_bug = CheckForApacheBug::Yes;
+            }
+        }
+
         let computed_mime_type = determine_computed_mimetype(
             supplied_mime_type.as_ref(),
             no_sniff,
@@ -200,6 +209,35 @@ impl ResourceMetadata {
             check_for_apache_bug,
             no_sniff,
         }
+    }
+
+    #[must_use]
+    pub fn with_supplied_mime_type(
+        resource_data: &[u8],
+        supplied_mime_type: Option<MIMEType>,
+        no_sniff: NoSniff,
+    ) -> Self {
+        let computed_mime_type = determine_computed_mimetype(
+            supplied_mime_type.as_ref(),
+            no_sniff,
+            CheckForApacheBug::No,
+            resource_data,
+        );
+
+        Self {
+            supplied_mime_type,
+            computed_mime_type,
+            check_for_apache_bug: CheckForApacheBug::No,
+            no_sniff,
+        }
+    }
+
+    /// Compute information about the resource from just its bytes
+    ///
+    /// If you have auxiliary information, like HTTP headers,
+    /// consider using [Self::for_http_request] instead.
+    pub fn new(resource_data: &[u8], no_sniff: NoSniff) -> Self {
+        Self::with_supplied_mime_type(resource_data, None, no_sniff)
     }
 }
 
