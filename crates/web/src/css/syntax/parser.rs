@@ -205,7 +205,17 @@ impl<'a> Parser<'a> {
         _ = mixed_with_declarations;
 
         // Parse the rule prelude (selectors)
-        let selectors = rule_parser.parse_qualified_rule_prelude(self)?;
+        let selectors = match rule_parser.parse_qualified_rule_prelude(self) {
+            Ok(selectors) => selectors,
+            Err(error) => {
+                // See <https://drafts.csswg.org/selectors-4/#invalid>
+                // Skip this rule in its entirety, its never going to match
+                while !matches!(self.next_token(), Some(Token::CurlyBraceClose) | None) {}
+
+                return Err(error);
+            },
+        };
+
         self.expect_token(Token::CurlyBraceOpen)?; // FIXME: this could be a semicolon
 
         // Parse the rule block
@@ -314,9 +324,16 @@ impl<'a> Parser<'a> {
 
         let mut rules = vec![];
 
-        while let Ok(rule) =
-            self.consume_qualified_rule(&mut rule_parser, MixedWithDeclarations::No)
-        {
+        while self.peek_token_ignoring_whitespace(0).is_some() {
+            let rule =
+                match self.consume_qualified_rule(&mut rule_parser, MixedWithDeclarations::No) {
+                    Ok(rule) => rule,
+                    Err(error) => {
+                        log::debug!("Failed to parse CSS rule: {error:?}");
+                        continue;
+                    },
+                };
+
             // There's no point in caring about empty rules, so let's drop them
             if !rule.properties().is_empty() {
                 rules.push(rule);
