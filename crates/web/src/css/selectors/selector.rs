@@ -6,7 +6,10 @@ use crate::{
     static_interned, InternedString,
 };
 
-use super::{type_selector, AttributeSelector, Combinator, TypeSelector, WellQualifiedName};
+use super::{
+    type_selector, AttributeSelector, Combinator, PseudoClassSelector, TypeSelector,
+    WellQualifiedName,
+};
 
 pub trait CSSValidateSelector {
     /// <https://drafts.csswg.org/selectors-4/#invalid-selector>
@@ -40,6 +43,11 @@ pub enum SelectorComponent {
     ///
     /// <https://drafts.csswg.org/selectors-4/#attribute-selectors>
     Attribute(AttributeSelector),
+
+    /// Matches an element on some other property
+    ///
+    /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-class-selector>
+    PseudoClass(PseudoClassSelector),
 
     /// Match an element by type (`foo`)
     ///
@@ -94,6 +102,11 @@ impl<'a> CSSParse<'a> for SelectorComponent {
                 let attribute_selector = AttributeSelector::parse(parser)?;
 
                 Self::Attribute(attribute_selector)
+            },
+            Some(Token::Colon) => {
+                let pseudo_class_selector = PseudoClassSelector::parse(parser)?;
+
+                Self::PseudoClass(pseudo_class_selector)
             },
             Some(Token::Delim('*')) => {
                 _ = parser.next_token_ignoring_whitespace();
@@ -178,6 +191,7 @@ impl SelectorComponent {
             Self::Id(_) => Specificity::new(1, 0, 0),
             Self::Class(_) => Specificity::new(0, 1, 0),
             Self::Attribute(_) => Specificity::new(0, 1, 0),
+            Self::PseudoClass(_) => Specificity::new(0, 1, 0),
             Self::Type(type_selector) => type_selector.specificity(),
         }
     }
@@ -192,6 +206,10 @@ impl SelectorComponent {
                 .is_some_and(|attr| attr == id),
             Self::Class(_) => {
                 // FIXME: implement class selector
+                false
+            },
+            Self::PseudoClass(_) => {
+                // FIXME: implement pseudo class selectors
                 false
             },
             Self::Attribute(attribute_selector) => attribute_selector.matches(element),
@@ -444,5 +462,19 @@ mod tests {
 
         assert_eq!(components.next(), Some(&type_reference));
         assert!(components.next().is_none());
+    }
+
+    #[test]
+    fn parse_pseudo_class_selector() {
+        let source = ":foo";
+
+        let selector = Selector::parse_from_str(source).unwrap();
+        let mut components = selector.components();
+
+        let reference = SelectorComponent::PseudoClass(PseudoClassSelector::Ident("foo".into()));
+
+        assert_eq!(components.next(), Some(&reference));
+        assert!(components.next().is_none());
+        assert!(components.next_component().is_none());
     }
 }
