@@ -1,5 +1,3 @@
-use std::iter::FusedIterator;
-
 /// A value within a comma-separated header
 #[derive(Clone, Copy, Debug)]
 pub enum HeaderDirective<'a> {
@@ -11,44 +9,57 @@ pub enum HeaderDirective<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct CommaSeparatedHeader<'a> {
+pub struct CommaSeparatedHeader {
     is_done: bool,
 
-    remainder: &'a str,
+    offset: usize,
+
+    /// The full header value
+    ///
+    /// Owned because these headers are usually case-insensitive,
+    /// so we call `to_ascii_lowercase` once in the beginning
+    value: String,
 }
 
-impl<'a> CommaSeparatedHeader<'a> {
+impl CommaSeparatedHeader {
+    pub const EMPTY: Self = Self {
+        is_done: true,
+        offset: 0,
+        value: String::new(),
+    };
+
     #[must_use]
-    pub fn new(header_value: &'a str) -> Self {
+    pub fn new(header_value: &str) -> Self {
         Self {
             is_done: false,
-            remainder: header_value.trim(),
+            offset: 0,
+            value: header_value.to_ascii_lowercase(),
         }
     }
-}
 
-impl<'a> Iterator for CommaSeparatedHeader<'a> {
-    type Item = HeaderDirective<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
+    /// Return the next directive
+    ///
+    /// This can't be an `Iterator` because the lifetime of the
+    /// directive is tied to the lifetime of `self`.
+    #[must_use]
+    pub fn next_directive<'a>(&'a mut self) -> Option<HeaderDirective<'a>> {
         if self.is_done {
             return None;
         }
 
-        let Some((chunk, new_remainder)) = self.remainder.split_once(',') else {
+        let remainder = &self.value[self.offset..];
+        let Some((chunk, _)) = remainder.split_once(',') else {
             // This is the last chunk
             self.is_done = true;
-            return Some(HeaderDirective::from(self.remainder));
+            return Some(HeaderDirective::from(remainder.trim()));
         };
 
-        let directive = HeaderDirective::from(chunk.trim_end());
-        self.remainder = new_remainder.trim_start();
+        self.offset += chunk.len() + 1;
+        let directive = HeaderDirective::from(chunk.trim());
 
         Some(directive)
     }
 }
-
-impl<'a> FusedIterator for CommaSeparatedHeader<'a> {}
 
 impl<'a> From<&'a str> for HeaderDirective<'a> {
     fn from(value: &'a str) -> Self {

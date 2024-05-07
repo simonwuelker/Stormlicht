@@ -1,9 +1,12 @@
 //! <https://www.rfc-editor.org/rfc/rfc2616#section-4.2>
 
+mod cache_control;
 mod utils;
 mod value;
 
 use std::collections::HashMap;
+
+use self::cache_control::CacheControlIterator;
 
 pub use value::Header;
 
@@ -37,5 +40,41 @@ impl Headers {
         self.internal
             .iter()
             .map(|(key, value)| (key, value.as_str()))
+    }
+
+    #[must_use]
+    pub fn cache_control_directives(&self) -> CacheControlIterator {
+        let Some(header) = self.get(Header::CACHE_CONTROL) else {
+            return CacheControlIterator::EMPTY;
+        };
+
+        CacheControlIterator::new(header)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn for_each_cache_control_directive() {
+        use super::cache_control::CacheControlDirective;
+
+        let mut headers = Headers::default();
+
+        let mut directives = headers.cache_control_directives();
+        assert!(directives.next().is_none());
+
+        // This header is nonsense, but valid.
+        headers.set(
+            Header::CACHE_CONTROL,
+            " public, totally-invalid, max-age = 100, no-cache".to_string(),
+        );
+        let mut directives = headers.cache_control_directives();
+
+        assert_eq!(directives.next(), Some(CacheControlDirective::Public));
+        assert_eq!(directives.next(), Some(CacheControlDirective::MaxAge(100)));
+        assert_eq!(directives.next(), Some(CacheControlDirective::NoCache));
+        assert!(directives.next().is_none());
     }
 }
