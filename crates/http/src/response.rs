@@ -65,6 +65,11 @@ impl Response {
     }
 
     #[must_use]
+    pub fn body(&self) -> &[u8] {
+        &self.body
+    }
+
+    #[must_use]
     pub fn into_body(self) -> Vec<u8> {
         self.body
     }
