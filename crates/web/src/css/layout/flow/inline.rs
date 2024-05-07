@@ -93,7 +93,11 @@ impl TextRun {
     ) where
         'box_tree: 'state,
     {
-        let font_metrics = self.find_suitable_font(state.current_resolution_context().font_size);
+        let font_size = self
+            .style
+            .font_size()
+            .to_pixels(state.current_resolution_context());
+        let font_metrics = self.find_suitable_font(font_size);
 
         // Collapse sequences of whitespace in the text and remove newlines as defined in
         // https://drafts.csswg.org/css2/#white-space-model (3)
