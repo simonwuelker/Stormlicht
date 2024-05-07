@@ -11,4 +11,4 @@ mod sniff;
 mod sniff_tables;
 
 pub use mime_type::{MIMEParseError, MIMEType};
-pub use resource::{Metadata, Resource, ResourceLoadError};
+pub use resource::{Metadata, NoSniff, Resource, ResourceLoadError};
