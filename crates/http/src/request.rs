@@ -40,10 +40,39 @@ pub struct Context {
     pub url: URL,
 }
 
+/// HTTP Request Method
+///
+/// Refer to the relevant specifications for more information:
+/// * <https://tools.ietf.org/html/rfc7231#section-4.1>
+/// * <https://datatracker.ietf.org/doc/html/rfc5789>
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Method {
-    GET,
-    POST,
+    /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/CONNECT>
+    Connect,
+
+    /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/DELETE>
+    Delete,
+
+    /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/GET>
+    Get,
+
+    /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/HEAD>
+    Head,
+
+    /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/OPTIONS>
+    Options,
+
+    /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PATCH>
+    Patch,
+
+    /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/POST>
+    Post,
+
+    /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/PUT>
+    Put,
+
+    /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/TRACE>
+    Trace,
 }
 
 #[derive(Clone, Debug)]
@@ -67,8 +96,15 @@ impl Method {
     #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
-            Self::GET => "GET",
-            Self::POST => "POST",
+            Self::Connect => "CONNECT",
+            Self::Delete => "DELETE",
+            Self::Get => "GET",
+            Self::Head => "HEAD",
+            Self::Options => "OPTIONS",
+            Self::Patch => "PATCH",
+            Self::Post => "POST",
+            Self::Put => "PUT",
+            Self::Trace => "TRACE",
         }
     }
 }
@@ -99,7 +135,7 @@ impl Request {
         );
 
         Self {
-            method: Method::GET,
+            method: Method::Get,
             headers,
             context: Context::new(url.clone()),
         }
