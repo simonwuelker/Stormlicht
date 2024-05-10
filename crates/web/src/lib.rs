@@ -1,5 +1,4 @@
 #![feature(
-    exclusive_range_pattern,
     associated_type_defaults,
     let_chains,
     lazy_cell,
