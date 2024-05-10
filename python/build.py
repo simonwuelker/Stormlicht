@@ -8,11 +8,19 @@ import shutil
 from . import log, util, downloads
 from .testrunners import test_html_parser, test_font_rendering
 
+
 def ensure_submodules_are_downloaded():
-    util.Command.create("git").with_arguments(["submodule", "update", "--init", "--recursive"]).run()
+    util.Command.create("git").with_arguments(
+        ["submodule", "update", "--init", "--recursive"]
+    ).run()
+
 
 def build_documentation(args, unknown_args):
-    cmd = util.Command.create("cargo").with_arguments(["doc", "--document-private-items"]).with_forwarded_arguments(unknown_args)
+    cmd = (
+        util.Command.create("cargo")
+        .with_arguments(["doc", "--document-private-items"])
+        .with_forwarded_arguments(unknown_args)
+    )
 
     if args.open:
         cmd.append_argument("--open")
@@ -20,8 +28,13 @@ def build_documentation(args, unknown_args):
     log.info("Building stormlicht documentation...")
     cmd.run()
 
+
 def clean(args, unknown_args):
-    cmd = util.Command.create("cargo").with_arguments(["clean"]).with_forwarded_arguments(unknown_args)
+    cmd = (
+        util.Command.create("cargo")
+        .with_arguments(["clean"])
+        .with_forwarded_arguments(unknown_args)
+    )
 
     log.info("Removing target directory...")
     cmd.run()
@@ -35,15 +48,21 @@ def run_stormlicht(args, unknown_args):
     if not args.no_backtrace:
         environment["RUST_BACKTRACE"] = "1"
 
-    environment["RUSTFLAGS"] = environment.get("RUSTFLAGS", "") + f"--cfg chrome=\"{args.chrome}\""
+    environment["RUSTFLAGS"] = (
+        environment.get("RUSTFLAGS", "") + f'--cfg chrome="{args.chrome}"'
+    )
 
     if args.miri:
         arguments = ["miri", "run"]
     else:
         arguments = ["run"]
 
-
-    cmd = util.Command.create("cargo").with_environment(environment).with_arguments(arguments).with_forwarded_arguments(unknown_args)
+    cmd = (
+        util.Command.create("cargo")
+        .with_environment(environment)
+        .with_arguments(arguments)
+        .with_forwarded_arguments(unknown_args)
+    )
 
     if args.release:
         cmd.append_argument("--release")
@@ -55,7 +74,11 @@ def run_stormlicht(args, unknown_args):
 def build_stormlicht(args, unknown_args):
     build_gtk_blueprints()
 
-    cmd = util.Command.create("cargo").with_arguments(["build"]).with_forwarded_arguments(unknown_args)
+    cmd = (
+        util.Command.create("cargo")
+        .with_arguments(["build"])
+        .with_forwarded_arguments(unknown_args)
+    )
 
     if args.release:
         cmd.append_argument("--release")
@@ -74,14 +97,23 @@ def build_gtk_blueprints():
         if file.endswith(".blp")
     ]
 
-    util.Command.create("blueprint-compiler").with_arguments(["batch-compile", blueprint_dir, blueprint_dir]).extend_arguments(blueprint_files).run()
+    util.Command.create("blueprint-compiler").with_arguments(
+        ["batch-compile", blueprint_dir, blueprint_dir]
+    ).extend_arguments(blueprint_files).run()
+
 
 def test_stormlicht(args, unknown_args):
     if args.miri:
         arguments = ["miri", "test"]
     else:
         arguments = ["test"]
-    cmd = util.Command.create("cargo").with_arguments(arguments).with_forwarded_arguments(unknown_args).run()
+    cmd = (
+        util.Command.create("cargo")
+        .with_arguments(arguments)
+        .with_forwarded_arguments(unknown_args)
+        .run()
+    )
+
 
 def run():
     # Install git pre-commit hook
@@ -131,18 +163,16 @@ def run():
     parser_run.add_argument(
         "--no-backtrace",
         action="store_true",
-        help="Don't include a backtrace in crash messages"
+        help="Don't include a backtrace in crash messages",
     )
     parser_run.add_argument(
-        "--miri",
-        action="store_true",
-        help="Check for undefined behaviour using Miri"
+        "--miri", action="store_true", help="Check for undefined behaviour using Miri"
     )
     parser_run.add_argument(
         "--chrome",
         choices=["glazier", "gtk"],
         default="glazier",
-        help="Which browser chrome to use"
+        help="Which browser chrome to use",
     )
     parser_run.set_defaults(handler=run_stormlicht)
 
@@ -158,9 +188,7 @@ def run():
     # Testing
     parser_test = subparsers.add_parser("test", help="Test Stormlicht")
     parser_test.add_argument(
-        "--miri",
-        action="store_true",
-        help="Check for undefined behaviour using Miri"
+        "--miri", action="store_true", help="Check for undefined behaviour using Miri"
     )
     parser_test.set_defaults(handler=test_stormlicht)
 

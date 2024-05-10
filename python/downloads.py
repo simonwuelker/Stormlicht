@@ -17,6 +17,7 @@ HTML_NAMED_ENTITIES_URL = "https://html.spec.whatwg.org/entities.json"
 HTML_ENCODINGS_URL = "https://encoding.spec.whatwg.org/encodings.json"
 HTML_ENCODING_INDEXES_URL = "https://encoding.spec.whatwg.org/indexes.json"
 
+
 def download_required_files():
     def download(url):
         response = requests.get(url)
@@ -25,7 +26,7 @@ def download_required_files():
                 f"Download failed with status code {response.status_code}: {response.text}"
             )
         return response.content
-    
+
     if not os.path.exists(BASE_DIR):
         os.makedirs(BASE_DIR)
 
@@ -65,7 +66,8 @@ def download_required_files():
         os.makedirs(os.path.join(BASE_DIR, "brotli/testdata"))
         testdata_dir = os.path.join(BASE_DIR, "brotli/testdata")
 
-        util.Command.create("git").with_arguments([
+        util.Command.create("git").with_arguments(
+            [
                 "clone",
                 "-n",
                 "--depth=1",
@@ -73,20 +75,25 @@ def download_required_files():
                 "-q",
                 BROTLI_REPO_URL,
                 testdata_dir,
-            ]).run(stderr=subprocess.DEVNULL)
-        
-        util.Command.create("git").with_arguments([
+            ]
+        ).run(stderr=subprocess.DEVNULL)
+
+        util.Command.create("git").with_arguments(
+            [
                 "-C",
                 testdata_dir,
                 "sparse-checkout",
                 "set",
                 "tests/testdata",
                 "-q",
-            ]).run(stderr=subprocess.DEVNULL)
-        
-        util.Command.create("git").with_arguments([
+            ]
+        ).run(stderr=subprocess.DEVNULL)
+
+        util.Command.create("git").with_arguments(
+            [
                 "-C",
                 testdata_dir,
                 "checkout",
                 "-q",
-            ]).run(stderr=subprocess.DEVNULL)
+            ]
+        ).run(stderr=subprocess.DEVNULL)

@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import os
 
+
 class ExecutableStore:
     known_executables = {}
 
@@ -21,6 +22,7 @@ class ExecutableStore:
                 ExecutableStore.known_executables[name] = full_path
                 return full_path
 
+
 class Command:
     def create(name: str):
         cmd = Command()
@@ -29,7 +31,7 @@ class Command:
         cmd.env = os.environ.copy()
         cmd.forwarded_args = []
         return cmd
-    
+
     def with_arguments(self, args: list):
         self.args = args
         return self
@@ -41,15 +43,15 @@ class Command:
     def with_forwarded_arguments(self, forwarded_args: list):
         self.forwarded_args = forwarded_args
         return self
-    
+
     def append_argument(self, arg: str):
         self.args.append(arg)
         return self
-    
+
     def extend_arguments(self, args: list):
         self.args += args
         return self
-    
+
     def run(self, ignore_failure=False, **kwargs):
         cmd = [self.binary] + self.args
 
@@ -58,6 +60,8 @@ class Command:
 
         result = subprocess.run(cmd, env=self.env, **kwargs)
         if result.returncode != 0 and not ignore_failure:
-            log.error(f"Failed to run {cmd}: Process exited with exit code {result.returncode}")
-        
+            log.error(
+                f"Failed to run {cmd}: Process exited with exit code {result.returncode}"
+            )
+
         return result

@@ -3,17 +3,23 @@ import os
 import json
 import subprocess
 
+
 def test_html_parser(args, unknown_args):
     def verbose_print(initial_state, testdata, out, stderr):
         print(log.bold("Initial State") + ":", initial_state)
-        print(log.bold("Input") + ":        ", testdata["input"].encode("unicode_escape").decode("utf-8"))
+        print(
+            log.bold("Input") + ":        ",
+            testdata["input"].encode("unicode_escape").decode("utf-8"),
+        )
         print(log.bold("Expected") + ":     ", testdata["output"])
         print(log.bold("Got") + ":          ", out)
         print(log.bold("stderr") + ":       ", stderr)
         print()
 
     # Build the testrunner
-    util.Command.create("cargo").with_arguments(["build", "--bin=html5lib-testrunner"]).run()
+    util.Command.create("cargo").with_arguments(
+        ["build", "--bin=html5lib-testrunner"]
+    ).run()
 
     total_tests = 0
     tests_failed = 0
@@ -47,7 +53,9 @@ def test_html_parser(args, unknown_args):
 
                     runner_args = [
                         '--state="{}"'.format(initial_state),
-                        '--input="{}"'.format(test["input"].encode("unicode_escape").decode("utf-8")),
+                        '--input="{}"'.format(
+                            test["input"].encode("unicode_escape").decode("utf-8")
+                        ),
                     ]
 
                     if "lastStartTag" in test:
@@ -55,11 +63,15 @@ def test_html_parser(args, unknown_args):
                             '--last-start-tag="{}"'.format(test["lastStartTag"])
                         )
 
-                    p = util.Command.create("./target/debug/html5lib-testrunner").with_arguments(runner_args).run(
-                        ignore_failure=True,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        timeout=3
+                    p = (
+                        util.Command.create("./target/debug/html5lib-testrunner")
+                        .with_arguments(runner_args)
+                        .run(
+                            ignore_failure=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            timeout=3,
+                        )
                     )
 
                     try:
@@ -67,11 +79,17 @@ def test_html_parser(args, unknown_args):
                         out = json.loads(out_text)
 
                         # if "doubleEscaped" is set, then the output was unicode-escaped twice and
-                        # we need to unescape it once more  
+                        # we need to unescape it once more
                         if "doubleEscaped" in test and test["doubleEscaped"]:
                             for token_index in range(len(test["output"])):
-                                for element_index in range(len(test["output"][token_index])):
-                                    test["output"][token_index][element_index] = test["output"][token_index][element_index].encode("ascii").decode("unicode_escape")
+                                for element_index in range(
+                                    len(test["output"][token_index])
+                                ):
+                                    test["output"][token_index][element_index] = (
+                                        test["output"][token_index][element_index]
+                                        .encode("ascii")
+                                        .decode("unicode_escape")
+                                    )
 
                     except subprocess.TimeoutExpired:
                         print(log.colored("Timed out", log.RED))

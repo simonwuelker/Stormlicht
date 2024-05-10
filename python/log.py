@@ -15,21 +15,27 @@ UNDERLINE = "\033[4m"
 if platform.system() == "Windows":
     os.system("color")
 
+
 def colored(text: str, color: str) -> str:
     return color + text + ENDC
+
 
 def bold(text: str) -> str:
     return BOLD + text + ENDC
 
+
 def underline(text: str) -> str:
     return UNDERLINE + text + str
+
 
 def error(msg: str, **kwargs):
     print("[" + colored("ERROR", RED + BOLD) + "]: " + msg, **kwargs)
     exit(1)
 
+
 def info(msg: str, **kwargs):
     print("[" + colored("INFO", BLUE + BOLD) + "]: " + msg, **kwargs)
+
 
 def warning(msg: str, **kwargs):
     print("[" + colored("WARNING", ORANGE + BOLD) + "]: " + msg, **kwargs)
