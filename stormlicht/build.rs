@@ -1,14 +1,19 @@
-use std::process::Command;
+#![allow(unexpected_cfgs)] // ???
+
+use std::{env, process};
 
 fn main() {
+    // Register "chrome" cfg
+    println!("cargo::rustc-check-cfg=cfg(chrome, values(\"glazier\", \"gtk\"))");
+
     get_environment_info();
 
-    #[cfg(feature = "chrome-gtk")]
+    #[cfg(chrome = "gtk")]
     compile_glib_resources();
 }
 
 fn get_environment_info() {
-    let output = Command::new("git")
+    let output = process::Command::new("git")
         .args(["rev-parse", "HEAD"])
         .output()
         .expect("Failed to read git version");
@@ -17,15 +22,15 @@ fn get_environment_info() {
     println!("cargo:rustc-env=GIT_HASH={}", git_hash);
     println!(
         "cargo:rustc-env=TARGET_TRIPLE={}",
-        std::env::var("TARGET").unwrap()
+        env::var("TARGET").unwrap()
     );
     println!(
         "cargo:rustc-env=RUSTC_VERSION={}",
-        std::env::var("RUSTC").unwrap()
+        env::var("RUSTC").unwrap()
     );
 }
 
-#[cfg(feature = "chrome-gtk")]
+#[cfg(chrome = "gtk")]
 fn compile_glib_resources() {
     glib_build_tools::compile_resources(
         &["resources"],

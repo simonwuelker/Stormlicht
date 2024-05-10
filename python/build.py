@@ -35,13 +35,13 @@ def run_stormlicht(args, unknown_args):
     if not args.no_backtrace:
         environment["RUST_BACKTRACE"] = "1"
 
+    environment["RUSTFLAGS"] = environment.get("RUSTFLAGS", "") + f"--cfg chrome=\"{args.chrome}\""
+
     if args.miri:
         arguments = ["miri", "run"]
     else:
         arguments = ["run"]
 
-    if args.chrome == "gtk":
-        arguments += ["--no-default-features", "--features=chrome-gtk"]
 
     cmd = util.Command.create("cargo").with_environment(environment).with_arguments(arguments).with_forwarded_arguments(unknown_args)
 
