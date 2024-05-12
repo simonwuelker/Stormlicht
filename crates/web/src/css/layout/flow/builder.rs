@@ -13,7 +13,7 @@ use crate::{
             formatting_context::IndependentFormattingContext,
             replaced::ReplacedElement,
         },
-        values::length,
+        values::{length, Display, DisplayBox, DisplayOutside},
         ComputedStyle, StyleComputer,
     },
     dom::{dom_objects, DomPtr},
@@ -80,15 +80,7 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                     .style_computer
                     .get_computed_style(element.clone(), parent_style);
 
-                if computed_style.display().is_none() {
-                    continue;
-                }
-
-                if computed_style.display().is_inline() {
-                    self.push_inline_box(element, computed_style);
-                } else {
-                    self.push_block_box(element, computed_style);
-                }
+                self.handle_element(element, computed_style);
             } else if let Some(text) = child.try_into_type::<dom_objects::Text>() {
                 // Content that would later be collapsed away according to the white-space property
                 // does not generate inline boxes
@@ -98,6 +90,21 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                     self.push_text(text_run);
                 }
             }
+        }
+    }
+
+    fn handle_element(&mut self, element: DomPtr<dom_objects::Element>, style: ComputedStyle) {
+        match style.display() {
+            Display::InsideOutside(inside_outside) => match inside_outside.outside {
+                DisplayOutside::RunIn | // FIXME: implement display: run-in
+                DisplayOutside::Block => self.push_block_box(element, style),
+                DisplayOutside::Inline => self.push_inline_box(element, style),
+            },
+            Display::Internal(_) | // FIXME
+            Display::Box(DisplayBox::None) => {
+                // This element does not generate a box
+            },
+            Display::Box(DisplayBox::Contents) => self.traverse_subtree(element.upcast(), &style),
         }
     }
 
