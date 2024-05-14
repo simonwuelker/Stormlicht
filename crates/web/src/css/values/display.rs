@@ -18,8 +18,8 @@ pub enum DisplayOutside {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DisplayInside {
-    Flow,
-    FlowRoot,
+    Flow { list_item_flag: ListItemFlag },
+    FlowRoot { list_item_flag: ListItemFlag },
     Table,
     Flex,
     Grid,
@@ -30,7 +30,6 @@ pub enum DisplayInside {
 pub struct DisplayInsideOutside {
     pub outside: DisplayOutside,
     pub inside: DisplayInside,
-    pub list_item_flag: ListItemFlag,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -67,8 +66,9 @@ impl Default for Display {
     fn default() -> Self {
         Self::InsideOutside(DisplayInsideOutside {
             outside: DisplayOutside::Inline,
-            inside: DisplayInside::Flow,
-            list_item_flag: ListItemFlag::No,
+            inside: DisplayInside::Flow {
+                list_item_flag: ListItemFlag::No,
+            },
         })
     }
 }
@@ -140,68 +140,67 @@ impl From<Short> for Display {
             Short::Contents => Self::Box(DisplayBox::Contents),
             Short::Block => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Block,
-                inside: DisplayInside::Flow,
-                list_item_flag: ListItemFlag::No,
+                inside: DisplayInside::Flow {
+                    list_item_flag: ListItemFlag::No,
+                },
             }),
             Short::FlowRoot => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Block,
-                inside: DisplayInside::FlowRoot,
-                list_item_flag: ListItemFlag::No,
+                inside: DisplayInside::FlowRoot {
+                    list_item_flag: ListItemFlag::No,
+                },
             }),
             Short::Inline => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Inline,
-                inside: DisplayInside::Flow,
-                list_item_flag: ListItemFlag::No,
+                inside: DisplayInside::Flow {
+                    list_item_flag: ListItemFlag::No,
+                },
             }),
             Short::InlineBlock => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Inline,
-                inside: DisplayInside::FlowRoot,
-                list_item_flag: ListItemFlag::No,
+                inside: DisplayInside::FlowRoot {
+                    list_item_flag: ListItemFlag::No,
+                },
             }),
             Short::RunIn => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::RunIn,
-                inside: DisplayInside::Flow,
-                list_item_flag: ListItemFlag::No,
+                inside: DisplayInside::Flow {
+                    list_item_flag: ListItemFlag::No,
+                },
             }),
             Short::ListItem => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Block,
-                inside: DisplayInside::FlowRoot,
-                list_item_flag: ListItemFlag::Yes,
+                inside: DisplayInside::FlowRoot {
+                    list_item_flag: ListItemFlag::Yes,
+                },
             }),
             Short::Flex => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Block,
                 inside: DisplayInside::Flex,
-                list_item_flag: ListItemFlag::No,
             }),
             Short::InlineFlex => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Inline,
                 inside: DisplayInside::Flex,
-                list_item_flag: ListItemFlag::No,
             }),
             Short::Grid => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Block,
                 inside: DisplayInside::Grid,
-                list_item_flag: ListItemFlag::No,
             }),
             Short::InlineGrid => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Inline,
                 inside: DisplayInside::Grid,
-                list_item_flag: ListItemFlag::No,
             }),
             Short::Ruby => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Inline,
                 inside: DisplayInside::Ruby,
-                list_item_flag: ListItemFlag::No,
             }),
             Short::Table => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Block,
                 inside: DisplayInside::Table,
-                list_item_flag: ListItemFlag::No,
             }),
             Short::InlineTable => Self::InsideOutside(DisplayInsideOutside {
                 outside: DisplayOutside::Inline,
                 inside: DisplayInside::Table,
-                list_item_flag: ListItemFlag::No,
             }),
         }
     }
@@ -228,13 +227,15 @@ impl<'a> CSSParse<'a> for Display {
             let short = Short::try_from(ident)?;
             Ok(Self::from(short))
         } else {
-            let mut list_item_flag = ListItemFlag::No;
+            let mut has_list_item_flag = false;
             let mut outside = DisplayOutside::Block;
-            let mut inside = DisplayInside::Flow;
+            let mut inside = DisplayInside::Flow {
+                list_item_flag: ListItemFlag::No,
+            };
 
             for ident in idents {
                 if ident == static_interned!("list-item") {
-                    list_item_flag = ListItemFlag::Yes;
+                    has_list_item_flag = true;
                 } else if let Some(display_outside) = DisplayOutside::from_ident(ident) {
                     outside = display_outside;
                 } else if let Some(display_inside) = DisplayInside::from_ident(ident) {
@@ -246,18 +247,18 @@ impl<'a> CSSParse<'a> for Display {
 
             // Only "flow" and "flow-root" are allowed for inside
             // if the list_item_flag is set
-            if list_item_flag == ListItemFlag::Yes
-                && inside != DisplayInside::Flow
-                && inside != DisplayInside::FlowRoot
-            {
-                Err(ParseError)
-            } else {
-                Ok(Self::InsideOutside(DisplayInsideOutside {
-                    outside,
-                    inside,
-                    list_item_flag,
-                }))
+            if has_list_item_flag {
+                match &mut inside {
+                    DisplayInside::Flow { list_item_flag }
+                    | DisplayInside::FlowRoot { list_item_flag } => {
+                        *list_item_flag = ListItemFlag::Yes
+                    },
+                    _ => return Err(ParseError),
+                }
             }
+            let display = Self::InsideOutside(DisplayInsideOutside { outside, inside });
+
+            Ok(display)
         }
     }
 }
@@ -278,8 +279,12 @@ impl DisplayInside {
     #[inline]
     fn from_ident(ident: InternedString) -> Option<Self> {
         match ident {
-            static_interned!("flow") => Some(Self::Flow),
-            static_interned!("flow-root") => Some(Self::FlowRoot),
+            static_interned!("flow") => Some(Self::Flow {
+                list_item_flag: ListItemFlag::No,
+            }),
+            static_interned!("flow-root") => Some(Self::FlowRoot {
+                list_item_flag: ListItemFlag::No,
+            }),
             static_interned!("table") => Some(Self::Table),
             static_interned!("flex") => Some(Self::Flex),
             static_interned!("grid") => Some(Self::Grid),
