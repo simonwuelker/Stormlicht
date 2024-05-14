@@ -134,6 +134,13 @@
         "initial": "LineHeight::Normal"
     },
     {
+        "name": "list-style-type",
+        "specification": "https://drafts.csswg.org/css-lists/#propdef-list-style-type",
+        "inherited": true,
+        "value": "ListStyleType",
+        "initial": "ListStyleType::CounterStyle(CounterStyle::Disc)"
+    },
+    {
         "name": "margin",
         "specification": "https://drafts.csswg.org/css-box-3/#margin-shorthand",
         "inherited": false,
