@@ -120,28 +120,6 @@ impl TryFrom<InternedString> for Short {
 }
 
 impl Display {
-    #[must_use]
-    pub const fn is_inline(&self) -> bool {
-        matches!(
-            self,
-            Display::InsideOutside(DisplayInsideOutside {
-                outside: DisplayOutside::Inline,
-                ..
-            })
-        )
-    }
-
-    #[must_use]
-    pub const fn is_block(&self) -> bool {
-        matches!(
-            self,
-            Display::InsideOutside(DisplayInsideOutside {
-                outside: DisplayOutside::Block,
-                ..
-            })
-        )
-    }
-
     #[inline]
     #[must_use]
     pub const fn is_none(&self) -> bool {
