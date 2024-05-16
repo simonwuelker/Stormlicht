@@ -6,12 +6,12 @@
 use crate::{
     css::{
         layout::{
+            content::Content,
             flow::{
                 BlockContainer, BlockLevelBox, InFlowBlockBox, InlineBox, InlineFormattingContext,
                 InlineLevelBox,
             },
             formatting_context::IndependentFormattingContext,
-            replaced::ReplacedElement,
         },
         values::{length, Display, DisplayBox, DisplayOutside},
         ComputedStyle, StyleComputer,
@@ -80,7 +80,9 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                     .style_computer
                     .get_computed_style(element.clone(), parent_style);
 
-                self.handle_element(element, computed_style);
+                let content = Content::for_element(element.clone(), computed_style.clone());
+
+                self.handle_element(element, computed_style, content);
             } else if let Some(text) = child.try_into_type::<dom_objects::Text>() {
                 // Content that would later be collapsed away according to the white-space property
                 // does not generate inline boxes
@@ -93,12 +95,17 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
         }
     }
 
-    fn handle_element(&mut self, element: DomPtr<dom_objects::Element>, style: ComputedStyle) {
+    fn handle_element(
+        &mut self,
+        element: DomPtr<dom_objects::Element>,
+        style: ComputedStyle,
+        content: Content,
+    ) {
         match style.display() {
             Display::InsideOutside(inside_outside) => match inside_outside.outside {
                 DisplayOutside::RunIn | // FIXME: implement display: run-in
-                DisplayOutside::Block => self.push_block_box(element, style),
-                DisplayOutside::Inline => self.push_inline_box(element, style),
+                DisplayOutside::Block => self.push_block_box(element, style, content),
+                DisplayOutside::Inline => self.push_inline_box(element, style, content),
             },
             Display::Internal(_) | // FIXME
             Display::Box(DisplayBox::None) => {
@@ -133,31 +140,35 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
         }
     }
 
-    fn push_inline_box(&mut self, element: DomPtr<dom_objects::Element>, style: ComputedStyle) {
-        let inline_box = if let Some(replaced_element) =
-            ReplacedElement::try_from(element.clone(), style.clone())
-        {
-            InlineLevelBox::Replaced(replaced_element)
-        } else {
-            // Create a new inline box and put it on the stack of open boxes
-            let font_size = style
-                .font_size()
-                .to_pixels(self.current_resolution_context());
+    fn push_inline_box(
+        &mut self,
+        element: DomPtr<dom_objects::Element>,
+        style: ComputedStyle,
+        content: Content,
+    ) {
+        let inline_box = match content {
+            Content::Element => {
+                // Create a new inline box and put it on the stack of open boxes
+                let font_size = style
+                    .font_size()
+                    .to_pixels(self.current_resolution_context());
 
-            let inline_box = InlineBox::new(element.clone().upcast(), style.clone(), font_size);
-            self.inline_stack.push(inline_box);
+                let inline_box = InlineBox::new(element.clone().upcast(), style.clone(), font_size);
+                self.inline_stack.push(inline_box);
 
-            // Traverse all children, they will be appended to the inline box we just created
-            self.traverse_subtree(element.upcast(), &style);
+                // Traverse all children, they will be appended to the inline box we just created
+                self.traverse_subtree(element.upcast(), &style);
 
-            // Pop the inline box from the stack and append it to its parents list of children
-            // unless the stack of open inline boxes is empty, in which case this was a top level box
-            // and we append it to the ongoing inline formatting context instead
-            InlineLevelBox::InlineBox(
-                self.inline_stack
-                    .pop()
-                    .expect("stack of open inline boxes should not be empty"),
-            )
+                // Pop the inline box from the stack and append it to its parents list of children
+                // unless the stack of open inline boxes is empty, in which case this was a top level box
+                // and we append it to the ongoing inline formatting context instead
+                InlineLevelBox::InlineBox(
+                    self.inline_stack
+                        .pop()
+                        .expect("stack of open inline boxes should not be empty"),
+                )
+            },
+            Content::Replaced(replaced_element) => InlineLevelBox::Replaced(replaced_element),
         };
 
         if let Some(top_box) = self.inline_stack.last_mut() {
@@ -168,7 +179,12 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
         }
     }
 
-    fn push_block_box(&mut self, element: DomPtr<dom_objects::Element>, style: ComputedStyle) {
+    fn push_block_box(
+        &mut self,
+        element: DomPtr<dom_objects::Element>,
+        style: ComputedStyle,
+        content: Content,
+    ) {
         // Split all currently open inline boxes around the block box
         if !self.inline_stack.is_empty() {
             // Split each inline box - these will end up on the "right side" of the block box
@@ -228,12 +244,8 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                 }
                 .into()
             },
-            (None, false) => {
-                if let Some(replaced_element) =
-                    ReplacedElement::try_from(element.clone(), style.clone())
-                {
-                    replaced_element.into()
-                } else {
+            (None, false) => match content {
+                Content::Element => {
                     let content = BlockContainerBuilder::build(
                         element.clone().upcast(),
                         self.style_computer,
@@ -241,7 +253,8 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                         resolution_context_for_block,
                     );
                     InFlowBlockBox::new(style, Some(element.upcast()), content).into()
-                }
+                },
+                Content::Replaced(replaced_element) => replaced_element.into(),
             },
         };
 
