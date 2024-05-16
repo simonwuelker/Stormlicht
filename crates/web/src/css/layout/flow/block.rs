@@ -77,13 +77,6 @@ impl BlockFormattingContext {
     }
 
     #[must_use]
-    pub fn from_block_level_boxes(block_level_boxes: Vec<BlockLevelBox>) -> Self {
-        Self {
-            contents: BlockContainer::BlockLevelBoxes(block_level_boxes),
-        }
-    }
-
-    #[must_use]
     pub fn layout(
         &self,
         containing_block: ContainingBlock,
@@ -773,5 +766,11 @@ impl TreeDebug for BlockContainer {
 impl TreeDebug for BlockFormattingContext {
     fn tree_fmt(&self, formatter: &mut TreeFormatter<'_, '_>) -> fmt::Result {
         self.contents.tree_fmt(formatter)
+    }
+}
+
+impl From<BlockContainer> for BlockFormattingContext {
+    fn from(contents: BlockContainer) -> Self {
+        Self { contents }
     }
 }

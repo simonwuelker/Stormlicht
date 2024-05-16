@@ -15,7 +15,7 @@ use crate::{
     TreeDebug, TreeFormatter,
 };
 
-use super::flow::{BlockContainerBuilder, BlockFormattingContext, InFlowBlockBox};
+use super::flow::{BlockContainerBuilder, BlockFormattingContext};
 
 #[derive(Clone)]
 pub struct BoxTree {
@@ -43,8 +43,8 @@ impl BoxTree {
             .try_into_type::<dom_objects::HtmlHtmlElement>()
             .expect("expected root element to be html element");
 
-        let element_style =
-            style_computer.get_computed_style(html.clone().upcast(), &ComputedStyle::default());
+        let parent_style = ComputedStyle::default();
+        let element_style = style_computer.get_computed_style(html.clone().upcast(), &parent_style);
 
         let root_resolution_context = length::ResolutionContext {
             font_size: DEFAULT_FONT_SIZE,
@@ -52,17 +52,15 @@ impl BoxTree {
             viewport,
         };
 
-        let contents = BlockContainerBuilder::build(
-            DomPtr::clone(&html).upcast(),
-            style_computer,
-            &element_style,
-            root_resolution_context,
-        );
+        let mut container =
+            BlockContainerBuilder::new(&parent_style, style_computer, root_resolution_context);
 
-        let root_box = InFlowBlockBox::new(element_style, Some(html.upcast()), contents).into();
+        container.handle_element(html.upcast(), element_style);
+
+        let contents = container.finish();
 
         Self {
-            root: BlockFormattingContext::from_block_level_boxes(vec![root_box]),
+            root: contents.into(),
         }
     }
 

@@ -32,33 +32,47 @@ pub struct BlockContainerBuilder<'stylesheets, 'parent_style> {
 }
 
 impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_style> {
-    pub fn build(
-        node: DomPtr<dom_objects::Node>,
-        style_computer: StyleComputer<'stylesheets>,
+    #[must_use]
+    pub fn new(
         style: &'parent_style ComputedStyle,
+        style_computer: StyleComputer<'stylesheets>,
         resolution_context: length::ResolutionContext,
-    ) -> BlockContainer {
-        let mut builder = Self {
+    ) -> Self {
+        Self {
             style_computer,
             style,
             block_level_boxes: Vec::new(),
             current_inline_formatting_context: InlineFormattingContext::default(),
             inline_stack: Vec::new(),
             root_resolution_context: resolution_context,
-        };
+        }
+    }
+
+    #[must_use]
+    pub fn finish(mut self) -> BlockContainer {
+        if !self.current_inline_formatting_context.is_empty() {
+            if self.block_level_boxes.is_empty() {
+                return BlockContainer::InlineFormattingContext(
+                    self.current_inline_formatting_context,
+                );
+            }
+            self.end_inline_formatting_context();
+        }
+
+        BlockContainer::BlockLevelBoxes(self.block_level_boxes)
+    }
+
+    pub fn build(
+        node: DomPtr<dom_objects::Node>,
+        style_computer: StyleComputer<'stylesheets>,
+        style: &'parent_style ComputedStyle,
+        resolution_context: length::ResolutionContext,
+    ) -> BlockContainer {
+        let mut builder = Self::new(style, style_computer, resolution_context);
 
         builder.traverse_subtree(node, style);
 
-        if !builder.current_inline_formatting_context.is_empty() {
-            if builder.block_level_boxes.is_empty() {
-                return BlockContainer::InlineFormattingContext(
-                    builder.current_inline_formatting_context,
-                );
-            }
-            builder.end_inline_formatting_context();
-        }
-
-        BlockContainer::BlockLevelBoxes(builder.block_level_boxes)
+        builder.finish()
     }
 
     #[must_use]
@@ -80,9 +94,7 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                     .style_computer
                     .get_computed_style(element.clone(), parent_style);
 
-                let content = Content::for_element(element.clone(), computed_style.clone());
-
-                self.handle_element(element, computed_style, content);
+                self.handle_element(element, computed_style);
             } else if let Some(text) = child.try_into_type::<dom_objects::Text>() {
                 // Content that would later be collapsed away according to the white-space property
                 // does not generate inline boxes
@@ -95,12 +107,9 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
         }
     }
 
-    fn handle_element(
-        &mut self,
-        element: DomPtr<dom_objects::Element>,
-        style: ComputedStyle,
-        content: Content,
-    ) {
+    pub fn handle_element(&mut self, element: DomPtr<dom_objects::Element>, style: ComputedStyle) {
+        let content = Content::for_element(element.clone(), style.clone());
+
         match style.display() {
             Display::InsideOutside(inside_outside) => match inside_outside.outside {
                 DisplayOutside::RunIn | // FIXME: implement display: run-in
