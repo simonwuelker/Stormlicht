@@ -67,7 +67,7 @@ impl BlockFormattingContext {
         resolution_context: length::ResolutionContext,
     ) -> Self {
         let contents = BlockContainerBuilder::build(
-            DomPtr::clone(&element).upcast(),
+            element.upcast(),
             style_computer,
             &element_style,
             resolution_context,
