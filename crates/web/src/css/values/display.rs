@@ -276,6 +276,18 @@ impl DisplayOutside {
 }
 
 impl DisplayInside {
+    #[must_use]
+    pub const fn has_list_item_flag(&self) -> bool {
+        matches!(
+            self,
+            Self::Flow {
+                list_item_flag: ListItemFlag::Yes
+            } | Self::FlowRoot {
+                list_item_flag: ListItemFlag::Yes
+            }
+        )
+    }
+
     #[inline]
     fn from_ident(ident: InternedString) -> Option<Self> {
         match ident {
