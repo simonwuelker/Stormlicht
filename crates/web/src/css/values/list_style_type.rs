@@ -34,13 +34,13 @@ pub enum ListStyleType {
 
 impl CounterStyle {
     #[must_use]
-    pub fn as_str(&self) -> InternedString {
+    pub fn as_str(&self) -> String {
         match self {
             Self::Decimal | // FIXME: implement decimal
-            Self::Disc => static_interned!("•"),
-            Self::Square => static_interned!("▪"),
-            Self::DisclosureOpen => static_interned!("▾"),
-            Self::DisclosureClosed => static_interned!("▸")
+            Self::Disc => String::from("•"),
+            Self::Square => String::from("▪"),
+            Self::DisclosureOpen => String::from("▾"),
+            Self::DisclosureClosed => String::from("▸")
         }
     }
 }
@@ -49,7 +49,7 @@ impl ListStyleType {
     #[must_use]
     pub fn as_str(&self) -> Option<String> {
         match self {
-            Self::CounterStyle(counter) => Some(counter.as_str().to_string()),
+            Self::CounterStyle(counter) => Some(counter.as_str()),
             Self::String(s) => Some(s.to_string()),
             Self::None => None,
         }
