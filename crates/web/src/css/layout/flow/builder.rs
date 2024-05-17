@@ -178,6 +178,10 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                 )
             },
             Content::Replaced(replaced_element) => InlineLevelBox::Replaced(replaced_element),
+            Content::PseudoElement(text) => {
+                self.push_text(TextRun::new(text, style));
+                return;
+            },
         };
 
         if let Some(top_box) = self.inline_stack.last_mut() {
@@ -264,6 +268,10 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                     InFlowBlockBox::new(style, Some(element.upcast()), content).into()
                 },
                 Content::Replaced(replaced_element) => replaced_element.into(),
+                Content::PseudoElement(text) => {
+                    self.push_text(TextRun::new(text, style));
+                    return;
+                },
             },
         };
 

@@ -14,6 +14,7 @@ use super::replaced::ReplacedElement;
 pub enum Content {
     Element,
     Replaced(ReplacedElement),
+    PseudoElement(String),
 }
 
 impl Content {
