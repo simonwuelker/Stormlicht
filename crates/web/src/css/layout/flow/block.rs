@@ -7,7 +7,7 @@ use crate::{
         font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::{BoxFragment, Fragment},
         layout::{replaced::ReplacedElement, ContainingBlock, Pixels, Sides},
-        values::{self, length, AutoOr, Length, PercentageOr},
+        values::{self, length, AutoOr, DisplayInside, Length, PercentageOr},
         ComputedStyle, StyleComputer,
     },
     dom::{dom_objects, DomPtr},
@@ -63,6 +63,7 @@ impl BlockFormattingContext {
     pub fn build(
         element: DomPtr<dom_objects::Element>,
         element_style: ComputedStyle,
+        display_inside: DisplayInside,
         style_computer: StyleComputer<'_>,
         resolution_context: length::ResolutionContext,
     ) -> Self {
@@ -70,6 +71,7 @@ impl BlockFormattingContext {
             element.upcast(),
             style_computer,
             &element_style,
+            display_inside,
             resolution_context,
         );
 

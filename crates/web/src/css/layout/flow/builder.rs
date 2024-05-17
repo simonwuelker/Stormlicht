@@ -13,7 +13,7 @@ use crate::{
             },
             formatting_context::IndependentFormattingContext,
         },
-        values::{length, Display, DisplayBox, DisplayOutside},
+        values::{length, Display, DisplayBox, DisplayInside, DisplayOutside},
         ComputedStyle, StyleComputer,
     },
     dom::{dom_objects, DomPtr},
@@ -66,9 +66,24 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
         node: DomPtr<dom_objects::Node>,
         style_computer: StyleComputer<'stylesheets>,
         style: &'parent_style ComputedStyle,
+        display_inside: DisplayInside,
         resolution_context: length::ResolutionContext,
     ) -> BlockContainer {
         let mut builder = Self::new(style, style_computer, resolution_context);
+
+        if display_inside.has_list_item_flag() {
+            if let Some(element) = node.try_into_type() {
+                let marker_content = style.list_style_type().as_str();
+
+                if let Some(content) = marker_content {
+                    builder.push_inline_box(
+                        element,
+                        style.clone(),
+                        Content::PseudoElement(content),
+                    );
+                }
+            }
+        }
 
         builder.traverse_subtree(node, style);
 
@@ -110,10 +125,10 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
     pub fn handle_element(&mut self, element: DomPtr<dom_objects::Element>, style: ComputedStyle) {
         let content = Content::for_element(element.clone(), style.clone());
 
-        match style.display() {
+        match *style.display() {
             Display::InsideOutside(inside_outside) => match inside_outside.outside {
                 DisplayOutside::RunIn | // FIXME: implement display: run-in
-                DisplayOutside::Block => self.push_block_box(element, style, content),
+                DisplayOutside::Block => self.push_block_box(element, style,inside_outside.inside, content),
                 DisplayOutside::Inline => self.push_inline_box(element, style, content),
             },
             Display::Internal(_) | // FIXME
@@ -196,6 +211,7 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
         &mut self,
         element: DomPtr<dom_objects::Element>,
         style: ComputedStyle,
+        display_inside: DisplayInside,
         content: Content,
     ) {
         // Split all currently open inline boxes around the block box
@@ -238,6 +254,7 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                     element.clone(),
                     self.style_computer,
                     style.clone(),
+                    display_inside,
                     resolution_context_for_block,
                 );
                 float::FloatingBox::new(element.upcast(), style, side, content).into()
@@ -247,6 +264,7 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                     element.clone(),
                     self.style_computer,
                     style.clone(),
+                    display_inside,
                     resolution_context_for_block,
                 );
 
@@ -263,6 +281,7 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                         element.clone().upcast(),
                         self.style_computer,
                         &style,
+                        display_inside,
                         resolution_context_for_block,
                     );
                     InFlowBlockBox::new(style, Some(element.upcast()), content).into()

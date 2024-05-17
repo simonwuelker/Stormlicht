@@ -1,7 +1,11 @@
 use std::{fmt, fmt::Write};
 
 use crate::{
-    css::{computed_style::ComputedStyle, values::length, StyleComputer},
+    css::{
+        computed_style::ComputedStyle,
+        values::{length, DisplayInside},
+        StyleComputer,
+    },
     dom::{dom_objects, DomPtr},
     TreeDebug, TreeFormatter,
 };
@@ -36,6 +40,7 @@ impl IndependentFormattingContext {
         element: DomPtr<dom_objects::Element>,
         style_computer: StyleComputer<'_>,
         element_style: ComputedStyle,
+        display_inside: DisplayInside,
         resolution_context: length::ResolutionContext,
     ) -> Self {
         if let Some(replaced_element) =
@@ -46,6 +51,7 @@ impl IndependentFormattingContext {
             Self::NonReplaced(BlockFormattingContext::build(
                 element,
                 element_style,
+                display_inside,
                 style_computer,
                 resolution_context,
             ))

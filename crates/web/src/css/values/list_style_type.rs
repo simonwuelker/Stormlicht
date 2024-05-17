@@ -45,6 +45,17 @@ impl CounterStyle {
     }
 }
 
+impl ListStyleType {
+    #[must_use]
+    pub fn as_str(&self) -> Option<String> {
+        match self {
+            Self::CounterStyle(counter) => Some(counter.as_str().to_string()),
+            Self::String(s) => Some(s.to_string()),
+            Self::None => None,
+        }
+    }
+}
+
 impl<'a> CSSParse<'a> for ListStyleType {
     fn parse(parser: &mut Parser<'a>) -> Result<Self, ParseError> {
         let list_style_type = match parser.next_token_ignoring_whitespace() {
