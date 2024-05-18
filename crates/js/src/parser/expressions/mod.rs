@@ -41,6 +41,7 @@ pub enum Expression {
     New(NewExpression),
     Assignment(AssignmentExpression),
     ConditionalExpression(ConditionalExpression),
+    Member(MemberExpression),
 }
 
 /// <https://262.ecma-international.org/14.0/#prod-PrimaryExpression>

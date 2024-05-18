@@ -10,7 +10,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         };
 
-        let program = match script.parse::<js::bytecode::Program>() {
+        let program = match script.parse::<js::Program>() {
             Ok(program) => program,
             Err(error) => {
                 error.get_context(&script).dump();
@@ -20,7 +20,7 @@ fn main() -> ExitCode {
 
         println!("{program:#?}");
 
-        let mut vm = js::bytecode::Vm::default();
+        let mut vm = js::Vm::default();
         vm.execute_program(&program);
         vm.dump();
 
@@ -37,7 +37,7 @@ fn run_shell() -> io::Result<()> {
     let mut buffer = String::new();
     let stdin = io::stdin();
 
-    let mut vm = js::bytecode::Vm::default();
+    let mut vm = js::Vm::default();
     loop {
         buffer.clear();
         let mut stdout = io::stdout();
@@ -46,7 +46,7 @@ fn run_shell() -> io::Result<()> {
 
         stdin.read_line(&mut buffer)?;
 
-        match buffer.parse::<js::bytecode::Program>() {
+        match buffer.parse::<js::Program>() {
             Ok(program) => {
                 writeln!(stdout, "{program:#?}")?;
 
