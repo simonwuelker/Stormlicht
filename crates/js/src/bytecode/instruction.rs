@@ -1,5 +1,5 @@
 use super::Register;
-use crate::{value::object, Value};
+use crate::{parser::identifiers::Identifier, value::object, Value};
 
 #[derive(Clone, Copy, Debug)]
 pub struct VariableHandle(usize);
@@ -150,6 +150,11 @@ pub enum Instruction {
     },
     Throw {
         value: Register,
+    },
+    MemberAccessWithIdentifier {
+        base: Register,
+        identifier: Identifier,
+        dst: Register,
     },
     CreateDataPropertyOrThrow {
         object: Register,

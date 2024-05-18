@@ -7,8 +7,8 @@ use super::{object::PropertyKey, Value};
 /// <https://262.ecma-international.org/14.0/#sec-reference-record-specification-type>
 #[derive(Clone, Debug)]
 pub struct ReferenceRecord {
-    base: Value,
-    referenced_name: String,
+    pub base: Value,
+    pub referenced_name: String,
 }
 
 #[derive(Clone, Debug)]

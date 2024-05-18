@@ -1,5 +1,7 @@
 //! <https://262.ecma-international.org/14.0/#sec-identifiers>
 
+use core::fmt;
+
 use super::{
     tokenization::{GoalSymbol, SkipLineTerminators, Token, Tokenizer},
     SyntaxError,
@@ -139,5 +141,11 @@ pub(crate) fn parse_identifier_reference<const YIELD: bool, const AWAIT: bool>(
         Identifier::parse(tokenizer).map(|i| i.0)
     } else {
         Err(tokenizer.syntax_error("expected identifier"))
+    }
+}
+
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }

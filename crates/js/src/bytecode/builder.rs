@@ -1,5 +1,5 @@
 use super::{BasicBlock, BasicBlockExit, Instruction, Program};
-use crate::{value::object, Value};
+use crate::{parser::identifiers::Identifier, value::object, Value};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Register(usize);
@@ -311,6 +311,21 @@ impl<'a> BasicBlockBuilder<'a> {
             if_true,
             if_false,
         }
+    }
+
+    pub fn member_access_with_identifier(
+        &mut self,
+        base: Register,
+        identifier: Identifier,
+    ) -> Register {
+        let dst = self.allocate_register();
+        let instruction = Instruction::MemberAccessWithIdentifier {
+            base,
+            identifier,
+            dst,
+        };
+        self.push_instruction(instruction);
+        dst
     }
 
     pub fn create_data_property_or_throw(

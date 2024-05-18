@@ -162,6 +162,19 @@ impl Vm {
                 let value = self.register(*value).clone().get_value()?;
                 return Err(Exception::new(value));
             },
+            Instruction::MemberAccessWithIdentifier {
+                base,
+                identifier,
+                dst,
+            } => {
+                // https://262.ecma-international.org/14.0/#sec-property-accessors-runtime-semantics-evaluation
+                let base_value = self.register(*base).get_value()?;
+                let result = Value::evaluate_property_access_with_identifier_key(
+                    base_value,
+                    identifier.clone(),
+                );
+                self.set_register(*dst, result.into());
+            },
             other => todo!("Implement instruction {other:?}"),
         }
 

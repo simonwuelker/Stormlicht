@@ -8,7 +8,10 @@ pub use object::Object;
 pub use reference_record::{ReferenceRecord, ValueOrReference};
 pub use symbol::Symbol;
 
-use crate::bytecode::{Exception, ThrowCompletionOr};
+use crate::{
+    bytecode::{Exception, ThrowCompletionOr},
+    parser::identifiers::Identifier,
+};
 
 const SPEC_CANNOT_FAIL: &str =
     "This operation cannot fail according to the specification (indicated by '!')";
@@ -451,6 +454,23 @@ impl Value {
                 // 12. Return ? ToString(primValue).
                 prim_value.to_string()
             },
+        }
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-evaluate-property-access-with-identifier-key>
+    #[must_use]
+    pub fn evaluate_property_access_with_identifier_key(
+        base_value: Self,
+        identifier: Identifier,
+    ) -> ReferenceRecord {
+        // 1. Let propertyNameString be StringValue of identifierName.
+        let property_name_string = identifier.to_string();
+
+        // 2. Return the Reference Record { [[Base]]: baseValue, [[ReferencedName]]: propertyNameString,
+        //    [[Strict]]: strict, [[ThisValue]]: empty }.
+        ReferenceRecord {
+            base: base_value,
+            referenced_name: property_name_string,
         }
     }
 }

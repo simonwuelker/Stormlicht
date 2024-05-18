@@ -1,3 +1,4 @@
+//! <https://262.ecma-international.org/14.0/#prod-MemberExpression>
 use crate::{
     bytecode::{self, CompileToBytecode},
     parser::{
@@ -9,6 +10,7 @@ use crate::{
 
 use super::{parse_primary_expression, Expression};
 
+/// <https://262.ecma-international.org/14.0/#prod-MemberExpression>
 #[derive(Clone, Debug)]
 pub struct MemberExpression {
     /// The element whose member is being accessed
@@ -26,6 +28,7 @@ pub enum Member {
 }
 
 impl MemberExpression {
+    /// <https://262.ecma-international.org/14.0/#prod-MemberExpression>
     pub fn parse<const YIELD: bool, const AWAIT: bool>(
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Expression, SyntaxError> {
@@ -69,13 +72,19 @@ impl CompileToBytecode for MemberExpression {
     type Result = bytecode::Register;
 
     fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        _ = builder;
-        _ = self.base;
-
+        // https://262.ecma-international.org/14.0/#sec-property-accessors-runtime-semantics-evaluation
+        let base = self.base.compile(builder);
         match &self.member {
-            Member::Identifier(ident) => _ = ident,
-            Member::Bracket(bracket) => _ = bracket,
+            Member::Identifier(ident) => {
+                let value = builder
+                    .get_current_block()
+                    .member_access_with_identifier(base, ident.clone());
+                value
+            },
+            Member::Bracket(bracket) => {
+                _ = bracket;
+                todo!("compile member expression");
+            },
         }
-        todo!("compile member expression")
     }
 }
