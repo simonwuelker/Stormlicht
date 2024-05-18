@@ -21,7 +21,9 @@ fn main() -> ExitCode {
         println!("{program:#?}");
 
         let mut vm = js::Vm::default();
-        vm.execute_program(&program);
+        if let Err(exception) = vm.execute_program(&program) {
+            println!("Unhandled Exception: {:?}", exception.value());
+        }
         vm.dump();
 
         ExitCode::SUCCESS
@@ -50,7 +52,10 @@ fn run_shell() -> io::Result<()> {
             Ok(program) => {
                 writeln!(stdout, "{program:#?}")?;
 
-                vm.execute_program(&program);
+                if let Err(exception) = vm.execute_program(&program) {
+                    println!("Unhandled Exception: {:?}", exception.value());
+                }
+
                 vm.dump();
             },
             Err(error) => error.get_context(&buffer).dump(),

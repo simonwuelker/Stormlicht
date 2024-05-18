@@ -53,3 +53,9 @@ impl From<ReferenceRecord> for ValueOrReference {
         Self::Reference(value)
     }
 }
+
+impl Default for ValueOrReference {
+    fn default() -> Self {
+        Self::Value(Value::default())
+    }
+}
