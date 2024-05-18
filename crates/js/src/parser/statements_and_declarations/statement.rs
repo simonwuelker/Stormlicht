@@ -25,7 +25,7 @@ impl StatementListItem {
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
         let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
-            return Err(tokenizer.syntax_error());
+            return Err(tokenizer.syntax_error("expected more tokens"));
         };
 
         let statement_list_item = match next_token {
@@ -62,7 +62,7 @@ impl Statement {
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
         let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
-            return Err(tokenizer.syntax_error());
+            return Err(tokenizer.syntax_error("expected more tokens"));
         };
 
         let statement = match next_token {

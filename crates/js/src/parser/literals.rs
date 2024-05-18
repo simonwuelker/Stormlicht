@@ -26,7 +26,7 @@ impl Literal {
             Some(Token::NumericLiteral(numeric_literal)) => {
                 Self::NumericLiteral(Number::new(f64::from(numeric_literal)))
             },
-            _ => return Err(tokenizer.syntax_error()),
+            _ => return Err(tokenizer.syntax_error("expected literal token")),
         };
 
         Ok(literal)

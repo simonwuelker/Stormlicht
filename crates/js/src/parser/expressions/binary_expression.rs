@@ -186,7 +186,7 @@ pub fn parse_exponentiation_expression<const YIELD: bool, const AWAIT: bool>(
     // NOTE: This function cannot be defined with the macro above since it can contain either UpdateExpressions
     //       or UnaryExpressions
     let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
-        return Err(tokenizer.syntax_error());
+        return Err(tokenizer.syntax_error("expected more tokens"));
     };
 
     let is_unary_expression = match next_token {

@@ -31,7 +31,7 @@ impl UpdateExpression {
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Expression, SyntaxError> {
         let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
-            return Err(tokenizer.syntax_error());
+            return Err(tokenizer.syntax_error("expected more tokens"));
         };
 
         let update_expression = match next_token {

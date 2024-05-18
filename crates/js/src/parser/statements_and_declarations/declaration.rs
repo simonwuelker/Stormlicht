@@ -24,7 +24,7 @@ impl Declaration {
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
         let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
-            return Err(tokenizer.syntax_error());
+            return Err(tokenizer.syntax_error("expected more tokens"));
         };
 
         let declaration = match next_token {
@@ -34,7 +34,7 @@ impl Declaration {
             Token::Identifier(ident) if matches!(ident.as_str(), "let" | "const") => {
                 LexicalDeclaration::parse::<true, YIELD, AWAIT>(tokenizer)?.into()
             },
-            _ => return Err(tokenizer.syntax_error()),
+            _ => return Err(tokenizer.syntax_error("failed to parse declaration")),
         };
 
         Ok(declaration)
@@ -61,7 +61,7 @@ impl LetOrConst {
         let let_or_const = match tokenizer.next(SkipLineTerminators::Yes)? {
             Some(Token::Identifier(ident)) if ident == "let" => Self::Let,
             Some(Token::Identifier(ident)) if ident == "const" => Self::Const,
-            _ => return Err(tokenizer.syntax_error()),
+            _ => return Err(tokenizer.syntax_error("expected \"let\" or \"const\"")),
         };
 
         Ok(let_or_const)
@@ -100,7 +100,7 @@ impl LexicalDeclaration {
                 .iter()
                 .any(LexicalBinding::has_no_initializer)
         {
-            return Err(tokenizer.syntax_error());
+            return Err(tokenizer.syntax_error("const declaration without inititializer"));
         }
 
         let lexical_declaration = Self {
@@ -127,7 +127,7 @@ impl LexicalBinding {
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
         let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
-            return Err(tokenizer.syntax_error());
+            return Err(tokenizer.syntax_error("expected more tokens"));
         };
 
         let lexical_binding = match next_token {
@@ -151,13 +151,13 @@ impl LexicalBinding {
             },
             Token::Punctuator(Punctuator::BracketOpen) => {
                 log::error!("Unimplemented: ArrayBindingPattern in LexicalBinding");
-                return Err(tokenizer.syntax_error());
+                return Err(tokenizer.syntax_error("TODO"));
             },
             Token::Punctuator(Punctuator::CurlyBraceOpen) => {
                 log::error!("Unimplemented: ObjectBindingPattern in LexicalBinding");
-                return Err(tokenizer.syntax_error());
+                return Err(tokenizer.syntax_error("TODO"));
             },
-            _ => return Err(tokenizer.syntax_error()),
+            _ => return Err(tokenizer.syntax_error("failed to parse lexical binding")),
         };
 
         Ok(lexical_binding)

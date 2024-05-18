@@ -48,7 +48,7 @@ fn parse_primary_expression<const YIELD: bool, const AWAIT: bool>(
     tokenizer: &mut Tokenizer<'_>,
 ) -> Result<Expression, SyntaxError> {
     let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
-        return Err(tokenizer.syntax_error());
+        return Err(tokenizer.syntax_error("expected more tokens"));
     };
 
     let primary_expression = match next_token {
@@ -87,7 +87,7 @@ fn parse_primary_expression<const YIELD: bool, const AWAIT: bool>(
             let object_literal = ObjectLiteral::parse::<YIELD, AWAIT>(tokenizer)?;
             object_literal.into()
         },
-        _ => return Err(tokenizer.syntax_error()),
+        _ => return Err(tokenizer.syntax_error("failed to parse primary expression")),
     };
 
     Ok(primary_expression)

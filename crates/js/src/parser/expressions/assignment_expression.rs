@@ -30,7 +30,7 @@ impl AssignmentExpression {
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Expression, SyntaxError> {
         let Some(next_token) = tokenizer.peek(0, SkipLineTerminators::Yes)? else {
-            return Err(tokenizer.syntax_error());
+            return Err(tokenizer.syntax_error("expected more tokens"));
         };
 
         match next_token {
@@ -40,17 +40,18 @@ impl AssignmentExpression {
             _ => {},
         }
 
+        // This works because every LeftHandSideExpression is also a valid ConditionalExpression
         let conditional_expression = ConditionalExpression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
 
         let next_token = tokenizer.peek(0, SkipLineTerminators::Yes)?;
-        log::info!("next token: {next_token:?}");
+
         if let Some(operator) = next_token.and_then(AssignmentOp::from_token) {
             tokenizer.advance(1);
 
             let Some(lhs) =
                 AssignmentTarget::from_expression(conditional_expression, tokenizer.is_strict())
             else {
-                return Err(tokenizer.syntax_error());
+                return Err(tokenizer.syntax_error("expression is not a valid assignment target"));
             };
 
             let rhs = AssignmentExpression::parse::<IN, YIELD, AWAIT>(tokenizer)?;

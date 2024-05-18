@@ -61,14 +61,14 @@ impl<'a, const BUFFER_SIZE: usize> Tokenizer<'a, BUFFER_SIZE> {
     pub fn expect_keyword(&mut self, keyword: &str) -> Result<(), SyntaxError> {
         match self.next(SkipLineTerminators::Yes)? {
             Some(Token::Identifier(ident)) if ident == keyword => Ok(()),
-            _ => Err(self.syntax_error()),
+            _ => Err(self.syntax_error(format!("expected keyword {keyword:?}"))),
         }
     }
 
     pub fn expect_punctuator(&mut self, punctuator: Punctuator) -> Result<(), SyntaxError> {
         match self.next(SkipLineTerminators::Yes)? {
             Some(Token::Punctuator(p)) if p == punctuator => Ok(()),
-            _ => Err(self.syntax_error()),
+            _ => Err(self.syntax_error(format!("expected {punctuator:?}"))),
         }
     }
 
@@ -79,7 +79,7 @@ impl<'a, const BUFFER_SIZE: usize> Tokenizer<'a, BUFFER_SIZE> {
         );
 
         if is_line_terminator {
-            Err(self.syntax_error())
+            Err(self.syntax_error("expected no line terminator"))
         } else {
             Ok(())
         }
@@ -109,7 +109,7 @@ impl<'a, const BUFFER_SIZE: usize> Tokenizer<'a, BUFFER_SIZE> {
         }
 
         // No semicolon will be inserted at this position
-        Err(self.syntax_error())
+        Err(self.syntax_error("expected semicolon"))
     }
 
     /// Make sure there is at least one more token in the buffer which is not a newline
@@ -134,8 +134,11 @@ impl<'a, const BUFFER_SIZE: usize> Tokenizer<'a, BUFFER_SIZE> {
         Ok(())
     }
 
-    pub fn syntax_error(&self) -> SyntaxError {
-        self.lexer.syntax_error()
+    pub fn syntax_error<S>(&self, message: S) -> SyntaxError
+    where
+        S: Into<String>,
+    {
+        self.lexer.syntax_error(message)
     }
 
     pub fn advance(&mut self, n: usize) {

@@ -27,13 +27,8 @@ impl PropertyDefinition {
     pub fn parse<const YIELD: bool, const AWAIT: bool>(
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
-        let property_definition = if let Ok(identifier_reference) =
-            parse_identifier_reference::<YIELD, AWAIT>(tokenizer)
-        {
-            Self::IdentifierRef(identifier_reference)
-        } else {
-            return Err(tokenizer.syntax_error());
-        };
+        let property_definition =
+            parse_identifier_reference::<YIELD, AWAIT>(tokenizer).map(Self::IdentifierRef)?;
 
         Ok(property_definition)
     }

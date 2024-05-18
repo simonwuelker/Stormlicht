@@ -50,19 +50,22 @@ pub(crate) fn parse_binding_identifier<const YIELD: bool, const AWAIT: bool>(
     tokenizer: &mut Tokenizer<'_>,
 ) -> Result<String, SyntaxError> {
     let Some(Token::Identifier(identifier)) = tokenizer.next(SkipLineTerminators::Yes)? else {
-        return Err(tokenizer.syntax_error());
+        return Err(tokenizer.syntax_error("expected identifier"));
     };
 
     if !YIELD && identifier.as_str() == "yield" {
-        return Err(tokenizer.syntax_error());
+        return Err(tokenizer.syntax_error("\"yield\" is not a valid identifier here"));
     }
 
     if !AWAIT && identifier.as_str() == "await" {
-        return Err(tokenizer.syntax_error());
+        return Err(tokenizer.syntax_error("\"await\" is not a valid identifier here"));
     }
 
     if tokenizer.is_strict() && matches!(identifier.as_str(), "arguments" | "eval") {
-        return Err(tokenizer.syntax_error());
+        return Err(tokenizer.syntax_error(format!(
+            "{:?} is not a valid identifier here",
+            identifier.as_str()
+        )));
     }
 
     Ok(identifier)
@@ -89,21 +92,27 @@ impl Identifier {
     pub(crate) fn parse(tokenizer: &mut Tokenizer<'_>) -> Result<Self, SyntaxError> {
         let Some(Token::Identifier(identifier_name)) = tokenizer.next(SkipLineTerminators::Yes)?
         else {
-            return Err(tokenizer.syntax_error());
+            return Err(tokenizer.syntax_error("expected identifier"));
         };
 
         if RESERVED_WORDS.contains(&identifier_name.as_str()) {
-            return Err(tokenizer.syntax_error());
+            return Err(
+                tokenizer.syntax_error(format!("{:?} is a reserved identifier", identifier_name))
+            );
         }
 
         if tokenizer.is_strict()
             && DISALLOWED_IDENTIFIERS_IN_STRICT_MODE.contains(&identifier_name.as_str())
         {
-            return Err(tokenizer.syntax_error());
+            return Err(tokenizer.syntax_error(format!(
+                "{:?} is a not allowed as an identifier in strict mode",
+                identifier_name
+            )));
         }
 
         if tokenizer.goal_symbol() == GoalSymbol::Module && identifier_name.as_str() == "await" {
-            return Err(tokenizer.syntax_error());
+            return Err(tokenizer
+                .syntax_error("\"await\" is a disallowed identifier when parsing a module"));
         }
 
         Ok(Self(identifier_name))
@@ -129,6 +138,6 @@ pub(crate) fn parse_identifier_reference<const YIELD: bool, const AWAIT: bool>(
 
         Identifier::parse(tokenizer).map(|i| i.0)
     } else {
-        Err(tokenizer.syntax_error())
+        Err(tokenizer.syntax_error("expected identifier"))
     }
 }

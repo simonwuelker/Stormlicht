@@ -27,8 +27,11 @@ impl<'a> Lexer<'a> {
     }
 
     #[must_use]
-    pub fn syntax_error(&self) -> SyntaxError {
-        SyntaxError::from_position(self.source.position())
+    pub fn syntax_error<S>(&self, message: S) -> SyntaxError
+    where
+        S: Into<String>,
+    {
+        SyntaxError::new(self.source.position(), message.into())
     }
 
     pub fn next_token(&mut self) -> Result<Option<Token>, SyntaxError> {
@@ -77,7 +80,7 @@ impl<'a> Lexer<'a> {
                     Token::Punctuator(punctuator)
                 } else {
                     // Cannot parse input stream as a valid token
-                    return Err(self.syntax_error());
+                    return Err(self.syntax_error("failed to parse token"));
                 }
             },
         };
@@ -113,7 +116,7 @@ impl<'a> Lexer<'a> {
             self.skip_whitespace();
             Ok(())
         } else {
-            Err(self.syntax_error())
+            Err(self.syntax_error(format!("expected keyword {keyword:?}")))
         }
     }
 
@@ -130,7 +133,7 @@ impl<'a> Lexer<'a> {
             _ = self.source.advance_by("false".len());
             false
         } else {
-            return Err(self.syntax_error());
+            return Err(self.syntax_error("expected \"true\" or \"false\""));
         };
 
         self.skip_whitespace();
@@ -139,10 +142,13 @@ impl<'a> Lexer<'a> {
 
     /// <https://262.ecma-international.org/14.0/#prod-IdentifierName>
     pub fn consume_identifier(&mut self) -> Result<String, SyntaxError> {
-        let c = self.source.next().ok_or(self.syntax_error())?;
+        let c = self
+            .source
+            .next()
+            .ok_or(self.syntax_error("expected identifier"))?;
 
         if !is_valid_identifier_start(c) {
-            return Err(self.syntax_error());
+            return Err(self.syntax_error(format!("invalid identifier start {c:?}")));
         }
 
         let mut identifier = c.to_string();
@@ -175,12 +181,12 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 // Unterminated string literal
-                Err(tokenizer.syntax_error())
+                Err(tokenizer.syntax_error("unterminated string literal"))
             };
 
         let string_literal = match self.source.next() {
             Some(c @ ('"' | '\'')) => consume_string_literal_until(self, c)?,
-            _ => return Err(self.syntax_error()),
+            _ => return Err(self.syntax_error("invalid start of string literal")),
         };
 
         self.skip_whitespace();
@@ -214,7 +220,7 @@ impl<'a> Lexer<'a> {
 
                 Ok(n)
             },
-            _ => Err(self.syntax_error()),
+            _ => Err(self.syntax_error("failed to parse numeric literal")),
         }
     }
 
@@ -415,7 +421,7 @@ impl<'a> Lexer<'a> {
             Some('~') => Punctuator::Tilde,
             Some(':') => Punctuator::Colon,
             Some('}') => Punctuator::CurlyBraceClose,
-            _ => return Err(self.syntax_error()),
+            _ => return Err(self.syntax_error("failed to parse punctuator")),
         };
 
         self.skip_whitespace();
