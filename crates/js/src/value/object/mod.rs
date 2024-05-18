@@ -120,6 +120,12 @@ impl Object {
 
     #[inline]
     #[must_use]
+    pub fn get(&self, p: &PropertyKey) -> ThrowCompletionOr<Value> {
+        (self.vtable().get)(self, p)
+    }
+
+    #[inline]
+    #[must_use]
     pub fn define_own_property(
         &mut self,
         p: &PropertyKey,

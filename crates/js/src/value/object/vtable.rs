@@ -1,4 +1,4 @@
-use super::{Object, PropertyDescriptor, PropertyKey};
+use super::{Object, PropertyDescriptor, PropertyDescriptorVariant, PropertyKey};
 use crate::value::{object::validate_and_apply_property_descriptor, ThrowCompletionOr, Value};
 
 #[derive(Clone, Copy)]
@@ -21,6 +21,9 @@ pub struct ObjectMethods {
     /// <https://262.ecma-international.org/14.0/#sec-ordinary-object-internal-methods-and-internal-slots-defineownproperty-p-desc>
     pub define_own_property:
         fn(o: &mut Object, p: &PropertyKey, desc: PropertyDescriptor) -> ThrowCompletionOr<bool>,
+
+    /// <https://262.ecma-international.org/14.0/#sec-ordinary-object-internal-methods-and-internal-slots-get-p-receiver>
+    pub get: fn(o: &Object, p: &PropertyKey) -> ThrowCompletionOr<Value>,
 }
 
 impl ObjectMethods {
@@ -31,6 +34,7 @@ impl ObjectMethods {
         prevent_extensions: Self::ordinary_prevent_extensions,
         get_own_property: Self::ordinary_get_own_property,
         define_own_property: Self::ordinary_define_own_property,
+        get: Self::ordinary_get,
     };
 
     /// <https://262.ecma-international.org/14.0/#sec-ordinarygetprototypeof>
@@ -163,5 +167,36 @@ impl ObjectMethods {
 
         // 8. Return D.
         Some(d)
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-ordinaryget>
+    pub fn ordinary_get(o: &Object, p: &PropertyKey) -> ThrowCompletionOr<Value> {
+        // 1. Let desc be ? O.[[GetOwnProperty]](P).
+        let desc = o.get_own_property(p);
+
+        // 2. If desc is undefined, then
+        let Some(desc) = desc else {
+            // a. Let parent be ? O.[[GetPrototypeOf]]().
+            let parent = o.get_prototype_of();
+
+            // b. If parent is null, return undefined.
+            let Some(parent) = parent else {
+                return Ok(Value::Undefined);
+            };
+
+            // c. Return ? parent.[[Get]](P, Receiver).
+            return parent.get(p);
+        };
+
+        // 3. If IsDataDescriptor(desc) is true, return desc.[[Value]].
+        match desc.variant {
+            PropertyDescriptorVariant::Data(data) => {
+                return Ok(data.value.unwrap_or(Value::Undefined));
+            },
+            _ => {
+                // 4. Assert: IsAccessorDescriptor(desc) is true.
+                todo!();
+            },
+        }
     }
 }
