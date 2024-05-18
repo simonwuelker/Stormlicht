@@ -5,6 +5,7 @@ mod symbol;
 
 pub use number::Number;
 pub use object::Object;
+pub use reference_record::{ReferenceRecord, ValueOrReference};
 pub use symbol::Symbol;
 
 use crate::bytecode::{Exception, ThrowCompletionOr};
@@ -452,6 +453,24 @@ impl Value {
             },
         }
     }
+}
+
+/// <https://262.ecma-international.org/14.0/#sec-evaluatestringornumericbinaryexpression>
+pub fn evaluate_string_or_numeric_binary_expression(
+    left_operand: ValueOrReference,
+    op: StringOrNumericBinaryOperator,
+    right_operand: ValueOrReference,
+) -> ThrowCompletionOr<Value> {
+    // 1. Let lref be ? Evaluation of leftOperand.
+    // 2. Let lval be ? GetValue(lref).
+    let lval = left_operand.get_value()?;
+
+    // 3. Let rref be ? Evaluation of rightOperand.
+    // 4. Let rval be ? GetValue(rref).
+    let rval = right_operand.get_value()?;
+
+    // 5. Return ? ApplyStringOrNumericBinaryOperator(lval, opText, rval).
+    Value::apply_string_or_numeric_binary_operator(lval, op, rval)
 }
 
 impl From<Number> for Value {
