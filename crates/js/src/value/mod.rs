@@ -1,5 +1,6 @@
 mod number;
 pub mod object;
+mod reference_record;
 mod symbol;
 
 pub use number::Number;
@@ -277,6 +278,24 @@ impl Value {
         };
 
         Ok(result)
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-toobject>
+    pub fn to_object(&self) -> ThrowCompletionOr<Object> {
+        match self {
+            Self::Undefined | Self::Null => {
+                // Throw a TypeError exception.
+                Err(Exception::type_error())
+            },
+            Self::Object(o) => {
+                // Return argument.
+                Ok(o.clone())
+            },
+            _ => {
+                // FIXME: Implement
+                Err(Exception::type_error())
+            },
+        }
     }
 
     /// <https://262.ecma-international.org/14.0/#sec-toprimitive>

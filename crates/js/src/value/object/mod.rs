@@ -258,3 +258,9 @@ impl Default for Object {
         }
     }
 }
+
+impl From<String> for PropertyKey {
+    fn from(value: String) -> Self {
+        Self::String(value)
+    }
+}
