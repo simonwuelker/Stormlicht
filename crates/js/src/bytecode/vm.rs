@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use super::{
     BasicBlock, BasicBlockExit, Exception, Instruction, Program, Register, ThrowCompletionOr,
 };
-use crate::{value::Object, Value};
+use crate::{
+    value::{Object, StringOrNumericBinaryOperator},
+    Value,
+};
 
 #[derive(Clone, Debug, Default)]
 pub struct Vm {
@@ -105,7 +108,43 @@ impl Vm {
                 self.set_register(*dst, value);
             },
             Instruction::Add { lhs, rhs, dst } => {
-                let result = Value::add(self.register(*lhs).clone(), self.register(*rhs).clone())?;
+                // https://262.ecma-international.org/14.0/#sec-addition-operator-plus-runtime-semantics-evaluation
+                let result = Value::apply_string_or_numeric_binary_operator(
+                    self.register(*lhs).clone(),
+                    StringOrNumericBinaryOperator::Add,
+                    self.register(*rhs).clone(),
+                )?;
+
+                self.set_register(*dst, result);
+            },
+            Instruction::Subtract { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-subtraction-operator-minus-runtime-semantics-evaluation
+                let result = Value::apply_string_or_numeric_binary_operator(
+                    self.register(*lhs).clone(),
+                    StringOrNumericBinaryOperator::Subtract,
+                    self.register(*rhs).clone(),
+                )?;
+
+                self.set_register(*dst, result);
+            },
+            Instruction::Multiply { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-multiplicative-operators-runtime-semantics-evaluation
+                let result = Value::apply_string_or_numeric_binary_operator(
+                    self.register(*lhs).clone(),
+                    StringOrNumericBinaryOperator::Multiply,
+                    self.register(*rhs).clone(),
+                )?;
+
+                self.set_register(*dst, result);
+            },
+            Instruction::Divide { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-multiplicative-operators-runtime-semantics-evaluation
+                let result = Value::apply_string_or_numeric_binary_operator(
+                    self.register(*lhs).clone(),
+                    StringOrNumericBinaryOperator::Divide,
+                    self.register(*rhs).clone(),
+                )?;
+
                 self.set_register(*dst, result);
             },
             Instruction::LooselyEqual { lhs, rhs, dst } => {

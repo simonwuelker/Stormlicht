@@ -218,26 +218,40 @@ impl Value {
         }
     }
 
-    #[must_use]
-    pub fn add(lhs: Self, rhs: Self) -> Result<Self, Exception> {
-        // <https://262.ecma-international.org/14.0/#sec-applystringornumericbinaryoperator>
-        let lprim = lhs.to_primitive(None)?;
-        let rprim = rhs.to_primitive(None)?;
+    /// <https://262.ecma-international.org/14.0/#sec-applystringornumericbinaryoperator>
+    pub fn apply_string_or_numeric_binary_operator(
+        mut lval: Self,
+        op: StringOrNumericBinaryOperator,
+        mut rval: Self,
+    ) -> Result<Self, Exception> {
+        // 1. If opText is +, then
+        if op == StringOrNumericBinaryOperator::Add {
+            // a. Let lprim be ? ToPrimitive(lval).
+            let lprim = lval.to_primitive(None)?;
 
-        if lprim.is_string() || rprim.is_string() {
-            // i. Let lstr be ? ToString(lprim).
-            let lstr = lprim.to_string()?;
+            // b. Let rprim be ? ToPrimitive(rval).
+            let rprim = rval.to_primitive(None)?;
 
-            // ii. Let rstr be ? ToString(rprim).
-            let rstr = rprim.to_string()?;
+            // c. If lprim is a String or rprim is a String, then
+            if lprim.is_string() || rprim.is_string() {
+                // i. Let lstr be ? ToString(lprim).
+                let lstr = lprim.to_string()?;
 
-            // iii. Return the string-concatenation of lstr and rstr.
-            return Ok(format!("{lstr}{rstr}").into());
+                // ii. Let rstr be ? ToString(rprim).
+                let rstr = rprim.to_string()?;
+
+                // iii. Return the string-concatenation of lstr and rstr.
+                return Ok(format!("{lstr}{rstr}").into());
+            }
+
+            // d. Set lval to lprim.
+            lval = lprim;
+
+            // e. Set rval to rprim.
+            rval = rprim;
         }
 
-        let lval = lprim;
-        let rval = rprim;
-
+        // 2. NOTE: At this point, it must be a numeric operation.
         // 3. Let lnum be ? ToNumeric(lval).
         let lnum = lval.to_numeric()?;
 
@@ -245,15 +259,24 @@ impl Value {
         let rnum = rval.to_numeric()?;
 
         // 5. If Type(lnum) is not Type(rnum), throw a TypeError exception.
-        if lnum.type_tag() != rnum.type_tag() {
+        if lval.type_tag() != rval.type_tag() {
             return Err(Exception::type_error());
         }
 
-        match (lnum, rnum) {
-            (Value::Number(lhs), Value::Number(rhs)) => Ok(lhs.add(rhs).into()),
+        // 6. FIXME: If lnum is a BigInt, then
+
+        // 7. Let operation be the abstract operation associated with opText and Type(lnum) in the following table:
+        // 8. Return operation(lnum, rnum).
+        let result = match (lnum, rnum) {
+            (Value::Number(lhs), Value::Number(rhs)) => match op {
+                StringOrNumericBinaryOperator::Add => lhs.add(rhs).into(),
+                _ => todo!(),
+            },
             (Value::BigInt, Value::BigInt) => todo!(),
             _ => unreachable!(),
-        }
+        };
+
+        Ok(result)
     }
 
     /// <https://262.ecma-international.org/14.0/#sec-toprimitive>
@@ -434,4 +457,21 @@ impl From<Object> for Value {
     fn from(value: Object) -> Self {
         Self::Object(value)
     }
+}
+
+/// `opText` in <https://262.ecma-international.org/14.0/#sec-applystringornumericbinaryoperator>
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StringOrNumericBinaryOperator {
+    Exponentiate,
+    Multiply,
+    Divide,
+    Modulo,
+    Add,
+    Subtract,
+    ShiftLeft,
+    ShiftRightSigned,
+    ShiftRightUnsigned,
+    BitwiseAnd,
+    BitwiseExclusiveOr,
+    BitwiseOr,
 }
