@@ -4,6 +4,7 @@ mod assignment_expression;
 mod binary_expression;
 mod conditional;
 mod left_hand_side_expression;
+mod member;
 mod object;
 mod short_circuit;
 mod unary_expression;
@@ -12,6 +13,7 @@ mod update_expression;
 pub use assignment_expression::AssignmentExpression;
 pub use binary_expression::BinaryExpression;
 pub use conditional::ConditionalExpression;
+pub use member::MemberExpression;
 pub use unary_expression::UnaryExpression;
 pub use update_expression::UpdateExpression;
 
@@ -126,6 +128,7 @@ impl CompileToBytecode for Expression {
                 .allocate_register_with_value(literal.clone().into()),
             Self::ObjectLiteral(object_literal) => object_literal.compile(builder),
             Self::New(new_expression) => new_expression.compile(builder),
+            Self::Member(member_expression) => member_expression.compile(builder),
         }
     }
 }
@@ -175,5 +178,11 @@ impl From<AssignmentExpression> for Expression {
 impl From<ConditionalExpression> for Expression {
     fn from(value: ConditionalExpression) -> Self {
         Self::ConditionalExpression(value)
+    }
+}
+
+impl From<MemberExpression> for Expression {
+    fn from(value: MemberExpression) -> Self {
+        Self::Member(value)
     }
 }

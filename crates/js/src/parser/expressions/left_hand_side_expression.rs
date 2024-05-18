@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-use super::{parse_primary_expression, Expression};
+use super::{parse_primary_expression, Expression, MemberExpression};
 
 /// <https://262.ecma-international.org/14.0/#prod-NewExpression>
 #[derive(Clone, Debug)]
@@ -30,7 +30,7 @@ pub fn parse_lefthandside_expression<const YIELD: bool, const AWAIT: bool>(
         Token::Identifier(ident) if ident == "new" => {
             NewExpression::parse::<YIELD, AWAIT>(tokenizer)?
         },
-        _ => parse_primary_expression::<YIELD, AWAIT>(tokenizer)?,
+        _ => MemberExpression::parse::<YIELD, AWAIT>(tokenizer)?,
     };
 
     Ok(lhs_expression)
