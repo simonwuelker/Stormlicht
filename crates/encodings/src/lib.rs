@@ -10,6 +10,7 @@ mod encodings {
     include!(concat!(env!("OUT_DIR"), "/encodings.rs"));
 }
 
+#[allow(dead_code)] // Not all tables are used yet
 mod index {
     include!(concat!(env!("OUT_DIR"), "/indexes.rs"));
 }
