@@ -105,7 +105,7 @@ where
     }
 }
 
-impl<'a, K, V> Serialize for HashMap<K, V>
+impl<K, V> Serialize for HashMap<K, V>
 where
     K: Serialize,
     V: Serialize,

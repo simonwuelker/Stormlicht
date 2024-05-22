@@ -39,16 +39,16 @@ pub trait Serializer {
     where
         T: Serialize;
 
-    fn serialize_sequence<'a>(&'a mut self) -> Result<Self::SequenceSerializer<'a>, Self::Error>;
+    fn serialize_sequence(&mut self) -> Result<Self::SequenceSerializer<'_>, Self::Error>;
 
-    fn serialize_map<'a>(&'a mut self) -> Result<Self::MapSerializer<'a>, Self::Error>;
+    fn serialize_map(&mut self) -> Result<Self::MapSerializer<'_>, Self::Error>;
 
-    fn serialize_struct<'a>(&'a mut self) -> Result<Self::StructSerializer<'a>, Self::Error>;
+    fn serialize_struct(&mut self) -> Result<Self::StructSerializer<'_>, Self::Error>;
 
     /// Serialize an enum variant without any associated data.
     ///
     /// Implementations should not usually need to override this.
-    fn serialize_enum<'a>(&'a mut self, variant_name: &str) -> Result<(), Self::Error> {
+    fn serialize_enum(&mut self, variant_name: &str) -> Result<(), Self::Error> {
         self.serialize_tuple_enum(variant_name)?.finish()
     }
 
