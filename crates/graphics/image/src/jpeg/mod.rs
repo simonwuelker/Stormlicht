@@ -56,7 +56,7 @@ pub fn decode(bytes: &[u8]) -> Result<Texture, Error> {
     Decoder::decode(bytes)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct Decoder {
     huffman_tables: HuffmanTables,
     quantization_tables: QuantizationTables,
@@ -73,17 +73,6 @@ struct Decoder {
 struct Frame {
     header: FrameHeader,
     texture: Texture,
-}
-
-impl Default for Decoder {
-    fn default() -> Self {
-        Self {
-            huffman_tables: HuffmanTables::default(),
-            quantization_tables: QuantizationTables::default(),
-            quantization_table_mapping: [0; 3],
-            current_frame: None,
-        }
-    }
 }
 
 impl Decoder {
