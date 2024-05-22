@@ -167,7 +167,7 @@ impl<T, const N: usize> RingBuffer<T, N> {
 
     #[inline]
     #[must_use]
-    pub const fn iter<'a>(&'a self) -> RingBufferIterator<'a, T, N> {
+    pub const fn iter(&self) -> RingBufferIterator<'_, T, N> {
         RingBufferIterator {
             current_index: 0,
             ring_buffer: self,
@@ -207,14 +207,12 @@ where
         }
         let write_head = self.len() % N;
 
-        let elem = Self {
-            elements: elements,
+        Self {
+            elements,
             write_head,
             read_head: 0,
             is_full: self.is_full,
-        };
-
-        elem
+        }
     }
 }
 

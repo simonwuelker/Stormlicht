@@ -85,7 +85,7 @@ impl<'a> ByteStream<'a> {
 
     #[must_use]
     pub fn next_byte(&mut self) -> Option<u8> {
-        let byte = self.remaining().get(0).copied();
+        let byte = self.remaining().first().copied();
         self.cursor += 1;
         byte
     }
