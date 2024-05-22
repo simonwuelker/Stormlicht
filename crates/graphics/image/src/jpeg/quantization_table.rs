@@ -19,7 +19,6 @@ enum Precision {
 pub type QuantizationTable = [u16; 64];
 
 impl QuantizationTables {
-    #[must_use]
     pub fn get(&self, index: u8) -> Result<&QuantizationTable, Error> {
         self.tables[index as usize]
             .as_ref()

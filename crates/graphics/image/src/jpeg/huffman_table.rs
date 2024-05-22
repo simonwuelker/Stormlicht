@@ -81,7 +81,6 @@ struct HuffmanTableEntry {
 }
 
 impl HuffmanTables {
-    #[must_use]
     pub fn get(&self, index: u8) -> Result<&HuffmanTable, Error> {
         self.tables[index as usize]
             .as_ref()
