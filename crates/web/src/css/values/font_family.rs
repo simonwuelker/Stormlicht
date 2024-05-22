@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{
     css::{self, syntax::Token, CSSParse},
     static_interned, InternedString,
@@ -128,23 +130,22 @@ impl<'a> CSSParse<'a> for GenericFontFamily {
     }
 }
 
-impl ToString for GenericFontFamily {
-    fn to_string(&self) -> String {
-        let name = match self {
-            Self::Serif => "serif",
-            Self::SansSerif => "sans-serif",
-            Self::Cursive => "cursive",
-            Self::Fantasy => "fantasy",
-            Self::Monospace => "monospace",
-            Self::SystemUi => "system-ui",
-            Self::Emoji => "emoji",
-            Self::Math => "math",
-            Self::GenericFangSong => "generic(fangsong)",
-            Self::UiSerif => "ui-serif",
-            Self::UiSansSerif => "ui-sans-serif",
-            Self::UiMonospace => "ui-monospace",
-            Self::UiRounded => "ui-rounded",
-        };
-        name.to_string()
+impl fmt::Display for GenericFontFamily {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Serif => "serif".fmt(f),
+            Self::SansSerif => "sans-serif".fmt(f),
+            Self::Cursive => "cursive".fmt(f),
+            Self::Fantasy => "fantasy".fmt(f),
+            Self::Monospace => "monospace".fmt(f),
+            Self::SystemUi => "system-ui".fmt(f),
+            Self::Emoji => "emoji".fmt(f),
+            Self::Math => "math".fmt(f),
+            Self::GenericFangSong => "generic(fangsong)".fmt(f),
+            Self::UiSerif => "ui-serif".fmt(f),
+            Self::UiSansSerif => "ui-sans-serif".fmt(f),
+            Self::UiMonospace => "ui-monospace".fmt(f),
+            Self::UiRounded => "ui-rounded".fmt(f),
+        }
     }
 }
