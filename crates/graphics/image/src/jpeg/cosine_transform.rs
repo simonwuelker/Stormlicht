@@ -1,3 +1,6 @@
+// Constants taken from stb_image
+#![allow(clippy::excessive_precision)]
+
 use super::quantization_table::QuantizationTable;
 
 use std::num::Wrapping;
