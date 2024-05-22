@@ -35,7 +35,7 @@ macro_rules! to_type_level_bool {
 
 /// Assertion that is guaranteed to run at compile time
 ///
-///	Only one const assertion is allowed per namespace.
+/// Only one const assertion is allowed per namespace.
 /// If you need more, simply combine them together into one.
 ///
 /// ## Implementation
@@ -51,7 +51,7 @@ macro_rules! to_type_level_bool {
 /// struct Foo;
 ///
 /// impl Foo {
-/// 	const _: () = assert!(false);
+///     const _: () = assert!(false);
 /// }
 /// ```
 ///
