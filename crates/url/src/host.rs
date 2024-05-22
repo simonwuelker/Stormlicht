@@ -1,4 +1,4 @@
-use std::net;
+use std::{fmt, net};
 
 use sl_std::{ascii, punycode};
 
@@ -63,25 +63,25 @@ pub enum HostParseError {
     IP(IPParseError),
 }
 
-impl ToString for Host {
+impl fmt::Display for Host {
     // <https://url.spec.whatwg.org/#host-serializing>
-    fn to_string(&self) -> String {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Ip(net::IpAddr::V4(ipv4)) => {
                 // 1. If host is an IPv4 address, return the result of running the IPv4 serializer on host.
-                ipv4.to_string()
+                ipv4.fmt(f)
             },
             Self::Ip(net::IpAddr::V6(ipv6)) => {
                 // 2. Otherwise, if host is an IPv6 address, return U+005B ([), followed by the result of running the IPv6 serializer on host, followed by U+005D (]).
-                format!("[{ipv6}]")
+                write!(f, "[{ipv6}]")
             },
             Self::Domain(host) | Self::OpaqueHost(host) => {
                 // 3. Otherwise, host is a domain, opaque host, or empty host, return host.
-                host.as_str().to_owned()
+                host.as_str().fmt(f)
             },
             Self::EmptyHost => {
                 // 3. Otherwise, host is a domain, opaque host, or empty host, return host.
-                String::new()
+                Ok(())
             },
         }
     }
