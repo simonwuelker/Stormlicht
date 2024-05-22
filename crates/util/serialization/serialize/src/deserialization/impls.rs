@@ -149,7 +149,6 @@ impl Deserialize for usize {
             where
                 E: Error,
             {
-                let value = Self::Value::try_from(value).map_err(|_| E::expected(Self::EXPECTS))?;
                 Ok(value)
             }
         }
