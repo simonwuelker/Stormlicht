@@ -1,6 +1,6 @@
 //! <https://encoding.spec.whatwg.org>
 
-#![feature(byte_slice_trim_ascii, ascii_char)]
+#![feature(ascii_char)]
 
 mod decoder;
 mod euc_jp;
