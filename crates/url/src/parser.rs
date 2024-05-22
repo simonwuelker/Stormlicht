@@ -280,13 +280,13 @@ where
                 // Otherwise, if base has an opaque path and c is U+0023 (#)
                 if base.has_opaque_path() && c == Some('#') {
                     // set url’s scheme to base’s scheme,
-                    self.url.scheme = base.scheme.clone();
+                    self.url.scheme.clone_from(&base.scheme);
 
                     // url’s path to base’s path,
-                    self.url.path = base.path.clone();
+                    self.url.path.clone_from(&base.path);
 
                     // url’s query to base’s query,
-                    self.url.query = base.query.clone();
+                    self.url.query.clone_from(&base.query);
 
                     // url’s fragment to the empty string,
                     self.url.fragment = Some(ascii::String::new());
@@ -379,22 +379,22 @@ where
                 // Otherwise:
                 else {
                     // Set url’s username to base’s username
-                    self.url.username = base.username.clone();
+                    self.url.username.clone_from(&base.username);
 
                     // url’s password to base’s password
-                    self.url.password = base.password.clone();
+                    self.url.password.clone_from(&base.password);
 
                     // url’s host to base’s host
-                    self.url.host = base.host.clone();
+                    self.url.host.clone_from(&base.host);
 
                     // url’s port to base’s port
-                    self.url.port = base.port;
+                    self.url.port.clone_from(&base.port);
 
                     // url’s path to a clone of base’s path
-                    self.url.path = base.path.clone();
+                    self.url.path.clone_from(&base.path);
 
                     // and url’s query to base’s query.
-                    self.url.query = base.query.clone();
+                    self.url.query.clone_from(&base.query);
 
                     // If c is U+003F (?)
                     if c == Some('?') {
@@ -440,16 +440,16 @@ where
                     let base = self.base.as_ref().expect("no base url");
 
                     // set url’s username to base’s username,
-                    self.url.username = base.username.clone();
+                    self.url.username.clone_from(&base.username);
 
                     // url’s password to base’s password,
-                    self.url.password = base.password.clone();
+                    self.url.password.clone_from(&base.password);
 
                     // url’s host to base’s host,
-                    self.url.host = base.host.clone();
+                    self.url.host.clone_from(&base.host);
 
                     // url’s port to base’s port,
-                    self.url.port = base.port;
+                    self.url.port.clone_from(&base.port);
 
                     // state to path state,
                     self.set_state(URLParserState::Path);
@@ -804,13 +804,13 @@ where
                     && base.scheme == "file"
                 {
                     // Set url’s host to base’s host,
-                    self.url.host = base.host.clone();
+                    self.url.host.clone_from(&base.host);
 
                     // url’s path to a clone of base’s path,
-                    self.url.path = base.path.clone();
+                    self.url.path.clone_from(&base.path);
 
                     // and url’s query to base’s query.
-                    self.url.query = base.query.clone();
+                    self.url.query.clone_from(&base.query);
 
                     // If c is U+003F (?)
                     if c == Some('?') {
@@ -887,7 +887,7 @@ where
                         && base.scheme == "file"
                     {
                         // Set url’s host to base’s host.
-                        self.url.host = base.host.clone();
+                        self.url.host.clone_from(&base.host);
 
                         // If the code point substring from pointer to the end of input
                         // does not start with a Windows drive letter
