@@ -192,7 +192,7 @@ impl Decoder {
 
         // Decode scan header
         // See Figure B.4
-        let Some(&num_components) = header.get(0) else {
+        let Some(&num_components) = header.first() else {
             return Err(Error::BadChunk);
         };
 

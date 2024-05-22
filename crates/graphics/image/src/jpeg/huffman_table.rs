@@ -89,7 +89,7 @@ impl HuffmanTables {
 
     pub fn add_table(&mut self, bytes: &[u8]) -> Result<(), Error> {
         // First byte is the table id
-        let table_id = *bytes.get(0).ok_or(Error::BadHuffmanTable)? as usize;
+        let table_id = *bytes.first().ok_or(Error::BadHuffmanTable)? as usize;
 
         if self.tables.len() <= table_id {
             return Err(Error::BadHuffmanTable);
