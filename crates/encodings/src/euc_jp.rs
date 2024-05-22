@@ -99,7 +99,7 @@ impl Decoder for EucJpDecoder {
         }
 
         // 8. Return error
-        return DecodeResult::Error;
+        DecodeResult::Error
     }
 }
 

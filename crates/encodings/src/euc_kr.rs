@@ -70,7 +70,7 @@ impl Decoder for EucKrDecoder {
         }
 
         // 6. Return error
-        return DecodeResult::Error;
+        DecodeResult::Error
     }
 }
 
