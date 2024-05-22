@@ -16,7 +16,7 @@ pub enum PaletteError {
 pub struct Palette {
     /// We always store 256 colors (the maximum), even if the actual
     /// size of the palette is less, to not have to worry about out of bounds errors
-    colors: [Rgbaf32; PALETTE_MAX_SIZE],
+    colors: Box<[Rgbaf32; PALETTE_MAX_SIZE]>,
 }
 
 impl Palette {
@@ -31,7 +31,9 @@ impl Palette {
             return Err(PaletteError::TooLong);
         }
 
-        let mut colors = [Rgbaf32::default(); PALETTE_MAX_SIZE];
+        // [T; PALETTE_MAX_SIZE] does not implement Default:
+        // https://rust-lang.github.io/project-const-generics/vision/status_quo/array_default.html
+        let mut colors = Box::new([Rgbaf32::default(); PALETTE_MAX_SIZE]);
 
         for (slot, [r, g, b]) in colors.iter_mut().zip(color_values) {
             *slot = Rgbaf32::rgb(*r as f32 / 255., *g as f32 / 255., *b as f32 / 255.);
