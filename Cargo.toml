@@ -83,6 +83,11 @@ license = "MIT"
 [workspace.lints.rust]
 rust_2018_idioms = { level = "warn" }
 
+# Ideally this would only affect the "stormlicht" crate,
+# but there's no way to both inherit workspace lints *and*
+# add crate-specific ones. Either way, its not a big deal.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(chrome, values("gtk", "glazier"))'] }
+
 [workspace.lints.clippy]
 correctness = { level = "deny" }
 perf = { level = "deny" }

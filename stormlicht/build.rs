@@ -1,5 +1,3 @@
-#![allow(unexpected_cfgs)] // ???
-
 use std::{env, process};
 
 fn main() {
