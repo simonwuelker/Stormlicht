@@ -163,7 +163,7 @@ impl InfoHeader {
         // A negative height indicates a top-down image
         let (direction, height) = match u32::try_from(height) {
             Ok(height) => (Direction::BottomUp, height),
-            Err(_) => (Direction::TopDown, height.abs() as u32),
+            Err(_) => (Direction::TopDown, height.unsigned_abs()),
         };
 
         if width > MAX_ACCEPTABLE_SIZE || height > MAX_ACCEPTABLE_SIZE {
