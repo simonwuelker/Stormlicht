@@ -396,11 +396,11 @@ where
     I: Iterator<Item = u8>,
 {
     fn advance_stream(&mut self, n: usize) -> Result<(), Error> {
-        if self.bytes.advance_by(n as usize).is_err() {
+        if self.bytes.advance_by(n).is_err() {
             return Err(Error::EndOfFileInInstruction);
         }
 
-        self.offset += n as usize;
+        self.offset += n;
         Ok(())
     }
 }
