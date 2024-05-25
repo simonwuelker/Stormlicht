@@ -9,5 +9,9 @@ license.workspace = true
 [dependencies]
 log = { workspace = true }
 
+[features]
+default = []
+debug_gccell = []
+
 [lints]
 workspace = true
