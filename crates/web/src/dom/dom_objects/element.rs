@@ -1,10 +1,32 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use dom_derive::inherit;
 
 use crate::{dom::ElementCustomState, infra::Namespace, static_interned, InternedString};
 
 use super::Node;
+
+/// Bitflag for states like active, hovered
+///
+/// Used for the CSS `:hover`/`:active` (and other) pseudoclasses
+#[derive(Clone, Copy, Default)]
+struct ElementFlags(u8);
+
+impl ElementFlags {
+    // If you add fields here, update the Debug impl below
+    const HOVER: u8 = 1;
+
+    #[inline]
+    fn set(&mut self, flag: u8) {
+        self.0 |= flag;
+    }
+
+    #[inline]
+    #[must_use]
+    const fn is_set(&self, flag: u8) -> bool {
+        self.0 & flag != 0
+    }
+}
 
 /// <https://dom.spec.whatwg.org/#interface-element>
 #[inherit(Node)]
@@ -16,6 +38,7 @@ pub struct Element {
     is: Option<InternedString>,
     id: InternedString,
     attributes: HashMap<InternedString, InternedString>,
+    flags: ElementFlags,
 
     intrinsic_size: Option<math::Rectangle>,
 }
@@ -78,5 +101,26 @@ impl Element {
 
     pub fn intrinsic_size(&self) -> Option<math::Rectangle> {
         self.intrinsic_size
+    }
+
+    #[inline]
+    pub fn set_hovered(&mut self) {
+        self.flags.set(ElementFlags::HOVER)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn is_hovered(&self) -> bool {
+        self.flags.is_set(ElementFlags::HOVER)
+    }
+}
+
+impl fmt::Debug for ElementFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.is_set(Self::HOVER) {
+            "HOVER".fmt(f)
+        } else {
+            "(empty)".fmt(f)
+        }
     }
 }
