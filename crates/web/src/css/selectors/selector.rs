@@ -63,11 +63,16 @@ impl<'a> CSSParse<'a> for Selector {
             let component = SelectorComponent::parse(parser)?;
             components.push(component.into());
 
-            let Some(combinator) = Combinator::next_combinator(parser)? else {
-                break;
+            if let Some(combinator) = Combinator::next_combinator(parser)? {
+                components.push(combinator.into());
             };
 
-            components.push(combinator.into());
+            if matches!(
+                parser.peek_token_ignoring_whitespace(0),
+                Some(Token::CurlyBraceOpen | Token::Comma) | None
+            ) {
+                break;
+            }
         }
 
         let selector = Self {
