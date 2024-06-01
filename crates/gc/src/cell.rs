@@ -529,6 +529,7 @@ impl<'b, T: ?Sized> Ref<'b, T> {
     /// a `GcCell`.
     #[inline]
     #[must_use]
+    #[allow(clippy::should_implement_trait)]
     pub fn clone(orig: &Ref<'b, T>) -> Ref<'b, T> {
         Ref {
             value: orig.value,
