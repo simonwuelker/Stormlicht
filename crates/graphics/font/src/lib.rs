@@ -8,8 +8,7 @@
     iter_map_windows,
     result_flattening,
     cfg_match,
-    iter_advance_by,
-    lazy_cell
+    iter_advance_by
 )]
 
 mod description;

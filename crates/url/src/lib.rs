@@ -15,7 +15,6 @@
     option_get_or_insert_default,
     ascii_char,
     ascii_char_variants,
-    ip_bits,
     string_remove_matches
 )]
 

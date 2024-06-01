@@ -1,4 +1,4 @@
-#![feature(lazy_cell, ascii_char, ascii_char_variants)]
+#![feature(ascii_char, ascii_char_variants)]
 
 mod loader;
 mod resource;

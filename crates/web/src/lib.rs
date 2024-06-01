@@ -1,7 +1,6 @@
 #![feature(
     associated_type_defaults,
     let_chains,
-    lazy_cell,
     iter_advance_by,
     extend_one,
     const_fn_floating_point_arithmetic,

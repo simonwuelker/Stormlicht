@@ -1,7 +1,5 @@
 //! Implements <https://datatracker.ietf.org/doc/rfc1035/>
 
-#![feature(lazy_cell)]
-
 mod dns_cache;
 mod domain;
 pub mod message;
