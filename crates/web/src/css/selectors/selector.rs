@@ -44,6 +44,11 @@ pub enum SelectorComponent {
     /// <https://drafts.csswg.org/selectors-4/#attribute-selectors>
     Attribute(AttributeSelector),
 
+    /// Match a hovered element (`:hover`)
+    ///
+    /// <https://drafts.csswg.org/selectors/#the-hover-pseudo>
+    Hover,
+
     /// Matches an element on some other property
     ///
     /// <https://drafts.csswg.org/selectors-4/#typedef-pseudo-class-selector>
@@ -111,7 +116,14 @@ impl<'a> CSSParse<'a> for SelectorComponent {
             Some(Token::Colon) => {
                 let pseudo_class_selector = PseudoClassSelector::parse(parser)?;
 
-                Self::PseudoClass(pseudo_class_selector)
+                if matches!(
+                    pseudo_class_selector,
+                    PseudoClassSelector::Ident(static_interned!("hover"))
+                ) {
+                    Self::Hover
+                } else {
+                    Self::PseudoClass(pseudo_class_selector)
+                }
             },
             Some(Token::Delim('*')) => {
                 _ = parser.next_token_ignoring_whitespace();
@@ -196,7 +208,7 @@ impl SelectorComponent {
             Self::Id(_) => Specificity::new(1, 0, 0),
             Self::Class(_) => Specificity::new(0, 1, 0),
             Self::Attribute(_) => Specificity::new(0, 1, 0),
-            Self::PseudoClass(_) => Specificity::new(0, 1, 0),
+            Self::PseudoClass(_) | Self::Hover => Specificity::new(0, 1, 0),
             Self::Type(type_selector) => type_selector.specificity(),
         }
     }
@@ -217,6 +229,7 @@ impl SelectorComponent {
                 // FIXME: implement pseudo class selectors
                 false
             },
+            Self::Hover => element.borrow().is_hovered(),
             Self::Attribute(attribute_selector) => attribute_selector.matches(element),
             Self::Type(type_selector) => type_selector.matches(element),
         }
@@ -480,6 +493,23 @@ mod tests {
 
         assert_eq!(components.next(), Some(&reference));
         assert!(components.next().is_none());
+        assert!(components.next_component().is_none());
+    }
+
+    #[test]
+    fn div_selector_with_hover() {
+        let source = "div:hover";
+        let selector = Selector::parse_from_str(source).unwrap();
+        let mut components = selector.components();
+
+        let reference = SelectorComponent::Type(TypeSelector::Typename(
+            WellQualifiedName::without_namespace("div".into()),
+        ));
+
+        assert_eq!(components.next(), Some(&reference));
+        assert_eq!(components.next(), Some(&SelectorComponent::Hover));
+        assert!(components.next().is_none());
+
         assert!(components.next_component().is_none());
     }
 }
