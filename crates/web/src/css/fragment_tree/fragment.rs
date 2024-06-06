@@ -55,6 +55,59 @@ impl Fragment {
             Self::Image(image_fragment) => image_fragment.fill_display_list(painter),
         }
     }
+
+    /// Return the topmost fragment (if any) at the given coordinates
+    #[must_use]
+    pub fn hit_test(&self, relative_coordinates: math::Vec2D<Pixels>) -> Option<&'_ Fragment> {
+        match self {
+            Self::Box(box_fragment) => {
+                if box_fragment
+                    .padding_area
+                    .contains_point(relative_coordinates)
+                {
+                    let topmost_fragment = box_fragment
+                        .children()
+                        .iter()
+                        .rev() // Traverse in paint order
+                        .filter_map(|child| {
+                            let relative_coordinates =
+                                relative_coordinates - box_fragment.margin_area().top_left();
+                            child.hit_test(relative_coordinates)
+                        })
+                        .next()
+                        .unwrap_or(self);
+
+                    Some(topmost_fragment)
+                } else {
+                    None
+                }
+            },
+            Self::Text(text_fragment) => {
+                if text_fragment.area.contains_point(relative_coordinates) {
+                    Some(self)
+                } else {
+                    None
+                }
+            },
+            Self::Image(image_fragment) => {
+                if image_fragment.area.contains_point(relative_coordinates) {
+                    Some(self)
+                } else {
+                    None
+                }
+            },
+        }
+    }
+
+    /// Return the [Node](dom_objects::Node) associated with this fragment, if any
+    pub fn dom_node(&self) -> Option<DomPtr<dom_objects::Node>> {
+        match self {
+            Self::Box(box_fragment) => box_fragment.dom_node.clone(),
+            // FIXME:
+            Self::Text(_) => None,
+            Self::Image(_) => None,
+        }
+    }
 }
 
 impl TextFragment {

@@ -25,8 +25,18 @@ pub struct FragmentTree {
 }
 
 impl FragmentTree {
+    #[must_use]
     pub fn new(root_fragments: Vec<Fragment>) -> Self {
         Self { root_fragments }
+    }
+
+    #[must_use]
+    pub fn hit_test(&self, position: math::Vec2D<Pixels>) -> Option<&'_ Fragment> {
+        self.root_fragments
+            .iter()
+            .rev() // Traverse in reverse paint order
+            .filter_map(|fragment| fragment.hit_test(position))
+            .next()
     }
 
     pub fn fill_display_list(&self, painter: &mut Painter, viewport: Size<Pixels>) {
