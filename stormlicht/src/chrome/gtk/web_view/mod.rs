@@ -21,6 +21,10 @@ impl WebView {
     pub fn reload(&self) {
         self.imp().reload().unwrap();
     }
+
+    pub fn handle_mouse_move(&self, x: f64, y: f64) {
+        self.imp().handle_mouse_move(x, y);
+    }
 }
 
 impl Default for WebView {

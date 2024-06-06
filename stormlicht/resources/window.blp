@@ -34,6 +34,12 @@ template $StormlichtWindow: Adw.ApplicationWindow {
         content: $WebView web_view {
             hexpand: true;
             vexpand: true;
+
+            EventControllerMotion {
+                enter => $on_mouse_move(template) swapped;
+                motion => $on_mouse_move(template) swapped;
+            }
         };
     }
+
 }

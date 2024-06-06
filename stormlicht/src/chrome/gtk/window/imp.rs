@@ -82,4 +82,9 @@ impl Window {
     fn handle_reload_page(&self) {
         self.web_view.reload()
     }
+
+    #[template_callback]
+    fn on_mouse_move(&self, x: f64, y: f64) {
+        self.web_view.handle_mouse_move(x, y);
+    }
 }

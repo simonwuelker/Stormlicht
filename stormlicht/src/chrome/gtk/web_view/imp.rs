@@ -104,6 +104,22 @@ impl WebView {
 
         self.load_url(&url)
     }
+
+    pub fn handle_mouse_move(&self, x: f64, y: f64) {
+        let event_location = math::Vec2D {
+            x: x as i32,
+            y: y as i32,
+        };
+
+        let mouse_event = web::event::MouseEvent::move_to(event_location);
+
+        self.state
+            .borrow_mut()
+            .browsing_context
+            .handle_mouse_event(mouse_event);
+
+        self.obj().queue_draw();
+    }
 }
 
 impl State {
