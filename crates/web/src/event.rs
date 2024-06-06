@@ -24,3 +24,14 @@ pub enum MouseButton {
     Middle,
     Right,
 }
+
+impl MouseEvent {
+    /// Construct a event indicating cursor movement
+    #[must_use]
+    pub fn move_to(position: Vec2D<i32>) -> Self {
+        Self {
+            position,
+            kind: MouseEventKind::Move,
+        }
+    }
+}
