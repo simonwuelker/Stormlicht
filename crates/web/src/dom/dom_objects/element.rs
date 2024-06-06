@@ -22,6 +22,11 @@ impl ElementFlags {
     }
 
     #[inline]
+    fn unset(&mut self, flag: u8) {
+        self.0 &= !flag;
+    }
+
+    #[inline]
     #[must_use]
     const fn is_set(&self, flag: u8) -> bool {
         self.0 & flag != 0
@@ -104,8 +109,12 @@ impl Element {
     }
 
     #[inline]
-    pub fn set_hovered(&mut self) {
-        self.flags.set(ElementFlags::HOVER)
+    pub fn set_hovered(&mut self, hovered: bool) {
+        if hovered {
+            self.flags.set(ElementFlags::HOVER)
+        } else {
+            self.flags.unset(ElementFlags::HOVER)
+        }
     }
 
     #[inline]
