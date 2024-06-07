@@ -71,6 +71,13 @@
         "initial": "Color::BLACK"
     },
     {
+        "name": "cursor",
+        "specification": "https://drafts.csswg.org/css-ui/#propdef-cursor",
+        "inherited": true,
+        "value": "AutoOr<Cursor>",
+        "initial": "AutoOr::Auto"
+    },
+    {
         "name": "display",
         "specification": "https://drafts.csswg.org/css-display/#the-display-properties",
         "inherited": false,
