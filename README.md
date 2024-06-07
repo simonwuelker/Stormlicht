@@ -18,8 +18,7 @@ If you want to follow the development, you can visit [#stormlicht:matrix.org](ht
     - [1.3.1 Logging](#131-logging)
     - [1.3.2 Backtraces](#132-backtraces)
     - [1.3.3 Running with Miri](#133-running-with-miri)
-  - [1.4. Why is there no GUI?](#14-why-is-there-no-gui)
-  - [1.5. Credits](#15-credits)
+  - [1.4. Credits](#14-credits)
 
 
 ## 1.1. Design goals
@@ -79,13 +78,7 @@ rustup override set nightly
 ./stormlicht.py test --miri
 ```
 
-## 1.4. Why is there no GUI?
-I would love to have a GUI! But actually writing one in rust is *hard*[^2], mostly due to the lack of OOP and the borrowchecker.
-There are currently very smart people working to solve these issues[^3], but I am not one of them. If you want to try implementing a  GUI, please do!
-
-But there is another reason: A browser engine is really just a highly complex framework for implementing user interfaces. If I procrastinate on implementing a GUI library long enough, i can just write it in HTML!
-
-## 1.5. Credits
+## 1.4. Credits
 This project is inspired by [Andreas Kling](https://github.com/awesomekling)/[the Ladybird Browser](https://awesomekling.github.io/Ladybird-a-new-cross-platform-browser-project/)
 
 Mozilla's [Servo](https://servo.org/) and [WebKit](https://github.com/WebKit/WebKit) provided some good ideas.
