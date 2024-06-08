@@ -1,5 +1,9 @@
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{
+        style::{StyleContext, ToComputedStyle},
+        syntax::Token,
+        CSSParse, ParseError, Parser,
+    },
     static_interned,
 };
 
@@ -220,6 +224,20 @@ where
                 let parsed_value = T::parse(parser)?;
                 Ok(Self::NotAuto(parsed_value))
             },
+        }
+    }
+}
+
+impl<T> ToComputedStyle for AutoOr<T>
+where
+    T: ToComputedStyle,
+{
+    type Computed = AutoOr<T::Computed>;
+
+    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+        match self {
+            AutoOr::Auto => AutoOr::Auto,
+            AutoOr::NotAuto(value) => AutoOr::NotAuto(value.to_computed_style(context)),
         }
     }
 }
