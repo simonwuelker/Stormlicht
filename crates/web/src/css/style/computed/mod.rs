@@ -14,6 +14,12 @@ pub type BorderWidth = Pixels;
 /// <https://drafts.csswg.org/css2/#font-size-props>
 pub type FontSize = Pixels;
 
+/// <https://drafts.csswg.org/css-position/#inset-properties>
+pub type Inset = AutoOr<PercentageOr<Length>>;
+
+/// <https://drafts.csswg.org/css-align-3/#propdef-justify-self>
+pub type JustifySelf = specified::JustifySelf;
+
 pub type Length = Pixels;
 
 /// <https://drafts.csswg.org/css2/#propdef-line-height>

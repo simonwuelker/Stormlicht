@@ -6,7 +6,7 @@ use super::{
 pub mod computed;
 pub mod specified;
 
-trait ToComputedStyle {
+pub trait ToComputedStyle {
     type Computed;
 
     fn to_computed_style(&self, context: StyleContext) -> Self::Computed;
