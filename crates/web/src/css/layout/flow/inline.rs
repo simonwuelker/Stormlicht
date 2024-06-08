@@ -121,20 +121,10 @@ impl TextRun {
             .line_height()
             .to_pixels(state.current_resolution_context());
 
-        while let Some(text_line) = lines.next() {
-            // https://drafts.csswg.org/css2/#white-space-model
-            //
-            // 1. If a space (U+0020) at the beginning of a line has white-space set to normal,
-            //    nowrap, or pre-line, it is removed.
-            let visual_text = if state.at_beginning_of_line {
-                text_line.text.trim_start().to_owned()
-            } else {
-                text_line.text.to_owned()
-            };
-
+        while let Some(text_line) = lines.next_line(state.at_beginning_of_line) {
             let line_item = LineItem::TextRun(TextRunItem {
                 metrics: font_metrics.clone(),
-                text: visual_text,
+                text: text_line.text.to_owned(),
                 width: text_line.width,
                 style: self.style().get_inherited(),
             });

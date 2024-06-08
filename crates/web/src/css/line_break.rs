@@ -34,18 +34,23 @@ impl<'a> LineBreakIterator<'a> {
         self.available_width = available_width;
     }
 
+    #[must_use]
     pub const fn is_done(&self) -> bool {
         self.is_done
     }
-}
 
-impl<'a> Iterator for LineBreakIterator<'a> {
-    type Item = TextLine<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
+    pub fn next_line(&mut self, is_at_beginning_of_line: bool) -> Option<TextLine<'_>> {
         if self.is_done {
             return None;
         }
+
+        // https://drafts.csswg.org/css2/#white-space-model
+        //
+        // 1. If a space (U+0020) at the beginning of a line has white-space set to normal,
+        //    nowrap, or pre-line, it is removed.
+        if is_at_beginning_of_line {
+            self.text = self.text.trim_start()
+        };
 
         let mut previous_potential_breakpoint = None;
         let potential_breaks = self
@@ -129,6 +134,6 @@ mod tests {
         };
 
         let mut lines = LineBreakIterator::new("", font_metrics, Pixels::ZERO);
-        assert!(lines.next().is_none());
+        assert!(lines.next_line(false).is_none());
     }
 }
