@@ -1,4 +1,7 @@
-use super::layout::{Pixels, Size};
+use super::{
+    font_metrics::DEFAULT_FONT_SIZE,
+    layout::{Pixels, Size},
+};
 
 pub mod computed;
 pub mod specified;
@@ -19,4 +22,15 @@ pub struct StyleContext {
     ///
     /// Viewport-relative units like `vw` depend on this
     pub viewport: Size<Pixels>,
+}
+
+impl StyleContext {
+    #[must_use]
+    pub fn new(viewport: Size<Pixels>) -> Self {
+        Self {
+            font_size: DEFAULT_FONT_SIZE,
+            root_font_size: DEFAULT_FONT_SIZE,
+            viewport,
+        }
+    }
 }
