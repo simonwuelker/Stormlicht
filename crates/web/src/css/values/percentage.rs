@@ -1,6 +1,10 @@
 use std::{fmt, ops::Mul};
 
-use crate::css::{syntax::Token, CSSParse, ParseError, Parser};
+use crate::css::{
+    style::{StyleContext, ToComputedStyle},
+    syntax::Token,
+    CSSParse, ParseError, Parser,
+};
 
 use super::Number;
 
@@ -91,6 +95,22 @@ impl From<Number> for Percentage {
         match value {
             Number::Integer(i) => Self(i as f32),
             Number::Number(f) => Self(f),
+        }
+    }
+}
+
+impl<T> ToComputedStyle for PercentageOr<T>
+where
+    T: ToComputedStyle,
+{
+    type Computed = PercentageOr<T::Computed>;
+
+    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+        match self {
+            PercentageOr::Percentage(p) => PercentageOr::Percentage(*p),
+            PercentageOr::NotPercentage(value) => {
+                PercentageOr::NotPercentage(value.to_computed_style(context))
+            },
         }
     }
 }
