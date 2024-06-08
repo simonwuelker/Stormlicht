@@ -8,6 +8,7 @@ pub(crate) mod layout;
 mod line_break;
 mod properties;
 mod selectors;
+pub mod style;
 mod stylecomputer;
 mod stylesheet;
 pub(crate) mod syntax;
