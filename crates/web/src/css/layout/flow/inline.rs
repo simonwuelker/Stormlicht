@@ -45,9 +45,19 @@ pub struct InlineFormattingContext {
 }
 
 impl TextRun {
-    #[inline]
     #[must_use]
-    pub const fn new(text: String, style: ComputedStyle) -> Self {
+    pub fn new(mut text: String, style: ComputedStyle) -> Self {
+        // Collapse sequences of whitespace in the text and remove newlines as defined in
+        // https://drafts.csswg.org/css2/#white-space-model (3)
+
+        let mut previous_c_was_whitespace = false;
+        text.retain(|c| {
+            let is_whitespace = c.is_whitespace();
+            let retain = !is_whitespace || !previous_c_was_whitespace;
+            previous_c_was_whitespace = is_whitespace;
+            retain && c != '\n'
+        });
+
         Self { text, style }
     }
 
@@ -99,19 +109,7 @@ impl TextRun {
             .to_pixels(state.current_resolution_context());
         let font_metrics = self.find_suitable_font(font_size);
 
-        // Collapse sequences of whitespace in the text and remove newlines as defined in
-        // https://drafts.csswg.org/css2/#white-space-model (3)
-
-        let mut previous_c_was_whitespace = false;
-        let mut text_without_whitespace_sequences = self.text().to_owned();
-        text_without_whitespace_sequences.retain(|c| {
-            let is_whitespace = c.is_whitespace();
-            let retain = !is_whitespace || !previous_c_was_whitespace;
-            previous_c_was_whitespace = is_whitespace;
-            retain && c != '\n'
-        });
-
-        let remaining_text = &text_without_whitespace_sequences;
+        let remaining_text = self.text();
         let mut lines = LineBreakIterator::new(
             remaining_text,
             font_metrics.clone(),
