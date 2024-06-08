@@ -1,3 +1,6 @@
-mod length;
+use crate::css::layout::Pixels;
 
-pub use length::Length;
+/// <https://drafts.csswg.org/css2/#font-size-props>
+pub type FontSize = Pixels;
+
+pub type Length = Pixels;
