@@ -11,11 +11,11 @@ use crate::{
         layout::{
             formatting_context::IndependentFormattingContext, ContainingBlock, Pixels, Sides, Size,
         },
-        values::{
-            self,
-            length::{self, Length},
-            AutoOr, FloatSide, PercentageOr,
+        style::{
+            computed::{Margin, Padding},
+            specified::FloatSide,
         },
+        values::{AutoOr, PercentageOr},
     },
     dom::{dom_objects, DomPtr},
     TreeDebug, TreeFormatter,

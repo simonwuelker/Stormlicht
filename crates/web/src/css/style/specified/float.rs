@@ -1,5 +1,8 @@
 use crate::{
-    css::{CSSParse, ParseError, Parser},
+    css::{
+        style::{computed, StyleContext, ToComputedStyle},
+        CSSParse, ParseError, Parser,
+    },
     static_interned,
 };
 
@@ -34,6 +37,16 @@ impl<'a> CSSParse<'a> for Float {
     }
 }
 
+impl ToComputedStyle for Float {
+    type Computed = computed::Float;
+
+    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+        _ = context;
+
+        *self
+    }
+}
+
 /// <https://drafts.csswg.org/css2/#propdef-clear>
 #[derive(Clone, Copy, Debug)]
 pub enum Clear {
@@ -53,5 +66,15 @@ impl<'a> CSSParse<'a> for Clear {
             _ => return Err(ParseError),
         };
         Ok(value)
+    }
+}
+
+impl ToComputedStyle for Clear {
+    type Computed = computed::Clear;
+
+    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+        _ = context;
+
+        *self
     }
 }

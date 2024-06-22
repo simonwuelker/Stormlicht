@@ -7,7 +7,11 @@ use crate::{
         font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::{BoxFragment, Fragment},
         layout::{replaced::ReplacedElement, ContainingBlock, Pixels, Sides},
-        values::{self, length, AutoOr, DisplayInside, Length, PercentageOr},
+        style::{
+            computed::{Clear, Margin, Padding},
+            specified::DisplayInside,
+        },
+        values::{self, AutoOr, PercentageOr},
         ComputedStyle, StyleComputer,
     },
     dom::{dom_objects, DomPtr},
@@ -351,11 +355,11 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
         }
     }
 
-    fn respect_clearance(&mut self, clear: &values::Clear) {
+    fn respect_clearance(&mut self, clear: &Clear) {
         let clear_to = match clear {
-            values::Clear::Left => self.block_formatting_context.float_context.clear_left(),
-            values::Clear::Right => self.block_formatting_context.float_context.clear_right(),
-            values::Clear::Both => self.block_formatting_context.float_context.clear_both(),
+            Clear::Left => self.block_formatting_context.float_context.clear_left(),
+            Clear::Right => self.block_formatting_context.float_context.clear_right(),
+            Clear::Both => self.block_formatting_context.float_context.clear_both(),
             _ => return,
         };
 
