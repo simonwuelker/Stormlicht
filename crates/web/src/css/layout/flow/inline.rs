@@ -546,12 +546,6 @@ impl InlineBox {
     }
 
     #[inline]
-    #[must_use]
-    pub fn font_size(&self) -> Pixels {
-        *self.style.font_size()
-    }
-
-    #[inline]
     pub fn push(&mut self, element: InlineLevelBox) {
         self.contents.push(element);
     }
