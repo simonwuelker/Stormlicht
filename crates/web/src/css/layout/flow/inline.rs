@@ -116,10 +116,7 @@ impl TextRun {
             state.remaining_width_for_line_box(),
         );
 
-        let line_height = self
-            .style
-            .line_height()
-            .to_pixels(state.current_resolution_context());
+        let line_height = self.style.line_height().used_value(*self.style.font_size());
 
         while let Some(text_line) = lines.next_line(state.at_beginning_of_line) {
             let line_item = LineItem::TextRun(TextRunItem {

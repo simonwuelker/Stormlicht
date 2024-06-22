@@ -1,9 +1,13 @@
+mod line_height;
+
 use crate::css::{
     layout::Pixels,
     values::{AutoOr, PercentageOr},
 };
 
 use super::specified;
+
+pub use line_height::LineHeight;
 
 /// </// <https://drafts.csswg.org/css-backgrounds/#background-color>>
 pub type BackgroundColor = specified::BackgroundColor;
@@ -27,9 +31,6 @@ pub type Inset = AutoOr<PercentageOr<Length>>;
 pub type JustifySelf = specified::JustifySelf;
 
 pub type Length = Pixels;
-
-/// <https://drafts.csswg.org/css2/#propdef-line-height>
-pub type LineHeight = Pixels;
 
 /// <https://drafts.csswg.org/css2/#value-def-margin-width>
 pub type Margin = AutoOr<PercentageOr<Length>>;

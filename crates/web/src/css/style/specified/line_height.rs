@@ -58,10 +58,16 @@ impl ToComputedStyle for LineHeight {
 
     fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
         match self {
-            Self::Normal => context.font_size,
-            Self::Length(length) => length.to_computed_style(context),
-            Self::Percentage(p) => p.as_fraction() * context.font_size,
-            Self::Number(n) => f32::from(*n) * context.font_size,
+            Self::Normal => Self::Computed::Normal,
+            Self::Length(length) => {
+                let computed_height = length.to_computed_style(context);
+                Self::Computed::Absolute(computed_height)
+            },
+            Self::Percentage(p) => {
+                let computed_height = p.as_fraction() * context.font_size;
+                Self::Computed::Absolute(computed_height)
+            },
+            Self::Number(n) => Self::Computed::Relative(*n),
         }
     }
 }
