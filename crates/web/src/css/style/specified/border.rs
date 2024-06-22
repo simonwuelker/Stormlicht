@@ -1,5 +1,11 @@
 use crate::{
-    css::{layout::Pixels, syntax::Token, values::Color, CSSParse, ParseError, Parser},
+    css::{
+        layout::Pixels,
+        style::{computed, StyleContext, ToComputedStyle},
+        syntax::Token,
+        values::Color,
+        CSSParse, ParseError, Parser,
+    },
     static_interned, InternedString,
 };
 
@@ -74,6 +80,16 @@ impl<'a> CSSParse<'a> for LineStyle {
     }
 }
 
+impl ToComputedStyle for LineStyle {
+    type Computed = computed::LineStyle;
+
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
+        _ = context;
+
+        *self
+    }
+}
+
 /// <https://drafts.csswg.org/css-backgrounds/#typedef-line-width>
 #[derive(Clone, Copy, Debug)]
 pub struct LineWidth(Length);
@@ -124,7 +140,17 @@ impl<'a> CSSParse<'a> for LineWidth {
     }
 }
 
+impl ToComputedStyle for LineWidth {
+    type Computed = computed::LineWidth;
+
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
+        self.0.to_computed_style(context)
+    }
+}
+
 /// The value of the CSS `border` property
+///
+/// <https://drafts.csswg.org/css-backgrounds/#propdef-border>
 #[derive(Clone, Copy, Debug)]
 pub struct Border {
     pub color: Color,
@@ -208,5 +234,17 @@ impl<'a> CSSParse<'a> for Border {
 impl From<Length> for LineWidth {
     fn from(value: Length) -> Self {
         Self(value)
+    }
+}
+
+impl ToComputedStyle for Border {
+    type Computed = computed::Border;
+
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
+        Self::Computed {
+            color: self.color,
+            width: self.width.to_computed_style(context),
+            style: self.style.to_computed_style(context),
+        }
     }
 }

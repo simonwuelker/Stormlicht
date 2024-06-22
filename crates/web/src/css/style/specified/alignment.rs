@@ -1,6 +1,7 @@
 use crate::{
     css::{
         self,
+        style::{computed, StyleContext, ToComputedStyle},
         values::{AutoOr, PercentageOr},
         CSSParse,
     },
@@ -112,5 +113,15 @@ impl JustifySelfPosition {
 impl<'a> CSSParse<'a> for JustifySelfPosition {
     fn parse(parser: &mut css::Parser<'a>) -> Result<Self, css::ParseError> {
         Self::from_identifier(parser.expect_identifier()?)
+    }
+}
+
+impl ToComputedStyle for JustifySelf {
+    type Computed = computed::JustifySelf;
+
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
+        _ = context;
+
+        *self
     }
 }

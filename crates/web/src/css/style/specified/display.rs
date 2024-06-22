@@ -1,6 +1,6 @@
 use crate::{
     css::{
-        style::{StyleContext, ToComputedStyle},
+        style::{computed, StyleContext, ToComputedStyle},
         syntax::Token,
         CSSParse, ParseError, Parser,
     },
@@ -311,9 +311,9 @@ impl DisplayInside {
 }
 
 impl ToComputedStyle for Display {
-    type Computed = Self;
+    type Computed = computed::Display;
 
-    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
         _ = context;
 
         *self

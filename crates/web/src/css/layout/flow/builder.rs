@@ -13,7 +13,7 @@ use crate::{
             },
             formatting_context::IndependentFormattingContext,
         },
-        values::{length, Display, DisplayBox, DisplayInside, DisplayOutside},
+        style::specified::{Display, DisplayBox, DisplayInside, DisplayOutside},
         ComputedStyle, StyleComputer,
     },
     dom::{dom_objects, DomPtr},
@@ -28,7 +28,6 @@ pub struct BlockContainerBuilder<'stylesheets, 'parent_style> {
     block_level_boxes: Vec<BlockLevelBox>,
     current_inline_formatting_context: InlineFormattingContext,
     inline_stack: Vec<InlineBox>,
-    root_resolution_context: length::ResolutionContext,
 }
 
 impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_style> {
@@ -36,7 +35,6 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
     pub fn new(
         style: &'parent_style ComputedStyle,
         style_computer: StyleComputer<'stylesheets>,
-        resolution_context: length::ResolutionContext,
     ) -> Self {
         Self {
             style_computer,
@@ -44,7 +42,6 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
             block_level_boxes: Vec::new(),
             current_inline_formatting_context: InlineFormattingContext::default(),
             inline_stack: Vec::new(),
-            root_resolution_context: resolution_context,
         }
     }
 
@@ -67,9 +64,8 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
         style_computer: StyleComputer<'stylesheets>,
         style: &'parent_style ComputedStyle,
         display_inside: DisplayInside,
-        resolution_context: length::ResolutionContext,
     ) -> BlockContainer {
-        let mut builder = Self::new(style, style_computer, resolution_context);
+        let mut builder = Self::new(style, style_computer);
 
         if display_inside.has_list_item_flag() {
             if let Some(element) = node.try_into_type() {
@@ -88,18 +84,6 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
         builder.traverse_subtree(node, style);
 
         builder.finish()
-    }
-
-    #[must_use]
-    fn current_resolution_context(&self) -> length::ResolutionContext {
-        let mut resolution_context = self.root_resolution_context;
-
-        // If there are inline boxes open then we use the font size from the innermost one
-        if let Some(font_size) = self.inline_stack.last().map(InlineBox::font_size) {
-            resolution_context.font_size = font_size
-        }
-
-        resolution_context
     }
 
     fn traverse_subtree(&mut self, node: DomPtr<dom_objects::Node>, parent_style: &ComputedStyle) {
@@ -173,11 +157,7 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
         let inline_box = match content {
             Content::Element => {
                 // Create a new inline box and put it on the stack of open boxes
-                let font_size = style
-                    .font_size()
-                    .to_pixels(self.current_resolution_context());
-
-                let inline_box = InlineBox::new(element.clone().upcast(), style.clone(), font_size);
+                let inline_box = InlineBox::new(element.clone().upcast(), style.clone());
                 self.inline_stack.push(inline_box);
 
                 // Traverse all children, they will be appended to the inline box we just created
@@ -244,10 +224,6 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
         let is_absolutely_positioned =
             style.position().is_absolute() || style.position().is_fixed();
 
-        let block_font_size = style.font_size().to_pixels(self.root_resolution_context);
-        let resolution_context_for_block =
-            self.root_resolution_context.with_font_size(block_font_size);
-
         let block_box = match (style.float().side(), is_absolutely_positioned) {
             (Some(side), _) => {
                 let content = IndependentFormattingContext::create(
@@ -255,7 +231,6 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                     self.style_computer,
                     style.clone(),
                     display_inside,
-                    resolution_context_for_block,
                 );
                 float::FloatingBox::new(element.upcast(), style, side, content).into()
             },
@@ -265,7 +240,6 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                     self.style_computer,
                     style.clone(),
                     display_inside,
-                    resolution_context_for_block,
                 );
 
                 AbsolutelyPositionedBox {
@@ -282,7 +256,6 @@ impl<'stylesheets, 'parent_style> BlockContainerBuilder<'stylesheets, 'parent_st
                         self.style_computer,
                         &style,
                         display_inside,
-                        resolution_context_for_block,
                     );
                     InFlowBlockBox::new(style, Some(element.upcast()), content).into()
                 },

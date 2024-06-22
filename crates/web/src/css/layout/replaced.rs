@@ -5,10 +5,7 @@ use crate::{
     css::{
         computed_style::ComputedStyle,
         fragment_tree::{Fragment, TextureFragment},
-        values::{
-            length::{self, Length},
-            AutoOr,
-        },
+        values::AutoOr,
     },
     dom::{dom_objects, DomPtr},
 };
@@ -90,20 +87,12 @@ impl ReplacedElement {
     }
 
     /// <https://drafts.csswg.org/css2/#inline-replaced-width>
-    fn used_inline_width(
-        &self,
-        containining_block: ContainingBlock,
-        length_resolution_context: length::ResolutionContext,
-    ) -> Pixels {
+    fn used_inline_width(&self, containining_block: ContainingBlock) -> Pixels {
         let computed_width = self.style.width();
         let computed_height = self.style.height();
 
         if let AutoOr::NotAuto(width) = computed_width {
-            let available_width = Length::pixels(containining_block.width());
-
-            width
-                .resolve_against(available_width)
-                .absolutize(length_resolution_context)
+            width.resolve_against(containining_block.width())
         } else if computed_height.is_auto()
             && let Some(intrinsic_width) = self.intrinsic_size.width
         {
@@ -118,11 +107,7 @@ impl ReplacedElement {
         {
             // The spec doesn't explicitly state this, but to use the "used height" here,
             // the height of the containing block is required to be known.
-            let available_height = Length::pixels(container_height);
-
-            let used_height = height
-                .resolve_against(available_height)
-                .absolutize(length_resolution_context);
+            let used_height = height.resolve_against(container_height);
 
             used_height * intrinsic_aspect_ratio
         } else if computed_height.is_auto()
@@ -137,7 +122,11 @@ impl ReplacedElement {
             // NOTE: This is the same case as above, but without the condition that height is auto
             intrinsic_width
         } else {
-            let viewport = length_resolution_context.viewport;
+            // FIXME: Use the actual viewport size here
+            let viewport = Size {
+                width: Pixels(800.),
+                height: Pixels(600.),
+            };
 
             if viewport.width < Pixels(300.) {
                 // The width of the largest rectangle with a 2:1 aspect ratio that fits on the viewport
@@ -154,21 +143,14 @@ impl ReplacedElement {
 
     /// <https://drafts.csswg.org/css2/#inline-replaced-height>
     #[must_use]
-    fn used_inline_height(
-        &self,
-        containining_block: ContainingBlock,
-        length_resolution_context: length::ResolutionContext,
-    ) -> Pixels {
+    fn used_inline_height(&self, containining_block: ContainingBlock) -> Pixels {
         let computed_width = self.style.width();
         let computed_height = self.style.height();
 
         if let AutoOr::NotAuto(height) = computed_height
             && let Some(available_height) = containining_block.height()
         {
-            let available_height = Length::pixels(available_height);
-            height
-                .resolve_against(available_height)
-                .absolutize(length_resolution_context)
+            height.resolve_against(available_height)
         } else if computed_width.is_auto()
             && let Some(intrinsic_height) = self.intrinsic_size.height
         {
@@ -176,10 +158,7 @@ impl ReplacedElement {
         } else if let AutoOr::NotAuto(width) = computed_width
             && let Some(intrinsic_aspect_ratio) = self.intrinsic_size.aspect_ratio
         {
-            let available_width = Length::pixels(containining_block.width());
-            let used_width = width
-                .resolve_against(available_width)
-                .absolutize(length_resolution_context);
+            let used_width = width.resolve_against(containining_block.width());
 
             used_width * intrinsic_aspect_ratio
         } else if let Some(intrinsic_height) = self.intrinsic_size.height {
@@ -187,7 +166,8 @@ impl ReplacedElement {
         } else {
             // The height of the largest rectangle that has a 2:1 ratio,
             //  a height not greater than 150px, and has a width not greater than the device width.
-            let device_width = length_resolution_context.viewport.width;
+            // FIXME: Use the actual device width here
+            let device_width = Pixels(800.);
             (device_width / 2.).min(Pixels(150.))
         }
     }
@@ -196,13 +176,9 @@ impl ReplacedElement {
     ///
     /// See  <https://drafts.csswg.org/css2/#inline-replaced-width> and <https://drafts.csswg.org/css2/#inline-replaced-height>
     #[must_use]
-    pub fn used_size_if_it_was_inline(
-        &self,
-        containining_block: ContainingBlock,
-        length_resolution_context: length::ResolutionContext,
-    ) -> Size<Pixels> {
-        let width = self.used_inline_width(containining_block, length_resolution_context);
-        let height = self.used_inline_height(containining_block, length_resolution_context);
+    pub fn used_size_if_it_was_inline(&self, containining_block: ContainingBlock) -> Size<Pixels> {
+        let width = self.used_inline_width(containining_block);
+        let height = self.used_inline_height(containining_block);
         Size { width, height }
     }
 

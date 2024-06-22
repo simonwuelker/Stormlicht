@@ -105,7 +105,7 @@ where
 {
     type Computed = PercentageOr<T::Computed>;
 
-    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
         match self {
             PercentageOr::Percentage(p) => PercentageOr::Percentage(*p),
             PercentageOr::NotPercentage(value) => {

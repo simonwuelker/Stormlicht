@@ -40,7 +40,7 @@ impl<'a> CSSParse<'a> for Float {
 impl ToComputedStyle for Float {
     type Computed = computed::Float;
 
-    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
         _ = context;
 
         *self
@@ -72,7 +72,7 @@ impl<'a> CSSParse<'a> for Clear {
 impl ToComputedStyle for Clear {
     type Computed = computed::Clear;
 
-    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
         _ = context;
 
         *self

@@ -5,7 +5,8 @@ use crate::{
     css::{
         display_list::Painter,
         layout::{Pixels, Sides},
-        values::{BackgroundColor, Color},
+        style::specified::BackgroundColor,
+        values::Color,
         ComputedStyle, FontMetrics,
     },
     dom::{self, dom_objects, DomPtr},

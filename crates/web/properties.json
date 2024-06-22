@@ -46,7 +46,7 @@
             "name": "border-SIDE-width",
             "specification": "https://drafts.csswg.org/css-backgrounds/#propdef-border-SIDE-width",
             "value": "LineWidth",
-            "initial": "LineWidth::MEDIUM"
+            "initial": "Pixels(3.)"
         }
     },
     {
@@ -103,7 +103,7 @@
         "specification": "https://drafts.csswg.org/css2/#font-size-props",
         "inherited": true,
         "value": "FontSize",
-        "initial": "FontSize::default()"
+        "initial": "Pixels(16.)"
     },
     {
         "name": "font-style",

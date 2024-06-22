@@ -7,9 +7,10 @@ pub mod computed;
 pub mod specified;
 
 pub trait ToComputedStyle {
+    /// <https://www.w3.org/TR/css-cascade/#computed-value>
     type Computed;
 
-    fn to_computed_style(&self, context: StyleContext) -> Self::Computed;
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed;
 }
 
 /// Contains all the data that a specified property could need to computed its computed value

@@ -12,9 +12,17 @@ use crate::{
     static_interned,
 };
 
+use super::{
+    font_metrics::DEFAULT_FONT_SIZE,
+    layout::{Pixels, Size},
+    style::{StyleContext, ToComputedStyle},
+};
+
 #[derive(Clone, Copy, Debug)]
 pub struct StyleComputer<'a> {
     stylesheets: &'a [Stylesheet],
+    root_font_size: Pixels,
+    viewport_size: Size<Pixels>,
 }
 
 #[derive(Clone, Debug)]
@@ -54,7 +62,7 @@ impl<'a> MatchingProperty<'a> {
         }
     }
 
-    fn into_property(self) -> StyleProperty {
+    fn property(&self) -> StyleProperty {
         self.property.value.clone()
     }
 
@@ -105,11 +113,19 @@ impl<'a> MatchingProperty<'a> {
 }
 
 impl<'a> StyleComputer<'a> {
-    pub fn new(stylesheets: &'a [Stylesheet]) -> Self {
+    pub fn new(
+        stylesheets: &'a [Stylesheet],
+        root_font_size: Pixels,
+        viewport_size: Size<Pixels>,
+    ) -> Self {
         // Sort the list in cascade order:
         // https://drafts.csswg.org/css-cascade-4/#cascade-specificity
         // https://drafts.csswg.org/css-cascade-4/#cascade-order
-        Self { stylesheets }
+        Self {
+            stylesheets,
+            root_font_size,
+            viewport_size,
+        }
     }
 
     // Find all the [StyleRules](super::StyleRule) that apply to an [Element]
@@ -163,13 +179,45 @@ impl<'a> StyleComputer<'a> {
         // Sort matching rules in cascade order, see
         // https://drafts.csswg.org/css-cascade-4/#cascade-sort for more info
         matched_properties.sort_unstable_by(MatchingProperty::compare_in_cascade_order);
-        let mut computed_style = parent_style.get_inherited();
+
+        // Find the font size of the element
+        // This is done seperately, as only the font-size property refers to the font size
+        // of the parent instead of the element itself
+        let font_size = matched_properties
+            .iter()
+            .rev()
+            .flat_map(|prop| {
+                if let StyleProperty::FontSize(font_size) = prop.property() {
+                    Some(font_size)
+                } else {
+                    None
+                }
+            })
+            .map(|font_size| {
+                let style_context = StyleContext {
+                    font_size: *parent_style.font_size(),
+                    root_font_size: self.root_font_size,
+                    viewport: self.viewport_size,
+                };
+
+                font_size.to_computed_style(&style_context)
+            })
+            .next()
+            .unwrap_or(DEFAULT_FONT_SIZE);
+
+        let style_context = StyleContext {
+            font_size,
+            root_font_size: self.root_font_size,
+            viewport: self.viewport_size,
+        };
 
         // Add properties in logical order (least important first)
         // That way, more important rules can override less important ones
+        let mut computed_style = parent_style.get_inherited();
+
         for matched_property in matched_properties.into_iter() {
-            let property = matched_property.into_property();
-            computed_style.set_property(property);
+            let property = matched_property.property();
+            computed_style.set_property(property, &style_context);
         }
 
         computed_style

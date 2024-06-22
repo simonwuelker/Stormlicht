@@ -238,7 +238,7 @@ impl Default for Length {
 impl ToComputedStyle for Length {
     type Computed = computed::Length;
 
-    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
         match self.unit {
             Unit::Cm => Pixels(self.value * 96. / 2.54),
             Unit::Mm => Pixels(self.value * 96. / 2.54 / 10.),

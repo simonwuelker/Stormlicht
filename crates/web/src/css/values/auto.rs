@@ -234,7 +234,7 @@ where
 {
     type Computed = AutoOr<T::Computed>;
 
-    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
         match self {
             AutoOr::Auto => AutoOr::Auto,
             AutoOr::NotAuto(value) => AutoOr::NotAuto(value.to_computed_style(context)),

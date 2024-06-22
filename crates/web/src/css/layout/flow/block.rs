@@ -4,14 +4,13 @@ use math::{Rectangle, Vec2D};
 
 use crate::{
     css::{
-        font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::{BoxFragment, Fragment},
         layout::{replaced::ReplacedElement, ContainingBlock, Pixels, Sides},
         style::{
             computed::{Clear, Margin, Padding},
             specified::DisplayInside,
         },
-        values::{self, AutoOr, PercentageOr},
+        values::{AutoOr, PercentageOr},
         ComputedStyle, StyleComputer,
     },
     dom::{dom_objects, DomPtr},
@@ -69,32 +68,23 @@ impl BlockFormattingContext {
         element_style: ComputedStyle,
         display_inside: DisplayInside,
         style_computer: StyleComputer<'_>,
-        resolution_context: length::ResolutionContext,
     ) -> Self {
         let contents = BlockContainerBuilder::build(
             element.upcast(),
             style_computer,
             &element_style,
             display_inside,
-            resolution_context,
         );
 
         Self { contents }
     }
 
     #[must_use]
-    pub fn layout(
-        &self,
-        containing_block: ContainingBlock,
-        length_resolution_context: length::ResolutionContext,
-    ) -> ContentLayoutInfo {
+    pub fn layout(&self, containing_block: ContainingBlock) -> ContentLayoutInfo {
         let mut formatting_context_state = BlockFormattingContextState::new(containing_block);
 
-        self.contents.layout(
-            containing_block,
-            length_resolution_context,
-            &mut formatting_context_state,
-        )
+        self.contents
+            .layout(containing_block, &mut formatting_context_state)
     }
 }
 
@@ -173,20 +163,12 @@ impl InFlowBlockBox {
         &self,
         position: Vec2D<Pixels>,
         containing_block: ContainingBlock,
-        length_resolution_context: length::ResolutionContext,
         formatting_context: &mut BlockFormattingContextState,
     ) -> BoxFragment {
-        let mut dimensions =
-            BlockDimensions::compute(self.style(), containing_block, length_resolution_context);
+        let mut dimensions = BlockDimensions::compute(self.style(), containing_block);
 
         // Possibly collapse top margin
         dimensions.margin.top = formatting_context.get_collapsed_margin(dimensions.margin.top);
-
-        // FIXME: Don't use the default font size here, it should be the font size
-        // of this element instead
-        let font_size = DEFAULT_FONT_SIZE;
-
-        let length_resolution_context = length_resolution_context.with_font_size(font_size);
 
         // The top-left corner of the content-rect
         let top_left = position + dimensions.content_offset();
@@ -207,7 +189,6 @@ impl InFlowBlockBox {
 
         let content_info = self.contents.layout(
             dimensions.as_containing_block(position_relative_to_formatting_context_root),
-            length_resolution_context,
             formatting_context,
         );
 
@@ -292,12 +273,11 @@ impl BlockContainer {
     pub(crate) fn layout(
         &self,
         containing_block: ContainingBlock,
-        ctx: length::ResolutionContext,
         formatting_context: &mut BlockFormattingContextState,
     ) -> ContentLayoutInfo {
         match &self {
             Self::BlockLevelBoxes(block_level_boxes) => {
-                let mut state = BlockFlowState::new(containing_block, ctx, formatting_context);
+                let mut state = BlockFlowState::new(containing_block, formatting_context);
                 for block_box in block_level_boxes {
                     state.visit_block_box(block_box);
                 }
@@ -309,7 +289,7 @@ impl BlockContainer {
                 //        https://drafts.csswg.org/css2/#inline-formatting
                 formatting_context.prevent_margin_collapse();
 
-                let (fragments, height) = inline_formatting_context.layout(containing_block, ctx);
+                let (fragments, height) = inline_formatting_context.layout(containing_block);
 
                 ContentLayoutInfo {
                     height,
@@ -326,7 +306,6 @@ pub struct BlockFlowState<'box_tree, 'formatting_context> {
     cursor: Vec2D<Pixels>,
     fragments_so_far: Vec<Fragment>,
     containing_block: ContainingBlock,
-    ctx: length::ResolutionContext,
     absolute_boxes_requiring_layout: Vec<AbsoluteBoxRequiringLayout<'box_tree>>,
     has_in_flow_content: bool,
 }
@@ -341,7 +320,6 @@ struct AbsoluteBoxRequiringLayout<'a> {
 impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_context> {
     pub fn new(
         containing_block: ContainingBlock,
-        ctx: length::ResolutionContext,
         formatting_context: &'formatting_context mut BlockFormattingContextState,
     ) -> Self {
         Self {
@@ -349,7 +327,6 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
             block_formatting_context: formatting_context,
             fragments_so_far: vec![],
             containing_block,
-            ctx,
             absolute_boxes_requiring_layout: vec![],
             has_in_flow_content: false,
         }
@@ -397,7 +374,6 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
 
                 let box_fragment = float_box.layout(
                     self.containing_block,
-                    self.ctx,
                     &mut self.block_formatting_context.float_context,
                 );
 
@@ -410,7 +386,6 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
                 let box_fragment = in_flow_box.fragment(
                     self.cursor,
                     self.containing_block,
-                    self.ctx,
                     self.block_formatting_context,
                 );
 
@@ -448,9 +423,9 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
         let definite_containing_block = self.containing_block.make_definite(height);
 
         for task in self.absolute_boxes_requiring_layout {
-            let fragment =
-                task.absolute_box
-                    .layout(definite_containing_block, self.ctx, task.static_position);
+            let fragment = task
+                .absolute_box
+                .layout(definite_containing_block, task.static_position);
             fragments.insert(task.index, fragment.into());
         }
 
@@ -465,16 +440,10 @@ impl<'box_tree, 'formatting_context> BlockFlowState<'box_tree, 'formatting_conte
         let element_style = replaced_element.style();
         self.respect_clearance(element_style.clear());
 
-        let content_size =
-            replaced_element.used_size_if_it_was_inline(self.containing_block, self.ctx);
+        let content_size = replaced_element.used_size_if_it_was_inline(self.containing_block);
 
-        let available_width = Length::pixels(self.containing_block.width());
-        let resolve_margin = |margin: &values::Margin| {
-            margin
-                .map(|p| p.resolve_against(available_width))
-                .as_ref()
-                .map(|length| length.absolutize(self.ctx))
-        };
+        let resolve_margin =
+            |margin: &Margin| margin.map(|p| p.resolve_against(self.containing_block.width()));
 
         // Choose horizontal margins such that the total width of the element is equal to the available space.
         // This is similar to https://drafts.csswg.org/css2/#blockwidth, except padding and borders are always zero
@@ -557,27 +526,14 @@ impl BlockDimensions {
     ///
     /// This method does **not** layout the blocks contents nor does it perform margin-collapsing.
     #[must_use]
-    fn compute(
-        style: &ComputedStyle,
-        containing_block: ContainingBlock,
-        length_resolution_context: length::ResolutionContext,
-    ) -> Self {
+    fn compute(style: &ComputedStyle, containing_block: ContainingBlock) -> Self {
         // NOTE: This is not a mistake, *both* horizontal and vertical margin percentages are calculated
         //       with respect to the *width* of the containing block.
         //       Refer to https://drafts.csswg.org/css2/#margin-properties
-        let available_length = Length::pixels(containing_block.width());
-        let resolve_margin = |margin: &values::Margin| {
-            margin
-                .map(|p| p.resolve_against(available_length))
-                .as_ref()
-                .map(|length| length.absolutize(length_resolution_context))
-        };
+        let available_length = containing_block.width();
+        let resolve_margin = |margin: &Margin| margin.map(|p| p.resolve_against(available_length));
 
-        let resolve_padding = |padding: &values::Padding| {
-            padding
-                .resolve_against(available_length)
-                .absolutize(length_resolution_context)
-        };
+        let resolve_padding = |padding: &Padding| padding.resolve_against(available_length);
 
         let padding = Sides {
             top: resolve_padding(style.padding_top()),
@@ -586,16 +542,10 @@ impl BlockDimensions {
             left: resolve_padding(style.padding_left()),
         };
 
-        let border = style
-            .used_border_widths()
-            .map(|side| side.absolutize(length_resolution_context));
+        let border = style.used_border_widths();
 
         // See https://drafts.csswg.org/css2/#blockwidth for a description of how the width is computed
-        let width = style
-            .width()
-            .map(|p| p.resolve_against(available_length))
-            .as_ref()
-            .map(|length| length.absolutize(length_resolution_context));
+        let width = style.width().map(|p| p.resolve_against(available_length));
 
         let mut margin_left = resolve_margin(style.margin_left());
         let mut margin_right = resolve_margin(style.margin_right());
@@ -677,9 +627,7 @@ impl BlockDimensions {
                         AutoOr::Auto
                     }
                 },
-                PercentageOr::NotPercentage(length) => {
-                    AutoOr::NotAuto(length.absolutize(length_resolution_context))
-                },
+                PercentageOr::NotPercentage(length) => AutoOr::NotAuto(length),
             }
         });
 

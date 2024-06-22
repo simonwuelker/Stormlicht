@@ -119,7 +119,7 @@ impl<'a> CSSParse<'a> for FontSize {
 impl ToComputedStyle for FontSize {
     type Computed = computed::FontSize;
 
-    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
         match self {
             Self::Absolute(absolute_size) => absolute_size.to_pixels(),
             Self::Relative(relative_size) => relative_size.to_pixels(context.font_size),

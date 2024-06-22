@@ -1,23 +1,15 @@
 mod angle;
 mod auto;
 mod color;
-mod cursor;
-mod font_family;
-mod font_style;
-mod list_style_type;
+mod counter_style;
 mod number;
 mod percentage;
-mod position;
 mod url;
 
 pub use angle::Angle;
 pub use auto::AutoOr;
 pub use color::Color;
-pub use cursor::Cursor;
-pub use font_family::{FontFamily, FontName};
-pub use font_style::FontStyle;
-pub use list_style_type::{CounterStyle, ListStyleType};
+pub use counter_style::CounterStyle;
 pub use number::Number;
 pub use percentage::{Percentage, PercentageOr};
-pub use position::Position;
 pub use url::Url;

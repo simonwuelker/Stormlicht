@@ -5,10 +5,8 @@ use math::Vec2D;
 use crate::{
     css::{
         computed_style::ComputedStyle,
-        font_metrics::DEFAULT_FONT_SIZE,
         fragment_tree::FragmentTree,
         layout::{ContainingBlock, Pixels, Size},
-        values::length,
         StyleComputer,
     },
     dom::{dom_objects, DomPtr},
@@ -30,11 +28,7 @@ pub struct BoxTree {
 
 impl BoxTree {
     #[must_use]
-    pub fn new(
-        document: DomPtr<dom_objects::Document>,
-        style_computer: StyleComputer<'_>,
-        viewport: Size<Pixels>,
-    ) -> Self {
+    pub fn new(document: DomPtr<dom_objects::Document>, style_computer: StyleComputer<'_>) -> Self {
         let html = document
             .borrow()
             .children()
@@ -46,14 +40,7 @@ impl BoxTree {
         let parent_style = ComputedStyle::default();
         let element_style = style_computer.get_computed_style(html.clone().upcast(), &parent_style);
 
-        let root_resolution_context = length::ResolutionContext {
-            font_size: DEFAULT_FONT_SIZE,
-            root_font_size: DEFAULT_FONT_SIZE,
-            viewport,
-        };
-
-        let mut container =
-            BlockContainerBuilder::new(&parent_style, style_computer, root_resolution_context);
+        let mut container = BlockContainerBuilder::new(&parent_style, style_computer);
 
         container.handle_element(html.upcast(), element_style);
 
@@ -69,15 +56,7 @@ impl BoxTree {
         let initial_containing_block =
             ContainingBlock::new(viewport.width, Vec2D::new(Pixels::ZERO, Pixels::ZERO))
                 .with_height(viewport.height);
-        let length_resolution_context = length::ResolutionContext {
-            font_size: DEFAULT_FONT_SIZE,
-            root_font_size: DEFAULT_FONT_SIZE,
-            viewport,
-        };
-
-        let content_info = self
-            .root
-            .layout(initial_containing_block, length_resolution_context);
+        let content_info = self.root.layout(initial_containing_block);
 
         FragmentTree::new(content_info.fragments)
     }

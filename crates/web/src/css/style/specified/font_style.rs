@@ -1,5 +1,10 @@
 use crate::{
-    css::{syntax::Token, values::Angle, CSSParse, ParseError, Parser},
+    css::{
+        style::{computed, StyleContext, ToComputedStyle},
+        syntax::Token,
+        values::Angle,
+        CSSParse, ParseError, Parser,
+    },
     static_interned,
 };
 
@@ -42,6 +47,16 @@ impl<'a> CSSParse<'a> for FontStyle {
         };
 
         Ok(font_style)
+    }
+}
+
+impl ToComputedStyle for FontStyle {
+    type Computed = computed::FontStyle;
+
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
+        _ = context;
+
+        *self
     }
 }
 

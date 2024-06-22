@@ -1,4 +1,6 @@
-use std::ops;
+use std::ops::{self, Mul};
+
+use crate::css::values::Percentage;
 
 /// The base unit of measurement within CSS
 ///
@@ -116,3 +118,11 @@ impl PartialEq for Pixels {
 }
 
 impl Eq for Pixels {}
+
+impl Mul<Percentage> for Pixels {
+    type Output = Self;
+
+    fn mul(self, rhs: Percentage) -> Self::Output {
+        Self(self.0 * rhs.as_fraction())
+    }
+}

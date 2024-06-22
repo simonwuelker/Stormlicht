@@ -10,7 +10,8 @@ use crate::{
         layout::{
             formatting_context::IndependentFormattingContext, ContainingBlock, Pixels, Sides, Size,
         },
-        values::{length, AutoOr, Inset, Length},
+        style::computed::Inset,
+        values::AutoOr,
     },
     dom::{dom_objects, DomPtr},
     TreeDebug, TreeFormatter,
@@ -64,16 +65,14 @@ fn resolve_inset_on_axis(
 pub fn inset_modified_containing_block(
     containing_block: Size<Pixels>,
     style: &ComputedStyle,
-    length_resolution_context: length::ResolutionContext,
     static_position: Vec2D<Pixels>,
 ) -> Rectangle<Pixels> {
     let resolve_inset_property = |p: &Inset, resolve_percentage_against| {
         p.map(|p| p.resolve_against(resolve_percentage_against))
-            .map(|l| l.absolutize(length_resolution_context))
     };
 
-    let width = Length::pixels(containing_block.width);
-    let height = Length::pixels(containing_block.height);
+    let width = containing_block.width;
+    let height = containing_block.height;
 
     let left = resolve_inset_property(style.left(), width);
     let right = resolve_inset_property(style.right(), width);
@@ -100,16 +99,11 @@ impl AbsolutelyPositionedBox {
     pub fn layout(
         &self,
         containing_block: Size<Pixels>,
-        length_resolution_context: length::ResolutionContext,
         static_position: Vec2D<Pixels>,
     ) -> BoxFragment {
         // Calculate the available space for the abspos element
-        let inset_modified_block = inset_modified_containing_block(
-            containing_block,
-            &self.style,
-            length_resolution_context,
-            static_position,
-        );
+        let inset_modified_block =
+            inset_modified_containing_block(containing_block, &self.style, static_position);
 
         // Resolve its width and height
         // https://drafts.csswg.org/css-position/#abspos-auto-size
@@ -119,32 +113,22 @@ impl AbsolutelyPositionedBox {
             .style
             .width()
             .map(|p| p.resolve_against(containing_block.width.into()))
-            .map(|l| l.absolutize(length_resolution_context))
             .unwrap_or(containing_block.width);
 
         let height = self
             .style
             .height()
             .map(|p| p.resolve_against(containing_block.height.into()))
-            .map(|l| l.absolutize(length_resolution_context))
             .unwrap_or(containing_block.height);
 
         let content_size = Size { width, height };
 
-        let borders = self
-            .style
-            .used_border_widths()
-            .map(|l| l.absolutize(length_resolution_context));
+        let borders = self.style.used_border_widths();
 
         // Calculate the value of "auto" margins
         // https://drafts.csswg.org/css-position/#abspos-margins
-        let margins = calculate_used_margins(
-            &self.style,
-            inset_modified_block,
-            content_size,
-            borders,
-            length_resolution_context,
-        );
+        let margins =
+            calculate_used_margins(&self.style, inset_modified_block, content_size, borders);
 
         // Align the elements margin box within the inset modified block
         // FIXME: We don't do this yet
@@ -166,8 +150,7 @@ impl AbsolutelyPositionedBox {
                 todo!("implement absolutely positioned replaced elements");
             },
             IndependentFormattingContext::NonReplaced(bfc) => {
-                bfc.layout(containing_block, length_resolution_context)
-                    .fragments
+                bfc.layout(containing_block).fragments
             },
         };
 
@@ -189,24 +172,19 @@ fn calculate_used_margins(
     inset_modified_block: Rectangle<Pixels>,
     content_size: Size<Pixels>,
     borders: Sides<Pixels>,
-    ctx: length::ResolutionContext,
 ) -> Sides<Pixels> {
     let margin_left = style
         .margin_left()
-        .map(|p| p.resolve_against(inset_modified_block.width().into()))
-        .map(|l| l.absolutize(ctx));
+        .map(|p| p.resolve_against(inset_modified_block.width().into()));
     let margin_right = style
         .margin_right()
-        .map(|p| p.resolve_against(inset_modified_block.width().into()))
-        .map(|l| l.absolutize(ctx));
+        .map(|p| p.resolve_against(inset_modified_block.width().into()));
     let margin_top = style
         .margin_top()
-        .map(|p| p.resolve_against(inset_modified_block.height().into()))
-        .map(|l| l.absolutize(ctx));
+        .map(|p| p.resolve_against(inset_modified_block.height().into()));
     let margin_bottom = style
         .margin_bottom()
-        .map(|p| p.resolve_against(inset_modified_block.height().into()))
-        .map(|l| l.absolutize(ctx));
+        .map(|p| p.resolve_against(inset_modified_block.height().into()));
 
     let (margin_left, margin_right) = calculate_margins_for_axis(
         (*style.left(), *style.right()),

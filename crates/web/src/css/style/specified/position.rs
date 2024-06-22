@@ -1,5 +1,9 @@
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{
+        style::{computed, StyleContext, ToComputedStyle},
+        syntax::Token,
+        CSSParse, ParseError, Parser,
+    },
     static_interned,
 };
 
@@ -45,5 +49,15 @@ impl<'a> CSSParse<'a> for Position {
         };
 
         Ok(position)
+    }
+}
+
+impl ToComputedStyle for Position {
+    type Computed = computed::Position;
+
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
+        _ = context;
+
+        *self
     }
 }

@@ -8,7 +8,7 @@ use crate::{
         font_metrics,
         fragment_tree::{BoxFragment, Fragment, TextFragment},
         layout::{replaced::ReplacedElement, ContainingBlock, Pixels, Sides, Size},
-        values::{length, FontName, VerticalAlign},
+        style::{computed::VerticalAlign, specified::FontName},
         ComputedStyle, LineBreakIterator,
     },
     dom::{dom_objects, DomPtr},
@@ -32,7 +32,6 @@ pub struct TextRun {
 /// <https://drafts.csswg.org/css2/#inline-box>
 #[derive(Clone, Debug)]
 pub struct InlineBox {
-    font_size: Pixels,
     node: DomPtr<dom_objects::Node>,
     style: ComputedStyle,
     contents: Vec<InlineLevelBox>,
@@ -73,7 +72,7 @@ impl TextRun {
         &self.style
     }
 
-    fn find_suitable_font(&self, font_size: Pixels) -> FontMetrics {
+    fn find_suitable_font(&self) -> FontMetrics {
         // FIXME: Consider more than just the first specified font
         let family = match self.style().font_family().fonts()[0] {
             FontName::Family(name) => font::Family::Specific(name.to_string()),
@@ -93,7 +92,7 @@ impl TextRun {
 
         FontMetrics {
             font_face: Box::new(font),
-            size: font_size,
+            size: *self.style.font_size(),
         }
     }
 
@@ -103,11 +102,7 @@ impl TextRun {
     ) where
         'box_tree: 'state,
     {
-        let font_size = self
-            .style
-            .font_size()
-            .to_pixels(state.current_resolution_context());
-        let font_metrics = self.find_suitable_font(font_size);
+        let font_metrics = self.find_suitable_font();
 
         let remaining_text = self.text();
         let mut lines = LineBreakIterator::new(
@@ -159,13 +154,8 @@ impl InlineFormattingContext {
         self.elements.is_empty()
     }
 
-    pub fn layout(
-        &self,
-        containing_block: ContainingBlock,
-        length_resolution_context: length::ResolutionContext,
-    ) -> (Vec<Fragment>, Pixels) {
-        let mut state =
-            InlineFormattingContextState::new(containing_block, length_resolution_context);
+    pub fn layout(&self, containing_block: ContainingBlock) -> (Vec<Fragment>, Pixels) {
+        let mut state = InlineFormattingContextState::new(containing_block);
 
         state.traverse(self.elements());
 
@@ -220,8 +210,6 @@ struct InlineFormattingContextState<'box_tree> {
     ///
     /// This is necessary because whitespace at the beginning of a line is removed
     at_beginning_of_line: bool,
-
-    root_resolution_context: length::ResolutionContext,
 }
 
 #[derive(Clone, Debug)]
@@ -335,10 +323,7 @@ impl<'box_tree> InlineBoxItem<'box_tree> {
 }
 
 impl<'box_tree> InlineFormattingContextState<'box_tree> {
-    fn new(
-        containing_block: ContainingBlock,
-        root_resolution_context: length::ResolutionContext,
-    ) -> Self {
+    fn new(containing_block: ContainingBlock) -> Self {
         Self {
             line_box_under_construction: LineBoxUnderConstruction::default(),
             root_nesting_level_state: NestingLevelState::default(),
@@ -348,7 +333,6 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
             has_seen_relevant_content: false,
             y_cursor: Pixels::ZERO,
             at_beginning_of_line: true,
-            root_resolution_context,
         }
     }
 
@@ -368,19 +352,6 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
         self.containing_block.width() - self.line_box_under_construction.width
     }
 
-    fn current_resolution_context(&self) -> length::ResolutionContext {
-        let innermost_font_size = self
-            .inline_box_stack
-            .last()
-            .map(|container| container.inline_box.font_size);
-
-        if let Some(font_size) = innermost_font_size {
-            self.root_resolution_context.with_font_size(font_size)
-        } else {
-            self.root_resolution_context
-        }
-    }
-
     fn traverse<I: IntoIterator<Item = &'box_tree InlineLevelBox>>(&mut self, iterator: I) {
         for element in iterator {
             match element {
@@ -393,10 +364,7 @@ impl<'box_tree> InlineFormattingContextState<'box_tree> {
                     text_run.layout_into_line_items(self);
                 },
                 InlineLevelBox::Replaced(replaced_element) => {
-                    let size = replaced_element.used_size_if_it_was_inline(
-                        self.containing_block,
-                        self.root_resolution_context,
-                    );
+                    let size = replaced_element.used_size_if_it_was_inline(self.containing_block);
                     let replaced_item = ReplacedItem {
                         replaced_element,
                         size,
@@ -569,19 +537,18 @@ impl From<Vec<InlineLevelBox>> for InlineFormattingContext {
 impl InlineBox {
     #[inline]
     #[must_use]
-    pub fn new(node: DomPtr<dom_objects::Node>, style: ComputedStyle, font_size: Pixels) -> Self {
+    pub fn new(node: DomPtr<dom_objects::Node>, style: ComputedStyle) -> Self {
         Self {
             node,
             style,
-            font_size,
             contents: Vec::new(),
         }
     }
 
     #[inline]
     #[must_use]
-    pub const fn font_size(&self) -> Pixels {
-        self.font_size
+    pub fn font_size(&self) -> Pixels {
+        *self.style.font_size()
     }
 
     #[inline]
@@ -600,7 +567,6 @@ impl InlineBox {
             node: self.node.clone(),
             style: self.style.clone(),
             contents: vec![],
-            font_size: self.font_size,
         }
     }
 }

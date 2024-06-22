@@ -65,7 +65,7 @@ impl Default for BackgroundImage {
 impl ToComputedStyle for BackgroundImage {
     type Computed = Self;
 
-    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
         _ = context;
 
         self.clone()

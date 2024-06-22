@@ -1,7 +1,10 @@
 //! <https://drafts.csswg.org/css-ui/#cursor>
 
 use crate::{
-    css::{CSSParse, ParseError, Parser},
+    css::{
+        style::{computed, StyleContext, ToComputedStyle},
+        CSSParse, ParseError, Parser,
+    },
     static_interned,
 };
 
@@ -156,5 +159,15 @@ impl<'a> CSSParse<'a> for Cursor {
         };
 
         Ok(position)
+    }
+}
+
+impl ToComputedStyle for Cursor {
+    type Computed = computed::Cursor;
+
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
+        _ = context;
+
+        *self
     }
 }

@@ -123,10 +123,10 @@ impl BrowsingContext {
 impl CurrentPage {
     fn layout(&mut self, viewport_size: Size<Pixels>) {
         let layout_start = time::Instant::now();
-        let style_computer = StyleComputer::new(&self.stylesheets);
+        let style_computer = StyleComputer::new(&self.stylesheets, Pixels(16.), viewport_size);
 
         // Build a box tree for the parsed document
-        let box_tree = BoxTree::new(self.document.clone(), style_computer, viewport_size);
+        let box_tree = BoxTree::new(self.document.clone(), style_computer);
         log::info!("\n{:?}", box_tree);
 
         // Build a fragment tree by fragmenting the boxes

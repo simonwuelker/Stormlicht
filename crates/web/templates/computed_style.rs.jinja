@@ -8,6 +8,8 @@ use std::rc::Rc;
 use super::{
     StyleProperty,
     values::*,
+    style::{ToComputedStyle, StyleContext, computed::*},
+    layout::Pixels,
 };
 
 {% macro create_style_struct(property_set) %}
@@ -93,11 +95,11 @@ impl ComputedStyle {
     /// Assign a specific value to a property
     ///
     /// This expands shorthand properties like `margin`.
-    pub fn set_property(&mut self, property: StyleProperty) {
+    pub fn set_property(&mut self, property: StyleProperty, context: &StyleContext) {
         match property {
             {% macro assign_property(name, assign_to) %}
             StyleProperty::{{ to_camel_case(name)}}(value) 
-                    => self.set_{{ to_snake_case(assign_to) }}(value),
+                    => self.set_{{ to_snake_case(assign_to) }}(value.to_computed_style(context)),
             {% endmacro %}
 
             {% for property in inherited_properties + non_inherited_properties %}
@@ -116,7 +118,7 @@ impl ComputedStyle {
                             {% for side in SIDES %}
                                 {% set name = to_snake_case(longhands["name"].replace("SIDE", side)) %}
 
-                                let value_on_this_side = sides.{{ side }};
+                                let value_on_this_side = sides.{{ side }}.to_computed_style(context);
                                 self.set_{{ name }}(value_on_this_side);
                             {% endfor %}
                         },
@@ -132,22 +134,32 @@ impl ComputedStyle {
                 self.set_border_{{ side }}_style(border.style);
                 self.set_border_{{ side }}_width(border.width);
             {% endmacro %}
-            StyleProperty::Border(border) => {
+            StyleProperty::Border(specified_border) => {
+                let border = specified_border.to_computed_style(context);
+
                 {{ set_border("top") }}
                 {{ set_border("right") }}
                 {{ set_border("bottom") }}
                 {{ set_border("left") }}
             },
-            StyleProperty::BorderTop(border) => {
+            StyleProperty::BorderTop(specified_border) => {
+                let border = specified_border.to_computed_style(context);
+
                 {{ set_border("top") }}
             },
-            StyleProperty::BorderRight(border) => {
+            StyleProperty::BorderRight(specified_border) => {
+                let border = specified_border.to_computed_style(context);
+
                 {{ set_border("right") }}
             },
-            StyleProperty::BorderBottom(border) => {
+            StyleProperty::BorderBottom(specified_border) => {
+                let border = specified_border.to_computed_style(context);
+
                 {{ set_border("bottom") }}
             },
-            StyleProperty::BorderLeft(border) => {
+            StyleProperty::BorderLeft(specified_border) => {
+                let border = specified_border.to_computed_style(context);
+
                 {{ set_border("left") }}
             },
         }

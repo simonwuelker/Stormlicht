@@ -1,7 +1,12 @@
 use std::fmt;
 
 use crate::{
-    css::{self, syntax::Token, CSSParse},
+    css::{
+        self,
+        style::{computed, StyleContext, ToComputedStyle},
+        syntax::Token,
+        CSSParse,
+    },
     static_interned, InternedString,
 };
 
@@ -147,5 +152,14 @@ impl fmt::Display for GenericFontFamily {
             Self::UiMonospace => "ui-monospace".fmt(f),
             Self::UiRounded => "ui-rounded".fmt(f),
         }
+    }
+}
+
+impl ToComputedStyle for FontFamily {
+    type Computed = computed::FontFamily;
+
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
+        _ = context;
+        self.clone()
     }
 }

@@ -33,7 +33,7 @@ impl<'a> CSSParse<'a> for BackgroundColor {
 impl ToComputedStyle for BackgroundColor {
     type Computed = Self;
 
-    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
         _ = context;
 
         *self

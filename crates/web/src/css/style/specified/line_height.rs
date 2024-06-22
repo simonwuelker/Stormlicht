@@ -56,7 +56,7 @@ impl<'a> CSSParse<'a> for LineHeight {
 impl ToComputedStyle for LineHeight {
     type Computed = computed::LineHeight;
 
-    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
         match self {
             Self::Normal => Self::Computed::Normal,
             Self::Length(length) => {

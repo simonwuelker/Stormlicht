@@ -1,7 +1,11 @@
 //! <https://drafts.csswg.org/css-color>
 
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{
+        style::{StyleContext, ToComputedStyle},
+        syntax::Token,
+        CSSParse, ParseError, Parser,
+    },
     static_interned, InternedString,
 };
 
@@ -805,6 +809,16 @@ fn resolve_percentage(percentage: Number) -> u8 {
 impl From<Color> for math::Color {
     fn from(value: Color) -> Self {
         math::Color::rgb(value.red, value.green, value.blue)
+    }
+}
+
+impl ToComputedStyle for Color {
+    type Computed = Color;
+
+    fn to_computed_style(&self, context: &StyleContext) -> Self::Computed {
+        _ = context;
+
+        *self
     }
 }
 

@@ -50,22 +50,16 @@ impl FloatingBox {
     pub fn layout(
         &self,
         containing_block: ContainingBlock,
-        ctx: length::ResolutionContext,
         float_context: &mut FloatContext,
     ) -> BoxFragment {
-        let font_size = self.style.font_size().to_pixels(ctx);
-        let ctx = ctx.with_font_size(font_size);
-
-        let available_width = Length::pixels(containing_block.width);
-        let resolve_margin = |margin: &values::Margin| {
+        let available_width = containing_block.width;
+        let resolve_margin = |margin: &Margin| {
             margin
                 .map(|p| p.resolve_against(available_width))
-                .map(|l| l.absolutize(ctx))
                 .unwrap_or_default()
         };
 
-        let resolve_padding =
-            |padding: &values::Padding| padding.resolve_against(available_width).absolutize(ctx);
+        let resolve_padding = |padding: &Padding| padding.resolve_against(available_width);
 
         let margin = Sides {
             top: resolve_margin(self.style.margin_top()),
@@ -81,16 +75,12 @@ impl FloatingBox {
             left: resolve_padding(self.style.padding_left()),
         };
 
-        let border = self
-            .style
-            .used_border_widths()
-            .map(|side| side.absolutize(ctx));
+        let border = self.style.used_border_widths();
 
         let width = self
             .style
             .width()
             .map(|p| p.resolve_against(available_width))
-            .map(|l| l.absolutize(ctx))
             .unwrap_or_else(|| {
                 todo!("compute shrink-to-fit width");
             });
@@ -106,7 +96,7 @@ impl FloatingBox {
                             AutoOr::Auto
                         }
                     },
-                    PercentageOr::NotPercentage(length) => AutoOr::NotAuto(length.absolutize(ctx)),
+                    PercentageOr::NotPercentage(length) => AutoOr::NotAuto(length),
                 });
 
         // Compute the containing block (us) that our children will be laid out in
@@ -130,7 +120,7 @@ impl FloatingBox {
                 todo!("implement floating replaced elements");
             },
             IndependentFormattingContext::NonReplaced(bfc) => {
-                bfc.layout(containing_block_for_children, ctx)
+                bfc.layout(containing_block_for_children)
             },
         };
 
