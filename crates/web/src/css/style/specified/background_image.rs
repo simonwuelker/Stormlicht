@@ -1,10 +1,16 @@
+//! <https://drafts.csswg.org/css-backgrounds/#background-image>
+
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{
+        style::{StyleContext, ToComputedStyle},
+        syntax::Token,
+        values::Url,
+        CSSParse, ParseError, Parser,
+    },
     static_interned,
 };
 
-use super::Url;
-
+/// <https://drafts.csswg.org/css-backgrounds/#background-image>
 #[derive(Clone, Debug)]
 pub struct BackgroundImage {
     // TODO: The spec explicitly treats the "none" layers as layers (that are not rendered).
@@ -53,6 +59,16 @@ fn parse_single_layer(parser: &mut Parser<'_>) -> Result<Option<Url>, ParseError
 impl Default for BackgroundImage {
     fn default() -> Self {
         Self { layers: vec![None] }
+    }
+}
+
+impl ToComputedStyle for BackgroundImage {
+    type Computed = Self;
+
+    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+        _ = context;
+
+        self.clone()
     }
 }
 

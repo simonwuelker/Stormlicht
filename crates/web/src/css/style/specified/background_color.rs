@@ -1,9 +1,16 @@
+//! <https://drafts.csswg.org/css-backgrounds/#background-color>
+
 use crate::{
-    css::{syntax::Token, values::color::Color, CSSParse, ParseError, Parser},
+    css::{
+        style::{StyleContext, ToComputedStyle},
+        syntax::Token,
+        values::Color,
+        CSSParse, ParseError, Parser,
+    },
     static_interned,
 };
 
-/// <https://drafts.csswg.org/css2/#background-properties>
+/// <https://drafts.csswg.org/css-backgrounds/#background-color>
 #[derive(Clone, Copy, Debug, Default)]
 pub enum BackgroundColor {
     Color(Color),
@@ -20,6 +27,16 @@ impl<'a> CSSParse<'a> for BackgroundColor {
             },
             _ => Ok(Self::Color(Color::parse(parser)?)),
         }
+    }
+}
+
+impl ToComputedStyle for BackgroundColor {
+    type Computed = Self;
+
+    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+        _ = context;
+
+        *self
     }
 }
 

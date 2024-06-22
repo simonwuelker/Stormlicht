@@ -1,14 +1,17 @@
 //! <https://drafts.csswg.org/css2/#propdef-vertical-align>
 
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{
+        style::{specified::Length, StyleContext, ToComputedStyle},
+        syntax::Token,
+        values::Percentage,
+        CSSParse, ParseError, Parser,
+    },
     static_interned, InternedString,
 };
 
-use super::{Length, Percentage};
-
-#[derive(Clone, Debug)]
 /// <https://drafts.csswg.org/css2/#propdef-vertical-align>
+#[derive(Clone, Copy, Debug)]
 pub enum VerticalAlign {
     /// <https://drafts.csswg.org/css2/#valdef-vertical-align-baseline>
     Baseline,
@@ -77,5 +80,15 @@ impl<'a> CSSParse<'a> for VerticalAlign {
         };
 
         Ok(vertical_align)
+    }
+}
+
+impl ToComputedStyle for VerticalAlign {
+    type Computed = Self;
+
+    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+        _ = context;
+
+        *self
     }
 }

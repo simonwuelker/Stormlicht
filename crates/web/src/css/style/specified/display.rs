@@ -1,5 +1,9 @@
 use crate::{
-    css::{syntax::Token, CSSParse, ParseError, Parser},
+    css::{
+        style::{StyleContext, ToComputedStyle},
+        syntax::Token,
+        CSSParse, ParseError, Parser,
+    },
     static_interned, InternedString,
 };
 
@@ -303,5 +307,15 @@ impl DisplayInside {
             static_interned!("ruby") => Some(Self::Ruby),
             _ => None,
         }
+    }
+}
+
+impl ToComputedStyle for Display {
+    type Computed = Self;
+
+    fn to_computed_style(&self, context: StyleContext) -> Self::Computed {
+        _ = context;
+
+        *self
     }
 }
