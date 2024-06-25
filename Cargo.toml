@@ -81,7 +81,7 @@ repository = "https://github.com/wuelle/stormlicht"
 license = "MIT"
 
 [workspace.lints.rust]
-rust_2018_idioms = { level = "warn" }
+rust_2018_idioms = { level = "warn", priority = 1 }
 
 # Ideally this would only affect the "stormlicht" crate,
 # but there's no way to both inherit workspace lints *and*
@@ -89,8 +89,8 @@ rust_2018_idioms = { level = "warn" }
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(chrome, values("gtk", "glazier"))'] }
 
 [workspace.lints.clippy]
-correctness = { level = "deny" }
-perf = { level = "deny" }
+correctness = { level = "deny", priority = 1}
+perf = { level = "deny", priority = 1 }
 
 # "-1 * x" can be more readable than "-x", especially in complex expressions
 neg_multiply = { level = "allow" }
