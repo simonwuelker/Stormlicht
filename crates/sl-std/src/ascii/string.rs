@@ -64,12 +64,78 @@ impl String {
         Self { chars: Vec::new() }
     }
 
+    /// Creates a new empty `String` with at least the specified capacity.
+    ///
+    /// `String`s have an internal buffer to hold their data. The capacity is
+    /// the length of that buffer, and can be queried with the [`capacity`](String::capacity)
+    /// method. This method creates an empty `String`, but one with an initial
+    /// buffer that can hold at least `capacity` bytes. This is useful when you
+    /// may be appending a bunch of data to the `String`, reducing the number of
+    /// reallocations it needs to do.
+    ///
+    /// If the given capacity is `0`, no allocation will occur, and this method
+    /// is identical to the [`new`](String::new) method.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #![feature(ascii_char, ascii_char_variants)]
+    /// # use sl_std::ascii;
+    /// let mut s = ascii::String::with_capacity(10);
+    ///
+    /// // The String contains no chars, even though it has capacity for more
+    /// assert_eq!(s.len(), 0);
+    ///
+    /// // These are all done without reallocating...
+    /// let cap = s.capacity();
+    /// for _ in 0..10 {
+    ///     s.push(ascii::Char::CapitalA);
+    /// }
+    ///
+    /// assert_eq!(s.capacity(), cap);
+    ///
+    /// // ...but this may make the string reallocate
+    /// s.push(ascii::Char::CapitalA);
+    /// ```
+    #[inline]
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             chars: Vec::with_capacity(capacity),
         }
     }
 
+    /// Returns this `String`'s capacity, in bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sl_std::ascii;
+    /// let s = ascii::String::with_capacity(10);
+    ///
+    /// assert!(s.capacity() >= 10);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn capacity(&self) -> usize {
+        self.chars.capacity()
+    }
+
+    /// Appends the given [`Char`] to the end of this `String`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #![feature(ascii_char, ascii_char_variants)]
+    /// # use sl_std::ascii;
+    /// let mut s = ascii::String::try_from("abc").unwrap();
+    ///
+    /// s.push(ascii::Char::Digit1);
+    /// s.push(ascii::Char::Digit2);
+    /// s.push(ascii::Char::Digit3);
+    ///
+    /// assert_eq!("abc123", s.as_str());
+    /// ```
     pub fn push(&mut self, c: Char) {
         self.chars.push(c);
     }
