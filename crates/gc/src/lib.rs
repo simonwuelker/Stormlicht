@@ -35,7 +35,7 @@ where
 
 impl<T: Trace> Clone for Gc<T> {
     fn clone(&self) -> Self {
-        Self::node_mut(&self).increment_root_count();
+        Self::node_mut(self).increment_root_count();
 
         Self {
             // The new gc starts out on the stack
@@ -65,12 +65,10 @@ where
         // since allocating the node might trigger a garbage collection.
         unsafe { node.as_ref() }.value().unroot();
 
-        let gc = Self {
+        Self {
             is_rooted: Cell::new(true),
             referenced_node: Cell::new(node),
-        };
-
-        gc
+        }
     }
 }
 
@@ -123,6 +121,7 @@ where
         value.is_rooted.set(false);
     }
 
+    #[must_use]
     pub fn node(value: &Self) -> &HeapNode<T> {
         let raw_ptr = value.referenced_node.get();
 
@@ -130,6 +129,8 @@ where
         unsafe { raw_ptr.as_ref() }
     }
 
+    #[allow(clippy::mut_from_ref)]
+    #[must_use]
     pub fn node_mut(value: &Self) -> &mut HeapNode<T> {
         let mut heap_node = value.referenced_node.get();
 
