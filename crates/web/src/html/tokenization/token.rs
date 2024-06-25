@@ -5,7 +5,12 @@ use crate::{static_interned, InternedString};
 #[derive(Debug, Clone)]
 pub enum Token {
     DOCTYPE(Doctype),
-    Tag(TagData),
+
+    /// An opening tag (`<foobar>`)
+    StartTag(TagData),
+
+    /// A closing tag (`</foobar>`)
+    EndTag(TagData),
     Comment(String),
     // TODO: emitting single characters is really inefficient, change this to be a string
     Character(char),
@@ -45,9 +50,6 @@ pub struct Doctype {
 
 #[derive(Debug, Clone)]
 pub struct TagData {
-    /// True if the tag is opening (`<tag>`) and false if it's a closing tag (`</tag>`)
-    pub opening: bool,
-
     /// The tag identifier.
     ///
     /// For `<script>`, this would be `"script"` for example.
@@ -140,14 +142,17 @@ impl TagBuilder {
         // Finish the current attribute
         self.start_a_new_attribute();
 
-        let tag_data = TagData {
-            opening: self.is_opening,
+        let tagdata = TagData {
             self_closing: self.is_self_closing,
             name: InternedString::new(self.name),
             attributes: self.attributes,
         };
 
-        Token::Tag(tag_data)
+        if self.is_opening {
+            Token::StartTag(tagdata)
+        } else {
+            Token::EndTag(tagdata)
+        }
     }
 }
 
