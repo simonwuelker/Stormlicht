@@ -12,13 +12,6 @@ impl LangSet {
         Self { ptr }
     }
 
-    /// Constructs an empty language set
-    #[must_use]
-    pub fn new() -> Self {
-        let ptr = unsafe { bindings::FcLangSetCreate() };
-        Self::from_ptr(ptr)
-    }
-
     pub fn contains_language(&self, lang: &str) -> bool {
         let c_str = ffi::CString::new(lang).expect("null byte inside language name");
 
@@ -27,6 +20,13 @@ impl LangSet {
         // TODO: There is some context being lost here. It would be nice if we could
         //       accurately represent the other FcLangResult values
         result == bindings::FcLangResult::FcLangEqual
+    }
+}
+
+impl Default for LangSet {
+    fn default() -> Self {
+        let ptr = unsafe { bindings::FcLangSetCreate() };
+        Self::from_ptr(ptr)
     }
 }
 
