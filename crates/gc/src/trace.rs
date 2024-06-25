@@ -3,6 +3,8 @@
 /// Containers should simply forward trace calls to each
 /// of their referenced objects.
 ///
+/// # Safety
+///
 /// [Trace] is unsafe, since failing to trace all references
 /// can lead to them being garbage-collected while still in use.
 pub unsafe trait Trace {
