@@ -3,6 +3,20 @@
 use std::{fmt, ops};
 
 /// Fixed point floating number using two's complement
+///
+/// `N` defines the number of fractional bits. The number of
+/// integer bits is equal to `32 - N`.
+///
+/// # Examples
+///
+/// Basic Usage:
+/// ```
+/// # use sl_std::fixed::Fixed;
+/// let a = Fixed::<5>::from(1.5);
+/// let b = Fixed::<5>::from(3.2);
+///
+/// assert_eq!(a + b, Fixed::<5>::from(4.7));
+/// ```
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Fixed<const N: usize>(i32);
 
@@ -16,6 +30,17 @@ impl<const N: usize> Fixed<N> {
         None => 0,
     };
 
+    /// Computes the absolute value of `self`.
+    ///
+    /// # Examples
+    ///
+    /// Basic Usage:
+    /// ```
+    /// # use sl_std::fixed::Fixed;
+    /// assert_eq!(Fixed::<3>::from(42.).abs(), Fixed::<3>::from(42.));
+    /// assert_eq!(Fixed::<3>::from(-42.).abs(), Fixed::<3>::from(42.));
+    /// ```
+    #[inline]
     #[must_use]
     pub const fn abs(&self) -> Self {
         Self(self.0.abs())
@@ -31,7 +56,20 @@ impl<const N: usize> Fixed<N> {
         Self(bits)
     }
 
+    /// Returns the smallest integer greater than or equal to `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sl_std::fixed::Fixed;
+    /// let f = Fixed::<5>::from(3.0);
+    /// let g = Fixed::<5>::from(3.9);
+    ///
+    /// assert_eq!(f.floor(), Fixed::<5>::from(3.0));
+    /// assert_eq!(g.floor(), Fixed::<5>::from(3.0));
+    /// ```
     #[must_use]
+    #[inline]
     pub const fn floor(&self) -> Self {
         let mask = (1 << Self::FRAC_BITS) - 1;
         Self(self.0 & !mask)
