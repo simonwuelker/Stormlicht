@@ -58,6 +58,7 @@ impl ComputedStyle {
 
     {% macro create_getter_and_setter(name, type, group) %}
         #[allow(dead_code)]
+        #[must_use]
         pub fn {{ name }}(&self) -> &{{ type }} {
             &self.{{ group }}.{{ name }}
         }
