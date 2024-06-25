@@ -139,7 +139,7 @@ impl Str {
     /// # Examples
     ///
     /// ```
-    /// #![feature(ascii_char_variants, ascii_char)]
+    /// # #![feature(ascii_char_variants, ascii_char)]
     /// # use sl_std::ascii;
     /// let ascii_str: &ascii::Str = "example".try_into().unwrap();
     ///
@@ -174,18 +174,71 @@ impl Str {
         pattern.is_prefix_of(self)
     }
 
+    /// Returns a string slice with leading and trailing whitespace removed.
+    ///
+    /// 'Whitespace' is defined according to the terms of the [WhatWG spec](https://infra.spec.whatwg.org/#ascii-whitespace).
+    /// See [Char::is_whitespace] for more information.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #![feature(ascii_char_variants, ascii_char)]
+    /// # use sl_std::ascii;
+    /// let s: &ascii::Str = "\nHello\tworld\t\n".try_into().unwrap();
+    ///
+    /// assert_eq!("Hello\tworld\t", s.trim().as_str());
+    /// ```
+    #[inline]
+    #[must_use = "this returns the trimmed string as a slice, without modifying the original"]
     pub fn trim(&self) -> &Self {
         self.trim_matches(Char::is_whitespace)
     }
 
+    /// Returns a string slice with leading whitespace removed.
+    ///
+    /// 'Whitespace' is defined according to the terms of the [WhatWG spec](https://infra.spec.whatwg.org/#ascii-whitespace).
+    /// See [Char::is_whitespace] for more information.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// # #![feature(ascii_char_variants, ascii_char)]
+    /// # use sl_std::ascii;
+    /// let s: &ascii::Str = "\nHello\tworld\t\n".try_into().unwrap();
+    ///
+    /// assert_eq!("Hello\tworld\t\n", s.trim_start().as_str());
+    /// ```
+    #[inline]
+    #[must_use = "this returns the trimmed string as a slice, without modifying the original"]
     pub fn trim_start(&self) -> &Self {
         self.trim_matches_start(Char::is_whitespace)
     }
 
+    /// Returns a string slice with trailing whitespace removed.
+    ///
+    /// 'Whitespace' is defined according to the terms of the [WhatWG spec](https://infra.spec.whatwg.org/#ascii-whitespace).
+    /// See [Char::is_whitespace] for more information.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// # #![feature(ascii_char_variants, ascii_char)]
+    /// # use sl_std::ascii;
+    /// let s: &ascii::Str = "\nHello\tworld\t\n".try_into().unwrap();
+    ///
+    /// assert_eq!("\nHello\tworld\t", s.trim_end().as_str());
+    /// ```
+    #[inline]
+    #[must_use = "this returns the trimmed string as a slice, without modifying the original"]
     pub fn trim_end(&self) -> &Self {
         self.trim_matches_end(Char::is_whitespace)
     }
 
+    #[must_use = "this returns the trimmed string as a slice, without modifying the original"]
     pub fn trim_matches<'a, P>(&'a self, pattern: P) -> &Self
     where
         P: super::Pattern<'a>,
@@ -207,6 +260,8 @@ impl Str {
         &self[start..end]
     }
 
+    #[inline]
+    #[must_use = "this returns the trimmed string as a slice, without modifying the original"]
     pub fn trim_matches_start<'a, P>(&'a self, pattern: P) -> &Self
     where
         P: super::Pattern<'a>,
@@ -219,6 +274,7 @@ impl Str {
         }
     }
 
+    #[must_use = "this returns the trimmed string as a slice, without modifying the original"]
     pub fn trim_matches_end<'a, P>(&'a self, pattern: P) -> &Self
     where
         P: super::Pattern<'a>,
@@ -246,7 +302,7 @@ impl Str {
     /// assert_eq!(splits.next().map(ascii::Str::as_str), Some("ipsu"));
     /// assert_eq!(splits.next().map(ascii::Str::as_str), Some("dolor"));
     /// assert!(splits.next().is_none())
-    /// ````
+    /// ```
     pub fn split<'a, P: super::Pattern<'a>>(&'a self, pattern: P) -> SplitIterator<'a, P> {
         SplitIterator {
             is_done: false,
@@ -300,6 +356,7 @@ impl Str {
         result
     }
 
+    #[inline]
     pub fn match_indices<'a, P: super::Pattern<'a>>(
         &'a self,
         pattern: P,
@@ -456,7 +513,13 @@ impl<'a> TryFrom<&'a str> for &'a Str {
     }
 }
 
+/// An iterator over match indices in a string slice.
+///
+///
+/// This struct is created by the [`match_indices`](Str::match_indices) method on [`ascii::Str`](Str).
+/// See its documentation for more.
 #[derive(Clone, Copy, Debug)]
+#[must_use = "iterators are lazy and do nothing unless consumed"]
 pub struct AsciiMatchIndices<'a, P>
 where
     P: super::Pattern<'a>,
@@ -477,7 +540,13 @@ where
 
 impl<'a, P> FusedIterator for AsciiMatchIndices<'a, P> where P: super::Pattern<'a> {}
 
+/// An iterator over segments of a string slice.
+///
+///
+/// This struct is created by the [`split`](Str::split) method on [`ascii::Str`](Str).
+/// See its documentation for more.
 #[derive(Clone, Copy, Debug)]
+#[must_use = "iterators are lazy and do nothing unless consumed"]
 pub struct SplitIterator<'a, P>
 where
     P: super::Pattern<'a>,
