@@ -116,10 +116,6 @@ def test_stormlicht(args, unknown_args):
 
 
 def run():
-    # Install git pre-commit hook
-    log.info("Installing git commit hook...")
-    shutil.copy("hooks/pre-commit.hook", ".git/hooks/pre-commit")
-
     log.info("Downloading submodules if necessary...")
     ensure_submodules_are_downloaded()
 
