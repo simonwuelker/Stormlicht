@@ -31,7 +31,22 @@ impl<T, const N: usize> Default for RingBuffer<T, N> {
 }
 
 impl<T, const N: usize> RingBuffer<T, N> {
-    // Return the number of elements currently stored in the buffer
+    /// Return the number of elements currently stored in the buffer
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use sl_std::ring_buffer::RingBuffer;
+    /// let mut buffer: RingBuffer<usize, 8> = RingBuffer::default();
+    ///
+    /// assert_eq!(buffer.len(), 0);
+    ///
+    /// buffer.push(1);
+    /// buffer.push(2);
+    /// buffer.push(3);
+    ///
+    /// assert_eq!(buffer.len(), 3);
+    /// ```
     #[must_use]
     pub const fn len(&self) -> usize {
         if self.is_full() {
@@ -51,6 +66,21 @@ impl<T, const N: usize> RingBuffer<T, N> {
         N
     }
 
+    /// Return `true` if the buffer is full, `false` otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use sl_std::ring_buffer::RingBuffer;
+    /// let mut buffer: RingBuffer<usize, 2> = RingBuffer::default();
+    ///
+    /// assert!(!buffer.is_full());
+    ///
+    /// buffer.push(1);
+    /// buffer.push(2);
+    ///
+    /// assert!(buffer.is_full());
+    /// ```
     #[inline]
     #[must_use]
     pub const fn is_full(&self) -> bool {
