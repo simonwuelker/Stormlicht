@@ -1,3 +1,4 @@
+pre-commit
 black==24.4.2
 certifi==2023.7.22
 charset-normalizer==3.3.2
