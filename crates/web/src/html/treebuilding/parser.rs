@@ -23,6 +23,7 @@ use crate::{
     static_interned, InternedString,
 };
 
+use html_treebuilding_match::html_treebuilding_match;
 use resourceloader::{PendingLoad, RESOURCE_LOADER};
 use sl_std::iter::IteratorExtensions;
 use url::URL;
@@ -1184,6 +1185,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                 .as_ref()
                 .map(DomPtr::underlying_type)
         );
+
         match mode {
             // https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode
             InsertionMode::Initial => {
@@ -1348,7 +1350,8 @@ impl<P: ParseErrorHandler> Parser<P> {
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead
             InsertionMode::InHead => {
-                match token {
+                html_treebuilding_match!(
+                    token,
                     Token::Character(c @ (TAB | LINE_FEED | FORM_FEED | WHITESPACE)) => {
                         // Insert the character.
                         self.insert_character(c);
@@ -1360,34 +1363,29 @@ impl<P: ParseErrorHandler> Parser<P> {
                     Token::DOCTYPE(_) => {
                         // parse error, ignore token
                     },
-                    Token::StartTag(ref tagdata) if tagdata.name == static_interned!("html") => {
+                    <html> => {
                         // Process the token using the rules for the "in body" insertion mode.
-                        self.consume_in_mode(InsertionMode::InBody, token);
+                        self.consume_in_mode(InsertionMode::InBody, Token::StartTag(tag));
                     },
-                    Token::StartTag(tagdata)
-                        if tagdata.name == static_interned!("base")
-                            || tagdata.name == static_interned!("basefont")
-                            || tagdata.name == static_interned!("bgsound")
-                            || tagdata.name == static_interned!("link") =>
-                    {
+                    <base> | <basefont> | <bgsound> | <link> => {
                         // Insert an HTML element for the token.
-                        self.insert_html_element_for_token(&tagdata);
+                        self.insert_html_element_for_token(&tag);
 
                         // Immediately pop the current node off the stack of open elements.
                         self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
-                        self.acknowledge_self_closing_flag_if_set(&tagdata);
+                        self.acknowledge_self_closing_flag_if_set(&tag);
                     },
-                    Token::StartTag(ref tagdata) if tagdata.name == static_interned!("meta") => {
+                    <meta> => {
                         // Insert an HTML element for the token.
-                        self.insert_html_element_for_token(tagdata);
+                        self.insert_html_element_for_token(&tag);
 
                         // Immediately pop the current node off the stack of open elements.
                         self.pop_from_open_elements();
 
                         // Acknowledge the token's self-closing flag, if it is set.
-                        self.acknowledge_self_closing_flag_if_set(tagdata);
+                        self.acknowledge_self_closing_flag_if_set(&tag);
 
                         // If the active speculative HTML parser is null, then:
                         //
@@ -1404,40 +1402,34 @@ impl<P: ParseErrorHandler> Parser<P> {
                         //     encoding, and the confidence is currently tentative, then
                         //     change the encoding to the extracted encoding.
                     },
-                    Token::StartTag(tagdata) if tagdata.name == static_interned!("title") => {
+                    <title> => {
                         // Follow the generic RCDATA element parsing algorithm.
-                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RcData);
+                        self.generic_parsing_algorithm(tag, GenericParsingAlgorithm::RcData);
                     },
-                    Token::StartTag(tagdata)
-                        if tagdata.name == static_interned!("noscript") && self.execute_script =>
-                    {
-                        // Follow the generic raw text element parsing algorithm.
-                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
-                    },
-                    Token::StartTag(tagdata)
-                        if (tagdata.name == static_interned!("noframes")
-                            || tagdata.name == static_interned!("style")) =>
-                    {
-                        // Follow the generic raw text element parsing algorithm.
-                        self.generic_parsing_algorithm(tagdata, GenericParsingAlgorithm::RawText);
-                    },
-                    Token::StartTag(ref tagdata)
-                        if tagdata.name == static_interned!("noscript") && !self.execute_script =>
-                    {
-                        // Insert an HTML element for the token.
-                        self.insert_html_element_for_token(tagdata);
+                    <noscript> => {
+                        if self.execute_script {
+                            // Follow the generic raw text element parsing algorithm.
+                            self.generic_parsing_algorithm(tag, GenericParsingAlgorithm::RawText);
+                        } else {
+                            // Insert an HTML element for the token.
+                            self.insert_html_element_for_token(&tag);
 
-                        // Switch the insertion mode to "in head noscript".
-                        self.insertion_mode = InsertionMode::InHeadNoscript;
+                            // Switch the insertion mode to "in head noscript".
+                            self.insertion_mode = InsertionMode::InHeadNoscript;
+                        }
                     },
-                    Token::StartTag(ref tagdata) if tagdata.name == static_interned!("script") => {
+                    <noframes> | <style> => {
+                        // Follow the generic raw text element parsing algorithm.
+                        self.generic_parsing_algorithm(tag, GenericParsingAlgorithm::RawText);
+                    },
+                    <script> => {
                         // 1. Let the adjusted insertion location be the appropriate place for inserting a node.
                         let adjusted_insert_location = self.appropriate_place_for_inserting_node();
 
                         // 2. Create an element for the token in the HTML namespace, with the intended parent being the element
                         // in which the adjusted insertion location finds itself.
                         let element = self.create_element_for_token(
-                            tagdata,
+                            &tag,
                             Namespace::HTML,
                             &adjusted_insert_location,
                         );
@@ -1464,7 +1456,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // 10. Switch the insertion mode to "text".
                         self.insertion_mode = InsertionMode::Text;
                     },
-                    Token::EndTag(ref tagdata) if tagdata.name == static_interned!("head") => {
+                    </head> => {
                         // Pop the current node (which will be the head element) off the stack of open elements.
                         let current_node = self.pop_from_open_elements();
                         assert_eq!(current_node.underlying_type(), DomType::HtmlHeadElement,);
@@ -1472,11 +1464,9 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Switch the insertion mode to "after head".
                         self.insertion_mode = InsertionMode::AfterHead;
                     },
-                    Token::StartTag(ref tagdata)
-                        if tagdata.name == static_interned!("template") =>
-                    {
+                    <template> => {
                         // Insert an HTML element for the token.
-                        self.insert_html_element_for_token(tagdata);
+                        self.insert_html_element_for_token(&tag);
 
                         // Insert a marker at the end of the list of active formatting
                         // elements.
@@ -1493,7 +1483,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.template_insertion_modes
                             .push(InsertionMode::InTemplate);
                     },
-                    Token::EndTag(ref tagdata) if tagdata.name == static_interned!("template") => {
+                    </template> => {
                         // If there is no template element on the stack of open elements, then
                         // this is a parse error; ignore the token.
                         let contains_template_element = self
@@ -1531,7 +1521,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                             self.reset_insertion_mode_appropriately();
                         }
                     },
-                    Token::StartTag(ref tagdata) if tagdata.name == static_interned!("head") => {
+                    <head> => {
                         // Parse error. Ignore the token.
                     },
                     Token::EndTag(ref tagdata)
@@ -1552,20 +1542,20 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Reprocess the token.
                         self.consume(other);
                     },
-                }
+                );
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inheadnoscript
             InsertionMode::InHeadNoscript => {
-                match token {
+                html_treebuilding_match!(token,
                     Token::DOCTYPE(_) => {
                         // Parse error. Ignore the token.
                     },
-                    Token::StartTag(ref tagdata) if tagdata.name == static_interned!("html") => {
+                    <html> => {
                         // Process the token using the rules for the "in body" insertion
                         // mode.
-                        self.consume_in_mode(InsertionMode::InBody, token);
+                        self.consume_in_mode(InsertionMode::InBody, Token::StartTag(tag));
                     },
-                    Token::EndTag(ref tagdata) if tagdata.name == static_interned!("noscript") => {
+                    </noscript> => {
                         // Pop the current node (which will be a noscript element) from the stack of open elements; the new current node will be a head element.
                         let popped_node = self.pop_from_open_elements();
                         debug_assert_eq!(
@@ -1586,20 +1576,14 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // mode.
                         self.consume_in_mode(InsertionMode::InHead, token);
                     },
-                    Token::StartTag(ref tagdata)
-                        if tagdata.name == static_interned!("basefont")
-                            || tagdata.name == static_interned!("bgsound")
-                            || tagdata.name == static_interned!("link")
-                            || tagdata.name == static_interned!("meta")
-                            || tagdata.name == static_interned!("style") =>
-                    {
+                    <basefont> | <bgsound> | <link> | <meta> | <style> => {
                         // Process the token using the rules for the "in head" insertion
                         // mode.
-                        self.consume_in_mode(InsertionMode::InHead, token);
+                        self.consume_in_mode(InsertionMode::InHead, Token::StartTag(tag));
                     },
-                    Token::StartTag(ref tagdata)
-                        if tagdata.name == static_interned!("head")
-                            || tagdata.name == static_interned!("noscript") => {}, // Parse error. Ignore the token.
+                    <head> | <noscript> => {
+                        // Parse error. Ignore the token.
+                    },
                     Token::EndTag(ref tagdata) if tagdata.name != static_interned!("br") => {}, // Parse error. Ignore the token.
                     other => {
                         // Parse error.
@@ -1621,11 +1605,11 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Reprocess the token.
                         self.consume(other);
                     },
-                }
+                );
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#the-after-head-insertion-mode
             InsertionMode::AfterHead => {
-                match token {
+                html_treebuilding_match!(token,
                     Token::Character(c @ (TAB | LINE_FEED | FORM_FEED | WHITESPACE)) => {
                         // Insert the character.
                         self.insert_character(c);
@@ -1635,38 +1619,36 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.insert_comment(data);
                     },
                     Token::DOCTYPE(_) => {}, // Parse error. Ignore the token.
-                    Token::StartTag(ref tagdata) if tagdata.name == static_interned!("html") => {
+                    <html> => {
                         // Process the token using the rules for the "in body" insertion mode.
-                        self.consume_in_mode(InsertionMode::InBody, token);
+                        self.consume_in_mode(InsertionMode::InBody, Token::StartTag(tag));
                     },
-                    Token::StartTag(tagdata) if tagdata.name == static_interned!("body") => {
+                    <body> => {
                         // Insert an HTML element for the token.
-                        self.insert_html_element_for_token(&tagdata);
+                        self.insert_html_element_for_token(&tag);
 
                         // Set the frameset-ok flag to "not ok".
 
                         // Switch the insertion mode to "in body".
                         self.insertion_mode = InsertionMode::InBody;
                     },
-                    Token::StartTag(tagdata) if tagdata.name == static_interned!("frameset") => {
+                    <frameset> => {
                         // Insert an HTML element for the token.
-                        self.insert_html_element_for_token(&tagdata);
+                        self.insert_html_element_for_token(&tag);
 
                         // Switch the insertion mode to "in frameset".
                         self.insertion_mode = InsertionMode::InFrameset;
                     },
-                    Token::StartTag(ref tagdata)
-                        if tagdata.name == static_interned!("base")
-                            || tagdata.name == static_interned!("basefont")
-                            || tagdata.name == static_interned!("bgsound")
-                            || tagdata.name == static_interned!("link")
-                            || tagdata.name == static_interned!("meta")
-                            || tagdata.name == static_interned!("noframes")
-                            || tagdata.name == static_interned!("script")
-                            || tagdata.name == static_interned!("style")
-                            || tagdata.name == static_interned!("template")
-                            || tagdata.name == static_interned!("title") =>
-                    {
+                    <base>
+                        | <basefont>
+                        | <bgsound>
+                        | <link>
+                        | <meta>
+                        | <noframes>
+                        | <script>
+                        | <style>
+                        | <template>
+                        | <title> => {
                         // Parse error.
 
                         // Push the node pointed to by the head element pointer onto the stack of open elements.
@@ -1678,16 +1660,18 @@ impl<P: ParseErrorHandler> Parser<P> {
                         self.open_elements.push(DomPtr::clone(&head).upcast());
 
                         // Process the token using the rules for the "in head" insertion mode.
-                        self.consume_in_mode(InsertionMode::InHead, token);
+                        self.consume_in_mode(InsertionMode::InHead, Token::StartTag(tag));
 
                         // Remove the node pointed to by the head element pointer from the stack of open elements. (It might not be the current node at this point.)
                         self.remove_from_open_elements(&head);
                     },
-                    Token::EndTag(ref tagdata) if tagdata.name == static_interned!("template") => {
+                    </template> => {
                         // Process the token using the rules for the "in head" insertion mode.
-                        self.consume_in_mode(InsertionMode::InHead, token);
+                        self.consume_in_mode(InsertionMode::InHead, Token::EndTag(tag));
                     },
-                    Token::StartTag(tagdata) if tagdata.name == static_interned!("head") => {}, // Parse error. Ignore the token.
+                    <head> => {
+                        // Parse error. Ignore the token.
+                    },
                     Token::EndTag(tagdata)
                         if tagdata.name != static_interned!("body")
                             && tagdata.name != static_interned!("html")
@@ -1707,7 +1691,7 @@ impl<P: ParseErrorHandler> Parser<P> {
                         // Reprocess the current token.
                         self.consume(token);
                     },
-                }
+                )
             },
             // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inbody
             InsertionMode::InBody => {
