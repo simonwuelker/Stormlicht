@@ -9,3 +9,4 @@ repos:
         entry: cargo fmt --all --check
         language: system
         types: [file, rust]
+        pass_filenames: false
