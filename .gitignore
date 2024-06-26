@@ -2,6 +2,9 @@
 /downloads
 Cargo.lock
 
+# mdbook artifacts
+docs/book
+
 # Benchmarking results
 perf.data*
 flamegraph.svg
