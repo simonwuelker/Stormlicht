@@ -438,6 +438,13 @@ impl PartialEq<str> for Str {
     }
 }
 
+impl<'a> Default for &'a Str {
+    /// Create an empty [Str]
+    fn default() -> Self {
+        Str::EMPTY
+    }
+}
+
 macro_rules! slice_index_impl {
     ($for: ty) => {
         unsafe impl SliceIndex<Str> for $for {
