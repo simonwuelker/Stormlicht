@@ -4,40 +4,35 @@ use sl_std::{ascii, punycode};
 
 use crate::{
     ip::{ipv4_parse, ipv6_parse},
-    percent_encode::{is_c0_control, percent_encode},
-    util, IPParseError, ValidationError, ValidationErrorHandler,
+    percent_encode::{is_c0_control, percent_encode, C0_CONTROL},
+    util, AsciiSet, IPParseError, ValidationError, ValidationErrorHandler,
 };
 
 /// <https://url.spec.whatwg.org/#forbidden-host-code-point>
-fn is_forbidden_host_code_point(c: ascii::Char) -> bool {
-    matches!(
-        c,
-        ascii::Char::Null
-            | ascii::Char::CharacterTabulation
-            | ascii::Char::LineFeed
-            | ascii::Char::CarriageReturn
-            | ascii::Char::Space
-            | ascii::Char::NumberSign
-            | ascii::Char::Solidus
-            | ascii::Char::Colon
-            | ascii::Char::GreaterThanSign
-            | ascii::Char::LessThanSign
-            | ascii::Char::QuestionMark
-            | ascii::Char::CommercialAt
-            | ascii::Char::LeftSquareBracket
-            | ascii::Char::ReverseSolidus
-            | ascii::Char::RightSquareBracket
-            | ascii::Char::CircumflexAccent
-            | ascii::Char::VerticalLine
-    )
-}
+const FORBIDDEN_HOST_CODE_POINTS: AsciiSet = AsciiSet::EMPTY
+    .add(ascii::Char::Null)
+    .add(ascii::Char::CharacterTabulation)
+    .add(ascii::Char::LineFeed)
+    .add(ascii::Char::CarriageReturn)
+    .add(ascii::Char::Space)
+    .add(ascii::Char::NumberSign)
+    .add(ascii::Char::Solidus)
+    .add(ascii::Char::Colon)
+    .add(ascii::Char::GreaterThanSign)
+    .add(ascii::Char::LessThanSign)
+    .add(ascii::Char::QuestionMark)
+    .add(ascii::Char::CommercialAt)
+    .add(ascii::Char::LeftSquareBracket)
+    .add(ascii::Char::ReverseSolidus)
+    .add(ascii::Char::RightSquareBracket)
+    .add(ascii::Char::CircumflexAccent)
+    .add(ascii::Char::VerticalLine);
 
 /// <https://url.spec.whatwg.org/#forbidden-domain-code-point>
-fn is_forbidden_domain_code_point(c: ascii::Char) -> bool {
-    is_forbidden_host_code_point(c)
-        | is_c0_control(c as u8)
-        | matches!(c, ascii::Char::PercentSign | ascii::Char::Delete)
-}
+const FORBIDDEN_DOMAIN_CODE_POINTS: AsciiSet = FORBIDDEN_HOST_CODE_POINTS
+    .merge(C0_CONTROL)
+    .add(ascii::Char::PercentSign)
+    .add(ascii::Char::Delete);
 
 /// Typically either a network address or a opaque identifier in situations
 /// where a network address is not required.
@@ -139,7 +134,7 @@ where
         .chars()
         .iter()
         .copied()
-        .any(is_forbidden_domain_code_point)
+        .any(|c| FORBIDDEN_DOMAIN_CODE_POINTS.contains(c))
     {
         // domain-invalid-code-point validation error validation error
         error_handler.validation_error(ValidationError::DomainInvalidCodepoint);
@@ -169,7 +164,11 @@ where
     H: ValidationErrorHandler,
 {
     // If input contains a forbidden host code point
-    if input.contains(|c: char| c.as_ascii().is_some_and(is_forbidden_host_code_point)) {
+    let has_forbidden_host_code_point = input.contains(|c: char| {
+        c.as_ascii()
+            .is_some_and(|c| FORBIDDEN_HOST_CODE_POINTS.contains(c))
+    });
+    if has_forbidden_host_code_point {
         // host-invalid-code-point validation error
         error_handler.validation_error(ValidationError::HostInvalidCodepoint);
 

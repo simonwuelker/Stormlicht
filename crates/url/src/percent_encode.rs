@@ -1,6 +1,10 @@
 use sl_std::ascii;
 
+use crate::AsciiSet;
+
 /// <https://infra.spec.whatwg.org/#c0-control>
+pub const C0_CONTROL: AsciiSet = AsciiSet::from_range(0, 0x20);
+
 #[inline]
 #[must_use]
 pub(crate) fn is_c0_control(c: u8) -> bool {
