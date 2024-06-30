@@ -53,6 +53,7 @@ pub struct JsonDeserializer<'a> {
 }
 
 impl<'a> JsonDeserializer<'a> {
+    #[must_use]
     pub fn new(json: &'a str) -> Self {
         Self {
             chars: ReversibleCharIterator::new(json),
@@ -67,6 +68,7 @@ impl<'a> JsonDeserializer<'a> {
         }
     }
 
+    #[must_use]
     fn consume_hex_escape(&mut self) -> Option<u32> {
         // Expect 4 hex digits
         let a = self.chars.next()?;
@@ -81,34 +83,35 @@ impl<'a> JsonDeserializer<'a> {
         Some(value)
     }
 
+    #[must_use]
     fn next_token(&mut self) -> Option<Token> {
         loop {
-            match self.chars.current() {
-                Some('{') => {
+            match self.chars.current()? {
+                '{' => {
                     self.chars.next();
                     return Some(Token::CurlyBraceOpen);
                 },
-                Some('}') => {
+                '}' => {
                     self.chars.next();
                     return Some(Token::CurlyBraceClose);
                 },
-                Some('[') => {
+                '[' => {
                     self.chars.next();
                     return Some(Token::BracketOpen);
                 },
-                Some(']') => {
+                ']' => {
                     self.chars.next();
                     return Some(Token::BracketClose);
                 },
-                Some(',') => {
+                ',' => {
                     self.chars.next();
                     return Some(Token::Comma);
                 },
-                Some(':') => {
+                ':' => {
                     self.chars.next();
                     return Some(Token::Colon);
                 },
-                Some('"') => {
+                '"' => {
                     // Parse a string
                     let mut string = String::new();
                     self.chars.next();
@@ -129,7 +132,9 @@ impl<'a> JsonDeserializer<'a> {
                                     'u' => {
                                         let mut reference_value = self.consume_hex_escape()?;
                                         if (0xD800..=0xDBFF).contains(&reference_value) {
-                                            // UTF-16 surrogate
+                                            // This is a UTF16 surrogate, it encodes
+                                            // one character using two escape sequences
+
                                             if self.chars.next() != Some('\\') {
                                                 return None;
                                             }
@@ -165,11 +170,11 @@ impl<'a> JsonDeserializer<'a> {
                     // EOF in string
                     return None;
                 },
-                Some(' ' | '\t' | '\r' | '\n') => {
+                ' ' | '\t' | '\r' | '\n' => {
                     // whitespace is skipped
                     self.chars.next();
                 },
-                Some('0'..='9') => {
+                '0'..='9' => {
                     // Parse a numeric value
                     let mut num = 0;
 
@@ -185,7 +190,7 @@ impl<'a> JsonDeserializer<'a> {
 
                     return Some(Token::Numeric(num));
                 },
-                Some('t' | 'f' | 'n') => {
+                't' | 'f' | 'n' => {
                     // Parse an identifier (true, false or null)
                     let remaining = self.chars.remaining();
                     return if remaining.starts_with("true") {
@@ -201,11 +206,15 @@ impl<'a> JsonDeserializer<'a> {
                         None
                     };
                 },
-                Some(_) | None => return None,
+                _ => {
+                    // Failed to tokenize this
+                    return None;
+                },
             }
         }
     }
 
+    #[must_use]
     fn peek_token(&mut self) -> Option<Token> {
         let old_position = self.chars.position();
         let token = self.next_token();
