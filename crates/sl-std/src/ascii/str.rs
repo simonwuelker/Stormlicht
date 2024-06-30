@@ -395,10 +395,13 @@ impl Str {
 
     #[inline]
     #[must_use]
-    pub fn split_once(&self, split_at: Char) -> Option<(&Self, &Self)> {
-        let split_index = self.find(split_at)?;
-        let parts = (&self[..split_index], &self[split_index + 1..]);
-        Some(parts)
+    pub fn split_once<'a, P>(&'a self, delimiter: P) -> Option<(&Self, &Self)>
+    where
+        P: Pattern<'a>,
+        P::Searcher: Searcher<'a>,
+    {
+        let (start, end) = delimiter.into_searcher(self).next_match()?;
+        Some((&self[..start], &self[end..]))
     }
 
     /// Splits the string on the last occurrence of the specified delimiter and
