@@ -187,3 +187,12 @@ impl Serialize for net::Ipv6Addr {
         self.octets().serialize_to(serializer)
     }
 }
+
+impl Serialize for bool {
+    fn serialize_to<S>(&self, serializer: &mut S) -> Result<(), S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bool(*self)
+    }
+}
