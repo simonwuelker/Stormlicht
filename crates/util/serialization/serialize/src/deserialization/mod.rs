@@ -17,6 +17,8 @@ pub trait Deserialize: Sized {
 pub trait Deserializer {
     type Error: Error;
 
+    fn deserialize_any<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
+
     fn deserialize_sequence<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
 
     fn deserialize_map<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;

@@ -226,6 +226,21 @@ impl<'a> JsonDeserializer<'a> {
 impl<'a> Deserializer for &mut JsonDeserializer<'a> {
     type Error = JsonError;
 
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor,
+    {
+        match self.peek_token() {
+            Some(Token::BracketOpen) => self.deserialize_sequence(visitor),
+            Some(Token::CurlyBraceOpen) => self.deserialize_map(visitor),
+            Some(Token::String(_)) => self.deserialize_string(visitor),
+            Some(Token::Numeric(_)) => self.deserialize_usize(visitor),
+            Some(Token::True | Token::False) => self.deserialize_bool(visitor),
+            Some(Token::Null) => self.deserialize_option(visitor),
+            _ => return Err(Error::expected("any valid json value")),
+        }
+    }
+
     fn deserialize_sequence<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor,
