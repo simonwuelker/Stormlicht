@@ -1,4 +1,4 @@
-use super::{AsciiCharExt, NotAscii, ReverseSearcher, Searcher, String};
+use super::{AsciiCharExt, NotAscii, Pattern, ReverseSearcher, Searcher, String};
 use std::{ascii::Char, fmt, iter::FusedIterator, ops, slice::SliceIndex};
 
 /// A borrowed [String]
@@ -382,8 +382,9 @@ impl Str {
     /// assert_eq!(haystack.rfind(ascii::Char::SmallX), None)
     /// ```
     #[must_use]
-    pub fn rfind<'a, P: super::Pattern<'a>>(&'a self, pattern: P) -> Option<usize>
+    pub fn rfind<'a, P>(&'a self, pattern: P) -> Option<usize>
     where
+        P: Pattern<'a>,
         P::Searcher: ReverseSearcher<'a>,
     {
         pattern
@@ -398,6 +399,19 @@ impl Str {
         let split_index = self.find(split_at)?;
         let parts = (&self[..split_index], &self[split_index + 1..]);
         Some(parts)
+    }
+
+    /// Splits the string on the last occurrence of the specified delimiter and
+    /// returns prefix before delimiter and suffix after delimiter.
+    #[inline]
+    #[must_use]
+    pub fn rsplit_once<'a, P>(&'a self, delimiter: P) -> Option<(&Self, &Self)>
+    where
+        P: Pattern<'a>,
+        P::Searcher: ReverseSearcher<'a>,
+    {
+        let (start, end) = delimiter.into_searcher(self).next_match_back()?;
+        Some((&self[..start], &self[end..]))
     }
 
     #[inline]
