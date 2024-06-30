@@ -15,13 +15,15 @@
     option_get_or_insert_default,
     ascii_char,
     ascii_char_variants,
-    string_remove_matches
+    string_remove_matches,
+    const_option
 )]
 
 mod host;
 mod ip;
 mod parser;
 mod percent_encode;
+mod set;
 mod url;
 mod util;
 mod validation_error;
@@ -31,4 +33,5 @@ pub use crate::parser::*;
 pub use crate::url::*;
 pub use host::Host;
 pub use percent_encode::{percent_decode, percent_encode};
+use set::AsciiSet;
 pub use validation_error::{IgnoreValidationErrors, ValidationError, ValidationErrorHandler};
