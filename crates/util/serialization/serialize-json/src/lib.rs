@@ -2,9 +2,11 @@
 
 mod deserializer;
 mod serializer;
+mod value;
 
 pub use deserializer::{JsonDeserializer, JsonError};
 pub use serializer::{JsonSerializer, MapSerializer, SequenceSerializer};
+pub use value::Value;
 
 #[cfg(test)]
 mod tests {
