@@ -3,7 +3,8 @@ use sl_std::ascii;
 use crate::AsciiSet;
 
 /// <https://infra.spec.whatwg.org/#c0-control>
-pub const C0_CONTROL: AsciiSet = AsciiSet::from_range(0, 0x20);
+pub const C0_CONTROL: AsciiSet =
+    AsciiSet::from_range_inclusive(ascii::Char::Null, ascii::Char::InformationSeparatorOne);
 
 #[inline]
 #[must_use]

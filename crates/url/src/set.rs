@@ -21,12 +21,41 @@ impl AsciiSet {
         bits: [0; NUM_BLOCKS],
     };
 
+    /// `0` - `9`
+    pub const NUMERIC: Self = Self::from_range_inclusive(ascii::Char::Digit0, ascii::Char::Digit9);
+
+    /// `a` - `z`
+    pub const ALPHA_LOWERCASE: Self =
+        Self::from_range_inclusive(ascii::Char::SmallA, ascii::Char::SmallZ);
+
+    /// `A` - `Z`
+    pub const ALPHA_UPPERCASE: Self =
+        Self::from_range_inclusive(ascii::Char::CapitalA, ascii::Char::CapitalZ);
+
+    pub const ALPHA: Self = Self::ALPHA_LOWERCASE.merge(Self::ALPHA_UPPERCASE);
+
+    pub const ALPHANUMERIC: Self = Self::ALPHA.merge(Self::NUMERIC);
+
     #[must_use]
-    pub const fn from_range(start: u8, end: u8) -> Self {
+    pub const fn from_range_inclusive(start: ascii::Char, end: ascii::Char) -> Self {
         let mut set = Self::EMPTY;
 
-        let mut i = start;
-        while i < end {
+        let mut i = start as u8;
+        while i <= end as u8 {
+            let c = ascii::Char::from_u8(i).unwrap();
+            set = set.add(c);
+            i += 1;
+        }
+
+        set
+    }
+
+    #[must_use]
+    pub const fn from_range(start: ascii::Char, end: ascii::Char) -> Self {
+        let mut set = Self::EMPTY;
+
+        let mut i = start as u8;
+        while i < end as u8 {
             let c = ascii::Char::from_u8(i).unwrap();
             set = set.add(c);
             i += 1;
