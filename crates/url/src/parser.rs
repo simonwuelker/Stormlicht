@@ -832,29 +832,29 @@ where
                     else if c.is_some() {
                         // Set url’s query to null.
                         self.url.query = None;
+
+                        // If the code point substring from pointer to the end of input
+                        // does not start with a Windows drive letter,
+                        if !util::starts_with_windows_drive_letter(self.input.remaining()) {
+                            // then shorten url’s path.
+                            self.url.shorten_path();
+                        }
+                        // Otherwise:
+                        else {
+                            // File-invalid-Windows-drive-letter validation error.
+                            self.error_handler
+                                .validation_error(ValidationError::FileInvalidWindowsDriveLetter);
+
+                            // Set url’s path to an empty list.
+                            self.url.path = vec![];
+                        }
+
+                        // Set state to path state
+                        self.set_state(URLParserState::Path);
+
+                        // and decrease pointer by 1.
+                        self.input.go_back();
                     }
-
-                    // If the code point substring from pointer to the end of input
-                    // does not start with a Windows drive letter,
-                    if !util::starts_with_windows_drive_letter(self.input.remaining()) {
-                        // then shorten url’s path.
-                        self.url.shorten_path();
-                    }
-                    // Otherwise:
-                    else {
-                        // File-invalid-Windows-drive-letter validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::FileInvalidWindowsDriveLetter);
-
-                        // Set url’s path to an empty list.
-                        self.url.path = vec![];
-                    }
-
-                    // Set state to path state
-                    self.set_state(URLParserState::Path);
-
-                    // and decrease pointer by 1.
-                    self.input.go_back();
                 }
                 // Otherwise
                 else {
