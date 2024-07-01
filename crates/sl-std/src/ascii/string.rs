@@ -216,10 +216,32 @@ impl String {
         }
     }
 
-    #[must_use]
     #[inline]
+    #[must_use]
     pub const fn from_chars(chars: Vec<Char>) -> Self {
         Self { chars }
+    }
+
+    /// Shortens this `String` to the specified length.
+    ///
+    /// If `new_len` is greater than the string's current length, this has no
+    /// effect.
+    ///
+    /// Note that this method has no effect on the allocated capacity
+    /// of the string
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sl_std::ascii;
+    /// let mut s = ascii::String::try_from("hello").unwrap();
+    ///
+    /// s.truncate(2);
+    ///
+    /// assert_eq!(s, "he");
+    /// ```
+    pub fn truncate(&mut self, new_len: usize) {
+        self.chars.truncate(new_len);
     }
 }
 
