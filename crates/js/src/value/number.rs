@@ -46,8 +46,11 @@ impl Number {
     /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-subtract>
     #[must_use]
     pub fn subtract(&self, other: Self) -> Self {
-        _ = other;
-        todo!();
+        // 1. Return Number::add(x, Number::unaryMinus(y)).
+
+        // OPTIMIZATION: This is equivalent to subtraction, there's even a note in the spec
+        //               about it
+        Self(self.0 - other.0)
     }
 
     /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-multiply>
