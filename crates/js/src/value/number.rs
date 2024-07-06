@@ -1,3 +1,5 @@
+use crate::Value;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Number(f64);
 
@@ -35,6 +37,51 @@ impl Number {
     pub fn to_string(&self, base: u8) -> String {
         _ = base;
         todo!()
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-lessThan>
+    #[must_use]
+    pub fn less_than(x: Self, y: Self) -> Value {
+        // 1. If x is NaN, return undefined.
+        if x.is_nan() {
+            return Value::Undefined;
+        }
+
+        // 2. If y is NaN, return undefined.
+        if y.is_nan() {
+            return Value::Undefined;
+        }
+
+        // 3. If x is y, return false.
+        // 4. If x is +0𝔽 and y is -0𝔽, return false.
+        // 5. If x is -0𝔽 and y is +0𝔽, return false.
+        if x == y {
+            return false.into();
+        }
+
+        // 6. If x is +∞𝔽, return false. {
+        if x == Self::INFINITY {
+            return false.into();
+        }
+
+        // 7. If y is +∞𝔽, return true.
+        if y == Self::INFINITY {
+            return true.into();
+        }
+
+        // 8. If y is -∞𝔽, return false.
+        if y == Self::NEG_INFINITY {
+            return false.into();
+        }
+
+        // 9. If x is -∞𝔽, return true.
+        if x == Self::NEG_INFINITY {
+            return true.into();
+        }
+
+        // 10. Assert: x and y are finite and non-zero.
+        // 11. If ℝ(x) < ℝ(y), return true. Otherwise, return false.
+        (x.0 < y.0).into()
     }
 
     /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-add>
