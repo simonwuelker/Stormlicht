@@ -109,6 +109,11 @@ impl Value {
     }
 
     #[must_use]
+    pub const fn is_undefined(&self) -> bool {
+        matches!(self, Self::Undefined)
+    }
+
+    #[must_use]
     pub fn as_string(&self) -> Option<&str> {
         if let Self::String(s) = self {
             Some(s.as_str())
