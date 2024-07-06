@@ -64,8 +64,9 @@ impl Number {
     /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-divide>
     #[must_use]
     pub fn divide(&self, other: Self) -> Self {
-        _ = other;
-        todo!();
+        // OPTIMIZATION: As stated in the spec, the algorithm is equivalent to IEEE 754-2019
+        //               floating point division rules
+        Self(self.0 / other.0)
     }
 
     /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-remainder>
