@@ -120,8 +120,19 @@ impl Number {
     /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-leftShift>
     #[must_use]
     pub fn shift_left(&self, other: Self) -> Self {
-        _ = other;
-        todo!();
+        // 1. FIXME: Let lnum be ! ToInt32(x).
+        let lnum = self.0 as i32;
+
+        // 2. Let rnum be ! ToUint32(y).
+        let rnum = other.0 as u32;
+
+        // 3. Let shiftCount be ℝ(rnum) modulo 32.
+        let shift_count = rnum % 32;
+
+        // 4. Return the result of left shifting lnum by shiftCount bits.
+        //    The mathematical value of the result is exactly representable as a 32-bit two's complement bit string.
+        let result = lnum << shift_count as usize;
+        return Self(result as f64);
     }
 
     /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-signedRightShift>
