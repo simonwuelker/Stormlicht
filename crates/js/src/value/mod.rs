@@ -16,6 +16,15 @@ use crate::{
 const SPEC_CANNOT_FAIL: &str =
     "This operation cannot fail according to the specification (indicated by '!')";
 
+/// Defines the order in which operations should be applied to operands
+///
+/// See for example <https://262.ecma-international.org/14.0/#sec-islessthan>
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LeftFirst {
+    Yes,
+    No,
+}
+
 /// <https://262.ecma-international.org/14.0/#sec-ecmascript-language-types>
 #[derive(Clone, Debug, Default)]
 pub enum Value {
@@ -99,6 +108,15 @@ impl Value {
         matches!(self, Self::Object(_))
     }
 
+    #[must_use]
+    pub fn as_string(&self) -> Option<&str> {
+        if let Self::String(s) = self {
+            Some(s.as_str())
+        } else {
+            None
+        }
+    }
+
     /// <https://262.ecma-international.org/#sec-isstrictlyequal>
     pub fn is_strictly_equal(x: &Self, y: &Self) -> ThrowCompletionOr<bool> {
         // 1. If Type(x) is not Type(y), return false.
@@ -114,6 +132,82 @@ impl Value {
 
         // 3. Return SameValueNonNumber(x, y).
         Ok(Self::same_value_non_number(x, y))
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-islessthan>
+    pub fn is_less_than(x: &Self, y: &Self, left_first: LeftFirst) -> ThrowCompletionOr<Value> {
+        // 1. If LeftFirst is true, then
+        let px;
+        let py;
+        if left_first == LeftFirst::Yes {
+            // a. Let px be ? ToPrimitive(x, number).
+            px = x.to_primitive(Some(PreferredType::Number))?;
+
+            // b. Let py be ? ToPrimitive(y, number).
+            py = y.to_primitive(Some(PreferredType::Number))?;
+        }
+        // 2. Else,
+        else {
+            // a. NOTE: The order of evaluation needs to be reversed to preserve left to right evaluation.
+            // b. Let py be ? ToPrimitive(y, number).
+            py = y.to_primitive(Some(PreferredType::Number))?;
+
+            // c. Let px be ? ToPrimitive(x, number).
+            px = x.to_primitive(Some(PreferredType::Number))?;
+        }
+
+        // 3. If px is a String and py is a String, then
+        if let (Some(px), Some(py)) = (px.as_string(), py.as_string()) {
+            // a. Let lx be the length of px.
+            let lx = px.len();
+
+            // b. Let ly be the length of py.
+            let ly = py.len();
+
+            // c. For each integer i such that 0 ≤ i < min(lx, ly), in ascending order, do
+            //    i. Let cx be the numeric value of the code unit at index i within px.
+            //    ii. Let cy be the numeric value of the code unit at index i within py.
+            for (cx, cy) in px.chars().zip(py.chars()) {
+                // iii. If cx < cy, return true.
+                if cx < cy {
+                    return Ok(true.into());
+                }
+
+                // iv. If cx > cy, return false.
+                if cx > cy {
+                    return Ok(false.into());
+                }
+            }
+
+            // d. If lx < ly, return true. Otherwise, return false.
+            return Ok((lx < ly).into());
+        }
+        // 4. Else,
+        else {
+            // a. FIXME: If px is a BigInt and py is a String, then
+            // b. FIXME: If px is a String and py is a BigInt, then
+            // c. NOTE: Because px and py are primitive values, evaluation order is not important.
+            // d. Let nx be ? ToNumeric(px).
+            let nx = px.to_numeric()?;
+
+            // e. Let ny be ? ToNumeric(py).
+            let ny = py.to_numeric()?;
+
+            // f. If Type(nx) is Type(ny), then
+            match (nx, ny) {
+                // i. If nx is a Number, then
+                (Self::Number(nx), Self::Number(ny)) => {
+                    // 1. Return Number::lessThan(nx, ny).
+                    return Ok(Number::less_than(nx, ny));
+                },
+                (Self::BigInt, Self::BigInt) => {
+                    todo!();
+                },
+                _ => {
+                    todo!("mixed bigint/number comparison")
+                },
+            }
+        }
     }
 
     /// <https://262.ecma-international.org/#sec-samevaluenonnumber>
