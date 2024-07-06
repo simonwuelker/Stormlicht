@@ -19,6 +19,17 @@ impl Number {
         self.0.is_nan()
     }
 
+    /// Returns `true`` if this value is positive infinity or negative infinity, and `false`` otherwise.
+    #[must_use]
+    pub fn is_infinite(&self) -> bool {
+        self.0.is_infinite()
+    }
+
+    #[must_use]
+    pub fn is_zero(&self) -> bool {
+        self.0 == 0. || self.0 == -0.
+    }
+
     /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-tostring>
     #[must_use]
     pub fn to_string(&self, base: u8) -> String {
