@@ -1,5 +1,5 @@
 use sl_std::{
-    ascii,
+    ascii::{self, AsciiCharExt},
     chars::{ReversibleCharIterator, State},
 };
 
@@ -12,13 +12,19 @@ use crate::{
         is_query_percent_encode_set, is_special_query_percent_encode_set,
         is_userinfo_percent_encode_set, percent_encode,
     },
-    util, ValidationError, ValidationErrorHandler, URL,
+    set::AsciiSet,
+    util::{self, is_url_codepoint},
+    ValidationError, ValidationErrorHandler, URL,
 };
 
 #[derive(Clone, Copy, Debug)]
 pub enum Error {
     /// Generic Error
     Failure,
+
+    InvalidScheme,
+
+    MissingSchemeNonRelativeURL,
 
     /// Failed to parse host
     HostParse(HostParseError),
@@ -66,6 +72,11 @@ pub(crate) struct URLParser<'a, H> {
     pub error_handler: H,
 }
 
+const SCHEME_CODE_POINTS: AsciiSet = AsciiSet::ALPHANUMERIC
+    .add(ascii::Char::PlusSign)
+    .add(ascii::Char::HyphenMinus)
+    .add(ascii::Char::FullStop);
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum StartOver {
     Yes,
@@ -105,212 +116,248 @@ where
         self.state = new_state;
     }
 
+    /// Parse the scheme of a URL
+    ///
+    /// * <https://url.spec.whatwg.org/#scheme-start-state>
+    /// * <https://url.spec.whatwg.org/#scheme-state>
+    fn parse_scheme(&mut self) -> Result<bool, Error> {
+        // First character must be a valid scheme char
+        if !self
+            .input
+            .current()
+            .is_some_and(|c| c.is_ascii_alphabetic())
+        {
+            return Err(Error::InvalidScheme);
+        }
+
+        while let Some(c) = self.input.next() {
+            if let Some(c) = c.as_ascii()
+                && SCHEME_CODE_POINTS.contains(c)
+            {
+                self.url.serialization.push(c.to_lowercase());
+            } else if c == ':' {
+                // Set url’s scheme to buffer.
+                self.url.scheme_end = self.url.serialization.len();
+                self.url.serialization.push(ascii::Char::Colon);
+            }
+        }
+
+        // EOF before scheme end -> no scheme
+        Ok(false)
+    }
+
+    /// <https://url.spec.whatwg.org/#no-scheme-state>
+    fn parse_no_scheme(&mut self, base: Option<&URL>) -> Result<(), Error> {
+        let Some(base) = base else {
+            self.error_handler
+                .validation_error(ValidationError::MissingSchemeNonRelativeURL);
+
+            return Err(Error::MissingSchemeNonRelativeURL);
+        };
+
+        if base.has_opaque_path() {
+            if self.input.current() == Some('#') {
+                // This URL only contains a fragment
+                self.parse_fragment_only(&base)?;
+            } else {
+                self.error_handler
+                    .validation_error(ValidationError::MissingSchemeNonRelativeURL);
+
+                return Err(Error::MissingSchemeNonRelativeURL);
+            }
+        }
+
+        if base.scheme() == "file" {
+            self.parse_file(Some(base))
+        } else {
+            self.parse_relative()
+        }
+    }
+
+    fn parse_fragment_only(&mut self, base: &URL) -> Result<(), Error> {
+        let base_up_until_fragment = match base.fragment_start {
+            Some(offset) => &base.serialization[..offset],
+            None => &base.serialization,
+        };
+
+        self.url.serialization.clear();
+        self.url.serialization.push_str(base_up_until_fragment);
+        self.parse_fragment()
+    }
+
+    /// https://url.spec.whatwg.org/#file-state
+    fn parse_file(&mut self, base: Option<&URL>) -> Result<(), Error> {
+        self.url.serialization.clear(); // Everyone copies stuff into here anyways
+        let base = base.filter(|url| url.scheme() == "file");
+
+        if self.input.remaining().starts_with("//") {
+            self.error_handler
+                .validation_error(ValidationError::SpecialSchemeMissingFollowingSolidus);
+        }
+
+        if matches!(self.input.current(), Some('/' | '\\')) {
+            if self.input.current() == Some('\\') {
+                self.error_handler
+                    .validation_error(ValidationError::InvalidReverseSolidus);
+            }
+            self.input.next();
+
+            // File slash state
+            if matches!(self.input.current(), Some('/' | '\\')) {
+                if self.input.current() == Some('\\') {
+                    self.error_handler
+                        .validation_error(ValidationError::InvalidReverseSolidus);
+                }
+                self.input.next();
+
+                return self.parse_file_host();
+            } else {
+                if let Some(base) = base {
+                    // Copy everything up to the host
+                    let host_str = &base.serialization[..base.path_start];
+                    self.url.serialization.push_str(host_str);
+
+                    // Windows drive letter quirk
+                    if let Some(first_segment) = base.path_segments() {
+                        todo!()
+                    }
+                }
+
+                return self.parse_path();
+            }
+        }
+
+        if let Some(base) = base {
+            // Copy everything up to the query
+            todo!()
+        }
+
+        self.parse_path()
+    }
+
+    /// <https://url.spec.whatwg.org/#path-state>
+    fn parse_path(&mut self) -> Result<(), Error> {
+        let allow_backslash = self.url.is_special();
+
+        while let Some(c) = self.input.next() {
+            match c {
+                '?' => return self.parse_query(),
+                '#' => return self.parse_query(),
+                '/' => {
+                    todo!();
+                },
+                '\\' if allow_backslash => {
+                    self.error_handler
+                        .validation_error(ValidationError::InvalidReverseSolidus);
+                },
+                other => {},
+            }
+        }
+
+        Ok(())
+    }
+
+    /// <https://url.spec.whatwg.org/#cannot-be-a-base-url-path-state>
+    fn parse_opaque_path(&mut self) -> Result<(), Error> {
+        while let Some(c) = self.input.next() {
+            match c {
+                '?' => return self.parse_query(),
+                '#' => return self.parse_fragment(),
+                _ => {
+                    let mut buffer = [0; 4];
+                    c.encode_utf8(&mut buffer);
+                    percent_encode(
+                        &buffer[..c.len_utf8()],
+                        is_c0_percent_encode_set,
+                        &mut self.url.serialization,
+                    );
+                },
+            }
+        }
+
+        Ok(())
+    }
+
+    /// <https://url.spec.whatwg.org/#query-state>
+    fn parse_query(&mut self) -> Result<(), Error> {
+        self.url.serialization.push(ascii::Char::QuestionMark);
+        self.url.query_start = Some(self.url.serialization.len());
+
+        let query_start = self.input.position();
+        let has_fragment = self.input.find(|&c| c == '#').is_some();
+
+        let query_slice = &self.input.source()[query_start..self.input.position()];
+
+        let encode_set = if self.url.is_special() {
+            is_special_query_percent_encode_set
+        } else {
+            is_query_percent_encode_set
+        };
+        percent_encode(
+            query_slice.as_bytes(),
+            encode_set,
+            &mut self.url.serialization,
+        );
+
+        if has_fragment {
+            self.parse_fragment()?;
+        }
+
+        Ok(())
+    }
+
+    /// <https://url.spec.whatwg.org/#fragment-state>
+    fn parse_fragment(&mut self) -> Result<(), Error> {
+        self.url.serialization.push(ascii::Char::NumberSign);
+        self.url.fragment_start = Some(self.url.serialization.len());
+
+        while let Some(c) = self.input.next() {
+            if !is_url_codepoint(c) && c != '%' {
+                self.error_handler
+                    .validation_error(ValidationError::InvalidURLUnit);
+            }
+
+            // FIXME: If c is U+0025 (%) and remaining does not start with two ASCII hex digits, invalid-URL-unit validation error.
+
+            let mut buffer = [0; 4];
+            c.encode_utf8(&mut buffer);
+            percent_encode(
+                &buffer[..c.len_utf8()],
+                is_fragment_percent_encode_set,
+                &mut self.url.serialization,
+            );
+        }
+
+        // Done
+        Ok(())
+    }
+
+    /// <https://url.spec.whatwg.org/#relative-state>
+    fn parse_relative(&mut self) -> Result<(), Error> {
+        todo!()
+    }
+
+    /// <https://url.spec.whatwg.org/#concept-basic-url-parser>
+    fn parse_complete(&mut self) -> Result<(), Error> {
+        let has_scheme = self.parse_scheme()?;
+        if has_scheme {
+            match self.url.scheme().as_str() {
+                "file" => self.parse_file(),
+                "ftp" | "http" | "https" | "ws" | "wss" => {
+                    // "special authority slashes" or "special relative or authority state"
+                    todo!()
+                },
+                _ => todo!(),
+            }
+        } else {
+            // Start over without a scheme
+            self.input.set_position(0);
+            self.parse_no_scheme()
+        }
+    }
+
     fn step(&mut self) -> Result<StartOver, Error> {
         match self.state {
-            // https://url.spec.whatwg.org/#scheme-start-state
-            URLParserState::SchemeStart => {
-                // If c is an ASCII alpha,
-                if let Some(c) = self.input.current()
-                    && c.is_ascii_alphabetic()
-                {
-                    // Append c, lowercased, to buffer,
-                    self.buffer.push(c.to_ascii_lowercase());
-
-                    // and set state to scheme state.
-                    self.set_state(URLParserState::Scheme);
-                }
-                // Otherwise, if state override is not given
-                else if self.state_override.is_none() {
-                    // Set state to no scheme state
-                    self.set_state(URLParserState::NoScheme);
-
-                    // and decrease pointer by 1.
-                    self.input.go_back();
-                }
-                // Otherwise,
-                else {
-                    // return failure.
-                    return Err(Error::Failure);
-                }
-            },
-            // https://url.spec.whatwg.org/#scheme-state
-            URLParserState::Scheme => {
-                let c = self.input.current();
-
-                // If c is an ASCII alphanumeric, U+002B (+), U+002D (-), or U+002E (.),
-                if let Some(c) = c
-                    && matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '+' | '-' | '.')
-                {
-                    // Append c, lowercased, to buffer
-                    self.buffer.push(c.to_ascii_lowercase());
-                }
-                // Otherwise, if c is U+003A (:), then:
-                else if c == Some(':') {
-                    // If state override is given, then:
-                    if self.state_override.is_some() {
-                        // If url’s scheme is a special scheme and buffer is not a special scheme
-                        if self.url.is_special() && !is_special_scheme(&self.buffer) {
-                            // then return.
-                            return Ok(StartOver::No);
-                        }
-                        // If url’s scheme is not a special scheme and buffer is a special scheme
-                        if !&self.url.is_special() && is_special_scheme(&self.buffer) {
-                            // then return.
-                            return Ok(StartOver::No);
-                        }
-
-                        // If url includes credentials or has a non-null port, and buffer is "file"
-                        if (self.url.includes_credentials() || self.url.port().is_some())
-                            && self.buffer == "file"
-                        {
-                            // then return.
-                            return Ok(StartOver::No);
-                        }
-
-                        // If url’s scheme is "file" and its host is an empty host
-                        if self.url.scheme == "file" && self.url.host == Some(Host::EmptyHost) {
-                            // then return.
-                            return Ok(StartOver::No);
-                        }
-                    }
-
-                    // Set url’s scheme to buffer.
-                    self.url.scheme = ascii::String::try_from(self.buffer.as_str())
-                        .expect("buffer cannot contain non-ascii data during scheme state");
-
-                    // If state override is given, then:
-                    if self.state_override.is_some() {
-                        // If url’s port is url’s scheme’s default port
-                        if self.url.port == default_port_for_scheme(&self.url.scheme) {
-                            // then set url’s port to null.
-                            self.url.port = None;
-                        }
-
-                        // Return.
-                        return Ok(StartOver::No);
-                    }
-
-                    // Set buffer to the empty string.
-                    self.buffer.clear();
-
-                    // If url’s scheme is "file", then:
-                    if self.url.scheme == "file" {
-                        // If remaining does not start with "//"
-                        if !self.input.remaining().starts_with("//") {
-                            // special-scheme-missing-following-solidus validation error.
-                            self.error_handler.validation_error(
-                                ValidationError::SpecialSchemeMissingFollowingSolidus,
-                            );
-                        }
-
-                        // Set state to file state.
-                        self.set_state(URLParserState::File);
-                    }
-                    // Otherwise, if url is special, base is non-null, and base’s scheme is url’s scheme:
-                    else if self.url.is_special()
-                        && self
-                            .base
-                            .as_ref()
-                            .map(URL::scheme)
-                            .is_some_and(|scheme| scheme == self.url.scheme())
-                    {
-                        // Assert: base is is special (and therefore does not have an opaque path).
-                        assert!(self.base.as_ref().is_some_and(URL::is_special));
-
-                        // Set state to special relative or authority state.
-                        self.set_state(URLParserState::SpecialRelativeOrAuthority);
-                    }
-                    // Otherwise, if url is special
-                    else if self.url.is_special() {
-                        // set state to special authority slashes state.
-                        self.set_state(URLParserState::SpecialAuthoritySlashes);
-                    }
-                    // Otherwise, if remaining starts with an U+002F (/)
-                    else if self.input.remaining().starts_with('/') {
-                        // set state to path or authority state and increase pointer by 1.
-                        self.set_state(URLParserState::PathOrAuthority);
-                        self.input.next();
-                    }
-                    // Otherwise,
-                    else {
-                        // set url’s path to the empty string
-                        self.url.path = vec![ascii::String::new()];
-
-                        // and set state to opaque path state.
-                        self.set_state(URLParserState::OpaquePath);
-                    }
-                }
-                // Otherwise, if state override is not given
-                else if self.state_override.is_none() {
-                    // set buffer to the empty string,
-                    self.buffer.clear();
-
-                    // state to no scheme state,
-                    self.set_state(URLParserState::NoScheme);
-
-                    // and start over (from the first code point in input).
-                    return Ok(StartOver::Yes);
-                }
-                // Otherwise,
-                else {
-                    // return failure.
-                    return Err(Error::Failure);
-                }
-            },
-            // https://url.spec.whatwg.org/#no-scheme-state
-            URLParserState::NoScheme => {
-                let c = self.input.current();
-
-                // If base is null, or base has an opaque path and c is not U+0023 (#),
-                if self.base.is_none()
-                    || (self.base.as_ref().is_some_and(URL::has_opaque_path) && c != Some('#'))
-                {
-                    // missing-scheme-non-relative-URL validation error
-                    self.error_handler
-                        .validation_error(ValidationError::MissingSchemeNonRelativeURL);
-
-                    // return failure.
-                    return Err(Error::Failure);
-                }
-                let base = self
-                    .base
-                    .as_ref()
-                    .expect("if base is none then we returned a validation error earlier");
-
-                // Otherwise, if base has an opaque path and c is U+0023 (#)
-                if base.has_opaque_path() && c == Some('#') {
-                    // set url’s scheme to base’s scheme,
-                    self.url.scheme.clone_from(&base.scheme);
-
-                    // url’s path to base’s path,
-                    self.url.path.clone_from(&base.path);
-
-                    // url’s query to base’s query,
-                    self.url.query.clone_from(&base.query);
-
-                    // url’s fragment to the empty string,
-                    self.url.fragment = Some(ascii::String::new());
-
-                    // and set state to fragment state.
-                    self.set_state(URLParserState::Fragment);
-                }
-                // Otherwise, if base’s scheme is not "file"
-                else if base.scheme != "file" {
-                    // set state to relative state
-                    self.set_state(URLParserState::Relative);
-
-                    // and decrease pointer by 1.
-                    self.input.go_back();
-                }
-                // Otherwise,
-                else {
-                    // set state to file state
-                    self.set_state(URLParserState::File);
-
-                    // and decrease pointer by 1.
-                    self.input.go_back();
-                }
-            },
             // https://url.spec.whatwg.org/#special-relative-or-authority-state
             URLParserState::SpecialRelativeOrAuthority => {
                 // If c is U+002F (/) and remaining starts with U+002F (/)
@@ -354,12 +401,14 @@ where
             URLParserState::Relative => {
                 // Assert: base’s scheme is not "file".
                 let base = match &self.base {
-                    Some(url) if url.scheme != "file" => url,
+                    Some(url) if url.scheme() != "file" => url,
                     _ => panic!("base must exist and have a scheme other than none"),
                 };
 
                 // Set url’s scheme to base’s scheme.
-                self.url.scheme = base.scheme.clone();
+                self.url.serialization.clear();
+                self.url.serialization.push_str(base.scheme());
+                self.url.scheme_end = self.url.serialization.len();
 
                 let c = self.input.current();
                 // If c is U+002F (/)
@@ -379,27 +428,20 @@ where
                 // Otherwise:
                 else {
                     // Set url’s username to base’s username
-                    self.url.username.clone_from(&base.username);
-
                     // url’s password to base’s password
-                    self.url.password.clone_from(&base.password);
-
                     // url’s host to base’s host
-                    self.url.host.clone_from(&base.host);
-
                     // url’s port to base’s port
-                    self.url.port.clone_from(&base.port);
-
                     // url’s path to a clone of base’s path
-                    self.url.path.clone_from(&base.path);
-
                     // and url’s query to base’s query.
-                    self.url.query.clone_from(&base.query);
+                    self.url.serialization.clear();
+                    self.url
+                        .serialization
+                        .push_str(base.serialization[base.quer]);
 
                     // If c is U+003F (?)
                     if c == Some('?') {
                         // then set url’s query to the empty string,
-                        self.url.query = Some(ascii::String::new());
+                        self.url.query_start = self.url.serialization.len();
 
                         // and state to query state.
                         self.set_state(URLParserState::Query);
@@ -407,7 +449,7 @@ where
                     // Otherwise, if c is U+0023 (#)
                     else if c == Some('#') {
                         // set url’s fragment to the empty string
-                        self.url.fragment = Some(ascii::String::new());
+                        self.url.fragment_start = self.url.serialization.len();
 
                         // and state to fragment state.
                         self.set_state(URLParserState::Fragment);
@@ -590,7 +632,7 @@ where
             URLParserState::Host | URLParserState::Hostname => {
                 let c = self.input.current();
                 // If state override is given and url’s scheme is "file"
-                if self.state_override.is_some() && self.url.scheme == "file" {
+                if self.state_override.is_some() && self.url.scheme() == "file" {
                     // then decrease pointer by 1
                     self.input.go_back();
 
@@ -743,7 +785,7 @@ where
                         };
 
                         // Set url’s port to null, if port is url’s scheme’s default port; otherwise to port.
-                        if default_port_for_scheme(&self.url.scheme) == Some(port) {
+                        if default_port_for_scheme(&self.url.scheme()) == Some(port) {
                             self.url.port = None;
                         } else {
                             self.url.port = Some(port);
@@ -778,13 +820,13 @@ where
             // https://url.spec.whatwg.org/#file-state
             URLParserState::File => {
                 // Set url’s scheme to "file".
-                self.url.scheme = "file"
-                    .to_string()
-                    .try_into()
-                    .expect("\"file\" is valid ascii");
+                self.url.serialization = "file".try_into().expect("\"file\" is valid ascii");
+                self.url.scheme_end = self.url.serialization.len();
 
                 // Set url’s host to the empty string.
-                self.url.host = Some(Host::OpaqueHost(ascii::String::default()));
+                self.url.host_start = self.url.serialization.len();
+                self.url.username_start = self.url.serialization.len();
+                self.url.self.url.host = Some(Host::OpaqueHost(ascii::String::default()));
 
                 // If c is U+002F (/) or U+005C (\), then:
                 let c = self.input.current();
@@ -801,7 +843,7 @@ where
                 }
                 // Otherwise, if base is non-null and base’s scheme is "file":
                 else if let Some(base) = &self.base
-                    && base.scheme == "file"
+                    && base.scheme() == "file"
                 {
                     // Set url’s host to base’s host,
                     self.url.host.clone_from(&base.host);
@@ -815,7 +857,8 @@ where
                     // If c is U+003F (?)
                     if c == Some('?') {
                         // then set url’s query to the empty string
-                        self.url.query = Some(ascii::String::new());
+                        self.url.serialization.push(ascii::Char::QuestionMark);
+                        self.url.query_start = self.url.serialization.len();
 
                         // and state to query state.
                         self.set_state(URLParserState::Query);
@@ -823,7 +866,8 @@ where
                     // Otherwise, if c is U+0023 (#)
                     else if c == Some('#') {
                         // set url’s fragment to the empty string
-                        self.url.fragment = Some(ascii::String::new());
+                        self.url.serialization.push(ascii::Char::NumberSign);
+                        self.url.fragment_start = self.url.serialization.len();
 
                         // and state to fragment state.
                         self.set_state(URLParserState::Fragment);
@@ -846,7 +890,7 @@ where
                                 .validation_error(ValidationError::FileInvalidWindowsDriveLetter);
 
                             // Set url’s path to an empty list.
-                            self.url.path = vec![];
+                            self.url.serialization.truncate(self.url.path_start);
                         }
 
                         // Set state to path state
@@ -884,7 +928,7 @@ where
                 else {
                     // If base is non-null and base’s scheme is "file", then:
                     if let Some(base) = &self.base
-                        && base.scheme == "file"
+                        && base.scheme() == "file"
                     {
                         // Set url’s host to base’s host.
                         self.url.host.clone_from(&base.host);
@@ -1004,7 +1048,8 @@ where
                 // Otherwise, if state override is not given and c is U+003F (?)
                 else if self.state_override.is_none() && c == Some('?') {
                     // set url’s query to the empty string
-                    self.url.query = Some(ascii::String::new());
+                    self.url.serialization.push(ascii::Char::QuestionMark);
+                    self.url.query_start = self.url.serialization.len();
 
                     // and state to query state.
                     self.set_state(URLParserState::Query);
@@ -1012,7 +1057,8 @@ where
                 // Otherwise, if state override is not given and c is U+0023 (#)
                 else if self.state_override.is_none() && c == Some('#') {
                     // set url’s fragment to the empty string
-                    self.url.fragment = Some(ascii::String::new());
+                    self.url.serialization.push(ascii::Char::NumberSign);
+                    self.url.fragment_start = self.url.serialization.len();
 
                     // and state to fragment state.
                     self.set_state(URLParserState::Fragment);
@@ -1031,7 +1077,7 @@ where
                 // Otherwise, if state override is given and url’s host is null,
                 else if self.state_override.is_some() && self.url.host.is_none() {
                     // append the empty string to url’s path.
-                    self.url.path.push(ascii::String::new());
+                    self.url.serialization.push(ascii::Char::Solidus);
                 }
             },
             // https://url.spec.whatwg.org/#path-state
@@ -1061,7 +1107,7 @@ where
                         // If neither c is U+002F (/), nor url is special and c is U+005C (\)
                         if c != Some('/') && !(self.url.is_special() && c == Some('\\')) {
                             // append the empty string to url’s path.
-                            self.url.path.push(ascii::String::new());
+                            self.url.serialization.push(ascii::Char::Solidus)
                         }
                     }
                     // Otherwise, if buffer is a single-dot path segment
@@ -1071,12 +1117,12 @@ where
                         && !(self.url.is_special() && c == Some('\\'))
                     {
                         // append the empty string to url’s path.
-                        self.url.path.push(ascii::String::new());
+                        self.url.serialization.push(ascii::Char::Solidus)
                     }
                     // Otherwise, if buffer is not a single-dot path segment, then:
                     else if !util::is_single_dot_path_segment(&self.buffer) {
                         // If url’s scheme is "file", url’s path is empty, and buffer is a Windows drive letter
-                        if self.url.scheme == "file"
+                        if self.url.scheme() == "file"
                             && self.url.path.is_empty()
                             && util::is_windows_drive_letter(&self.buffer)
                         {
@@ -1106,7 +1152,8 @@ where
                     // If c is U+003F (?)
                     if c == Some('?') {
                         // then set url’s query to the empty string
-                        self.url.query = Some(ascii::String::new());
+                        self.url.serialization.push(ascii::Char::QuestionMark);
+                        self.url.query_start = self.url.serialization.len();
 
                         // and state to query state.
                         self.set_state(URLParserState::Query);
@@ -1115,7 +1162,9 @@ where
                     // If c is U+0023 (#)
                     if c == Some('#') {
                         // then set url’s fragment to the empty string
-                        self.url.fragment = Some(ascii::String::new());
+                        self.url.query_start = self.url.serialization.len();
+                        self.url.serialization.push(ascii::Char::NumberSign);
+                        self.url.fragment_start = self.url.serialization.len();
 
                         // and state to fragment state.
                         self.set_state(URLParserState::Fragment);
@@ -1158,173 +1207,30 @@ where
                     );
                 }
             },
-            // https://url.spec.whatwg.org/#cannot-be-a-base-url-path-state
-            URLParserState::OpaquePath => {
-                let c = self.input.current();
-
-                // If c is U+003F (?)
-                if c == Some('?') {
-                    //  then set url’s query to the empty string
-                    self.url.query = Some(ascii::String::new());
-
-                    // and state to query state.
-                    self.set_state(URLParserState::Query);
-                }
-                // Otherwise, if c is U+0023 (#)
-                else if c == Some('#') {
-                    // then set url’s fragment to the empty string
-                    self.url.fragment = Some(ascii::String::new());
-
-                    // and state to fragment state.
-                    self.set_state(URLParserState::Fragment);
-                }
-                // Otherwise:
-                else {
-                    // If c is not the EOF code point, not a URL code point, and not U+0025 (%)
-                    if c.is_some() && !c.is_some_and(|c| c == '%' || util::is_url_codepoint(c)) {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
-                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits
-                    // NOTE: technically this check is incorrect as remaining() could have less than two characters
-                    //       But there's probably more important issues to worry about...
-                    if c == Some('%')
-                        && self
-                            .input
-                            .remaining()
-                            .chars()
-                            .take(2)
-                            .all(|c| c.is_ascii_hexdigit())
-                    {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
-                    // If c is not the EOF code point
-                    if let Some(c) = c {
-                        //  UTF-8 percent-encode c using the C0 control percent-encode set and append the result to url’s path.
-                        let mut buffer = [0; 4];
-                        c.encode_utf8(&mut buffer);
-                        percent_encode(
-                            &buffer[..c.len_utf8()],
-                            is_c0_percent_encode_set,
-                            &mut self.url.path[0],
-                        );
-                    }
-                }
-            },
-            // https://url.spec.whatwg.org/#query-state
-            URLParserState::Query => {
-                // If encoding is not UTF-8 and one of the following is true:
-                // * url is not special
-                // * url’s scheme is "ws" or "wss"
-                // NOTE: We don't support non-utf8 encoding
-
-                // If one of the following is true:
-                // * state override is not given and c is U+0023 (#)
-                // * c is the EOF code point
-                let c = self.input.current();
-                if (self.state_override.is_none() && c == Some('#')) || c.is_none() {
-                    // Let queryPercentEncodeSet be the special-query percent-encode set
-                    // if url is special; otherwise the query percent-encode set.
-                    let query_percent_encode_set = if self.url.is_special() {
-                        is_special_query_percent_encode_set
-                    } else {
-                        is_query_percent_encode_set
-                    };
-
-                    // Percent-encode after encoding, with encoding, buffer, and queryPercentEncodeSet,
-                    // and append the result to url’s query.
-                    let query = self.url.query.get_or_insert_default();
-                    percent_encode(self.buffer.as_bytes(), query_percent_encode_set, query);
-
-                    // Set buffer to the empty string.
-                    self.buffer.clear();
-
-                    // If c is U+0023 (#),
-                    if c == Some('#') {
-                        // then set url’s fragment to the empty string
-                        self.url.fragment = Some(ascii::String::new());
-
-                        // and state to fragment state.
-                        self.set_state(URLParserState::Fragment);
-                    }
-                }
-                // Otherwise, if c is not the EOF code point:
-                else if let Some(c) = c {
-                    // If c is not a URL code point and not U+0025 (%)
-                    if c != '%' && !util::is_url_codepoint(c) {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
-                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits
-                    // NOTE: technically this check is incorrect as remaining() could have less than two characters
-                    //       But there's probably more important issues to worry about...
-                    if c == '%'
-                        && self
-                            .input
-                            .remaining()
-                            .chars()
-                            .take(2)
-                            .all(|c| c.is_ascii_hexdigit())
-                    {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
-                    // Append c to buffer.
-                    self.buffer.push(c)
-                };
-            },
-
-            // https://url.spec.whatwg.org/#fragment-state
-            URLParserState::Fragment => {
-                // If c is not the EOF code point, then:
-                if let Some(c) = self.input.current() {
-                    // If c is not a URL code point and not U+0025 (%)
-                    if c != '%' && !util::is_url_codepoint(c) {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
-                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits
-                    // NOTE: technically this check is incorrect as remaining() could have less than two characters
-                    //       But there's probably more important issues to worry about...
-                    if c == '%'
-                        && self
-                            .input
-                            .remaining()
-                            .chars()
-                            .take(2)
-                            .all(|c| c.is_ascii_hexdigit())
-                    {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
-                    // UTF-8 percent-encode c using the fragment percent-encode set
-                    // and append the result to url’s fragment.
-                    let fragment = self.url.fragment.get_or_insert_default();
-
-                    let mut buffer = [0; 4];
-                    c.encode_utf8(&mut buffer);
-                    percent_encode(
-                        &buffer[..c.len_utf8()],
-                        is_fragment_percent_encode_set,
-                        fragment,
-                    );
-                }
-            },
         }
         Ok(StartOver::No)
+    }
+
+    /// [Specification](https://url.spec.whatwg.org/#shorten-a-urls-path)
+    ///
+    /// This implementation assumes that no query/fragment exist (yet)
+    pub(crate) fn shorten_path(&mut self) {
+        debug_assert!(!self.url.has_opaque_path());
+
+        // If path's size is not 1 then it contains and therefore cannot be a windows drive letter
+        if self.url.scheme() == "file"
+            && util::is_normalized_windows_drive_letter(self.url.path().as_str())
+        {
+            return;
+        }
+
+        if self.url.path_start == self.url.serialization.len() {
+            return; // Path is empty
+        }
+
+        if let Some(last_path_segment) = self.url.serialization.rfind(ascii::Char::Solidus) {
+            self.url.serialization.truncate(last_path_segment)
+        }
     }
 }
 

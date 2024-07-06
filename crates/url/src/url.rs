@@ -36,50 +36,45 @@ pub(crate) fn default_port_for_scheme(scheme: &ascii::Str) -> Option<Port> {
 /// A **U**niform **R**esource **L**ocator
 ///
 /// [Specification](https://url.spec.whatwg.org/#concept-url)
+///
+/// # Segments
+/// A url typically consists of the following segments:
+/// ```text, ignore
+/// https://username:password@example.com/foobar?foo=bar#baz               
+/// │       │        │        │           │      │       │                 
+/// └───────┼────────┼────────┼───────────┼──────┼───────┼─► Scheme start  
+///         │        │        │           │      │       │                 
+///         └────────┼────────┼───────────┼──────┼───────┼─► Username start
+///                  │        │           │      │       │                 
+///                  └────────┼───────────┼──────┼───────┼─► Password start
+///                           │           │      │       │                 
+///                           └───────────┼──────┼───────┼─► Host start    
+///                                       │      │       │                 
+///                                       └──────┼───────┼─► Path start    
+///                                              │       │                 
+///                                              └───────┼─► Query start   
+///                                                      │                 
+///                                                      └─► Fragment start
+/// ```
 #[cfg_attr(
     feature = "serialize",
     derive(serialize::Serialize, serialize::Deserialize)
 )]
 #[derive(Default, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct URL {
-    /// A [URL]’s scheme is an ASCII string that identifies the type of URL
-    /// and can be used to dispatch a URL for further processing after parsing.
-    /// It is initially the empty string.
-    pub(crate) scheme: ascii::String,
-
-    /// A [URL]’s username is an ASCII string identifying a username.
-    /// It is initially the empty string.
-    pub(crate) username: ascii::String,
-
-    /// A [URL]’s password is an ASCII string identifying a password.
-    /// It is initially the empty string.
-    pub(crate) password: ascii::String,
-
-    /// A [URL]’s host is [None] or a [host](Host).
-    ///
-    /// It is initially [None].
+    pub(crate) port: Option<u16>,
     pub(crate) host: Option<Host>,
 
-    /// A [URL]’s port is either [None] or a 16-bit unsigned integer that identifies a networking port.
-    ///
-    /// It is initially [None].
-    pub(crate) port: Option<Port>,
+    /// The serialized URL, stored for efficiency
+    pub(crate) serialization: ascii::String,
 
-    /// A [URL]’s path is either a URL path segment or a list of zero or more URL path segments,
-    ///
-    /// usually identifying a location. It is initially « ».
-    pub(crate) path: Vec<ascii::String>,
-
-    /// A [URL]’s query is either [None] or an ASCII string.
-    ///
-    /// It is initially [None].
-    pub(crate) query: Option<ascii::String>,
-
-    /// A URL’s fragment is either [None] or an ASCII string
-    /// that can be used for further processing on the resource the URL’s other components identify.
-    ///
-    /// It is initially [None].
-    pub(crate) fragment: Option<ascii::String>,
+    pub(crate) scheme_end: usize,
+    pub(crate) username_start: usize,
+    pub(crate) password_start: usize,
+    pub(crate) host_start: usize,
+    pub(crate) path_start: usize,
+    pub(crate) query_start: Option<usize>,
+    pub(crate) fragment_start: Option<usize>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -98,31 +93,33 @@ impl URL {
     #[inline]
     #[must_use]
     pub fn is_special(&self) -> bool {
-        is_special_scheme(self.scheme.as_str())
+        is_special_scheme(self.scheme().as_str())
     }
 
     #[inline]
     #[must_use]
     pub fn default_port(&self) -> Option<Port> {
-        default_port_for_scheme(&self.scheme)
+        default_port_for_scheme(&self.scheme())
     }
 
+    /// A [URL]’s scheme is an ASCII string that identifies the type of URL
+    /// and can be used to dispatch a URL for further processing after parsing.
     #[inline]
     #[must_use]
     pub fn scheme(&self) -> &ascii::Str {
-        &self.scheme
+        &self.serialization[..self.scheme_end]
     }
 
     #[inline]
     #[must_use]
     pub fn username(&self) -> &ascii::Str {
-        &self.username
+        &self.serialization[self.username_start..self.password_start - 1]
     }
 
     #[inline]
     #[must_use]
     pub fn password(&self) -> &ascii::Str {
-        &self.password
+        &self.serialization[self.password_start..self.host_start - 1]
     }
 
     #[inline]
@@ -139,20 +136,28 @@ impl URL {
 
     #[inline]
     #[must_use]
-    pub fn path(&self) -> &[ascii::String] {
-        &self.path
+    pub fn path(&self) -> &ascii::Str {
+        let path_end = self
+            .query_start
+            .or(self.fragment_start)
+            .unwrap_or(self.serialization.len());
+        &self.serialization[self.path_start..path_end]
     }
 
     #[inline]
     #[must_use]
     pub fn query(&self) -> Option<&ascii::Str> {
-        self.query.as_deref()
+        let query_start = self.query_start?;
+        let query_end = self.fragment_start.unwrap_or(self.serialization.len());
+
+        Some(&self.serialization[query_start..query_end])
     }
 
     #[inline]
     #[must_use]
     pub fn fragment(&self) -> Option<&ascii::Str> {
-        self.fragment.as_deref()
+        self.fragment_start
+            .map(|start| &self.serialization[start..])
     }
 
     pub fn from_user_input(input: &str) -> Result<Self, URLParseError> {
@@ -222,7 +227,8 @@ impl URL {
 
     pub fn cwd() -> Result<Self, io::Error> {
         let cwd = std::env::current_dir()?;
-        let mut path = vec![];
+
+        let mut serialization: ascii::String = "file:///".try_into().expect("is ascii");
         for part in cwd.iter().skip(1) {
             let bytes = part.as_encoded_bytes();
             let Some(ascii_str) = ascii::Str::from_bytes(bytes) else {
@@ -233,26 +239,26 @@ impl URL {
                 return Err(error);
             };
 
-            path.push(ascii_str.to_owned());
+            serialization.push_str(ascii_str);
         }
 
         // Since we are referring to a directory (which ends with a slash)
         // the last path segment is empty
-        path.push(ascii::String::new());
+        serialization.push(ascii::Char::Solidus);
 
-        Ok(Self {
-            scheme: "file"
-                .to_string()
-                .try_into()
-                .expect("\"file\" is valid ascii"),
-            username: ascii::String::new(),
-            password: ascii::String::new(),
-            host: Some(Host::OpaqueHost(ascii::String::default())),
+        let url = Self {
             port: None,
-            path,
-            query: None,
-            fragment: None,
-        })
+            host: None,
+            serialization,
+            scheme_end: 4,
+            username_start: 4,
+            password_start: 4,
+            host_start: 5,
+            path_start: 6,
+            query_start: None,
+            fragment_start: None,
+        };
+        Ok(url)
     }
 
     /// [Specification](https://url.spec.whatwg.org/#concept-basic-url-parser)
@@ -325,7 +331,7 @@ impl URL {
     /// A [URL] includes credentials if its  [username](URL::username) or [password](URL::password) is not the empty string.
     #[must_use]
     pub fn includes_credentials(&self) -> bool {
-        !self.username.is_empty() || !self.password.is_empty()
+        !self.username().is_empty() || !self.password().is_empty()
     }
 
     /// [Specification](https://url.spec.whatwg.org/#url-opaque-path)
@@ -333,111 +339,16 @@ impl URL {
     /// A [URL] has an opaque path if it only consists of a single string
     #[must_use]
     pub fn has_opaque_path(&self) -> bool {
-        self.path.len() == 1
-    }
-
-    /// [Specification](https://url.spec.whatwg.org/#shorten-a-urls-path)
-    pub(crate) fn shorten_path(&mut self) {
-        // Assert: url does not have an opaque path.
-        assert!(!self.has_opaque_path());
-
-        // Let path be url’s path.
-        let path = &mut self.path;
-
-        // If url’s scheme is "file", path’s size is 1, and path[0] is a normalized Windows drive letter,
-        if self.scheme.as_str() == "file"
-            && path.len() == 1
-            && util::is_normalized_windows_drive_letter(path[0].as_str())
-        {
-            // then return.
-            return;
-        }
-
-        // Remove path’s last item, if any.
-        path.pop();
+        self.scheme_end + 1 == self.username_start
     }
 
     /// <https://url.spec.whatwg.org/#url-serializing>
-    pub fn serialize(&self, exclude_fragment: ExcludeFragment) -> String {
-        // 1. Let output be url’s scheme and U+003A (:) concatenated.
-        let mut output = format!("{}:", self.scheme);
-
-        // 2. If url’s host is non-null:
-        if let Some(host) = &self.host {
-            // 1. Append "//" to output.
-            output.push_str("//");
-
-            // 2. If url includes credentials, then:
-            if self.includes_credentials() {
-                // 1. Append url’s username to output.
-                output.push_str(self.username.as_str());
-
-                // 2. If url’s password is not the empty string, then append U+003A (:), followed by url’s password, to output.
-                if !self.password.is_empty() {
-                    output.push(':');
-                    output.push_str(self.password.as_str());
-                }
-
-                // 3. Append U+0040 (@) to output.
-                output.push('@');
-            }
-
-            // 3. Append url’s host, serialized, to output.
-            output.push_str(&host.to_string());
-
-            // 4. If url’s port is non-null, append U+003A (:) followed by url’s port, serialized, to output.
-            if let Some(port) = self.port {
-                output.push_str(&format!(":{port}"));
-            }
-        }
-
-        // 3. If url’s host is null, url does not have an opaque path, url’s path’s size is greater than 1, and url’s path[0] is the empty string, then append U+002F (/) followed by U+002E (.) to output.
-        if self.host.is_none()
-            && !self.has_opaque_path()
-            && self.path.len() > 1
-            && self.path[0].is_empty()
-        {
-            output.push_str("/.");
-        }
-
-        // 4. Append the result of URL path serializing url to output.
-        output.push_str(self.path_serialize().as_str());
-
-        // 5. If url’s query is non-null, append U+003F (?), followed by url’s query, to output.
-        if let Some(query) = &self.query {
-            output.push_str(&format!("?{query}"));
-        }
-
-        // 6. If exclude fragment is false and url’s fragment is non-null, then append U+0023 (#), followed by url’s fragment, to output.
-        if exclude_fragment == ExcludeFragment::No {
-            if let Some(fragment) = &self.fragment {
-                output.push_str(&format!("?{fragment}"));
-            }
-        }
-
-        // 7. Return output.
-        output
-    }
-
-    /// <https://url.spec.whatwg.org/#url-path-serializer>
-    fn path_serialize(&self) -> ascii::String {
-        // If url has an opaque path, then return url’s path.
-        if self.has_opaque_path() {
-            return self.path[0].clone();
-        }
-
-        // Let output be the empty string.
-        // For each segment of url’s path: append U+002F (/) followed by segment to output.
-        // Return output.
-        if !self.path.is_empty() {
-            let mut result = ascii::String::new();
-            for segment in &self.path {
-                result.push(ascii::Char::Solidus);
-                result.push_str(segment);
-            }
-            result
-        } else {
-            ascii::String::new()
+    pub fn serialize(&self, exclude_fragment: ExcludeFragment) -> &ascii::Str {
+        match self.fragment_start {
+            Some(offset) if exclude_fragment == ExcludeFragment::Yes => {
+                &self.serialization[..offset - 1]
+            },
+            _ => &self.serialization,
         }
     }
 }
@@ -487,6 +398,7 @@ impl From<&Path> for URL {
             path: path_segments,
             query: None,
             fragment: None,
+            serialization: todo!(),
         }
     }
 }
@@ -501,9 +413,9 @@ mod tests {
     fn test_simple_url() {
         let url: URL = "https://google.com".parse().unwrap();
 
-        assert_eq!(url.scheme, "https");
-        assert_eq!(url.username, "");
-        assert_eq!(url.password, "");
+        assert_eq!(url.scheme(), "https");
+        assert_eq!(url.username(), "");
+        assert_eq!(url.password(), "");
         assert_eq!(
             url.host,
             Some(Host::OpaqueHost(
@@ -511,17 +423,17 @@ mod tests {
             ))
         );
         assert_eq!(url.path, vec![""]);
-        assert_eq!(url.query, None);
-        assert_eq!(url.fragment, None);
+        assert_eq!(url.query(), None);
+        assert_eq!(url.fragment(), None);
     }
 
     #[test]
     fn test_with_query() {
         let url: URL = "https://google.com?a=b".parse().unwrap();
 
-        assert_eq!(url.scheme, "https");
-        assert_eq!(url.username, "");
-        assert_eq!(url.password, "");
+        assert_eq!(url.scheme(), "https");
+        assert_eq!(url.username(), "");
+        assert_eq!(url.password(), "");
         assert_eq!(
             url.host,
             Some(Host::OpaqueHost(
@@ -529,17 +441,17 @@ mod tests {
             ))
         );
         assert_eq!(url.path, vec![""]);
-        assert_eq!(url.query.as_deref().map(ascii::Str::as_str), Some("a=b"));
-        assert_eq!(url.fragment, None);
+        assert_eq!(url.query().as_deref().map(ascii::Str::as_str), Some("a=b"));
+        assert_eq!(url.fragment(), None);
     }
 
     #[test]
     fn test_with_fragment() {
         let url: URL = "https://google.com#foo".parse().unwrap();
 
-        assert_eq!(url.scheme.as_str(), "https");
-        assert_eq!(url.username.as_str(), "");
-        assert_eq!(url.password.as_str(), "");
+        assert_eq!(url.scheme(), "https");
+        assert_eq!(url.username(), "");
+        assert_eq!(url.password(), "");
         assert_eq!(
             url.host,
             Some(Host::OpaqueHost(
@@ -547,17 +459,20 @@ mod tests {
             ))
         );
         assert_eq!(url.path, vec![ascii::String::new()]);
-        assert_eq!(url.query, None);
-        assert_eq!(url.fragment.as_deref().map(ascii::Str::as_str), Some("foo"));
+        assert_eq!(url.query(), None);
+        assert_eq!(
+            url.fragment().as_deref().map(ascii::Str::as_str),
+            Some("foo")
+        );
     }
 
     #[test]
     fn test_with_credentials() {
         let url: URL = "https://user:password@google.com".parse().unwrap();
 
-        assert_eq!(url.scheme.as_str(), "https");
-        assert_eq!(url.username.as_str(), "user");
-        assert_eq!(url.password.as_str(), "password");
+        assert_eq!(url.scheme(), "https");
+        assert_eq!(url.username(), "user");
+        assert_eq!(url.password(), "password");
         assert_eq!(
             url.host,
             Some(Host::OpaqueHost(
@@ -565,8 +480,8 @@ mod tests {
             ))
         );
         assert_eq!(url.path, vec![""]);
-        assert_eq!(url.query, None);
-        assert_eq!(url.fragment, None);
+        assert_eq!(url.query(), None);
+        assert_eq!(url.fragment(), None);
     }
 
     #[test]
