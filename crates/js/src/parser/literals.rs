@@ -18,8 +18,15 @@ impl Literal {
     pub fn parse(tokenizer: &mut Tokenizer<'_>) -> Result<Self, SyntaxError> {
         // FIXME: How should we propagate syntax errors here?
         let literal = match tokenizer.next(SkipLineTerminators::Yes)? {
-            Some(Token::NullLiteral) => Self::NullLiteral,
-            Some(Token::BooleanLiteral(boolean_literal)) => Self::BooleanLiteral(boolean_literal),
+            Some(Token::Identifier(identifier)) => match identifier.as_str() {
+                "null" => Self::NullLiteral,
+                "true" => Self::BooleanLiteral(true),
+                "false" => Self::BooleanLiteral(false),
+                _ => {
+                    return Err(tokenizer
+                        .syntax_error(format!("unknown literal identifier: {identifier:?}")))
+                },
+            },
             Some(Token::StringLiteral(string_literal)) => {
                 Self::StringLiteral(string_literal.clone())
             },

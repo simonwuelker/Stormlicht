@@ -76,12 +76,6 @@ pub enum Token {
     /// <https://262.ecma-international.org/14.0/#prod-Punctuator>
     Punctuator(Punctuator),
 
-    /// <https://262.ecma-international.org/14.0/#prod-NullLiteral>
-    NullLiteral,
-
-    /// <https://262.ecma-international.org/14.0/#prod-BooleanLiteral>
-    BooleanLiteral(bool),
-
     /// <https://262.ecma-international.org/14.0/#prod-NumericLiteral>
     NumericLiteral(u32),
 

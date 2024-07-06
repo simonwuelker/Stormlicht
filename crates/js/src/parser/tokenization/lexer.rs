@@ -69,38 +69,17 @@ impl<'a> Lexer<'a> {
                 let string_literal = self.consume_string_literal()?;
                 Token::StringLiteral(string_literal)
             },
+            c if is_valid_identifier_start(c) => {
+                let identifier = self.consume_identifier()?;
+                Token::Identifier(identifier)
+            },
             _ => {
-                if self.attempt(Self::consume_null_literal).is_ok() {
-                    Token::NullLiteral
-                } else if let Ok(boolean_literal) = self.attempt(Self::consume_boolean_literal) {
-                    Token::BooleanLiteral(boolean_literal)
-                } else if let Ok(identifier) = self.attempt(Self::consume_identifier) {
-                    Token::Identifier(identifier)
-                } else if let Ok(punctuator) = self.attempt(Self::consume_punctuator) {
-                    Token::Punctuator(punctuator)
-                } else {
-                    // Cannot parse input stream as a valid token
-                    return Err(self.syntax_error("failed to parse token"));
-                }
+                let punctuator = self.consume_punctuator()?;
+                Token::Punctuator(punctuator)
             },
         };
 
         Ok(Some(token))
-    }
-
-    pub fn attempt<F, T, E>(&mut self, f: F) -> Result<T, E>
-    where
-        F: FnOnce(&mut Self) -> Result<T, E>,
-    {
-        let position = self.source.position();
-
-        let parse_result = f(self);
-
-        if parse_result.is_err() {
-            self.source.set_position(position);
-        }
-
-        parse_result
     }
 
     fn skip_whitespace(&mut self) {
@@ -108,36 +87,6 @@ impl<'a> Lexer<'a> {
         //        https://262.ecma-international.org/14.0/#table-white-space-code-points
         while self.source.next().is_some_and(char::is_whitespace) {}
         self.source.go_back()
-    }
-
-    pub fn expect_keyword(&mut self, keyword: &str) -> Result<(), SyntaxError> {
-        if self.source.remaining().starts_with(keyword) {
-            _ = self.source.advance_by(keyword.len());
-            self.skip_whitespace();
-            Ok(())
-        } else {
-            Err(self.syntax_error(format!("expected keyword {keyword:?}")))
-        }
-    }
-
-    pub fn consume_null_literal(&mut self) -> Result<(), SyntaxError> {
-        self.expect_keyword("null")
-    }
-
-    pub fn consume_boolean_literal(&mut self) -> Result<bool, SyntaxError> {
-        let remaining = self.source.remaining();
-        let boolean_literal = if remaining.starts_with("true") {
-            _ = self.source.advance_by("true".len());
-            true
-        } else if remaining.starts_with("false") {
-            _ = self.source.advance_by("false".len());
-            false
-        } else {
-            return Err(self.syntax_error("expected \"true\" or \"false\""));
-        };
-
-        self.skip_whitespace();
-        Ok(boolean_literal)
     }
 
     /// <https://262.ecma-international.org/14.0/#prod-IdentifierName>
