@@ -32,6 +32,83 @@ impl Number {
         Self(self.0 + other.0)
     }
 
+    /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-subtract>
+    #[must_use]
+    pub fn subtract(&self, other: Self) -> Self {
+        _ = other;
+        todo!();
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-multiply>
+    #[must_use]
+    pub fn multiply(&self, other: Self) -> Self {
+        _ = other;
+        todo!();
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-divide>
+    #[must_use]
+    pub fn divide(&self, other: Self) -> Self {
+        _ = other;
+        todo!();
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-remainder>
+    #[must_use]
+    pub fn remainder(&self, other: Self) -> Self {
+        _ = other;
+        todo!();
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-leftShift>
+    #[must_use]
+    pub fn shift_left(&self, other: Self) -> Self {
+        _ = other;
+        todo!();
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-signedRightShift>
+    #[must_use]
+    pub fn shift_right_signed(&self, other: Self) -> Self {
+        _ = other;
+        todo!();
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-unsignedRightShift>
+    #[must_use]
+    pub fn shift_right_unsigned(&self, other: Self) -> Self {
+        _ = other;
+        todo!();
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-bitwiseAND>
+    #[must_use]
+    pub fn bitwise_and(&self, other: Self) -> Self {
+        _ = other;
+        todo!();
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-bitwiseXOR>
+    #[must_use]
+    pub fn bitwise_xor(&self, other: Self) -> Self {
+        _ = other;
+        todo!();
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-bitwiseOR>
+    #[must_use]
+    pub fn bitwise_or(&self, other: Self) -> Self {
+        _ = other;
+        todo!();
+    }
+
+    /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-exponentiate>
+    #[must_use]
+    pub fn exponentiate(&self, other: Self) -> Self {
+        _ = other;
+        todo!();
+    }
+
     /// <https://262.ecma-international.org/#sec-numeric-types-number-equal>
     #[must_use]
     pub fn equal(x: Self, y: Self) -> bool {

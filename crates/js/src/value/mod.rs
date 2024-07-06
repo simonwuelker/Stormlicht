@@ -275,7 +275,21 @@ impl Value {
         let result = match (lnum, rnum) {
             (Value::Number(lhs), Value::Number(rhs)) => match op {
                 StringOrNumericBinaryOperator::Add => lhs.add(rhs).into(),
-                _ => todo!(),
+                StringOrNumericBinaryOperator::Subtract => lhs.subtract(rhs).into(),
+                StringOrNumericBinaryOperator::Multiply => lhs.multiply(rhs).into(),
+                StringOrNumericBinaryOperator::Divide => lhs.divide(rhs).into(),
+                StringOrNumericBinaryOperator::Modulo => lhs.remainder(rhs).into(),
+                StringOrNumericBinaryOperator::ShiftLeft => lhs.shift_left(rhs).into(),
+                StringOrNumericBinaryOperator::ShiftRightSigned => {
+                    lhs.shift_right_signed(rhs).into()
+                },
+                StringOrNumericBinaryOperator::ShiftRightUnsigned => {
+                    lhs.shift_right_unsigned(rhs).into()
+                },
+                StringOrNumericBinaryOperator::Exponentiate => lhs.exponentiate(rhs).into(),
+                StringOrNumericBinaryOperator::BitwiseAnd => lhs.bitwise_and(rhs).into(),
+                StringOrNumericBinaryOperator::BitwiseOr => lhs.bitwise_or(rhs).into(),
+                StringOrNumericBinaryOperator::BitwiseExclusiveOr => lhs.bitwise_xor(rhs).into(),
             },
             (Value::BigInt, Value::BigInt) => todo!(),
             _ => unreachable!(),
