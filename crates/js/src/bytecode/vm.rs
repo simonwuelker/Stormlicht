@@ -222,6 +222,17 @@ impl Vm {
 
                 self.set_register(*dst, result.into());
             },
+            Instruction::LogicalAnd { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-binary-logical-operators-runtime-semantics-evaluation
+                let lval = self.register(*lhs).get_value()?;
+                let result = if !lval.to_boolean() {
+                    lval
+                } else {
+                    self.register(*rhs).get_value()?
+                };
+
+                self.set_register(*dst, result.into());
+            },
             Instruction::LooselyEqual { lhs, rhs, dst } => {
                 // https://262.ecma-international.org/14.0/#sec-equality-operators-runtime-semantics-evaluation
                 let result = Value::is_loosely_equal(
