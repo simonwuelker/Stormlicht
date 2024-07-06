@@ -142,6 +142,86 @@ impl Vm {
 
                 self.set_register(*dst, result.into());
             },
+            Instruction::Modulo { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-multiplicative-operators-runtime-semantics-evaluation
+                let result = evaluate_string_or_numeric_binary_expression(
+                    self.register(*lhs).clone(),
+                    StringOrNumericBinaryOperator::Modulo,
+                    self.register(*rhs).clone(),
+                )?;
+
+                self.set_register(*dst, result.into());
+            },
+            Instruction::Exponentiate { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-exp-operator-runtime-semantics-evaluation
+                let result = evaluate_string_or_numeric_binary_expression(
+                    self.register(*lhs).clone(),
+                    StringOrNumericBinaryOperator::Exponentiate,
+                    self.register(*rhs).clone(),
+                )?;
+
+                self.set_register(*dst, result.into());
+            },
+            Instruction::BitwiseAnd { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-binary-bitwise-operators-runtime-semantics-evaluation
+                let result = evaluate_string_or_numeric_binary_expression(
+                    self.register(*lhs).clone(),
+                    StringOrNumericBinaryOperator::BitwiseAnd,
+                    self.register(*rhs).clone(),
+                )?;
+
+                self.set_register(*dst, result.into());
+            },
+            Instruction::BitwiseOr { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-binary-bitwise-operators-runtime-semantics-evaluation
+                let result = evaluate_string_or_numeric_binary_expression(
+                    self.register(*lhs).clone(),
+                    StringOrNumericBinaryOperator::BitwiseOr,
+                    self.register(*rhs).clone(),
+                )?;
+
+                self.set_register(*dst, result.into());
+            },
+            Instruction::BitwiseXor { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-binary-bitwise-operators-runtime-semantics-evaluation
+                let result = evaluate_string_or_numeric_binary_expression(
+                    self.register(*lhs).clone(),
+                    StringOrNumericBinaryOperator::BitwiseExclusiveOr,
+                    self.register(*rhs).clone(),
+                )?;
+
+                self.set_register(*dst, result.into());
+            },
+            Instruction::ShiftLeft { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-left-shift-operator-runtime-semantics-evaluation
+                let result = evaluate_string_or_numeric_binary_expression(
+                    self.register(*lhs).clone(),
+                    StringOrNumericBinaryOperator::ShiftLeft,
+                    self.register(*rhs).clone(),
+                )?;
+
+                self.set_register(*dst, result.into());
+            },
+            Instruction::ShiftRight { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-signed-right-shift-operator
+                let result = evaluate_string_or_numeric_binary_expression(
+                    self.register(*lhs).clone(),
+                    StringOrNumericBinaryOperator::ShiftLeft,
+                    self.register(*rhs).clone(),
+                )?;
+
+                self.set_register(*dst, result.into());
+            },
+            Instruction::ShiftRightZeros { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-unsigned-right-shift-operator
+                let result = evaluate_string_or_numeric_binary_expression(
+                    self.register(*lhs).clone(),
+                    StringOrNumericBinaryOperator::ShiftLeft,
+                    self.register(*rhs).clone(),
+                )?;
+
+                self.set_register(*dst, result.into());
+            },
             Instruction::LooselyEqual { lhs, rhs, dst } => {
                 // https://262.ecma-international.org/14.0/#sec-equality-operators-runtime-semantics-evaluation
                 let result = Value::is_loosely_equal(
