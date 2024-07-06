@@ -72,8 +72,49 @@ impl Number {
     /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-remainder>
     #[must_use]
     pub fn remainder(&self, other: Self) -> Self {
-        _ = other;
-        todo!();
+        // 1. If n is NaN or d is NaN, return NaN.
+        if self.is_nan() || other.is_nan() {
+            return Self::NAN;
+        }
+
+        // 2. If n is either +∞𝔽 or -∞𝔽, return NaN.
+        if self.is_infinite() {
+            return Self::NAN;
+        }
+
+        // 3. If d is either +∞𝔽 or -∞𝔽, return n.
+        if other.is_infinite() {
+            return *self;
+        }
+
+        // 4. If d is either +0𝔽 or -0𝔽, return NaN.
+        if other.is_zero() {
+            return Self::NAN;
+        }
+
+        // 4. If n is either +0𝔽 or -0𝔽, return n.
+        if self.is_zero() {
+            return *self;
+        }
+
+        // 6. Assert: n and d are finite and non-zero.
+
+        // 7. Let quotient be ℝ(n) / ℝ(d).
+        let quotient = self.0 / other.0;
+
+        // 8. Let q be truncate(quotient).
+        let q = quotient.trunc();
+
+        // 9. Let r be ℝ(n) - (ℝ(d) × q).
+        let r = self.0 - (other.0 * q);
+
+        // 10. if r = 0 and n < -0𝔽, return -0𝔽.
+        if r == 0. && self.0.is_sign_negative() {
+            return Self::NEG_ZERO;
+        }
+
+        // 11. Return 𝔽(r).
+        Self(r)
     }
 
     /// <https://262.ecma-international.org/14.0/#sec-numeric-types-number-leftShift>
