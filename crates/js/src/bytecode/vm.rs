@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     value::{
-        evaluate_string_or_numeric_binary_expression, StringOrNumericBinaryOperator,
+        evaluate_string_or_numeric_binary_expression, LeftFirst, StringOrNumericBinaryOperator,
         ValueOrReference,
     },
     Value,
@@ -264,6 +264,21 @@ impl Vm {
                     &self.register(*rhs).get_value()?,
                 )?;
                 self.set_register(*dst, Value::from(result).into());
+            },
+            Instruction::LessThan { lhs, rhs, dst } => {
+                let r = Value::is_less_than(
+                    &self.register(*lhs).get_value()?,
+                    &self.register(*rhs).get_value()?,
+                    LeftFirst::Yes,
+                )?;
+
+                let result = if r.is_undefined() {
+                    Value::from(false)
+                } else {
+                    r
+                };
+
+                self.set_register(*dst, result.into());
             },
             Instruction::Throw { value } => {
                 let value = self.register(*value).clone().get_value()?;
