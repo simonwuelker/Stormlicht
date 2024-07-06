@@ -233,6 +233,22 @@ impl Vm {
 
                 self.set_register(*dst, result.into());
             },
+            Instruction::StrictEqual { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-equality-operators-runtime-semantics-evaluation
+                let result = Value::is_strictly_equal(
+                    &self.register(*lhs).get_value()?,
+                    &self.register(*rhs).get_value()?,
+                )?;
+                self.set_register(*dst, Value::from(result).into());
+            },
+            Instruction::StrictNotEqual { lhs, rhs, dst } => {
+                // https://262.ecma-international.org/14.0/#sec-equality-operators-runtime-semantics-evaluation
+                let result = Value::is_strictly_equal(
+                    &self.register(*lhs).get_value()?,
+                    &self.register(*rhs).get_value()?,
+                )?;
+                self.set_register(*dst, Value::from(!result).into());
+            },
             Instruction::LooselyEqual { lhs, rhs, dst } => {
                 // https://262.ecma-international.org/14.0/#sec-equality-operators-runtime-semantics-evaluation
                 let result = Value::is_loosely_equal(
