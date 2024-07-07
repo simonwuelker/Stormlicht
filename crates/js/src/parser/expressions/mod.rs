@@ -77,10 +77,9 @@ fn parse_primary_expression<const YIELD: bool, const AWAIT: bool>(
             Literal::NumericLiteral(n).into()
         },
         Token::StringLiteral(s) => {
-            // FIXME: avoiding a clone here would be nice
             let s = s.clone();
             tokenizer.advance(1);
-            Literal::StringLiteral(s.clone()).into()
+            Literal::StringLiteral(s).into()
         },
         Token::Identifier(_) => {
             let identifier_reference = parse_identifier_reference::<YIELD, AWAIT>(tokenizer)?;
