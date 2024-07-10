@@ -2,6 +2,7 @@
 
 mod assignment_expression;
 mod binary_expression;
+mod call;
 mod conditional;
 mod left_hand_side_expression;
 mod member;
@@ -12,6 +13,7 @@ mod update_expression;
 
 pub use assignment_expression::AssignmentExpression;
 pub use binary_expression::BinaryExpression;
+pub use call::CallExpression;
 pub use conditional::ConditionalExpression;
 pub use member::MemberExpression;
 pub use unary_expression::UnaryExpression;
@@ -44,6 +46,7 @@ pub enum Expression {
     Assignment(AssignmentExpression),
     ConditionalExpression(ConditionalExpression),
     Member(MemberExpression),
+    Call(CallExpression),
 }
 
 /// <https://262.ecma-international.org/14.0/#prod-PrimaryExpression>
@@ -111,6 +114,7 @@ impl CompileToBytecode for Expression {
             Self::This => todo!(),
             Self::Assignment(assignment_expression) => assignment_expression.compile(builder),
             Self::Binary(binary_expression) => binary_expression.compile(builder),
+            Self::Call(call_expression) => call_expression.compile(builder),
             Self::ConditionalExpression(conditional_expression) => {
                 conditional_expression.compile(builder)
             },
@@ -183,5 +187,11 @@ impl From<ConditionalExpression> for Expression {
 impl From<MemberExpression> for Expression {
     fn from(value: MemberExpression) -> Self {
         Self::Member(value)
+    }
+}
+
+impl From<CallExpression> for Expression {
+    fn from(value: CallExpression) -> Self {
+        Self::Call(value)
     }
 }

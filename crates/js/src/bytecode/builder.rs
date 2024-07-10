@@ -351,4 +351,10 @@ impl<'a> BasicBlockBuilder<'a> {
 
         dst
     }
+
+    #[must_use]
+    /// <https://262.ecma-international.org/14.0/#sec-evaluatecall>
+    pub fn call(&mut self, callable: Register, arguments: Vec<Register>) -> Register {
+        todo!("function call evaluation")
+    }
 }

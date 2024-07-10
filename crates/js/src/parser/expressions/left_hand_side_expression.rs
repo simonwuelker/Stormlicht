@@ -3,12 +3,14 @@
 use crate::{
     bytecode::{self, CompileToBytecode},
     parser::{
-        tokenization::{SkipLineTerminators, Token, Tokenizer},
+        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
         SyntaxError,
     },
 };
 
-use super::{parse_primary_expression, Expression, MemberExpression};
+use super::{
+    call::parse_arguments, parse_primary_expression, CallExpression, Expression, MemberExpression,
+};
 
 /// <https://262.ecma-international.org/14.0/#prod-NewExpression>
 #[derive(Clone, Debug)]
@@ -30,7 +32,24 @@ pub fn parse_lefthandside_expression<const YIELD: bool, const AWAIT: bool>(
         Token::Identifier(ident) if ident == "new" => {
             NewExpression::parse::<YIELD, AWAIT>(tokenizer)?
         },
-        _ => MemberExpression::parse::<YIELD, AWAIT>(tokenizer)?,
+        _ => {
+            let member_expression = MemberExpression::parse::<YIELD, AWAIT>(tokenizer)?;
+
+            let expression = match tokenizer.peek(0, SkipLineTerminators::Yes)? {
+                Some(Token::Punctuator(Punctuator::ParenthesisOpen)) => {
+                    // Parse call expression
+                    let arguments = parse_arguments::<YIELD, AWAIT>(tokenizer)?;
+
+                    CallExpression {
+                        callable: Box::new(member_expression),
+                        arguments,
+                    }
+                    .into()
+                },
+                _ => member_expression,
+            };
+            expression
+        },
     };
 
     Ok(lhs_expression)
