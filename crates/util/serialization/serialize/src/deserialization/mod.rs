@@ -17,6 +17,13 @@ pub trait Deserialize: Sized {
 pub trait Deserializer {
     type Error: Error;
 
+    fn deserialize<T: Deserialize>(self) -> Result<T, Self::Error>
+    where
+        Self: Sized,
+    {
+        T::deserialize(self)
+    }
+
     fn deserialize_any<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
 
     fn deserialize_sequence<V: Visitor>(self, visitor: V) -> Result<V::Value, Self::Error>;
