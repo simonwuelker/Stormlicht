@@ -132,6 +132,14 @@ impl Value {
     }
 
     #[must_use]
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Self::String(s) => Some(s.as_str()),
+            _ => None,
+        }
+    }
+
+    #[must_use]
     pub fn as_list(&self) -> Option<impl Iterator<Item = &Self>> {
         match self {
             Self::List(list) => Some(list.iter()),
