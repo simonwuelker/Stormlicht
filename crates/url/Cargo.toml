@@ -8,13 +8,16 @@ license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dev-dependencies]
-criterion = { workspace = true }
 
 [dependencies]
 log = { workspace = true }
 sl-std = { workspace = true }
 serialize = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+serialize = { workspace = true, features = ["derive"] }
+serialize-json = { workspace = true }
 
 [features]
 serialize = ["dep:serialize", "sl-std/serialize"]
@@ -24,4 +27,9 @@ workspace = true
 
 [[bench]]
 name = "parse_url"
+harness = false
+
+[[test]]
+name = "parse_wpt"
+path = "tests/parse_wpt.rs"
 harness = false

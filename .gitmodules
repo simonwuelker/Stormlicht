@@ -7,3 +7,6 @@
 [submodule "tests/bmp-testsuite"]
 	path = tests/bmp-testsuite
 	url = https://github.com/Wuelle/bmp-testsuite
+[submodule "tests/wpt"]
+	path = tests/wpt
+	url = https://github.com/web-platform-tests/wpt
