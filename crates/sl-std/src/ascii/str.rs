@@ -101,6 +101,34 @@ impl Str {
         String::from_chars(chars)
     }
 
+    /// Converts this string to its lower case equivalent in-place.
+    ///
+    /// Letters 'A' to 'Z' are mapped to 'a' to 'z',
+    /// but other characters are unchanged.
+    ///
+    /// To return a new lowercased value without modifying the existing one, use
+    /// [`to_lowercase()`].
+    ///
+    /// [`to_lowercase()`]: #method.to_lowercase
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #![feature(ascii_char_variants, ascii_char)]
+    /// # use sl_std::ascii;
+    /// let mut s = ascii::String::try_from("Hello World!").unwrap();
+    ///
+    /// s.make_lowercase();
+    ///
+    /// assert_eq!("hello world!", s.as_str());
+    /// ```
+    #[inline]
+    pub fn make_lowercase(&mut self) {
+        // SAFETY: Making chars lowercase does not invalidate ascii
+        let me = unsafe { self.as_bytes_mut() };
+        me.make_ascii_lowercase();
+    }
+
     /// Construct [Self] from a `&[u8]`
     ///
     /// Returns `None` if the bytes are not a valid ascii-encoded
