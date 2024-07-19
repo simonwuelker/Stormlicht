@@ -13,6 +13,20 @@ impl Str {
     /// The empty [Str]
     pub const EMPTY: &'static Self = Self::from_ascii_chars(&[]);
 
+    /// Converts a mutable string slice to a raw pointer.
+    ///
+    /// As string slices are a slice of bytes, the raw pointer points to a
+    /// [`u8`]. This pointer will be pointing to the first byte of the string
+    /// slice.
+    ///
+    /// It is your responsibility to make sure that the string slice only gets
+    /// modified in a way that it remains valid UTF-8.
+    #[inline]
+    #[must_use]
+    pub fn as_mut_ptr(&mut self) -> *mut Char {
+        self as *mut Str as *mut Char
+    }
+
     /// Returns the length of `self`.
     ///
     /// # Examples
