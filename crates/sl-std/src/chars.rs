@@ -110,6 +110,14 @@ where
     }
 }
 
+impl State {
+    #[inline]
+    #[must_use]
+    pub fn is_after_end(&self) -> bool {
+        matches!(self, Self::AfterEnd(_))
+    }
+}
+
 impl<T> Iterator for ReversibleCharIterator<T>
 where
     T: AsRef<str>,
