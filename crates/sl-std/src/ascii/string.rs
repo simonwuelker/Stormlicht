@@ -1,4 +1,10 @@
-use std::{ascii::Char, borrow::Borrow, fmt, mem, ops::Deref, string::String as Utf8String};
+use std::{
+    ascii::Char,
+    borrow::Borrow,
+    fmt, mem,
+    ops::{Deref, DerefMut},
+    string::String as Utf8String,
+};
 
 use crate::punycode;
 
@@ -250,6 +256,12 @@ impl Deref for String {
 
     fn deref(&self) -> &Self::Target {
         Str::from_ascii_chars(self.chars.as_slice())
+    }
+}
+
+impl DerefMut for String {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        Str::from_ascii_chars_mut(self.chars.as_mut_slice())
     }
 }
 
