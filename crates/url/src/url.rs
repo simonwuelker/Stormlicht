@@ -164,7 +164,7 @@ impl URL {
             },
         };
 
-        Self::parse_with_base(input, Some(base_url), None, None)
+        Self::parse_with_base(input, Some(base_url), None)
             .or_else(|_| format!("http://{input}").parse())
     }
 
@@ -260,7 +260,6 @@ impl URL {
         mut input: &str,
         base: Option<URL>,
         given_url: Option<URL>,
-        state_override: Option<URLParserState>,
     ) -> Result<Self, URLParseError> {
         let url = match given_url {
             Some(url) => url,
@@ -287,8 +286,7 @@ impl URL {
             .filter(|c| !util::is_ascii_tab_or_newline(*c))
             .collect();
 
-        // Let state be state override if given, or scheme start state otherwise.
-        let state = state_override.unwrap_or(URLParserState::SchemeStart);
+        let state = URLParserState::SchemeStart;
 
         // Set encoding to the result of getting an output encoding from encoding.
 
@@ -306,7 +304,7 @@ impl URL {
             buffer,
             base,
             input: ReversibleCharIterator::new(&filtered_input),
-            state_override,
+
             at_sign_seen,
             inside_brackets,
             password_token_seen,
@@ -446,7 +444,7 @@ impl FromStr for URL {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // https://url.spec.whatwg.org/#concept-basic-url-parser
-        Self::parse_with_base(s, None, None, None)
+        Self::parse_with_base(s, None, None)
     }
 }
 

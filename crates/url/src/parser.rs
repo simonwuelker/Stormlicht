@@ -1,3 +1,8 @@
+//! URL parser implementation
+//!
+//! The spec defines a complicated state machine that unfortunately doesn't translate
+//! well into actual code, which is why we don't adhere to the spec as closely here.
+
 use sl_std::{
     ascii,
     chars::{ReversibleCharIterator, State},
@@ -6,7 +11,6 @@ use sl_std::{
 use crate::{
     default_port_for_scheme,
     host::{self, host_parse_with_special, Host, HostParseError},
-    is_special_scheme,
     percent_encode::{
         is_c0_percent_encode_set, is_fragment_percent_encode_set, is_path_percent_encode_set,
         is_query_percent_encode_set, is_special_query_percent_encode_set,
@@ -62,7 +66,6 @@ pub(crate) struct URLParser<'a> {
     pub(crate) at_sign_seen: bool,
     pub(crate) inside_brackets: bool,
     pub(crate) password_token_seen: bool,
-    pub(crate) state_override: Option<URLParserState>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -114,19 +117,12 @@ impl<'a> URLParser<'a> {
 
                     // and set state to scheme state.
                     self.set_state(URLParserState::Scheme);
-                }
-                // Otherwise, if state override is not given
-                else if self.state_override.is_none() {
+                } else {
                     // Set state to no scheme state
                     self.set_state(URLParserState::NoScheme);
 
                     // and decrease pointer by 1.
                     self.input.go_back();
-                }
-                // Otherwise,
-                else {
-                    // return failure.
-                    return Err(Error::Failure);
                 }
             },
             // https://url.spec.whatwg.org/#scheme-state
@@ -142,49 +138,9 @@ impl<'a> URLParser<'a> {
                 }
                 // Otherwise, if c is U+003A (:), then:
                 else if c == Some(':') {
-                    // If state override is given, then:
-                    if self.state_override.is_some() {
-                        // If url’s scheme is a special scheme and buffer is not a special scheme
-                        if self.url.is_special() && !is_special_scheme(&self.buffer) {
-                            // then return.
-                            return Ok(StartOver::No);
-                        }
-                        // If url’s scheme is not a special scheme and buffer is a special scheme
-                        if !&self.url.is_special() && is_special_scheme(&self.buffer) {
-                            // then return.
-                            return Ok(StartOver::No);
-                        }
-
-                        // If url includes credentials or has a non-null port, and buffer is "file"
-                        if (self.url.includes_credentials() || self.url.port().is_some())
-                            && self.buffer == "file"
-                        {
-                            // then return.
-                            return Ok(StartOver::No);
-                        }
-
-                        // If url’s scheme is "file" and its host is an empty host
-                        if self.url.scheme == "file" && self.url.host == Some(Host::EmptyHost) {
-                            // then return.
-                            return Ok(StartOver::No);
-                        }
-                    }
-
                     // Set url’s scheme to buffer.
                     self.url.scheme = ascii::String::try_from(self.buffer.as_str())
                         .expect("buffer cannot contain non-ascii data during scheme state");
-
-                    // If state override is given, then:
-                    if self.state_override.is_some() {
-                        // If url’s port is url’s scheme’s default port
-                        if self.url.port == default_port_for_scheme(&self.url.scheme) {
-                            // then set url’s port to null.
-                            self.url.port = None;
-                        }
-
-                        // Return.
-                        return Ok(StartOver::No);
-                    }
 
                     // Set buffer to the empty string.
                     self.buffer.clear();
@@ -227,9 +183,7 @@ impl<'a> URLParser<'a> {
                         // and set state to opaque path state.
                         self.set_state(URLParserState::OpaquePath);
                     }
-                }
-                // Otherwise, if state override is not given
-                else if self.state_override.is_none() {
+                } else {
                     // set buffer to the empty string,
                     self.buffer.clear();
 
@@ -238,11 +192,6 @@ impl<'a> URLParser<'a> {
 
                     // and start over (from the first code point in input).
                     return Ok(StartOver::Yes);
-                }
-                // Otherwise,
-                else {
-                    // return failure.
-                    return Err(Error::Failure);
                 }
             },
             // https://url.spec.whatwg.org/#no-scheme-state
@@ -540,26 +489,13 @@ impl<'a> URLParser<'a> {
             // https://url.spec.whatwg.org/#hostname-state
             URLParserState::Host | URLParserState::Hostname => {
                 let c = self.input.current();
-                // If state override is given and url’s scheme is "file"
-                if self.state_override.is_some() && self.url.scheme == "file" {
-                    // then decrease pointer by 1
-                    self.input.go_back();
 
-                    // and set state to file host state.
-                    self.set_state(URLParserState::FileHost);
-                }
-                // Otherwise, if c is U+003A (:) and insideBrackets is false
-                else if c == Some(':') && !self.inside_brackets {
+                // If c is U+003A (:) and insideBrackets is false
+                if c == Some(':') && !self.inside_brackets {
                     // If buffer is the empty string
                     if self.buffer.is_empty() {
                         // return failure.
                         return Err(Error::Failure);
-                    }
-
-                    // If state override is given and state override is hostname state
-                    if let Some(URLParserState::Hostname) = self.state_override {
-                        // then return.
-                        return Ok(StartOver::No);
                     }
 
                     // Let host be the result of host parsing buffer with url is not special.
@@ -592,15 +528,6 @@ impl<'a> URLParser<'a> {
                         // return failure.
                         return Err(Error::Failure);
                     }
-                    // Otherwise, if state override is given, buffer is the empty string,
-                    // and either url includes credentials or url’s port is non-null
-                    else if self.state_override.is_some()
-                        && self.buffer.is_empty()
-                        && (self.url.includes_credentials() || self.url.port.is_some())
-                    {
-                        // return.
-                        return Ok(StartOver::No);
-                    }
 
                     // Let host be the result of host parsing buffer with url is not special.
                     let host_or_failure = host::host_parse_with_special(self.buffer.as_str(), true);
@@ -616,12 +543,6 @@ impl<'a> URLParser<'a> {
 
                     // and state to path start state.
                     self.set_state(URLParserState::PathStart);
-
-                    // If state override is given
-                    if self.state_override.is_some() {
-                        // then return.
-                        return Ok(StartOver::No);
-                    }
                 }
                 // Otherwise:
                 else {
@@ -656,7 +577,6 @@ impl<'a> URLParser<'a> {
                 // * state override is given
                 else if matches!(c, None | Some('/' | '?' | '#'))
                     || (self.url.is_special() && c == Some('\\'))
-                    || (self.state_override.is_some())
                 {
                     // If buffer is not the empty string, then:
                     if !self.buffer.is_empty() {
@@ -682,12 +602,6 @@ impl<'a> URLParser<'a> {
 
                         // Set buffer to the empty string.
                         self.buffer.clear();
-                    }
-
-                    // If state override is given
-                    if self.state_override.is_some() {
-                        // then return.
-                        return Ok(StartOver::No);
                     }
 
                     // Set state to path start state
@@ -824,10 +738,7 @@ impl<'a> URLParser<'a> {
                         // then decrease pointer by 1 and then:
                         self.input.go_back();
 
-                        // If state override is not given and buffer is a Windows drive letter
-                        if self.state_override.is_none()
-                            && util::is_windows_drive_letter(&self.buffer)
-                        {
+                        if util::is_windows_drive_letter(&self.buffer) {
                             // set state to path state.
                             self.set_state(URLParserState::Path);
                         }
@@ -835,12 +746,6 @@ impl<'a> URLParser<'a> {
                         else if self.buffer.is_empty() {
                             // Set url’s host to the empty string.
                             self.url.host = Some(Host::OpaqueHost(ascii::String::default()));
-
-                            // If state override is given,
-                            if self.state_override.is_some() {
-                                // then return.
-                                return Ok(StartOver::No);
-                            }
 
                             // Set state to path start state.
                             self.set_state(URLParserState::PathStart);
@@ -860,12 +765,6 @@ impl<'a> URLParser<'a> {
 
                             // Set url’s host to host.
                             self.url.host = Some(host);
-
-                            // If state override is given,
-                            if self.state_override.is_some() {
-                                // then return.
-                                return Ok(StartOver::No);
-                            }
 
                             // Set buffer to the empty string
                             self.buffer.clear();
@@ -893,17 +792,13 @@ impl<'a> URLParser<'a> {
                         // then decrease pointer by 1.
                         self.input.go_back();
                     }
-                }
-                // Otherwise, if state override is not given and c is U+003F (?)
-                else if self.state_override.is_none() && c == Some('?') {
+                } else if c == Some('?') {
                     // set url’s query to the empty string
                     self.url.query = Some(ascii::String::new());
 
                     // and state to query state.
                     self.set_state(URLParserState::Query);
-                }
-                // Otherwise, if state override is not given and c is U+0023 (#)
-                else if self.state_override.is_none() && c == Some('#') {
+                } else if c == Some('#') {
                     // set url’s fragment to the empty string
                     self.url.fragment = Some(ascii::String::new());
 
@@ -920,9 +815,7 @@ impl<'a> URLParser<'a> {
                         // then decrease pointer by 1.
                         self.input.go_back();
                     }
-                }
-                // Otherwise, if state override is given and url’s host is null,
-                else if self.state_override.is_some() && self.url.host.is_none() {
+                } else if self.url.host.is_none() {
                     // append the empty string to url’s path.
                     self.url.path.push(ascii::String::new());
                 }
@@ -931,13 +824,8 @@ impl<'a> URLParser<'a> {
             URLParserState::Path => {
                 let c = self.input.current();
 
-                // If one of the following is true:
-                // * c is the EOF code point or U+002F (/)
-                // * url is special and c is U+005C (\)
-                // * state override is not given and c is U+003F (?) or U+0023 (#)
-                if matches!(c, None | Some('/'))
+                if matches!(c, None | Some('?' | '#' | '/'))
                     || (self.url.is_special() && c == Some('\\'))
-                    || (self.state_override.is_none() && matches!(c, Some('?' | '#')))
                 {
                     // If buffer is a double-dot path segment, then:
                     if util::is_double_dot_path_segment(&self.buffer) {
@@ -1067,7 +955,7 @@ impl<'a> URLParser<'a> {
                 // * state override is not given and c is U+0023 (#)
                 // * c is the EOF code point
                 let c = self.input.current();
-                if (self.state_override.is_none() && c == Some('#')) || c.is_none() {
+                if (c == Some('#')) || c.is_none() {
                     // Let queryPercentEncodeSet be the special-query percent-encode set
                     // if url is special; otherwise the query percent-encode set.
                     let query_percent_encode_set = if self.url.is_special() {
