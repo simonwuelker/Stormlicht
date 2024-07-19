@@ -13,7 +13,7 @@ use crate::{
     host::Host,
     parser::{URLParser, URLParserState},
     percent_encode::percent_decode,
-    util, IgnoreValidationErrors,
+    util,
 };
 
 pub type Port = u16;
@@ -310,7 +310,6 @@ impl URL {
             at_sign_seen,
             inside_brackets,
             password_token_seen,
-            error_handler: IgnoreValidationErrors,
         };
 
         let parsed_url = state_machine

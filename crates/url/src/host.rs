@@ -5,7 +5,7 @@ use sl_std::{ascii, punycode};
 use crate::{
     ip::{ipv4_parse, ipv6_parse},
     percent_encode::{is_c0_control, percent_encode, C0_CONTROL},
-    util, AsciiSet, IPParseError, ValidationError, ValidationErrorHandler,
+    AsciiSet, IPParseError,
 };
 
 /// <https://url.spec.whatwg.org/#forbidden-host-code-point>
@@ -83,21 +83,14 @@ impl fmt::Display for Host {
 }
 
 /// <https://url.spec.whatwg.org/#concept-host-parser>
-pub(crate) fn host_parse_with_special<H>(
+pub(crate) fn host_parse_with_special(
     input: &str,
     is_not_special: bool,
-    error_handler: &mut H,
-) -> Result<Host, HostParseError>
-where
-    H: ValidationErrorHandler,
-{
+) -> Result<Host, HostParseError> {
     // If input starts with U+005B ([), then:
     if input.starts_with('[') {
         // If input does not end with U+005D (])
         if !input.ends_with(']') {
-            // IPv6-unclosed validation error
-            error_handler.validation_error(ValidationError::IPv6Unclosed);
-
             // return failure.
             return Err(HostParseError::MalformedInput);
         }
@@ -112,7 +105,7 @@ where
     // If isNotSpecial is true
     if is_not_special {
         // then return the result of opaque-host parsing input.
-        return Ok(Host::OpaqueHost(opaque_host_parse(input, error_handler)?));
+        return Ok(Host::OpaqueHost(opaque_host_parse(input)?));
     }
 
     // Let domain be the result of running UTF-8 decode without BOM on the percent-decoding of input.
@@ -136,9 +129,6 @@ where
         .copied()
         .any(|c| FORBIDDEN_DOMAIN_CODE_POINTS.contains(c))
     {
-        // domain-invalid-code-point validation error validation error
-        error_handler.validation_error(ValidationError::DomainInvalidCodepoint);
-
         // return failure.
         return Err(HostParseError::ForbiddenCodePoint);
     }
@@ -159,27 +149,16 @@ where
 }
 
 /// <https://url.spec.whatwg.org/#concept-opaque-host-parser>
-fn opaque_host_parse<H>(input: &str, error_handler: &mut H) -> Result<ascii::String, HostParseError>
-where
-    H: ValidationErrorHandler,
-{
+fn opaque_host_parse(input: &str) -> Result<ascii::String, HostParseError> {
     // If input contains a forbidden host code point
     let has_forbidden_host_code_point = input.contains(|c: char| {
         c.as_ascii()
             .is_some_and(|c| FORBIDDEN_HOST_CODE_POINTS.contains(c))
     });
-    if has_forbidden_host_code_point {
-        // host-invalid-code-point validation error
-        error_handler.validation_error(ValidationError::HostInvalidCodepoint);
 
+    if has_forbidden_host_code_point {
         // return failure.
         return Err(HostParseError::ForbiddenCodePoint);
-    }
-
-    // If input contains a code point that is not a URL code point and not U+0025 (%)
-    if input.contains(|c| !util::is_url_codepoint(c) && c != '%') {
-        // invalid-URL-unit validation error
-        error_handler.validation_error(ValidationError::InvalidURLUnit);
     }
 
     // FIXME: If input contains a U+0025 (%) and the two code points

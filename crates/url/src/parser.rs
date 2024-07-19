@@ -12,7 +12,7 @@ use crate::{
         is_query_percent_encode_set, is_special_query_percent_encode_set,
         is_userinfo_percent_encode_set, percent_encode,
     },
-    util, ValidationError, ValidationErrorHandler, URL,
+    util, URL,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -49,7 +49,7 @@ pub enum URLParserState {
     Fragment,
 }
 
-pub(crate) struct URLParser<'a, H> {
+pub(crate) struct URLParser<'a> {
     pub(crate) url: URL,
     pub(crate) base: Option<URL>,
     pub(crate) input: ReversibleCharIterator<&'a str>,
@@ -63,7 +63,6 @@ pub(crate) struct URLParser<'a, H> {
     pub(crate) inside_brackets: bool,
     pub(crate) password_token_seen: bool,
     pub(crate) state_override: Option<URLParserState>,
-    pub error_handler: H,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -72,10 +71,7 @@ enum StartOver {
     No,
 }
 
-impl<'a, H> URLParser<'a, H>
-where
-    H: ValidationErrorHandler,
-{
+impl<'a> URLParser<'a> {
     pub(crate) fn run_to_completion(mut self) -> Result<Self, Error> {
         loop {
             // Keep running the following state machine by switching on state.
@@ -195,14 +191,6 @@ where
 
                     // If url’s scheme is "file", then:
                     if self.url.scheme == "file" {
-                        // If remaining does not start with "//"
-                        if !self.input.remaining().starts_with("//") {
-                            // special-scheme-missing-following-solidus validation error.
-                            self.error_handler.validation_error(
-                                ValidationError::SpecialSchemeMissingFollowingSolidus,
-                            );
-                        }
-
                         // Set state to file state.
                         self.set_state(URLParserState::File);
                     }
@@ -265,10 +253,6 @@ where
                 if self.base.is_none()
                     || (self.base.as_ref().is_some_and(URL::has_opaque_path) && c != Some('#'))
                 {
-                    // missing-scheme-non-relative-URL validation error
-                    self.error_handler
-                        .validation_error(ValidationError::MissingSchemeNonRelativeURL);
-
                     // return failure.
                     return Err(Error::Failure);
                 }
@@ -323,10 +307,6 @@ where
                 }
                 // Otherwise,
                 else {
-                    // special-scheme-missing-following-solidus validation error
-                    self.error_handler
-                        .validation_error(ValidationError::SpecialSchemeMissingFollowingSolidus);
-
                     // set state to relative state
                     self.set_state(URLParserState::Relative);
 
@@ -369,10 +349,6 @@ where
                 }
                 // Otherwise, if url is special and c is U+005C (\)
                 else if self.url.is_special() && c == Some('\\') {
-                    // invalid-reverse-solidus validation error
-                    self.error_handler
-                        .validation_error(ValidationError::InvalidReverseSolidus);
-
                     // set state to relative slash state.
                     self.set_state(URLParserState::RelativeSlash);
                 }
@@ -420,13 +396,6 @@ where
 
                 // If url is special and c is U+002F (/) or U+005C (\), then:
                 if self.url.is_special() && matches!(c, Some('/' | '\\')) {
-                    // If c is U+005C (\)
-                    if c == Some('\\') {
-                        // invalid-reverse-solidus validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidReverseSolidus);
-                    }
-
                     // Set state to special authority ignore slashes state.
                     self.set_state(URLParserState::SpecialAuthorityIgnoreSlashes);
                 }
@@ -470,10 +439,6 @@ where
                 }
                 // Otherwise
                 else {
-                    // special-scheme-missing-following-solidus validation error
-                    self.error_handler
-                        .validation_error(ValidationError::SpecialSchemeMissingFollowingSolidus);
-
                     // set state to special authority ignore slashes state
                     self.set_state(URLParserState::SpecialAuthorityIgnoreSlashes);
 
@@ -491,12 +456,6 @@ where
                     // and decrease pointer by 1.
                     self.input.go_back();
                 }
-                // Otherwise
-                else {
-                    // special-scheme-missing-following-solidus validation error.
-                    self.error_handler
-                        .validation_error(ValidationError::SpecialSchemeMissingFollowingSolidus);
-                }
             },
             // https://url.spec.whatwg.org/#authority-state
             URLParserState::Authority => {
@@ -504,10 +463,6 @@ where
 
                 // If c is U+0040 (@), then:
                 if c == Some('@') {
-                    // Invalid-credentials validation error.
-                    self.error_handler
-                        .validation_error(ValidationError::InvalidCredentials);
-
                     // If atSignSeen is true,
                     if self.at_sign_seen {
                         // then prepend "%40" to buffer.
@@ -561,10 +516,6 @@ where
                 {
                     // If atSignSeen is true and buffer is the empty string
                     if self.at_sign_seen && self.buffer.is_empty() {
-                        // Invalid-credentials validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidCredentials);
-
                         // return failure.
                         return Err(Error::Failure);
                     }
@@ -601,10 +552,6 @@ where
                 else if c == Some(':') && !self.inside_brackets {
                     // If buffer is the empty string
                     if self.buffer.is_empty() {
-                        // host-missing validation error
-                        self.error_handler
-                            .validation_error(ValidationError::HostMissing);
-
                         // return failure.
                         return Err(Error::Failure);
                     }
@@ -616,11 +563,7 @@ where
                     }
 
                     // Let host be the result of host parsing buffer with url is not special.
-                    let host_or_failure = host::host_parse_with_special(
-                        self.buffer.as_str(),
-                        true,
-                        &mut self.error_handler,
-                    );
+                    let host_or_failure = host::host_parse_with_special(self.buffer.as_str(), true);
 
                     // If host is failure, then return failure.
                     let host = host_or_failure?;
@@ -646,10 +589,6 @@ where
                     // and then:
                     // If url is special and buffer is the empty string
                     if self.url.is_special() && self.buffer.is_empty() {
-                        // host-missing validation error
-                        self.error_handler
-                            .validation_error(ValidationError::HostMissing);
-
                         // return failure.
                         return Err(Error::Failure);
                     }
@@ -664,11 +603,7 @@ where
                     }
 
                     // Let host be the result of host parsing buffer with url is not special.
-                    let host_or_failure = host::host_parse_with_special(
-                        self.buffer.as_str(),
-                        true,
-                        &mut self.error_handler,
-                    );
+                    let host_or_failure = host::host_parse_with_special(self.buffer.as_str(), true);
 
                     // If host is failure, then return failure.
                     let host = host_or_failure?;
@@ -733,10 +668,6 @@ where
                         let port = match str::parse(&self.buffer) {
                             Ok(port) => port,
                             Err(_) => {
-                                // port-out-of-range validation error
-                                self.error_handler
-                                    .validation_error(ValidationError::PortOutOfRange);
-
                                 // return failure.
                                 return Err(Error::Failure);
                             },
@@ -767,10 +698,6 @@ where
                 }
                 // Otherwise
                 else {
-                    // port-invalid validation error
-                    self.error_handler
-                        .validation_error(ValidationError::PortInvalid);
-
                     // return failure.
                     return Err(Error::Failure);
                 }
@@ -789,13 +716,6 @@ where
                 // If c is U+002F (/) or U+005C (\), then:
                 let c = self.input.current();
                 if matches!(c, Some('/' | '\\')) {
-                    // If c is U+005C (\),
-                    if c == Some('\\') {
-                        // invalid-reverse-solidus validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidReverseSolidus);
-                    }
-
                     // Set state to file slash state.
                     self.set_state(URLParserState::FileSlash);
                 }
@@ -841,10 +761,6 @@ where
                         }
                         // Otherwise:
                         else {
-                            // File-invalid-Windows-drive-letter validation error.
-                            self.error_handler
-                                .validation_error(ValidationError::FileInvalidWindowsDriveLetter);
-
                             // Set url’s path to an empty list.
                             self.url.path = vec![];
                         }
@@ -870,13 +786,6 @@ where
                 // If c is U+002F (/) or U+005C (\), then:
                 let c = self.input.current();
                 if matches!(c, Some('/' | '\\')) {
-                    // If c is U+005C (\)
-                    if c == Some('\\') {
-                        // invalid-reverse-solidus validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidReverseSolidus);
-                    }
-
                     // Set state to file host state.
                     self.set_state(URLParserState::FileHost);
                 }
@@ -919,11 +828,6 @@ where
                         if self.state_override.is_none()
                             && util::is_windows_drive_letter(&self.buffer)
                         {
-                            // file-invalid-Windows-drive-letter-host validation error
-                            self.error_handler.validation_error(
-                                ValidationError::FileInvalidWindowsDriveLetterHost,
-                            );
-
                             // set state to path state.
                             self.set_state(URLParserState::Path);
                         }
@@ -945,11 +849,7 @@ where
                         else {
                             // Let host be the result of host parsing buffer with url is not special.
                             // If host is failure, then return failure.
-                            let mut host = host_parse_with_special(
-                                &self.buffer,
-                                false,
-                                &mut self.error_handler,
-                            )?;
+                            let mut host = host_parse_with_special(&self.buffer, false)?;
 
                             // If host is "localhost", then set host to the empty string.
                             if let Host::Domain(domain) = &host
@@ -985,13 +885,6 @@ where
 
                 // If url is special, then:
                 if self.url.is_special() {
-                    // If c is U+005C (\),
-                    if c == Some('\\') {
-                        // invalid-reverse-solidus validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidReverseSolidus);
-                    }
-
                     // Set state to path state.
                     self.set_state(URLParserState::Path);
 
@@ -1046,13 +939,6 @@ where
                     || (self.url.is_special() && c == Some('\\'))
                     || (self.state_override.is_none() && matches!(c, Some('?' | '#')))
                 {
-                    // If url is special and c is U+005C (\)
-                    if self.url.is_special() && c == Some('\\') {
-                        // invalid-reverse-solidus validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidReverseSolidus);
-                    }
-
                     // If buffer is a double-dot path segment, then:
                     if util::is_double_dot_path_segment(&self.buffer) {
                         // Shorten url’s path.
@@ -1125,29 +1011,6 @@ where
                 else {
                     let c = c.expect("The previous step checks for EOF code points");
 
-                    // If c is not a URL code point and not U+0025 (%),
-                    if !util::is_url_codepoint(c) && c != '%' {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
-                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits
-                    // NOTE: technically this check is incorrect as remaining() could have less than two characters
-                    //       But there's probably more important issues to worry about...
-                    if c == '%'
-                        && self
-                            .input
-                            .remaining()
-                            .chars()
-                            .take(2)
-                            .all(|c| c.is_ascii_hexdigit())
-                    {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
                     // UTF-8 percent-encode c using the path percent-encode set and append the result to buffer.
                     let mut buffer = [0; 4];
                     c.encode_utf8(&mut buffer);
@@ -1180,29 +1043,6 @@ where
                 }
                 // Otherwise:
                 else {
-                    // If c is not the EOF code point, not a URL code point, and not U+0025 (%)
-                    if c.is_some() && !c.is_some_and(|c| c == '%' || util::is_url_codepoint(c)) {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
-                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits
-                    // NOTE: technically this check is incorrect as remaining() could have less than two characters
-                    //       But there's probably more important issues to worry about...
-                    if c == Some('%')
-                        && self
-                            .input
-                            .remaining()
-                            .chars()
-                            .take(2)
-                            .all(|c| c.is_ascii_hexdigit())
-                    {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
                     // If c is not the EOF code point
                     if let Some(c) = c {
                         //  UTF-8 percent-encode c using the C0 control percent-encode set and append the result to url’s path.
@@ -1255,29 +1095,6 @@ where
                 }
                 // Otherwise, if c is not the EOF code point:
                 else if let Some(c) = c {
-                    // If c is not a URL code point and not U+0025 (%)
-                    if c != '%' && !util::is_url_codepoint(c) {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
-                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits
-                    // NOTE: technically this check is incorrect as remaining() could have less than two characters
-                    //       But there's probably more important issues to worry about...
-                    if c == '%'
-                        && self
-                            .input
-                            .remaining()
-                            .chars()
-                            .take(2)
-                            .all(|c| c.is_ascii_hexdigit())
-                    {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
                     // Append c to buffer.
                     self.buffer.push(c)
                 };
@@ -1287,29 +1104,6 @@ where
             URLParserState::Fragment => {
                 // If c is not the EOF code point, then:
                 if let Some(c) = self.input.current() {
-                    // If c is not a URL code point and not U+0025 (%)
-                    if c != '%' && !util::is_url_codepoint(c) {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
-                    // If c is U+0025 (%) and remaining does not start with two ASCII hex digits
-                    // NOTE: technically this check is incorrect as remaining() could have less than two characters
-                    //       But there's probably more important issues to worry about...
-                    if c == '%'
-                        && self
-                            .input
-                            .remaining()
-                            .chars()
-                            .take(2)
-                            .all(|c| c.is_ascii_hexdigit())
-                    {
-                        // invalid-URL-unit validation error.
-                        self.error_handler
-                            .validation_error(ValidationError::InvalidURLUnit);
-                    }
-
                     // UTF-8 percent-encode c using the fragment percent-encode set
                     // and append the result to url’s fragment.
                     let fragment = self.url.fragment.get_or_insert_default();
