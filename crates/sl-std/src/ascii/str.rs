@@ -165,6 +165,32 @@ impl Str {
         self.chars.as_bytes()
     }
 
+    /// Converts a mutable string slice to a mutable byte slice.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the content of the slice is valid ascii
+    /// before the borrow ends and the underlying `Str` is used.
+    ///
+    /// Use of a `Str` whose contents are not valid ascii is undefined behavior.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// let mut s = String::from("Hello");
+    /// let bytes = unsafe { s.as_bytes_mut() };
+    ///
+    /// assert_eq!(b"Hello", bytes);
+    /// ```
+    #[inline]
+    #[must_use]
+    unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
+        // SAFETY: `Char` is guaranteed to have the same layout and alignment as u8
+        unsafe { std::slice::from_raw_parts_mut(self.as_mut_ptr() as *mut u8, self.len()) }
+    }
+
     #[inline]
     #[must_use]
     pub const fn chars(&self) -> &[Char] {
