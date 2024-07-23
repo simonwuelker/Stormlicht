@@ -589,6 +589,21 @@ where
     }
 }
 
+impl ops::IndexMut<usize> for Str {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.chars_mut()[index]
+    }
+}
+
+impl<T> ops::IndexMut<T> for Str
+where
+    T: SliceIndex<Str, Output = Str>,
+{
+    fn index_mut(&mut self, index: T) -> &mut Self::Output {
+        index.index_mut(self)
+    }
+}
+
 impl<'a> TryFrom<&'a [u8]> for &'a Str {
     type Error = NotAscii;
 
