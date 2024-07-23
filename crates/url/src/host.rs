@@ -83,26 +83,21 @@ impl fmt::Display for Host {
 }
 
 /// <https://url.spec.whatwg.org/#concept-host-parser>
-pub(crate) fn host_parse_with_special(
+pub(crate) fn parse_with_special(
     input: &str,
     is_not_special: bool,
 ) -> Result<Host, HostParseError> {
-    // If input starts with U+005B ([), then:
     if input.starts_with('[') {
-        // If input does not end with U+005D (])
         if !input.ends_with(']') {
-            // return failure.
             return Err(HostParseError::MalformedInput);
         }
 
-        // Return the result of IPv6 parsing input with its leading U+005B ([) and trailing U+005D (]) removed.
         let ipv6_text = &input[1..input.len() - 1];
         let ipv6 = ipv6_parse(ipv6_text).map_err(HostParseError::IP)?;
         let host = Host::Ip(net::IpAddr::V6(ipv6));
         return Ok(host);
     }
 
-    // If isNotSpecial is true
     if is_not_special {
         // then return the result of opaque-host parsing input.
         return Ok(Host::OpaqueHost(opaque_host_parse(input)?));

@@ -9,14 +9,26 @@ use std::{
 
 use sl_std::{ascii, chars::ReversibleCharIterator};
 
-use crate::{
-    host::Host,
-    parser::{URLParser, URLParserState},
-    percent_encode::percent_decode,
-    util,
-};
+use crate::{host::Host, parser::URLParser, percent_encode::percent_decode, util};
 
 pub type Port = u16;
+
+#[cfg_attr(
+    feature = "serialize",
+    derive(serialize::Serialize, serialize::Deserialize)
+)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub(crate) struct UrlOffsets {
+    // index of `:`
+    pub scheme_end: usize,
+
+    pub query_start: Option<usize>,
+    pub fragment_start: Option<usize>,
+    pub username_start: usize,
+    pub password_start: usize,
+    pub host_start: usize,
+    pub path_start: usize,
+}
 
 /// <https://url.spec.whatwg.org/#special-scheme>
 pub(crate) fn is_special_scheme(scheme: &str) -> bool {
@@ -80,6 +92,9 @@ pub struct URL {
     ///
     /// It is initially [None].
     pub(crate) fragment: Option<ascii::String>,
+
+    pub(crate) serialization: ascii::String,
+    pub(crate) offsets: UrlOffsets,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -98,7 +113,7 @@ impl URL {
     #[inline]
     #[must_use]
     pub fn is_special(&self) -> bool {
-        is_special_scheme(self.scheme.as_str())
+        is_special_scheme(self.scheme().as_str())
     }
 
     #[inline]
@@ -110,7 +125,7 @@ impl URL {
     #[inline]
     #[must_use]
     pub fn scheme(&self) -> &ascii::Str {
-        &self.scheme
+        &self.serialization[..self.offsets.scheme_end]
     }
 
     #[inline]
@@ -139,8 +154,13 @@ impl URL {
 
     #[inline]
     #[must_use]
-    pub fn path(&self) -> &[ascii::String] {
-        &self.path
+    pub fn path(&self) -> &ascii::Str {
+        let path_end = self
+            .offsets
+            .query_start
+            .or(self.offsets.fragment_start)
+            .unwrap_or(self.serialization.len());
+        &self.serialization[self.offsets.path_start..path_end]
     }
 
     #[inline]
@@ -252,6 +272,8 @@ impl URL {
             path,
             query: None,
             fragment: None,
+            serialization: ascii::String::new(), // FIXME
+            offsets: UrlOffsets::default(),      // FIXME
         })
     }
 
@@ -286,35 +308,22 @@ impl URL {
             .filter(|c| !util::is_ascii_tab_or_newline(*c))
             .collect();
 
-        let state = URLParserState::SchemeStart;
-
         // Set encoding to the result of getting an output encoding from encoding.
 
         // Let buffer be the empty string.
         let buffer = String::new();
 
-        // Let atSignSeen, insideBrackets, and passwordTokenSeen be false.
-        let at_sign_seen = false;
-        let inside_brackets = false;
-        let password_token_seen = false;
-
-        let state_machine = URLParser {
+        let mut state_machine = URLParser {
             url,
-            state,
             buffer,
-            base,
             input: ReversibleCharIterator::new(&filtered_input),
-
-            at_sign_seen,
-            inside_brackets,
-            password_token_seen,
         };
 
-        let parsed_url = state_machine
-            .run_to_completion()
-            .map_err(|_| URLParseError)?
-            .url;
-        Ok(parsed_url)
+        state_machine
+            .parse_complete(base.as_ref())
+            .map_err(|_| URLParseError)?;
+
+        Ok(state_machine.url)
     }
 
     /// [Specification](https://url.spec.whatwg.org/#include-credentials)
@@ -333,25 +342,12 @@ impl URL {
         self.path.len() == 1
     }
 
-    /// [Specification](https://url.spec.whatwg.org/#shorten-a-urls-path)
+    /// <https://url.spec.whatwg.org/#shorten-a-urls-path>
+    ///
+    /// This implementation also gets rid of anything after the path (query, fragment),
+    /// so it should only be called during parsing
     pub(crate) fn shorten_path(&mut self) {
-        // Assert: url does not have an opaque path.
-        assert!(!self.has_opaque_path());
-
-        // Let path be url’s path.
-        let path = &mut self.path;
-
-        // If url’s scheme is "file", path’s size is 1, and path[0] is a normalized Windows drive letter,
-        if self.scheme.as_str() == "file"
-            && path.len() == 1
-            && util::is_normalized_windows_drive_letter(path[0].as_str())
-        {
-            // then return.
-            return;
-        }
-
-        // Remove path’s last item, if any.
-        path.pop();
+        // FIXME: Handle file urls specially in here
     }
 
     /// <https://url.spec.whatwg.org/#url-serializing>
@@ -484,6 +480,8 @@ impl From<&Path> for URL {
             path: path_segments,
             query: None,
             fragment: None,
+            serialization: ascii::String::new(), // FIXME
+            offsets: UrlOffsets::default(),
         }
     }
 }
@@ -498,16 +496,16 @@ mod tests {
     fn test_simple_url() {
         let url: URL = "https://google.com".parse().unwrap();
 
-        assert_eq!(url.scheme, "https");
-        assert_eq!(url.username, "");
-        assert_eq!(url.password, "");
+        assert_eq!(url.scheme(), "https");
+        assert_eq!(url.username(), "");
+        assert_eq!(url.password(), "");
         assert_eq!(
             url.host,
-            Some(Host::OpaqueHost(
+            Some(Host::Domain(
                 ascii::Str::from_bytes(b"google.com").unwrap().to_owned()
             ))
         );
-        assert_eq!(url.path, vec![""]);
+        assert_eq!(url.path(), "/");
         assert_eq!(url.query, None);
         assert_eq!(url.fragment, None);
     }
@@ -569,6 +567,6 @@ mod tests {
     #[test]
     fn opaque_path() {
         let url: URL = "data:text/html,Hello World".parse().unwrap();
-        assert_eq!(url.path(), &["text/html,Hello World"]);
+        assert_eq!(url.path(), "text/html,Hello World");
     }
 }
