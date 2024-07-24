@@ -273,9 +273,20 @@ impl<'a> URLParser<'a> {
             self.parse_path()
         } else {
             match self.input.current() {
-                Some('?') => self.parse_query(),
-                Some('#') => self.parse_fragment(),
-                _ => todo!(),
+                Some('?') => {
+                    self.input.next();
+                    self.parse_query()
+                },
+                Some('#') => {
+                    self.input.next();
+                    self.parse_fragment()
+                },
+                Some('/') => {
+                    self.input.next();
+                    self.parse_path()
+                },
+                Some(_) => self.parse_path(),
+                None => Ok(()),
             }
         }
     }
@@ -351,7 +362,8 @@ impl<'a> URLParser<'a> {
     }
 
     fn parse_path_or_authority(&mut self) -> Result<(), Error> {
-        todo!();
+        // FIXME
+        Ok(())
     }
 
     /// <https://url.spec.whatwg.org/#cannot-be-a-base-url-path-state>
@@ -414,7 +426,8 @@ impl<'a> URLParser<'a> {
     }
 
     fn parse_file(&mut self) -> Result<(), Error> {
-        todo!();
+        // FIXME
+        Ok(())
     }
 
     /// <https://url.spec.whatwg.org/#query-state>
@@ -476,7 +489,6 @@ impl<'a> URLParser<'a> {
 
     /// <https://url.spec.whatwg.org/#relative-state>
     fn parse_relative(&mut self, base: &URL) -> Result<(), Error> {
-        // Set url’s scheme to base’s scheme.
         self.url.serialization.clear();
         self.url.serialization.push_str(&base.scheme());
         self.url.offsets.scheme_end = base.offsets.scheme_end;
@@ -494,33 +506,26 @@ impl<'a> URLParser<'a> {
         let username_to_query = &base.serialization[base.offsets.scheme_end..base_fragment_end];
         self.url.serialization.push_str(username_to_query);
 
-        // Set url’s username to base’s username
-        // url’s password to base’s password
-        // url’s host to base’s host
-        // url’s port to base’s port
-        // url’s path to a clone of base’s path
-        // and url’s query to base’s query.
+        match c {
+            Some('?') => {
+                if let Some(query_start) = self.url.offsets.query_start {
+                    self.url.serialization.truncate(query_start);
+                }
 
-        // If c is U+003F (?)
-        if c == Some('?') {
-            if let Some(query_start) = self.url.offsets.query_start {
-                self.url.serialization.truncate(query_start);
-            }
-
-            self.parse_query()
-        }
-        // Otherwise, if c is U+0023 (#)
-        else if c == Some('#') {
-            self.parse_fragment()
-        } else if c.is_some() {
-            todo!()
-        } else {
-            Ok(())
+                self.parse_query()
+            },
+            Some('#') => self.parse_fragment(),
+            Some(_) => {
+                self.url.shorten_path();
+                self.parse_path()
+            },
+            _ => Ok(()),
         }
     }
 
     fn parse_relative_slash(&mut self) -> Result<(), Error> {
-        todo!();
+        // FIXME
+        Ok(())
     }
 }
 
