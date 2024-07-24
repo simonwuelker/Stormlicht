@@ -9,7 +9,13 @@ use std::{
 
 use sl_std::{ascii, chars::ReversibleCharIterator};
 
-use crate::{host::Host, parser::URLParser, percent_encode::percent_decode, util};
+use crate::{
+    host::Host,
+    parser::URLParser,
+    percent_encode::percent_decode,
+    util::{self, is_normalized_windows_drive_letter},
+    PathSegments,
+};
 
 pub type Port = u16;
 
@@ -145,6 +151,12 @@ impl URL {
         } else {
             &self.serialization[self.offsets.path_start..]
         }
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn path_segments(&self) -> PathSegments<'_> {
+        PathSegments::new(self.path())
     }
 
     #[inline]
@@ -307,8 +319,25 @@ impl URL {
     /// This implementation also gets rid of anything after the path (query, fragment),
     /// so it should only be called during parsing
     pub(crate) fn shorten_path(&mut self) {
-        // FIXME: Handle file urls specially in here
-        todo!()
+        if self.scheme() == "file" {
+            let mut segments = self.path_segments();
+
+            if segments
+                .next()
+                .is_some_and(|s| is_normalized_windows_drive_letter(s.as_str()))
+                && segments.next().is_none()
+            {
+                return;
+            }
+        }
+
+        let last_slash = self
+            .serialization
+            .rfind(ascii::Char::Solidus)
+            .unwrap_or(self.offsets.path_start);
+
+        // FIXME: do we need to adjust query/fragment offsets here?
+        self.serialization.truncate(last_slash)
     }
 
     /// <https://url.spec.whatwg.org/#url-serializing>

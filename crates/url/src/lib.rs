@@ -22,6 +22,7 @@
 mod host;
 mod ip;
 mod parser;
+mod path;
 mod percent_encode;
 mod set;
 mod url;
@@ -31,5 +32,6 @@ pub use crate::ip::IPParseError;
 pub use crate::parser::*;
 pub use crate::url::*;
 pub use host::Host;
+pub use path::PathSegments;
 pub use percent_encode::{percent_decode, percent_encode};
 use set::AsciiSet;
