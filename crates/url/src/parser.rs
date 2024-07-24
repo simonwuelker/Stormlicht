@@ -145,6 +145,9 @@ impl<'a> URLParser<'a> {
         let terminates_authority =
             |c| matches!(c, '/' | '?' | '#') || (is_special_url && c == '\\');
 
+        self.url.offsets.username_start = self.url.serialization.len();
+        self.url.offsets.password_start = self.url.serialization.len();
+
         while let Some(c) = self.input.current().filter(|&c| !terminates_authority(c)) {
             self.input.next();
 
@@ -477,22 +480,11 @@ impl<'a> URLParser<'a> {
         self.url.serialization.push_str(username_to_query);
 
         // Set url’s username to base’s username
-        self.url.username.clone_from(&base.username);
-
         // url’s password to base’s password
-        self.url.password.clone_from(&base.password);
-
         // url’s host to base’s host
-        self.url.host.clone_from(&base.host);
-
         // url’s port to base’s port
-        self.url.port.clone_from(&base.port);
-
         // url’s path to a clone of base’s path
-        self.url.path.clone_from(&base.path);
-
         // and url’s query to base’s query.
-        self.url.query.clone_from(&base.query);
 
         // If c is U+003F (?)
         if c == Some('?') {
