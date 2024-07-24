@@ -9,8 +9,9 @@ use crate::{
     host::{self, HostParseError},
     is_special_scheme,
     percent_encode::{
-        is_fragment_percent_encode_set, is_path_percent_encode_set, is_query_percent_encode_set,
-        is_special_query_percent_encode_set, is_userinfo_percent_encode_set, percent_encode,
+        is_c0_percent_encode_set, is_fragment_percent_encode_set, is_path_percent_encode_set,
+        is_query_percent_encode_set, is_special_query_percent_encode_set,
+        is_userinfo_percent_encode_set, percent_encode,
     },
     util::is_windows_drive_letter,
     URL,
@@ -352,10 +353,9 @@ impl<'a> URLParser<'a> {
 
     /// <https://url.spec.whatwg.org/#cannot-be-a-base-url-path-state>
     fn parse_opaque_path(&mut self) -> Result<(), Error> {
+        self.url.offsets.path_start = self.url.serialization.len();
         while let Some(c) = self.input.next() {
             if c == '?' {
-                self.url.serialization.push(ascii::Char::QuestionMark);
-                self.url.offsets.query_start = Some(self.url.serialization.len());
                 return self.parse_query();
             } else if c == '#' {
                 return self.parse_fragment();
@@ -364,8 +364,8 @@ impl<'a> URLParser<'a> {
                 c.encode_utf8(&mut buffer);
                 percent_encode(
                     &buffer[..c.len_utf8()],
-                    is_path_percent_encode_set,
-                    &mut self.buffer,
+                    is_c0_percent_encode_set,
+                    &mut self.url.serialization,
                 );
             }
         }
