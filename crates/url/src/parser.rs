@@ -9,9 +9,8 @@ use crate::{
     host::{self, HostParseError},
     is_special_scheme,
     percent_encode::{
-        is_c0_percent_encode_set, is_fragment_percent_encode_set, is_path_percent_encode_set,
-        is_query_percent_encode_set, is_special_query_percent_encode_set,
-        is_userinfo_percent_encode_set, percent_encode,
+        is_c0_percent_encode_set, is_fragment_percent_encode_set, is_query_percent_encode_set,
+        is_special_query_percent_encode_set, is_userinfo_percent_encode_set, percent_encode,
     },
     util::is_windows_drive_letter,
     URL,
@@ -57,11 +56,6 @@ pub enum URLParserState {
 pub(crate) struct URLParser<'a> {
     pub(crate) url: URL,
     pub(crate) input: ReversibleCharIterator<&'a str>,
-
-    /// A temporary character buffer used during parsing
-    ///
-    /// Notably, unlike everything in a URL, this can contain unicode data
-    pub(crate) buffer: String,
 }
 
 impl<'a> URLParser<'a> {
@@ -137,11 +131,16 @@ impl<'a> URLParser<'a> {
         self.parse_authority()
     }
 
+    /// <https://url.spec.whatwg.org/#authority-state>
     fn parse_authority(&mut self) -> Result<(), Error> {
         let mut at_sign_seen = false;
         let mut password_token_seen = false;
 
+        // When parsing authority, we don't know whether what we're parsing is a username
+        // or a host before we see either a @ or a /. FIXME: Don't parse stuff twice here!
         let mut host_start_in_input = self.input.position();
+        let mut host_start_in_serialization = self.url.serialization.len();
+
         let is_special_url = self.url.is_special();
         let terminates_authority =
             |c| matches!(c, '/' | '?' | '#') || (is_special_url && c == '\\');
@@ -161,7 +160,9 @@ impl<'a> URLParser<'a> {
                 }
 
                 self.url.offsets.host_start = self.url.serialization.len();
+
                 host_start_in_input = self.input.position();
+                host_start_in_serialization = self.url.serialization.len();
             } else if c == ':' {
                 self.url.serialization.push(ascii::Char::Colon);
 
@@ -175,7 +176,7 @@ impl<'a> URLParser<'a> {
                 percent_encode(
                     &buffer[..c.len_utf8()],
                     is_userinfo_percent_encode_set,
-                    &mut self.buffer,
+                    &mut self.url.serialization,
                 );
             }
         }
@@ -185,6 +186,8 @@ impl<'a> URLParser<'a> {
         }
 
         self.input.set_position(host_start_in_input);
+        self.url.serialization.truncate(host_start_in_serialization);
+
         self.parse_host()
     }
 
@@ -308,7 +311,7 @@ impl<'a> URLParser<'a> {
                 percent_encode(
                     &buffer[..c.len_utf8()],
                     is_userinfo_percent_encode_set,
-                    &mut self.buffer,
+                    &mut self.url.serialization,
                 );
             }
 

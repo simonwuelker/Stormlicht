@@ -273,12 +273,8 @@ impl URL {
 
         // Set encoding to the result of getting an output encoding from encoding.
 
-        // Let buffer be the empty string.
-        let buffer = String::new();
-
         let mut state_machine = URLParser {
             url,
-            buffer,
             input: ReversibleCharIterator::new(&filtered_input),
         };
 
@@ -448,9 +444,7 @@ mod tests {
         assert_eq!(url.password(), "password");
         assert_eq!(
             url.host,
-            Some(Host::OpaqueHost(
-                ascii::Str::from_bytes(b"google.com").unwrap().to_owned()
-            ))
+            Some(Host::Domain(ascii!("google.com").to_owned()))
         );
         assert_eq!(url.path(), "/");
         assert_eq!(url.query(), None);
