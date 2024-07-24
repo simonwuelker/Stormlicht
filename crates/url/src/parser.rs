@@ -362,8 +362,13 @@ impl<'a> URLParser<'a> {
     }
 
     fn parse_path_or_authority(&mut self) -> Result<(), Error> {
-        // FIXME
-        Ok(())
+        if self.input.current() == Some('/') {
+            self.url.serialization.push(ascii::Char::Colon);
+            self.input.next();
+            self.parse_authority()
+        } else {
+            self.parse_path()
+        }
     }
 
     /// <https://url.spec.whatwg.org/#cannot-be-a-base-url-path-state>
