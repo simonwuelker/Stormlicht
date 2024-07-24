@@ -140,12 +140,11 @@ impl URL {
     #[inline]
     #[must_use]
     pub fn path(&self) -> &ascii::Str {
-        let path_end = self
-            .offsets
-            .query_start
-            .or(self.offsets.fragment_start)
-            .unwrap_or(self.serialization.len());
-        &self.serialization[self.offsets.path_start..path_end]
+        if let Some(end) = self.offsets.query_start.or(self.offsets.fragment_start) {
+            &self.serialization[self.offsets.path_start..end - 1]
+        } else {
+            &self.serialization[self.offsets.path_start..]
+        }
     }
 
     #[inline]
@@ -398,9 +397,7 @@ mod tests {
         assert_eq!(url.password(), "");
         assert_eq!(
             url.host,
-            Some(Host::Domain(
-                ascii::Str::from_bytes(b"google.com").unwrap().to_owned()
-            ))
+            Some(Host::Domain(ascii!("google.com").to_owned()))
         );
         assert_eq!(url.path(), "/");
         assert_eq!(url.query(), None);
@@ -416,9 +413,7 @@ mod tests {
         assert_eq!(url.password(), "");
         assert_eq!(
             url.host,
-            Some(Host::OpaqueHost(
-                ascii::Str::from_bytes(b"google.com").unwrap().to_owned()
-            ))
+            Some(Host::Domain(ascii!("google.com").to_owned()))
         );
         assert_eq!(url.path(), "/");
         assert_eq!(url.query().as_deref().map(ascii::Str::as_str), Some("a=b"));
@@ -434,9 +429,7 @@ mod tests {
         assert_eq!(url.password(), "");
         assert_eq!(
             url.host,
-            Some(Host::OpaqueHost(
-                ascii::Str::from_bytes(b"google.com").unwrap().to_owned()
-            ))
+            Some(Host::Domain(ascii!("google.com").to_owned()))
         );
         assert_eq!(url.path(), "/");
         assert_eq!(url.query(), None);

@@ -266,35 +266,39 @@ impl<'a> URLParser<'a> {
                 self.url.serialization.push(ascii::Char::Solidus);
             }
 
-            return self.parse_path();
+            self.parse_path()
+        } else {
+            match self.input.current() {
+                Some('?') => self.parse_query(),
+                Some('#') => self.parse_fragment(),
+                _ => todo!(),
+            }
         }
-
-        todo!()
     }
 
     /// <https://url.spec.whatwg.org/#path-state>
     fn parse_path(&mut self) -> Result<(), Error> {
         let is_special = self.url.is_special();
 
+        let mut terminating_character = None;
         loop {
             let path_segment_start = self.url.serialization.len();
             let mut is_last_segment = false;
 
             // Inner loop parses a single path segment
             loop {
-                let Some(c) = self.input.current() else {
+                let Some(c) = self.input.next() else {
                     is_last_segment = true;
                     break;
                 };
 
-                if c == '/' || (is_special && c == '\\') {
-                    self.url.serialization.push(ascii::Char::Solidus);
-                    self.input.next();
+                if c == '?' || c == '#' {
+                    terminating_character = Some(c);
+                    is_last_segment = true;
                     break;
                 }
-
-                if c == '?' || c == '#' {
-                    is_last_segment = true;
+                if c == '/' || (is_special && c == '\\') {
+                    self.url.serialization.push(ascii::Char::Solidus);
                     break;
                 }
 
@@ -305,7 +309,6 @@ impl<'a> URLParser<'a> {
                     is_userinfo_percent_encode_set,
                     &mut self.buffer,
                 );
-                self.input.next();
             }
 
             let segment = &self.url.serialization[path_segment_start..];
@@ -336,7 +339,11 @@ impl<'a> URLParser<'a> {
             }
         }
 
-        Ok(())
+        match terminating_character {
+            Some('?') => self.parse_query(),
+            Some('#') => self.parse_fragment(),
+            _ => Ok(()),
+        }
     }
 
     fn parse_path_or_authority(&mut self) -> Result<(), Error> {
@@ -408,6 +415,8 @@ impl<'a> URLParser<'a> {
     }
 
     /// <https://url.spec.whatwg.org/#query-state>
+    ///
+    /// This expects the starting `?` to have already been consumed (but not serialized)
     fn parse_query(&mut self) -> Result<(), Error> {
         self.url.serialization.push(ascii::Char::QuestionMark);
         self.url.offsets.query_start = Some(self.url.serialization.len());
@@ -444,6 +453,9 @@ impl<'a> URLParser<'a> {
         Ok(())
     }
 
+    /// <https://url.spec.whatwg.org/#fragment-state>
+    ///
+    /// This expects the starting `#` to have already been consumed (but not serialized)
     fn parse_fragment(&mut self) -> Result<(), Error> {
         self.url.serialization.push(ascii::Char::NumberSign);
         self.url.offsets.fragment_start = Some(self.url.serialization.len());
