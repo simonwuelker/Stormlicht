@@ -29,7 +29,7 @@ fn main() -> Result<(), Error> {
         };
         let base = base_str.map(|s| s.parse().unwrap());
         let url = URL::parse_with_base(input, base.clone(), None);
-        let succeeded;
+        let mut succeeded = true;
 
         // Start test output
         print!("{:?}", input.escape_debug().collect::<String>());
@@ -60,18 +60,16 @@ fn main() -> Result<(), Error> {
             match url {
                 Ok(url) => {
                     // FIXME compare all the values here
-                    let _ = url;
+                    succeeded &= url.scheme() == &protocol[..protocol.len() - 1];
+                    succeeded &= url.username() == username;
+                    succeeded &= url.password() == password;
+                    succeeded &= url.port().map(|p| p.to_string()).unwrap_or_default() == port;
+
                     let _ = href;
                     let _ = origin;
-                    let _ = protocol;
-                    let _ = username;
-                    let _ = password;
                     let _ = host;
                     let _ = hostname;
-                    let _ = port;
                     let _ = pathname;
-
-                    succeeded = true;
                 },
                 Err(_) => {
                     succeeded = false;
