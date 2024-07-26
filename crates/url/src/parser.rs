@@ -28,31 +28,6 @@ pub enum Error {
     HostParse(HostParseError),
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum URLParserState {
-    SchemeStart,
-    Scheme,
-    NoScheme,
-    SpecialRelativeOrAuthority,
-    PathOrAuthority,
-    Relative,
-    RelativeSlash,
-    SpecialAuthoritySlashes,
-    SpecialAuthorityIgnoreSlashes,
-    Authority,
-    Host,
-    Hostname,
-    Port,
-    File,
-    FileSlash,
-    FileHost,
-    PathStart,
-    Path,
-    OpaquePath,
-    Query,
-    Fragment,
-}
-
 pub(crate) struct URLParser<'a> {
     pub(crate) url: URL,
     pub(crate) input: ReversibleCharIterator<&'a str>,
