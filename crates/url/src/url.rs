@@ -268,9 +268,7 @@ impl URL {
                 // If input contains any leading or trailing C0 control or space, validation error.
 
                 // Remove any leading and trailing C0 control or space from input.
-                input = input
-                    .trim_start_matches(util::is_c0_or_space)
-                    .trim_end_matches(util::is_c0_or_space);
+                input = input.trim_matches(util::is_c0_or_space);
                 url
             },
         };
