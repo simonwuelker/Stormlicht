@@ -133,6 +133,8 @@ impl<'a> URLParser<'a> {
 
     /// <https://url.spec.whatwg.org/#authority-state>
     fn parse_authority(&mut self) -> Result<(), Error> {
+        self.url.serialization.push_str(ascii!("//"));
+
         let mut at_sign_seen = false;
         let mut password_token_seen = false;
 
