@@ -276,8 +276,6 @@ impl URL {
             None => {
                 input = input.trim_matches(util::is_c0_or_space);
 
-                // If url is not given:
-                // Set url to a new URL.
                 let url = Self {
                     // This should be a reasonable approximation
                     serialization: ascii::String::with_capacity(input.len()),
@@ -286,22 +284,14 @@ impl URL {
                     port: None,
                 };
 
-                // If input contains any leading or trailing C0 control or space, validation error.
-
-                // Remove any leading and trailing C0 control or space from input.
                 url
             },
         };
 
-        // If input contains any ASCII tab or newline, validation error.
-
-        // Remove all ASCII tab or newline from input.
         let filtered_input: String = input
             .chars()
             .filter(|c| !util::is_ascii_tab_or_newline(*c))
             .collect();
-
-        // Set encoding to the result of getting an output encoding from encoding.
 
         let mut state_machine = Parser {
             url,
