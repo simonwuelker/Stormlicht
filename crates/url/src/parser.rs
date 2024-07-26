@@ -162,6 +162,10 @@ impl<'a> Parser<'a> {
             return Err(Error::MissingHost);
         }
 
+        if !at_sign_seen {
+            self.url.offsets.password_start = self.url.offsets.username_start;
+        }
+
         self.input.set_position(host_start_in_input);
         self.url.serialization.truncate(host_start_in_serialization);
 
