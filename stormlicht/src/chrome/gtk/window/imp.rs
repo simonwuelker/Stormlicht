@@ -36,9 +36,13 @@ impl ObjectSubclass for Window {
             None,
             |win, _action_name, _action_target| async move {
                 match win.open_file_dialog().await {
-                    Ok(file_path) => {
-                        let url = URL::from(file_path.as_path());
-                        win.imp().web_view.load(&url);
+                    Ok(file_path) => match URL::try_from(file_path.as_path()) {
+                        Ok(url) => {
+                            win.imp().web_view.load(&url);
+                        },
+                        Err(e) => {
+                            log::error!("Failed to parse path as url: {e:?}");
+                        },
                     },
                     Err(error) => log::error!("Error loading file: {error}"),
                 }
