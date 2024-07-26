@@ -11,7 +11,7 @@ use sl_std::{ascii, chars::ReversibleCharIterator};
 
 use crate::{
     host::Host,
-    parser::{self, URLParser},
+    parser::{self, Parser},
     percent_encode::percent_decode,
     util::{self, is_normalized_windows_drive_letter},
     PathSegments,
@@ -286,7 +286,7 @@ impl URL {
 
         // Set encoding to the result of getting an output encoding from encoding.
 
-        let mut state_machine = URLParser {
+        let mut state_machine = Parser {
             url,
             input: ReversibleCharIterator::new(&filtered_input),
         };

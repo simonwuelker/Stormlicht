@@ -28,12 +28,12 @@ pub enum Error {
     HostParse(HostParseError),
 }
 
-pub(crate) struct URLParser<'a> {
+pub(crate) struct Parser<'a> {
     pub(crate) url: URL,
     pub(crate) input: ReversibleCharIterator<&'a str>,
 }
 
-impl<'a> URLParser<'a> {
+impl<'a> Parser<'a> {
     /// Consumes and returns the scheme from the input if there is any.
     /// If there is no scheme then the position of the input is undefined.
     ///
