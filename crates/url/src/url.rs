@@ -11,13 +11,19 @@ use sl_std::{ascii, chars::ReversibleCharIterator};
 
 use crate::{
     host::Host,
-    parser::URLParser,
+    parser::{self, URLParser},
     percent_encode::percent_decode,
     util::{self, is_normalized_windows_drive_letter},
     PathSegments,
 };
 
 pub type Port = u16;
+
+#[derive(Debug)]
+pub enum Error {
+    Io(io::Error),
+    Parser(parser::Error),
+}
 
 #[cfg_attr(
     feature = "serialize",
@@ -73,9 +79,6 @@ pub struct URL {
     pub(crate) serialization: ascii::String,
     pub(crate) offsets: UrlOffsets,
 }
-
-#[derive(Clone, Copy, Debug)]
-pub struct URLParseError;
 
 /// Whether or not the fragment of an [URL] should be excluded during serialization.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -181,12 +184,12 @@ impl URL {
         Some(&self.serialization[fragment_start..])
     }
 
-    pub fn from_user_input(input: &str) -> Result<Self, URLParseError> {
+    pub fn from_user_input(input: &str) -> Result<Self, Error> {
         let base_url = match Self::cwd() {
             Ok(url) => url,
             Err(error) => {
                 log::error!("Failed to access current working directory: {error}");
-                return Err(URLParseError);
+                return Err(Error::Io(error));
             },
         };
 
@@ -257,7 +260,7 @@ impl URL {
         mut input: &str,
         base: Option<URL>,
         given_url: Option<URL>,
-    ) -> Result<Self, URLParseError> {
+    ) -> Result<Self, Error> {
         let url = match given_url {
             Some(url) => url,
             None => {
@@ -288,9 +291,7 @@ impl URL {
             input: ReversibleCharIterator::new(&filtered_input),
         };
 
-        state_machine
-            .parse_complete(base.as_ref())
-            .map_err(|_| URLParseError)?;
+        state_machine.parse_complete(base.as_ref())?;
 
         Ok(state_machine.url)
     }
@@ -354,7 +355,7 @@ impl URL {
 }
 
 impl FromStr for URL {
-    type Err = URLParseError;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // https://url.spec.whatwg.org/#concept-basic-url-parser
@@ -402,6 +403,12 @@ impl TryFrom<&Path> for URL {
             serialization,
             offsets,
         })
+    }
+}
+
+impl From<parser::Error> for Error {
+    fn from(value: parser::Error) -> Self {
+        Self::Parser(value)
     }
 }
 

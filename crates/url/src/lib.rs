@@ -29,7 +29,6 @@ mod url;
 mod util;
 
 pub use crate::ip::IPParseError;
-pub use crate::parser::*;
 pub use crate::url::*;
 pub use host::Host;
 pub use path::PathSegments;
