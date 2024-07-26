@@ -185,6 +185,11 @@ impl<'a> Parser<'a> {
 
             if c == ':' && !inside_brackets {
                 let host_buffer = &self.input.source()[host_start..self.input.position() - 1];
+
+                if host_buffer.is_empty() {
+                    return Err(Error::MissingHost);
+                }
+
                 let host = host::parse_with_special(host_buffer, !is_special_url)?;
                 let host_serialization: ascii::String =
                     ascii::String::try_from(format!("{host}")).expect("is ascii");
