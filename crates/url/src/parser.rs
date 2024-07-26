@@ -490,7 +490,7 @@ impl<'a> Parser<'a> {
             .offsets
             .fragment_start
             .unwrap_or(base.serialization.len());
-        let username_to_query = &base.serialization[base.offsets.scheme_end..base_fragment_end];
+        let username_to_query = &base.serialization[base.offsets.scheme_end + 1..base_fragment_end];
         self.url.serialization.push_str(username_to_query);
 
         match c {
