@@ -274,14 +274,21 @@ impl URL {
         let url = match given_url {
             Some(url) => url,
             None => {
+                input = input.trim_matches(util::is_c0_or_space);
+
                 // If url is not given:
                 // Set url to a new URL.
-                let url = Self::default();
+                let url = Self {
+                    // This should be a reasonable approximation
+                    serialization: ascii::String::with_capacity(input.len()),
+                    offsets: UrlOffsets::default(),
+                    host: None,
+                    port: None,
+                };
 
                 // If input contains any leading or trailing C0 control or space, validation error.
 
                 // Remove any leading and trailing C0 control or space from input.
-                input = input.trim_matches(util::is_c0_or_space);
                 url
             },
         };
