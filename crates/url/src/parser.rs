@@ -12,7 +12,7 @@ use crate::{
         is_c0_percent_encode_set, is_fragment_percent_encode_set, is_query_percent_encode_set,
         is_special_query_percent_encode_set, is_userinfo_percent_encode_set, percent_encode,
     },
-    util::is_windows_drive_letter,
+    util::{is_double_dot_path_segment, is_single_dot_path_segment, is_windows_drive_letter},
     URL,
 };
 
@@ -328,25 +328,21 @@ impl<'a> URLParser<'a> {
 
             let segment = &self.url.serialization[path_segment_start..];
 
-            match segment.as_str() {
-                ".." => {
-                    self.url.serialization.truncate(path_segment_start - 1);
-                    self.url.shorten_path();
-                },
-                "." => {
-                    if is_last_segment {
-                        self.url.serialization.push(ascii::Char::Solidus);
-                    } else {
-                        self.url.serialization.push(ascii::Char::FullStop);
-                    }
-                },
-                _ => {
-                    if self.url.scheme() == "file" && is_windows_drive_letter(segment.as_str()) {
-                        self.url.serialization[path_segment_start + 1] = ascii::Char::Colon;
-                    }
-
+            if is_double_dot_path_segment(segment.as_str()) {
+                self.url.serialization.truncate(path_segment_start - 1);
+                self.url.shorten_path();
+            } else if is_single_dot_path_segment(segment.as_str()) {
+                if is_last_segment {
                     self.url.serialization.push(ascii::Char::Solidus);
-                },
+                } else {
+                    self.url.serialization.push(ascii::Char::FullStop);
+                }
+            } else {
+                if self.url.scheme() == "file" && is_windows_drive_letter(segment.as_str()) {
+                    self.url.serialization[path_segment_start + 1] = ascii::Char::Colon;
+                }
+
+                self.url.serialization.push(ascii::Char::Solidus);
             }
 
             if is_last_segment {
