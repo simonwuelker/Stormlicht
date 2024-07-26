@@ -19,8 +19,13 @@ use crate::{
 
 pub type Port = u16;
 
+/// We refuse to parser urls longer than this
+const MAX_URL_LEN: usize = 0x10000;
+
 #[derive(Debug)]
 pub enum Error {
+    /// The length of the URL exceeds [MAX_URL_LEN]
+    TooLong,
     Io(io::Error),
     Parser(parser::Error),
 }
@@ -261,6 +266,11 @@ impl URL {
         base: Option<URL>,
         given_url: Option<URL>,
     ) -> Result<Self, Error> {
+        if input.len() > MAX_URL_LEN {
+            log::error!("Refusing to parse url with length {:x}", input.len());
+            return Err(Error::TooLong);
+        }
+
         let url = match given_url {
             Some(url) => url,
             None => {
@@ -416,7 +426,7 @@ impl From<parser::Error> for Error {
 mod tests {
     use sl_std::ascii;
 
-    use super::{Host, URL};
+    use super::*;
 
     #[test]
     fn test_simple_url() {
@@ -489,5 +499,15 @@ mod tests {
     fn opaque_path() {
         let url: URL = "data:text/html,Hello World".parse().unwrap();
         assert_eq!(url.path(), "text/html,Hello World");
+    }
+
+    #[test]
+    fn dont_parse_very_long_url() {
+        // This is a valid, but way too long url
+        let url_str = format!("https://example.com{}", " ".repeat(MAX_URL_LEN));
+
+        let url: Result<URL, _> = url_str.parse();
+
+        assert!(url.is_err());
     }
 }
