@@ -159,7 +159,7 @@ impl Request {
         // Send request header
         write!(writer, "{method} ", method = self.method.as_str(),)?;
 
-        for segment in self.context.url.path() {
+        for segment in self.context.url.path_segments() {
             write!(writer, "/{segment}")?;
         }
         write!(writer, " HTTP/1.1{HTTP_NEWLINE}")?;

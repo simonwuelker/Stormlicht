@@ -111,7 +111,7 @@ impl Resource {
                     return Err(ResourceLoadError::InvalidDataURL);
                 }
 
-                let opaque_path = &url.path()[0];
+                let opaque_path = &url.path();
                 let (mut before_data, data) = match opaque_path.split_once(ascii::Char::Comma) {
                     Some(segments) => segments,
                     None => return Err(ResourceLoadError::InvalidDataURL),
