@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use dom_derive::inherit;
 use url::URL;
 
@@ -29,12 +27,14 @@ impl HtmlLinkElement {
 
     #[must_use]
     pub fn url(&self) -> Option<URL> {
+        let document = self.owning_document().expect("must have a document");
+
         self.attributes()
             .get(&static_interned!("href"))
             .map(|value| value.to_string())
             .as_ref()
             .map(String::as_str)
-            .map(URL::from_str)
+            .map(|value| URL::parse_with_base(value, Some(document.borrow().url()), None))
             .map(Result::ok)
             .flatten()
     }
