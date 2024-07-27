@@ -28,7 +28,7 @@ fn main() -> Result<(), Error> {
             other => panic!("invalid base: {other:?}"),
         };
         let base = base_str.map(|s| s.parse().unwrap());
-        let url = URL::parse_with_base(input, base.clone(), None);
+        let url = URL::parse_with_base(input, base.as_ref(), None);
         let mut succeeded = true;
 
         // Start test output
