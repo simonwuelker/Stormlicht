@@ -113,6 +113,11 @@ impl StatusCode {
     pub const fn is_error(&self) -> bool {
         self.is_client_error() || self.is_server_error()
     }
+
+    #[must_use]
+    pub const fn allowed_to_have_body(&self) -> bool {
+        !matches!(self.0, 100..200 | 204 | 304)
+    }
 }
 
 impl FromStr for StatusCode {

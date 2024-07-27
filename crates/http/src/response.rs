@@ -140,6 +140,15 @@ impl Response {
             );
         }
 
+        if !status.allowed_to_have_body() {
+            return Ok(Self {
+                status,
+                headers,
+                body: vec![],
+                context,
+            });
+        }
+
         // Anything after the headers is the actual response body
         // The length of the body depends on the headers that were sent
         let mut body: Vec<u8> = if let Some(transfer_encoding) =
