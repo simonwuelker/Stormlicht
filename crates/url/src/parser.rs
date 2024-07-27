@@ -493,6 +493,7 @@ impl<'a> Parser<'a> {
             .unwrap_or(base.serialization.len());
         let username_to_query = &base.serialization[base.offsets.scheme_end + 1..base_fragment_end];
         self.url.serialization.push_str(username_to_query);
+        self.url.host = base.host.clone();
 
         self.url.offsets = base.offsets;
         self.url.offsets.fragment_start = None;
