@@ -9,8 +9,12 @@ pub struct PathSegments<'a> {
 impl<'a> PathSegments<'a> {
     #[inline]
     #[must_use]
-    pub const fn new(path: &'a ascii::Str) -> Self {
-        Self { remaining: path }
+    pub fn new(path: &'a ascii::Str) -> Self {
+        debug_assert!(path.starts_with(ascii::Char::Solidus));
+
+        Self {
+            remaining: &path[1..],
+        }
     }
 }
 
