@@ -482,7 +482,8 @@ impl<'a> Parser<'a> {
 
         let c = self.input.current();
         if c == Some('/') || (self.url.is_special() && c == Some('\\')) {
-            return self.parse_relative_slash();
+            self.input.next();
+            return self.parse_relative_slash(base);
         }
 
         // Copy base up to fragment
@@ -508,15 +509,39 @@ impl<'a> Parser<'a> {
             Some('#') => self.parse_fragment(),
             Some(_) => {
                 self.url.shorten_path();
+                self.url.offsets.path_start = self.url.serialization.len();
                 self.parse_path()
             },
             _ => Ok(()),
         }
     }
 
-    fn parse_relative_slash(&mut self) -> Result<(), Error> {
-        // FIXME
-        Ok(())
+    fn parse_relative_slash(&mut self, base: &URL) -> Result<(), Error> {
+        let c = self.input.current();
+
+        if c == Some('/') {
+            self.parse_special_authority_slashes()
+        } else if self.url.is_special() && c == Some('\\') {
+            self.parse_special_authority_slashes()
+        } else {
+            // Copy from username to port
+            if base.host.is_some() {
+                self.url.serialization.push_str(ascii!("//"));
+            }
+
+            let end = base.offsets.path_start;
+            self.url
+                .serialization
+                .push_str(&base.serialization[base.offsets.username_start..end]);
+
+            self.url.offsets.password_start = base.offsets.password_start;
+            self.url.offsets.host_start = base.offsets.host_start;
+            self.url.port = base.port;
+            self.url.host = base.host.clone();
+
+            self.url.offsets.path_start = self.url.serialization.len();
+            self.parse_path()
+        }
     }
 }
 
