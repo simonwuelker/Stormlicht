@@ -224,10 +224,13 @@ impl Request {
         }
 
         if response.status().is_redirection() {
-            if let Some(relocation) = response
-                .headers()
-                .get(Header::LOCATION)
-                .and_then(|location| location.parse::<URL>().ok())
+            if let Some(relocation) =
+                response
+                    .headers()
+                    .get(Header::LOCATION)
+                    .and_then(|location| {
+                        URL::parse_with_base(location, Some(&self.context.url), None).ok()
+                    })
             {
                 log::info!(
                     "{current_url} redirects to {redirect_url} ({status_code:?})",
