@@ -254,7 +254,6 @@ impl<'a> Parser<'a> {
         if self.url.is_special() {
             if self.input.current() == Some('/') {
                 self.input.next();
-                self.url.serialization.push(ascii::Char::Solidus);
             }
 
             self.parse_path()

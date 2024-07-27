@@ -510,14 +510,14 @@ mod tests {
 
     #[test]
     fn filename_with_base_url() {
-        let base: URL = "https://soju.im".parse().unwrap();
+        let base: URL = "https://soju.im/".parse().unwrap();
 
         let name = "style.css";
 
         let url = URL::parse_with_base(name, Some(&base), None).unwrap();
-        println!("url: {:?}", url.serialization);
 
         assert_eq!(url.scheme(), "https");
         assert_eq!(url.path(), "/style.css");
+        assert_eq!(url.serialization, "https://soju.im/style.css");
     }
 }
