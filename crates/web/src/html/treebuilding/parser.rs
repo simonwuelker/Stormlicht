@@ -166,14 +166,7 @@ pub struct Parser<P: ParseErrorHandler> {
 }
 
 impl<P: ParseErrorHandler> Parser<P> {
-    pub fn new(source: &str) -> Self {
-        let document = DomPtr::new(Document::default());
-        // TODO: judging from the spec behaviour, it appears that document's document's
-        // point to themselves. We should find a note for that somewhere in a spec.
-        document
-            .borrow_mut()
-            .set_owning_document(DomPtr::clone(&document).downgrade());
-
+    pub fn new(source: &str, document: DomPtr<Document>) -> Self {
         Self {
             tokenizer: Tokenizer::new(source),
             document,

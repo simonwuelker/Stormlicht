@@ -11,7 +11,10 @@ use crate::{
         layout::{BoxTree, Pixels, Size},
         StyleComputer, Stylesheet,
     },
-    dom::{dom_objects, DomPtr},
+    dom::{
+        dom_objects::{self, Document},
+        DomPtr,
+    },
     event,
     html::{self, tokenization::IgnoreParseErrors},
 };
@@ -57,8 +60,9 @@ impl BrowsingContext {
         let html_source = String::from_utf8_lossy(&resource.data());
 
         // Parse the data into a html document
+        let document = setup_document(location.clone());
         let parse_start = time::Instant::now();
-        let parser: html::Parser<IgnoreParseErrors> = html::Parser::new(&html_source);
+        let parser: html::Parser<IgnoreParseErrors> = html::Parser::new(&html_source, document);
         let (document, stylesheets) = parser.parse();
         let parse_end = time::Instant::now();
 
@@ -170,4 +174,14 @@ impl CurrentPage {
     fn invalidate_layout(&mut self) {
         self.needs_relayout = true;
     }
+}
+
+fn setup_document(location: URL) -> DomPtr<Document> {
+    let document = DomPtr::new(Document::default());
+    {
+        let mut document_ref = document.borrow_mut();
+        document_ref.set_owning_document(DomPtr::clone(&document).downgrade());
+        document_ref.set_url(location.clone());
+    }
+    document
 }
