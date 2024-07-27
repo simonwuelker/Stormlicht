@@ -122,8 +122,8 @@ impl<'a> Parser<'a> {
         let terminates_authority =
             |c| matches!(c, '/' | '?' | '#') || (is_special_url && c == '\\');
 
-        self.url.offsets.username_start = self.url.serialization.len();
-        self.url.offsets.password_start = self.url.serialization.len();
+        self.url.offsets.username_start = host_start_in_serialization;
+        self.url.offsets.password_start = host_start_in_serialization;
 
         while let Some(c) = self.input.current().filter(|&c| !terminates_authority(c)) {
             self.input.next();
@@ -162,12 +162,13 @@ impl<'a> Parser<'a> {
             return Err(Error::MissingHost);
         }
 
-        if !at_sign_seen {
-            self.url.offsets.password_start = self.url.offsets.username_start;
-        }
-
         self.input.set_position(host_start_in_input);
         self.url.serialization.truncate(host_start_in_serialization);
+
+        if !at_sign_seen {
+            // No username, no password
+            self.url.offsets.password_start = host_start_in_serialization;
+        }
 
         self.parse_host()
     }
@@ -283,6 +284,7 @@ impl<'a> Parser<'a> {
 
         let mut terminating_character = None;
         loop {
+            self.url.serialization.push(ascii::Char::Solidus);
             let path_segment_start = self.url.serialization.len();
             let mut is_last_segment = false;
 
@@ -327,8 +329,6 @@ impl<'a> Parser<'a> {
                 if self.url.scheme() == "file" && is_windows_drive_letter(segment.as_str()) {
                     self.url.serialization[path_segment_start + 1] = ascii::Char::Colon;
                 }
-
-                self.url.serialization.push(ascii::Char::Solidus);
             }
 
             if is_last_segment {

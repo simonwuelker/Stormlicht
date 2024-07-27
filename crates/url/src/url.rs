@@ -198,7 +198,7 @@ impl URL {
             },
         };
 
-        Self::parse_with_base(input, Some(base_url), None)
+        Self::parse_with_base(input, Some(&base_url), None)
             .or_else(|_| format!("http://{input}").parse())
     }
 
@@ -263,7 +263,7 @@ impl URL {
     /// [Specification](https://url.spec.whatwg.org/#concept-basic-url-parser)
     pub fn parse_with_base(
         mut input: &str,
-        base: Option<URL>,
+        base: Option<&URL>,
         given_url: Option<URL>,
     ) -> Result<Self, Error> {
         if input.len() > MAX_URL_LEN {
@@ -298,7 +298,7 @@ impl URL {
             input: ReversibleCharIterator::new(&filtered_input),
         };
 
-        state_machine.parse_complete(base.as_ref())?;
+        state_machine.parse_complete(base)?;
 
         Ok(state_machine.url)
     }
@@ -506,5 +506,18 @@ mod tests {
         let url: Result<URL, _> = url_str.parse();
 
         assert!(url.is_err());
+    }
+
+    #[test]
+    fn filename_with_base_url() {
+        let base: URL = "https://soju.im".parse().unwrap();
+
+        let name = "style.css";
+
+        let url = URL::parse_with_base(name, Some(&base), None).unwrap();
+        println!("url: {:?}", url.serialization);
+
+        assert_eq!(url.scheme(), "https");
+        assert_eq!(url.path(), "/style.css");
     }
 }
