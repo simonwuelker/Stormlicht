@@ -157,12 +157,12 @@ impl Request {
         W: io::Write,
     {
         // Send request header
-        write!(writer, "{method} ", method = self.method.as_str(),)?;
-
-        for segment in self.context.url.path_segments() {
-            write!(writer, "/{segment}")?;
-        }
-        write!(writer, " HTTP/1.1{HTTP_NEWLINE}")?;
+        write!(
+            writer,
+            "{method} {path} HTTP/1.1{HTTP_NEWLINE}",
+            method = self.method.as_str(),
+            path = self.context.url.path()
+        )?;
 
         // Send headers
         for (header, value) in self.headers.iter() {
