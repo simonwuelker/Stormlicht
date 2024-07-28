@@ -15,7 +15,9 @@ impl WebView {
     }
 
     pub fn load(&self, url: &URL) {
-        self.imp().load_url(url).unwrap();
+        if let Err(error) = self.imp().load_url(url) {
+            log::error!("Failed to load {url}: {error:?}");
+        }
     }
 
     pub fn reload(&self) {
