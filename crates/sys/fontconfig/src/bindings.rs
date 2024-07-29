@@ -107,6 +107,7 @@ pub type FT_Face = *mut FT_FaceRec_;
 
 #[link(name = "fontconfig")]
 #[allow(dead_code)]
+#[allow(non_camel_case_types)]
 extern "C" {
     pub type FcCharSet;
     pub type FcLangSet;
@@ -630,6 +631,9 @@ extern "C" {
         description: *mut *mut FcChar8,
         enabled: *mut FcBool,
     ) -> FcBool;
+
+    /// <https://www.freedesktop.org/software/fontconfig/fontconfig-devel/fcnamegetobjecttype.html>
+    pub fn FcNameGetObjectType(object: *const ffi::c_char) -> FcObjectType;
 
     // MISSING FUNCTIONS
 
