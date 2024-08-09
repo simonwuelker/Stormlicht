@@ -222,7 +222,7 @@ impl URL {
 
     #[cfg(windows)]
     pub fn as_file_path(&self) -> Result<path::PathBuf, InvalidFilePath> {
-        let mut segments = self.path().iter();
+        let mut segments = self.path().split(ascii::Char::Solidus);
 
         // Make sure that the first segment is a valid start of a absolute
         // windows path
