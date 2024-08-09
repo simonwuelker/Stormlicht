@@ -21,6 +21,8 @@ pub struct MIMEType {
 }
 
 impl MIMEType {
+    #[inline]
+    #[must_use]
     pub fn new(mime_type: &str, mime_subtype: &str) -> Self {
         Self {
             mime_type: mime_type.into(),
@@ -29,16 +31,21 @@ impl MIMEType {
         }
     }
 
+    #[must_use]
     pub fn essence(&self) -> String {
         format!("{}/{}", self.mime_type, self.mime_subtype)
     }
 
     /// <https://mimesniff.spec.whatwg.org/#image-mime-type>
+    #[inline]
+    #[must_use]
     pub fn is_image(&self) -> bool {
         self.mime_type == "image"
     }
 
     /// <https://mimesniff.spec.whatwg.org/#audio-or-video-mime-type>
+    #[inline]
+    #[must_use]
     pub fn is_audio_or_video(&self) -> bool {
         self.mime_type == "audio"
             || self.mime_type == "video"
@@ -46,6 +53,8 @@ impl MIMEType {
     }
 
     /// <https://mimesniff.spec.whatwg.org/#font-mime-type>
+    #[inline]
+    #[must_use]
     pub fn is_font(&self) -> bool {
         self.mime_type == "font"
             || matches!(
@@ -61,11 +70,15 @@ impl MIMEType {
     }
 
     /// <https://mimesniff.spec.whatwg.org/#zip-based-mime-type>
+    #[inline]
+    #[must_use]
     pub fn is_zip_based(&self) -> bool {
         self.mime_subtype.ends_with("+zip") || self.essence() == "application/zip"
     }
 
     /// <https://mimesniff.spec.whatwg.org/#archive-mime-type>
+    #[inline]
+    #[must_use]
     pub fn is_archive(&self) -> bool {
         matches!(
             self.essence().as_str(),
@@ -74,22 +87,30 @@ impl MIMEType {
     }
 
     /// <https://mimesniff.spec.whatwg.org/#xml-mime-type>
+    #[inline]
+    #[must_use]
     pub fn is_xml(&self) -> bool {
         self.mime_subtype.ends_with("+xml")
             || matches!(self.essence().as_str(), "text/xml" | "application/xml")
     }
 
     /// <https://mimesniff.spec.whatwg.org/#html-mime-type>
+    #[inline]
+    #[must_use]
     pub fn is_html(&self) -> bool {
         self.essence() == "text/html"
     }
 
     /// <https://mimesniff.spec.whatwg.org/#scriptable-mime-type>
+    #[inline]
+    #[must_use]
     pub fn is_scriptable(&self) -> bool {
         self.is_xml() || self.is_html() || self.essence() == "application/pdf"
     }
 
     /// <https://mimesniff.spec.whatwg.org/#javascript-mime-type>
+    #[inline]
+    #[must_use]
     pub fn is_javascript(&self) -> bool {
         matches!(
             self.essence().as_str(),
@@ -112,6 +133,8 @@ impl MIMEType {
     }
 
     /// <https://mimesniff.spec.whatwg.org/#json-mime-type>
+    #[inline]
+    #[must_use]
     pub fn is_json(&self) -> bool {
         self.mime_subtype.ends_with("+json")
             || matches!(self.essence().as_str(), "application/json" | "text/json")
