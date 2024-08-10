@@ -12,7 +12,6 @@ license.workspace = true
 
 [dependencies]
 env_logger = { workspace = true }
-cli = { workspace = true }
 log = { workspace = true }
 render = { workspace = true }
 math = { workspace = true }

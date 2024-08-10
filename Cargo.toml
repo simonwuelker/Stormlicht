@@ -11,8 +11,6 @@ members = [
     "crates/graphics/math",
     "crates/compression",
     "crates/util/buildutils",
-    "crates/util/cli",
-    "crates/util/cli-derive",
     "crates/util/html-treebuilding-match",
     "crates/util/mime",
     "crates/util/serialization/serialize",
