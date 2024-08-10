@@ -2,6 +2,7 @@
 
 use std::io::{self, Seek};
 
+use error_derive::Error;
 use sl_std::{bytestream::ByteStream, read::ReadExt};
 
 use crate::deflate;
@@ -22,13 +23,24 @@ mod flags {
     pub const FCOMMENT: u8 = 1 << 4;
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Error)]
 pub enum Error {
+    #[msg = "gzip magic bytes do not match"]
     NotGzip,
+
+    #[msg = "unknown compression method"]
     UnknownCompressionMethod,
+
+    #[msg = "unexpected end of file"]
     UnexpectedEOF,
+
+    #[msg = "unexpected length"]
     UnexpectedLength,
+
+    #[msg = "mismatched checksum"]
     ChecksumError,
+
+    #[msg = "deflate error"]
     Deflate(deflate::Error),
 }
 
@@ -125,11 +137,5 @@ impl From<io::Error> for Error {
     fn from(_value: io::Error) -> Self {
         // We only use a Cursor here, which can never fail except for eof
         Self::UnexpectedEOF
-    }
-}
-
-impl From<deflate::Error> for Error {
-    fn from(value: deflate::Error) -> Self {
-        Self::Deflate(value)
     }
 }
