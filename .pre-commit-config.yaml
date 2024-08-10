@@ -10,3 +10,11 @@ repos:
         language: system
         types: [file, rust]
         pass_filenames: false
+      - id: black
+        name: black
+        description: "Black: The uncompromising Python code formatter"
+        entry: black --check
+        language: python
+        minimum_pre_commit_version: 2.9.2
+        require_serial: true
+        types_or: [python, pyi]
