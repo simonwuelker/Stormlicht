@@ -21,6 +21,7 @@ perfect_hash = { workspace = true }
 image = { workspace = true }
 resourceloader = { workspace = true }
 html-treebuilding-match = { workspace = true }
+settings = { workspace = true }
 
 [build-dependencies]
 buildutils = { workspace = true }

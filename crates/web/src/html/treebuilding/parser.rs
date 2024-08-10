@@ -25,6 +25,7 @@ use crate::{
 
 use html_treebuilding_match::html_treebuilding_match;
 use resourceloader::{PendingLoad, RESOURCE_LOADER};
+use settings::SETTINGS;
 use sl_std::iter::IteratorExtensions;
 use url::URL;
 
@@ -178,7 +179,7 @@ impl<P: ParseErrorHandler> Parser<P> {
             form: None,
             frameset_ok: FramesetOkFlag::default(),
             active_formatting_elements: ActiveFormattingElements::default(),
-            execute_script: false,
+            execute_script: !SETTINGS.disable_javascript,
             pending_table_character_tokens: vec![],
             is_foster_parenting_enabled: false,
             done: false,
