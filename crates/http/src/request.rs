@@ -20,7 +20,6 @@ pub enum HTTPError {
     Status(StatusCode),
     IO(io::Error),
     DNS(DNSError),
-    TLS(tls::TLSError),
     Gzip(gzip::Error),
     Brotli(brotli::Error),
     Zlib(zlib::Error),

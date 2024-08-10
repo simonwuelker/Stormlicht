@@ -23,7 +23,6 @@ members = [
     "crates/sys/fontconfig",
     "crates/crypto/ciphers",
     "crates/crypto/hash",
-    "crates/crypto/tls",
     "stormlicht",
     "tests/runners/text-rendering",
     "tests/runners/html5lib",
