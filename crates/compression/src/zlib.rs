@@ -2,21 +2,36 @@
 //!
 //! ZLIB is basically just a thin wrapper around DEFLATE.
 
+use error_derive::Error;
+
 use crate::deflate;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Error)]
 pub enum Error {
+    #[msg = "unexpected end of file"]
     UnexpectedEOF,
+
     /// Usage of the reserved compression method `15`.
+    #[msg = "using reserved compression method 15"]
     ReservedCompressionMethod,
+
     /// `CINFO` must be smaller or equal to 7
+    #[msg = "CINFO greater than 7"]
     CINFOTooLarge,
+
     /// ZLIB Header Checksum must be a multiple of 31
+    #[msg = "zlib header checksum is not a multiple of 31"]
     InvalidHeaderChecksum,
+
     /// An error occured during the `DEFLATE` decompression
+    #[msg = "failed to decompress deflate blob"]
     Deflate(deflate::Error),
+
+    #[msg = "unknown compression method"]
     UnknownCompressionMethod,
+
     /// The checksum of the decompressed data was incorrect
+    #[msg = "mismatched checksum"]
     IncorrectDataChecksum,
 }
 
@@ -66,8 +81,7 @@ pub fn decompress(bytes: &[u8]) -> Result<Vec<u8>, Error> {
                 todo!("Implement flag_dict flag");
             }
 
-            let (decompressed, num_consumed_bytes) =
-                deflate::decompress(&bytes[2..]).map_err(Error::Deflate)?;
+            let (decompressed, num_consumed_bytes) = deflate::decompress(&bytes[2..])?;
 
             // Verify the checksum provided after the compressed data
             let expected_checksum =
