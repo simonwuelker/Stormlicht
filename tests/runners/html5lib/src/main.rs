@@ -129,7 +129,7 @@ fn serialize_token<P: ParseErrorHandler>(
                 !force_quirks,
             ));
         },
-        Token::Tag(tagdata) if tagdata.opening => {
+        Token::StartTag(tagdata) => {
             let attributes = tagdata
                 .attributes
                 .iter()
@@ -155,7 +155,7 @@ fn serialize_token<P: ParseErrorHandler>(
             };
             serialized_tokens.push(serialized_token);
         },
-        Token::Tag(tagdata) if !tagdata.opening => {
+        Token::EndTag(tagdata) => {
             serialized_tokens.push(format!(
                 "[\"EndTag\", \"{}\"]",
                 unicode_escape(&tagdata.name.to_string()),
@@ -184,7 +184,6 @@ fn serialize_token<P: ParseErrorHandler>(
                 }
             }
         },
-        _ => unreachable!(),
     }
     false
 }
