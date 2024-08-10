@@ -1,4 +1,4 @@
-use std::fmt;
+use error_derive::Error;
 
 /// Wraps a byte buffer to allow reading individual bits
 #[derive(Debug)]
@@ -9,10 +9,15 @@ pub struct BitReader<'a> {
 }
 
 // this enum might grow once we add streaming (ie the reader wraps a Read instance)
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Error)]
 pub enum Error {
+    #[msg = "unexpected end of file"]
     UnexpectedEOF,
+
+    #[msg = "attempting to read too many bits at once"]
     TooLargeRead,
+
+    #[msg = "attempting to read bytes from an unaligned position"]
     UnalignedRead,
 }
 
@@ -113,16 +118,6 @@ impl<'a> BitReader<'a> {
         }
 
         Ok(result)
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TooLargeRead => "attempting to read too many bits at once".fmt(f),
-            Self::UnalignedRead => "attempting to read bytes from an unaligned position".fmt(f),
-            Self::UnexpectedEOF => "unexpected end of file".fmt(f),
-        }
     }
 }
 
