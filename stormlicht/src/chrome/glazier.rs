@@ -103,14 +103,8 @@ impl glazier::WinHandler for BrowserApplication {
     }
 }
 
-pub fn run(url: Option<&str>) -> ExitCode {
-    let url = match URL::from_user_input(url.unwrap_or(super::WELCOME_PAGE)) {
-        Ok(parsed_url) => parsed_url,
-        Err(error) => {
-            log::error!("Failed to parse {url:?} as a URL: {error:?}");
-            return ExitCode::FAILURE;
-        },
-    };
+pub fn run() -> ExitCode {
+    let url = &settings::SETTINGS.url;
 
     let mut browsing_context = BrowsingContext::default();
     if let Err(error) = browsing_context.load(&url) {

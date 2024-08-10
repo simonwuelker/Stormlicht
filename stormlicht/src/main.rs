@@ -2,37 +2,9 @@
 
 mod chrome;
 
-use std::process::ExitCode;
+use std::{process::ExitCode, sync::LazyLock};
 
-use cli::CommandLineArgumentParser;
-
-#[derive(Debug, Default, CommandLineArgumentParser)]
-struct ArgumentParser {
-    #[argument(
-        may_be_omitted,
-        positional,
-        short_name = 'u',
-        long_name = "URL",
-        description = "URL to load"
-    )]
-    url: Option<String>,
-
-    #[argument(
-        flag,
-        short_name = 'h',
-        long_name = "help",
-        description = "Show this help menu"
-    )]
-    help: bool,
-
-    #[argument(
-        flag,
-        short_name = 'v',
-        long_name = "version",
-        description = "Show browser version"
-    )]
-    version: bool,
-}
+use settings::SETTINGS;
 
 #[cfg(all(target_os = "linux", not(miri)))]
 #[link(name = "c")]
@@ -58,33 +30,8 @@ pub fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let arguments = match ArgumentParser::parse() {
-        Ok(arguments) => arguments,
-        Err(_) => {
-            println!("{}", ArgumentParser::help());
-            return ExitCode::FAILURE;
-        },
-    };
+    // Initialize settings object
+    LazyLock::force(&SETTINGS);
 
-    if arguments.help {
-        println!("{}", ArgumentParser::help());
-        return ExitCode::SUCCESS;
-    }
-
-    if arguments.version {
-        println!(
-            "{} v{} on commit {}",
-            env!("CARGO_PKG_NAME"),
-            env!("CARGO_PKG_VERSION"),
-            env!("GIT_HASH")
-        );
-        println!(
-            "Built for {} using {}",
-            env!("TARGET_TRIPLE"),
-            env!("RUSTC_VERSION")
-        );
-        return ExitCode::SUCCESS;
-    }
-
-    chrome::run(arguments.url.as_deref())
+    chrome::run()
 }

@@ -20,10 +20,11 @@ web = { workspace = true }
 url = { workspace = true }
 image = { workspace = true }
 sl-std = { workspace = true }
+settings = { workspace = true }
 
 [target.'cfg(chrome = "glazier")'.dependencies]
 glazier = { git = "https://github.com/linebender/glazier" }
-softbuffer = { version = "0.2"  }
+softbuffer = { version = "0.2" }
 
 [target.'cfg(chrome = "gtk")'.dependencies]
 gtk = { package = "gtk4", version = "0.8", features = ["v4_10"] }
