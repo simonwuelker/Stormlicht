@@ -1,5 +1,7 @@
 //! Provides a [Cursor](std::io::Cursor) equivalent without [io::Error](std::io::Error)
 
+use std::io;
+
 #[derive(Clone, Copy)]
 /// Provides a [Cursor](std::io::Cursor) equivalent without [io::Error](std::io::Error)
 pub struct ByteStream<'a> {
@@ -101,4 +103,35 @@ impl<'a> ByteStream<'a> {
 
     next_int!(u128, 16, next_be_u128, next_le_u128);
     next_int!(i128, 16, next_be_i128, next_le_i128);
+}
+
+impl<'a> io::Read for ByteStream<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let n = io::Read::read(&mut self.remaining(), buf)?;
+        self.cursor += n;
+        Ok(n)
+    }
+}
+
+impl<'a> io::Seek for ByteStream<'a> {
+    fn seek(&mut self, style: io::SeekFrom) -> io::Result<u64> {
+        let (base_pos, offset) = match style {
+            io::SeekFrom::Start(n) => {
+                self.cursor = n as usize;
+                return Ok(n);
+            },
+            io::SeekFrom::End(n) => (self.bytes.len() as u64, n),
+            io::SeekFrom::Current(n) => (self.cursor as u64, n),
+        };
+        match base_pos.checked_add_signed(offset) {
+            Some(n) => {
+                self.cursor = n as usize;
+                Ok(self.cursor as u64)
+            },
+            None => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid seek to a negative or overflowing position",
+            )),
+        }
+    }
 }
