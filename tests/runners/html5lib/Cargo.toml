@@ -2,9 +2,10 @@
 name = "html5lib-testrunner"
 version = "0.1.0"
 edition = "2021"
+description = "A testrunner for the html5lib tests"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cli = { workspace = true }
 web = { workspace = true }
+clap = { workspace = true }

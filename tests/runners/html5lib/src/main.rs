@@ -2,44 +2,27 @@
 
 mod escape;
 
-use cli::CommandLineArgumentParser;
+use clap::Parser;
 use web::html::tokenization::{
     IgnoreParseErrors, ParseErrorHandler, Token, Tokenizer, TokenizerState,
 };
 
 use crate::escape::{unescape_str, unicode_escape};
 
-#[derive(Debug, Default, CommandLineArgumentParser)]
-struct ArgumentParser {
-    #[argument(
-        short_name = 's',
-        long_name = "state",
-        description = "Initial tokenizer state"
-    )]
+#[derive(Debug, Default, Parser)]
+#[command(version, about, long_about = None)]
+struct Arguments {
+    /// Initial tokenizer state
+    #[arg(short = 's', long = "state")]
     initial_state: String,
 
-    #[argument(
-        short_name = 'i',
-        long_name = "input",
-        description = "HTML source that should be tokenized"
-    )]
+    /// HTML source that should be tokenized
+    #[arg(short = 'i', long = "input")]
     input: String,
 
-    #[argument(
-        may_be_omitted,
-        short_name = 'l',
-        long_name = "last-start-tag",
-        description = "The name of the current test case"
-    )]
+    /// Name of the current test case
+    #[arg(short = 'l', long = "last-start-tag")]
     last_start_tag: Option<String>,
-
-    #[argument(
-        flag,
-        short_name = 'v',
-        long_name = "version",
-        description = "Show package version"
-    )]
-    version: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -48,43 +31,32 @@ enum Error {
 }
 
 fn main() -> Result<(), Error> {
-    let args = match ArgumentParser::parse() {
-        Ok(args) => args,
-        Err(_) => {
-            println!("{}", ArgumentParser::help());
-            return Ok(());
-        },
-    };
+    let args = Arguments::parse();
 
-    if args.version {
-        println!("{}", env!("CARGO_PKG_VERSION"));
-    } else {
-        let last_start_tag = args
-            .last_start_tag
-            .clone()
-            .map(|t| t[1..t.len() - 1].to_string());
+    let last_start_tag = args
+        .last_start_tag
+        .clone()
+        .map(|t| t[1..t.len() - 1].to_string());
 
-        let source =
-            unescape_str(&args.input[1..args.input.len() - 1]).expect("Invalid input text");
+    let source = unescape_str(&args.input[1..args.input.len() - 1]).expect("Invalid input text");
 
-        // our commandline parser doesnt handle quotes very well...
-        let initial_state =
-            parse_initial_state(&args.initial_state[1..args.initial_state.len() - 1])?;
+    // our commandline parser doesnt handle quotes very well...
+    let initial_state = parse_initial_state(&args.initial_state[1..args.initial_state.len() - 1])?;
 
-        let mut tokenizer: Tokenizer<IgnoreParseErrors> = Tokenizer::new(&source);
-        tokenizer.switch_to(initial_state);
-        tokenizer.set_last_start_tag(last_start_tag);
+    let mut tokenizer: Tokenizer<IgnoreParseErrors> = Tokenizer::new(&source);
+    tokenizer.switch_to(initial_state);
+    tokenizer.set_last_start_tag(last_start_tag);
 
-        let mut serialized_tokens = vec![];
-        while let Some(token) = tokenizer.next() {
-            if serialize_token(token, &mut tokenizer, &mut serialized_tokens) {
-                break;
-            }
+    let mut serialized_tokens = vec![];
+    while let Some(token) = tokenizer.next() {
+        if serialize_token(token, &mut tokenizer, &mut serialized_tokens) {
+            break;
         }
-
-        let result = format!("[{}]", serialized_tokens.join(","));
-        println!("{result}");
     }
+
+    let result = format!("[{}]", serialized_tokens.join(","));
+    println!("{result}");
+
     Ok(())
 }
 
