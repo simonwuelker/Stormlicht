@@ -22,16 +22,24 @@ image = { workspace = true }
 sl-std = { workspace = true }
 settings = { workspace = true }
 
-[target.'cfg(chrome = "glazier")'.dependencies]
-glazier = { git = "https://github.com/linebender/glazier" }
-softbuffer = { version = "0.2" }
+# Glazier-only dependencies
+glazier = { git = "https://github.com/linebender/glazier", optional = true }
+softbuffer = { version = "0.2", optional = true }
 
-[target.'cfg(chrome = "gtk")'.dependencies]
-gtk = { package = "gtk4", version = "0.8", features = ["v4_10"] }
-adw = { version = "0.6", package = "libadwaita" }
+# GTK-only dependencies
+gtk = { package = "gtk4", version = "0.8", features = [
+    "v4_10",
+], optional = true }
+adw = { version = "0.6", package = "libadwaita", optional = true }
 
-[target.'cfg(chrome = "gtk")'.build-dependencies]
-glib-build-tools = "0.18.0"
+[features]
+default = ["chrome-gtk"]
+chrome-gtk = ["dep:gtk", "dep:adw", "dep:glib-build-tools"]
+chrome-glazier = ["dep:glazier", "dep:softbuffer"]
+
+
+[build-dependencies]
+glib-build-tools = { version = "0.18.0", optional = true }
 
 [lints]
 workspace = true

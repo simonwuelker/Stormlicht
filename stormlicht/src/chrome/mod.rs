@@ -1,9 +1,9 @@
 cfg_match! {
-    cfg(chrome = "glazier") => {
+    cfg(feature = "chrome-glazier") => {
         mod glazier;
         pub use glazier::run;
     }
-    cfg(chrome = "gtk") => {
+    cfg(feature = "chrome-gtk") => {
         mod gtk;
         pub use gtk::run;
     }

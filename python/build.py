@@ -48,14 +48,13 @@ def run_stormlicht(args, unknown_args):
     if not args.no_backtrace:
         environment["RUST_BACKTRACE"] = "1"
 
-    environment["RUSTFLAGS"] = (
-        environment.get("RUSTFLAGS", "") + f'--cfg chrome="{args.chrome}"'
-    )
-
     if args.miri:
         arguments = ["miri", "run"]
     else:
         arguments = ["run"]
+
+    if args.chrome == "glazier":
+        arguments += ["--no-default-features", "--features=chrome-glazier"]
 
     cmd = (
         util.Command.create("cargo")
@@ -167,7 +166,7 @@ def run():
     parser_run.add_argument(
         "--chrome",
         choices=["glazier", "gtk"],
-        default="glazier",
+        default="gtk",
         help="Which browser chrome to use",
     )
     parser_run.set_defaults(handler=run_stormlicht)
