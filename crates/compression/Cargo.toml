@@ -15,6 +15,7 @@ criterion = { workspace = true }
 hash = { workspace = true }
 log = { workspace = true }
 sl-std = { workspace = true }
+error-derive = { workspace = true }
 
 [[bench]]
 name = "brotli"

@@ -1,25 +1,35 @@
 use crate::huffman::HuffmanTree;
 
+use error_derive::Error;
 use sl_std::bitreader::{self, BitReader};
 
 use std::cmp::{min, Ordering};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Error)]
 pub enum Error {
+    #[msg = "invalid compression scheme"]
     InvalidCompressionScheme,
-    ReservedCompressionScheme,
-    UnexpectedEOF,
-    SymbolNotFound,
-    RLELeadingRepeatValue,
-    RLEExceedsExpectedLength,
-    InvalidUncompressedBlockLength,
-    BitReader(bitreader::Error),
-}
 
-impl From<bitreader::Error> for Error {
-    fn from(value: bitreader::Error) -> Self {
-        Self::BitReader(value)
-    }
+    #[msg = "reserved compression scheme"]
+    ReservedCompressionScheme,
+
+    #[msg = "unexpected end of file"]
+    UnexpectedEOF,
+
+    #[msg = "symbol not found"]
+    SymbolNotFound,
+
+    #[msg = "run length encoding leading repeat value"]
+    RLELeadingRepeatValue,
+
+    #[msg = "run length encoding exceeds expected value"]
+    RLEExceedsExpectedLength,
+
+    #[msg = "invalid uncompressed block length"]
+    InvalidUncompressedBlockLength,
+
+    #[msg = "failed to read bits"]
+    BitReader(bitreader::Error),
 }
 
 #[derive(Clone, Copy, Debug)]
