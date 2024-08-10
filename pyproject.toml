@@ -2,5 +2,8 @@
 extend-exclude = '''
 (
   ^/tests/text-rendering-tests
+  | ^/tests/wpt
+  | ^/tests/bmp-testsuite
+  | ^/tests/html5lib-tests
 )
 '''
