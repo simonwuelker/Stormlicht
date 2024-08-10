@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// Wraps a byte buffer to allow reading individual bits
 #[derive(Debug)]
 pub struct BitReader<'a> {
@@ -111,6 +113,16 @@ impl<'a> BitReader<'a> {
         }
 
         Ok(result)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TooLargeRead => "attempting to read too many bits at once".fmt(f),
+            Self::UnalignedRead => "attempting to read bytes from an unaligned position".fmt(f),
+            Self::UnexpectedEOF => "unexpected end of file".fmt(f),
+        }
     }
 }
 
