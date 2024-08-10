@@ -32,6 +32,7 @@ members = [
     "crates/util/serialization/serialize-json",
     "crates/resourceloader",
     "crates/settings",
+    "crates/error-derive",
 ]
 resolver = "2"
 
@@ -66,6 +67,7 @@ ipc = { path = "crates/ipc" }
 serialize-json = { path = "crates/util/serialization/serialize-json" }
 resourceloader = { path = "crates/resourceloader" }
 settings = { path = "crates/settings" }
+error-derive = { path = "crates/error-derive" }
 
 log = "0.4"
 criterion = { version = "0.4", features = ["html_reports"] }
