@@ -2,7 +2,7 @@
 
 use std::io::{self, Seek};
 
-use sl_std::read::ReadExt;
+use sl_std::{bytestream::ByteStream, read::ReadExt};
 
 use crate::deflate;
 
@@ -33,22 +33,22 @@ pub enum Error {
 }
 
 pub fn decompress(source_bytes: &[u8]) -> Result<Vec<u8>, Error> {
-    let mut reader = io::Cursor::new(source_bytes);
+    let mut reader = ByteStream::new(source_bytes);
 
     // Read the two ID bytes
-    if reader.read_le_u16()? != GZIP_MAGIC {
+    if reader.next_le_u16() != Some(GZIP_MAGIC) {
         return Err(Error::NotGzip);
     }
 
     // At the time of writing, only compression method 8 (DEFLATE) is
     // standardized
-    let compression_method = reader.read_le_u8()?;
+    let compression_method = reader.next_byte().ok_or(Error::UnexpectedEOF)?;
     if compression_method != 8 {
         log::error!("Unknown compression method: {compression_method}");
         return Err(Error::UnknownCompressionMethod);
     }
 
-    let flags = reader.read_be_u8()?;
+    let flags = reader.next_byte().ok_or(Error::UnexpectedEOF)?;
 
     // Skip to the end of the header
     // This skips the MTIME, XFL and OS fields, as we do
@@ -56,7 +56,7 @@ pub fn decompress(source_bytes: &[u8]) -> Result<Vec<u8>, Error> {
     reader.seek(io::SeekFrom::Start(10))?;
 
     if flags & flags::FEXTRA != 0 {
-        let extra_length = reader.read_le_u16()?.into();
+        let extra_length = reader.next_le_u16().ok_or(Error::UnexpectedEOF)?.into();
 
         // Skip the entire extra field
         reader.seek(io::SeekFrom::Current(extra_length))?;
@@ -74,11 +74,11 @@ pub fn decompress(source_bytes: &[u8]) -> Result<Vec<u8>, Error> {
         // This checksum is for the header only
         // Since we don't care about *any* dynamic data
         // inside the header, we don't even verify it
-        let _crc16 = reader.read_le_u16()?;
+        let _crc16 = reader.next_le_u16().ok_or(Error::UnexpectedEOF)?;
     }
 
     // After the header it becomes easier to not use a reader anymore
-    let remaining = reader.remaining_slice();
+    let remaining = reader.remaining();
 
     if remaining.len() < 8 {
         return Err(Error::UnexpectedEOF);

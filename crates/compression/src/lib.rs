@@ -1,7 +1,5 @@
 //! Implements various encoding schemes
 
-#![feature(cursor_remaining)]
-
 pub mod brotli;
 pub mod deflate;
 pub mod zlib;
