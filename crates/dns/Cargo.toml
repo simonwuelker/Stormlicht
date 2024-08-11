@@ -11,6 +11,7 @@ license.workspace = true
 [dependencies]
 sl-std = { workspace = true }
 log = { workspace = true }
+error-derive = { workspace = true }
 
 [lints]
 workspace = true

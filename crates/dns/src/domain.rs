@@ -187,7 +187,7 @@ impl Domain {
                 nameserver = DNS_CACHE.get(&ns_domain)?;
             } else {
                 // We did not make any progress
-                return Err(DNSError::CouldNotResolve(self.clone()));
+                return Err(DNSError::CouldNotResolve);
             }
         }
         Err(DNSError::MaxResolutionStepsExceeded)

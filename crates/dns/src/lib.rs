@@ -9,6 +9,7 @@ mod resource_type;
 use crate::resource_type::{ResourceRecord, ResourceRecordClass};
 pub use dns_cache::DNS_CACHE;
 pub use domain::Domain;
+use error_derive::Error;
 
 use std::{
     io,
@@ -23,18 +24,23 @@ const MAX_RESOLUTION_STEPS: usize = 5;
 /// See [this list of root servers](https://www.iana.org/domains/root/servers).
 const ROOT_SERVER: IpAddr = IpAddr::V4(Ipv4Addr::new(199, 7, 83, 42));
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum DNSError {
+    #[msg = "invalid response"]
     InvalidResponse,
-    CouldNotResolve(Domain),
-    MaxResolutionStepsExceeded,
-    UnexpectedID,
-    IO(io::Error),
-    DomainTooLong,
-}
 
-impl From<io::Error> for DNSError {
-    fn from(value: io::Error) -> Self {
-        Self::IO(value)
-    }
+    #[msg = "could not resolve"]
+    CouldNotResolve,
+
+    #[msg = "maximum number of resolution steps exceeded"]
+    MaxResolutionStepsExceeded,
+
+    #[msg = "unexpected id"]
+    UnexpectedID,
+
+    #[msg = "io error"]
+    IO(io::Error),
+
+    #[msg = "domain too long"]
+    DomainTooLong,
 }
