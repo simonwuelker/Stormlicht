@@ -1,8 +1,8 @@
 //! [HTTP status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status)
 
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StatusCode(u16);
 
 impl StatusCode {
@@ -118,6 +118,77 @@ impl StatusCode {
     pub const fn allowed_to_have_body(&self) -> bool {
         !matches!(self.0, 100..200 | 204 | 304)
     }
+
+    #[must_use]
+    pub const fn textual_description(&self) -> Option<&'static str> {
+        let description = match *self {
+            Self::CONTINUE => "continue",
+            Self::SWITCHING_PROTOCOLS => "switching protocols",
+            Self::PROCESSING => "processing",
+            Self::EARLY_HINTS => "early hints",
+            Self::OK => "ok",
+            Self::CREATED => "created",
+            Self::ACCEPTED => "accepted",
+            Self::NON_AUTHORITATIVE_INFORMATION => "non-authoritative information",
+            Self::NO_CONTENT => "no content",
+            Self::RESET_CONTENT => "reset content",
+            Self::PARTIAL_CONTENT => "partial content",
+            Self::MULTI_STATUS => "multi status",
+            Self::ALREADY_REPORTED => "already reported",
+            Self::IM_USED => "instance manipulation used",
+            Self::MULTIPLE_CHOICES => "multiple choices",
+            Self::MOVED_PERMANENTLY => "moved permanently",
+            Self::FOUND => "found",
+            Self::SEE_OTHER => "see other",
+            Self::NOT_MODIFIED => "not modified",
+            Self::USE_PROXY => "use proxy",
+            Self::TEMPORARY_REDIRECT => "temporary redirect",
+            Self::PERMANENT_REDIRECT => "permanent redirect",
+            Self::BAD_REQUEST => "bad request",
+            Self::UNAUTHORIZED => "unauthorized",
+            Self::PAYMENT_REQUIRED => "payment required",
+            Self::FORBIDDEN => "forbidden",
+            Self::NOT_FOUND => "not found",
+            Self::METHOD_NOT_ALLOWED => "method not allowed",
+            Self::NOT_ACCEPTABLE => "not acceptable",
+            Self::PROXY_AUTHENTICATION_REQUIRED => "proxy authentication required",
+            Self::REQUEST_TIMEOUT => "request timeout",
+            Self::CONFLICT => "conflict",
+            Self::GONE => "gone",
+            Self::LENGTH_REQUIRED => "length required",
+            Self::PRECONDITION_FAILED => "precondition failed",
+            Self::PAYLOAD_TOO_LARGE => "payload too large",
+            Self::URI_TOO_LONG => "uri too long",
+            Self::UNSUPPORTED_MEDIA_TYPE => "unsupported media type",
+            Self::RANGE_NOT_SATISFIABLE => "range not satisfiable",
+            Self::EXPECTATION_FAILED => "expectation failed",
+            Self::IM_A_TEAPOT => "i am a teapot",
+            Self::MISDIRECTED_REQUEST => "misdirected request",
+            Self::UNPROCESSABLE_ENTITY => "unprocessable entity",
+            Self::LOCKED => "locked",
+            Self::FAILED_DEPENDENCY => "failed dependency",
+            Self::TOO_EARLY => "too early",
+            Self::UPGRADE_REQUIRED => "upgrade required",
+            Self::PRECONDITION_REQUIRED => "precondition required",
+            Self::TOO_MANY_REQUESTS => "too many requests",
+            Self::REQUEST_HEADER_FIELD_TOO_LARGE => "request header field too large",
+            Self::UNAVAILABLE_FOR_LEGAL_REASONS => "unavailable for legal reasons",
+            Self::INTERNAL_SERVER_ERROR => "internal server error",
+            Self::NOT_IMPLEMENTED => "not implemented",
+            Self::BAD_GATEWAY => "bad gateway",
+            Self::SERVICE_UNAVAILABLE => "service unavailable",
+            Self::GATEWAY_TIMEOUT => "gateway timeout",
+            Self::HTTP_VERSION_NOT_SUPPORTED => "http version not supported",
+            Self::VARIANT_ALSO_NEGOTIATES => "variant also negotiates",
+            Self::INSUFFICIENT_STORAGE => "insufficient storage",
+            Self::LOOP_DETECTED => "loop detected",
+            Self::NOT_EXTENDED => "not extended",
+            Self::NETWORK_AUTHENTICATION_REQUIRED => "network authentication required",
+            _ => return None,
+        };
+
+        Some(description)
+    }
 }
 
 impl FromStr for StatusCode {
@@ -128,3 +199,15 @@ impl FromStr for StatusCode {
         Ok(status_code)
     }
 }
+
+impl fmt::Display for StatusCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(description) = self.textual_description() {
+            write!(f, "{} ({description})", self.0)
+        } else {
+            write!(f, "{}", self.0)
+        }
+    }
+}
+
+impl std::error::Error for StatusCode {}
