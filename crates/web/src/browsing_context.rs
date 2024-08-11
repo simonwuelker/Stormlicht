@@ -1,5 +1,6 @@
 use std::time;
 
+use error_derive::Error;
 use render::Composition;
 use resourceloader::{ResourceLoadError, RESOURCE_LOADER};
 use url::URL;
@@ -34,9 +35,12 @@ struct CurrentPage {
     needs_relayout: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum BrowsingContextError {
+    #[msg = "failed to load resource"]
     Loading(ResourceLoadError),
+
+    #[msg = "unsupported MIME type"]
     UnsupportedMIME,
 }
 
