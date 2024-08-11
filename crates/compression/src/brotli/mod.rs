@@ -3,6 +3,7 @@
 pub mod dictionary;
 
 use crate::huffman::{Bits, HuffmanBitTree, HuffmanTree};
+use error_derive::Error;
 use sl_std::bitreader::{self, BitReader};
 
 use sl_std::ring_buffer::RingBuffer;
@@ -102,23 +103,34 @@ const LUT2: [u8; 256] = [
     6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7
 ];
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Error)]
 pub enum Error {
+    #[msg = "invalid format"]
     InvalidFormat,
-    InvalidSymbol,
-    MismatchedChecksum,
-    RunlengthEncodingExceedsExpectedSize,
-    NotEnoughCodeLengths,
-    SymbolNotFound,
-    InvalidDictionaryReferenceLength,
-    InvalidTransformID,
-    BitReader(bitreader::Error),
-}
 
-impl From<bitreader::Error> for Error {
-    fn from(value: bitreader::Error) -> Self {
-        Self::BitReader(value)
-    }
+    #[msg = "invalid symbol"]
+    InvalidSymbol,
+
+    #[msg = "mismatched checksum"]
+    MismatchedChecksum,
+
+    #[msg = "run length encoding exceeds expected size"]
+    RunlengthEncodingExceedsExpectedSize,
+
+    #[msg = "not enough code lengths"]
+    NotEnoughCodeLengths,
+
+    #[msg = "symbol not found"]
+    SymbolNotFound,
+
+    #[msg = "invalid dictionary reference length"]
+    InvalidDictionaryReferenceLength,
+
+    #[msg = "invalid transform id"]
+    InvalidTransformID,
+
+    #[msg = "failed to read bits"]
+    BitReader(bitreader::Error),
 }
 
 // https://www.rfc-editor.org/rfc/rfc7932#section-10
