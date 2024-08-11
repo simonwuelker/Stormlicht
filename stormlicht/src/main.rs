@@ -1,4 +1,4 @@
-#![feature(panic_update_hook, cfg_match)]
+#![feature(panic_update_hook, cfg_match, error_reporter)]
 
 mod chrome;
 
