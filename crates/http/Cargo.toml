@@ -14,6 +14,7 @@ url = { workspace = true }
 dns = { workspace = true }
 compression = { workspace = true }
 log = { workspace = true }
+error-derive = { workspace = true }
 rustls = "0.22.2"
 webpki-roots = "0.26.1"
 

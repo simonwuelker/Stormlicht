@@ -5,6 +5,7 @@ use std::{
 
 use compression::{brotli, gzip, zlib};
 use dns::DNSError;
+use error_derive::Error;
 use url::{Host, URL};
 
 use crate::{https, response::Response, Header, Headers, StatusCode};
@@ -14,18 +15,39 @@ pub(crate) const HTTP_NEWLINE: &str = "\r\n";
 
 const MAX_REDIRECTS: usize = 32;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum HTTPError {
+    #[msg = "invalid response"]
     InvalidResponse,
+
+    #[msg = "status code indicates error"]
     Status(StatusCode),
+
+    #[msg = "io error"]
     IO(io::Error),
+
+    #[msg = "failed to resolve host"]
     DNS(DNSError),
+
+    #[msg = "gzip decompression failed"]
     Gzip(gzip::Error),
+
+    #[msg = "brotli decompression failed"]
     Brotli(brotli::Error),
+
+    #[msg = "zlib decompression failed"]
     Zlib(zlib::Error),
+
+    #[msg = "tls communication failed"]
     Tls(rustls::Error),
+
+    #[msg = "too many redirections"]
     RedirectLoop,
+
+    #[msg = "redirect to non-http url"]
     NonHTTPRedirect,
+
+    #[msg = "request to non-http url"]
     NonHTTPURl,
 }
 
@@ -268,35 +290,5 @@ impl Request {
         }
 
         Ok(response)
-    }
-}
-
-impl From<io::Error> for HTTPError {
-    fn from(value: io::Error) -> Self {
-        Self::IO(value)
-    }
-}
-
-impl From<gzip::Error> for HTTPError {
-    fn from(value: gzip::Error) -> Self {
-        Self::Gzip(value)
-    }
-}
-
-impl From<brotli::Error> for HTTPError {
-    fn from(value: brotli::Error) -> Self {
-        Self::Brotli(value)
-    }
-}
-
-impl From<zlib::Error> for HTTPError {
-    fn from(value: zlib::Error) -> Self {
-        Self::Zlib(value)
-    }
-}
-
-impl From<rustls::Error> for HTTPError {
-    fn from(value: rustls::Error) -> Self {
-        Self::Tls(value)
     }
 }
