@@ -1,3 +1,4 @@
+use error_derive::Error;
 use http::request::HTTPError;
 use sl_std::{ascii, base64};
 use std::{fs, io};
@@ -18,13 +19,24 @@ enum ProtocolSpecificData {
     None,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ResourceLoadError {
+    #[msg = "http request failed"]
     HTTP(HTTPError),
+
+    #[msg = "invalid base64"]
     Base64(base64::Error),
+
+    #[msg = "unsupported url scheme"]
     UnsupportedScheme,
+
+    #[msg = "invalid file path"]
     InvalidFilePath,
+
+    #[msg = "invalid data url"]
     InvalidDataURL,
+
+    #[msg = "io error"]
     IO(io::Error),
 }
 
@@ -154,23 +166,5 @@ impl Resource {
         );
 
         Ok(resource)
-    }
-}
-
-impl From<HTTPError> for ResourceLoadError {
-    fn from(value: HTTPError) -> Self {
-        Self::HTTP(value)
-    }
-}
-
-impl From<io::Error> for ResourceLoadError {
-    fn from(value: io::Error) -> Self {
-        Self::IO(value)
-    }
-}
-
-impl From<base64::Error> for ResourceLoadError {
-    fn from(value: base64::Error) -> Self {
-        Self::Base64(value)
     }
 }

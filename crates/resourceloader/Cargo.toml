@@ -12,6 +12,7 @@ mime = { workspace = true }
 log = { workspace = true }
 sl-std = { workspace = true }
 http = { workspace = true }
+error-derive = { workspace = true }
 # smol = { workspace = true }
 # async-task = { workspace = true }
 # serialize = { workspace = true }
