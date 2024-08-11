@@ -1,3 +1,5 @@
+use error_derive::Error;
+
 use crate::ascii;
 
 const BASE64_CHARS: [ascii::Char; 64] = [
@@ -67,10 +69,15 @@ const BASE64_CHARS: [ascii::Char; 64] = [
     ascii::Char::Solidus,
 ];
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Error)]
 pub enum Error {
+    #[msg = "illegal character"]
     IllegalCharacter,
+
+    #[msg = "invalid length"]
     InvalidLength,
+
+    #[msg = "invalid padding"]
     InvalidPadding,
 }
 
