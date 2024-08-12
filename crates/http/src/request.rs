@@ -59,6 +59,8 @@ pub struct Context {
 
     /// The [URL] that is currently being loaded
     pub url: URL,
+
+    pub proxy: Option<SocketAddr>,
 }
 
 /// HTTP Request Method
@@ -109,7 +111,12 @@ impl Context {
         Self {
             num_redirections: 0,
             url,
+            proxy: None,
         }
+    }
+
+    pub fn set_proxy(&mut self, proxy: SocketAddr) {
+        self.proxy = Some(proxy);
     }
 }
 
@@ -162,6 +169,10 @@ impl Request {
         }
     }
 
+    pub fn set_proxy(&mut self, proxy: SocketAddr) {
+        self.context.set_proxy(proxy);
+    }
+
     #[must_use]
     pub fn headers(&self) -> &Headers {
         &self.headers
@@ -178,11 +189,17 @@ impl Request {
         W: io::Write,
     {
         // Send request header
+        let path = if self.context.proxy.is_none() {
+            self.context.url.path()
+        } else {
+            self.context.url.serialize(url::ExcludeFragment::Yes)
+        };
+
         write!(
             writer,
             "{method} {path} HTTP/1.1{HTTP_NEWLINE}",
             method = self.method.as_str(),
-            path = self.context.url.path()
+            path = path,
         )?;
 
         // Send headers
@@ -198,9 +215,16 @@ impl Request {
     }
 
     pub fn send(&mut self) -> Result<Response, HTTPError> {
+        if let Some(proxy) = self.context.proxy {
+            log::info!("Proxying http connection via {proxy}");
+            let stream = TcpStream::connect(proxy)?;
+            return self.send_on_stream(stream);
+        }
+
         // Establish a connection with the host
         let host = self.context.url.host().expect("url does not have a host");
         let port = self.context.url.port();
+
         match self.context.url.scheme().as_str() {
             "http" => {
                 // Resolve the hostname
