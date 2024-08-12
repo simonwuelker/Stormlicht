@@ -73,9 +73,13 @@ def run_stormlicht(args, unknown_args):
 def build_stormlicht(args, unknown_args):
     build_gtk_blueprints()
 
+    arguments = ["build"]
+    if args.chrome == "glazier":
+        arguments += ["--no-default-features", "--features=chrome-glazier"]
+
     cmd = (
         util.Command.create("cargo")
-        .with_arguments(["build"])
+        .with_arguments(arguments)
         .with_forwarded_arguments(unknown_args)
     )
 
@@ -177,6 +181,12 @@ def run():
         "--release",
         action="store_true",
         help="Build in release mode",
+    )
+    parser_build.add_argument(
+        "--chrome",
+        choices=["glazier", "gtk"],
+        default="gtk",
+        help="Which browser chrome to use",
     )
     parser_build.set_defaults(handler=build_stormlicht)
 
