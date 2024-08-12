@@ -2,7 +2,7 @@
 
 mod cli;
 
-use std::sync::LazyLock;
+use std::{net, sync::LazyLock};
 
 use clap::Parser;
 use url::URL;
@@ -23,6 +23,9 @@ pub struct Settings {
 
     /// URL to load initially
     pub url: URL,
+
+    /// Proxy for networking
+    pub proxy: Option<net::SocketAddr>,
 }
 
 impl Settings {
@@ -31,6 +34,7 @@ impl Settings {
         let mut settings = Self::default();
 
         let args = cli::Arguments::parse();
+
         args.update_settings(&mut settings);
 
         settings
@@ -42,6 +46,7 @@ impl Default for Settings {
         Self {
             disable_javascript: false,
             url: WELCOME_PAGE.parse().expect("welcome page is a valid url"),
+            proxy: None,
         }
     }
 }

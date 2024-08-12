@@ -1,33 +1,46 @@
-use clap::Parser;
+use std::net;
 use url::URL;
 
 use crate::Settings;
 
-#[derive(Parser, Debug)]
-#[command(name = "Stormlicht")]
-#[command(version, about, long_about = None)]
+#[derive(clap::Parser, Debug)]
+#[command(name = "Stormlicht", version, about="A modern browser engine", long_about = None)]
 pub struct Arguments {
     /// Disable javascript execution
-    #[arg(long)]
-    disable_javascript: Option<bool>,
+    #[clap(
+        long,
+        action = clap::ArgAction::SetTrue,
+    )]
+    disable_javascript: bool,
 
     /// URL to load initially
-    #[arg(value_parser = parse_url)]
+    #[arg(value_parser = parse_url, value_hint = clap::ValueHint::Url)]
     url: Option<URL>,
+
+    /// Proxy for http requests
+    #[arg(long, value_parser = parse_socketaddr)]
+    proxy: Option<net::SocketAddr>,
 }
 
 impl Arguments {
     pub(crate) fn update_settings(self, settings: &mut Settings) {
-        if let Some(disable_javascript) = self.disable_javascript {
-            settings.disable_javascript = disable_javascript
-        }
+        settings.disable_javascript = settings.disable_javascript;
 
         if let Some(url) = self.url {
             settings.url = url;
+        }
+
+        if let Some(proxy) = self.proxy {
+            settings.proxy = Some(proxy);
         }
     }
 }
 
 fn parse_url(s: &str) -> Result<URL, String> {
     s.parse().map_err(|e: url::Error| format!("{e:?}"))
+}
+
+fn parse_socketaddr(s: &str) -> Result<net::SocketAddr, String> {
+    s.parse()
+        .map_err(|e: <net::SocketAddr as std::str::FromStr>::Err| format!("{e}"))
 }
