@@ -27,7 +27,7 @@ pub fn run() -> ExitCode {
 
     application.connect_activate(build_ui);
 
-    let glib_exit_code = application.run();
+    let glib_exit_code = application.run_with_args::<&'static str>(&[]);
     ExitCode::from(glib_exit_code.value() as u8)
 }
 
