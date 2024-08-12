@@ -10,7 +10,7 @@ pub use symbol::Symbol;
 
 use crate::{
     bytecode::{Exception, ThrowCompletionOr},
-    parser::identifiers::Identifier,
+    parser::Identifier,
 };
 
 const SPEC_CANNOT_FAIL: &str =

@@ -14,7 +14,7 @@ use super::{
 
 /// <https://262.ecma-international.org/14.0/#prod-StatementListItem>
 #[derive(Clone, Debug)]
-pub(crate) enum StatementListItem {
+pub enum StatementListItem {
     Statement(Statement),
     Declaration(Declaration),
 }
@@ -47,7 +47,7 @@ impl StatementListItem {
 
 /// <https://262.ecma-international.org/14.0/#prod-Statement>
 #[derive(Clone, Debug)]
-pub(crate) enum Statement {
+pub enum Statement {
     BlockStatement(BlockStatement),
     EmptyStatement,
     ExpressionStatement(Expression),

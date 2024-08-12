@@ -1,5 +1,5 @@
 use super::{BasicBlock, BasicBlockExit, Instruction, Program};
-use crate::{parser::identifiers::Identifier, value::object, Value};
+use crate::{parser::Identifier, value::object, Value};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Register(usize);

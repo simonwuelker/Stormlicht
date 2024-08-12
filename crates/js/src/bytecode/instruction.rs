@@ -1,5 +1,5 @@
 use super::Register;
-use crate::{parser::identifiers::Identifier, value::object, Value};
+use crate::{parser::Identifier, value::object, Value};
 
 #[derive(Clone, Copy, Debug)]
 pub struct VariableHandle(usize);

@@ -16,6 +16,23 @@ pub struct BinaryExpression {
     pub rhs: Box<Expression>,
 }
 
+impl BinaryExpression {
+    #[must_use]
+    pub fn operator(&self) -> BinaryOp {
+        self.op
+    }
+
+    #[must_use]
+    pub fn left_hand_side(&self) -> &Expression {
+        &self.lhs
+    }
+
+    #[must_use]
+    pub fn right_hand_side(&self) -> &Expression {
+        &self.rhs
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinaryOp {
     Arithmetic(ArithmeticOp),

@@ -3,4 +3,4 @@
 mod function_definitions;
 mod parameter_lists;
 
-pub(crate) use function_definitions::FunctionDeclaration;
+pub use function_definitions::FunctionDeclaration;

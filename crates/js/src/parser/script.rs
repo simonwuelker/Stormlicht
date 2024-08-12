@@ -21,6 +21,11 @@ impl Script {
 
         Ok(Self(statement_list_items))
     }
+
+    #[must_use]
+    pub fn statement_list(&self) -> &[StatementListItem] {
+        &self.0
+    }
 }
 
 impl CompileToBytecode for Script {

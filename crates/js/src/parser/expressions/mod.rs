@@ -1,20 +1,21 @@
 //! <https://262.ecma-international.org/14.0/#sec-ecmascript-language-expressions>
 
-mod assignment_expression;
-mod binary_expression;
-mod call;
-mod conditional;
-mod left_hand_side_expression;
-mod member;
-mod object;
-mod short_circuit;
-mod unary_expression;
-mod update_expression;
+pub mod assignment_expression;
+pub mod binary_expression;
+pub mod call;
+pub mod conditional;
+pub mod left_hand_side_expression;
+pub mod member;
+pub mod object;
+pub mod short_circuit;
+pub mod unary_expression;
+pub mod update_expression;
 
 pub use assignment_expression::AssignmentExpression;
 pub use binary_expression::BinaryExpression;
 pub use call::CallExpression;
 pub use conditional::ConditionalExpression;
+pub use left_hand_side_expression::NewExpression;
 pub use member::MemberExpression;
 pub use unary_expression::UnaryExpression;
 pub use update_expression::UpdateExpression;
@@ -24,7 +25,7 @@ use crate::{
     Number,
 };
 
-use self::{left_hand_side_expression::NewExpression, object::ObjectLiteral};
+use self::object::ObjectLiteral;
 
 use super::{
     identifiers::parse_identifier_reference,

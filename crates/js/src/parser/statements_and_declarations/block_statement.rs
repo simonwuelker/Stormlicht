@@ -9,20 +9,6 @@ use crate::{
     },
 };
 
-/// <https://262.ecma-international.org/14.0/#prod-StatementList>
-// pub(crate) fn parse_statement_list<const YIELD: bool, const AWAIT: bool, const RETURN: bool>(
-//     tokenizer: &mut Tokenizer<'_>,
-// ) -> Result<Vec<StatementListItem>, SyntaxError> {
-//     let first_item = StatementListItem::parse::<true, true, true>(tokenizer)?;
-//     let mut items = vec![first_item];
-
-//     while let Ok(item) = tokenizer.attempt(StatementListItem::parse::<YIELD, AWAIT, RETURN>) {
-//         items.push(item);
-//     }
-
-//     Ok(items)
-// }
-
 /// <https://262.ecma-international.org/14.0/#prod-BlockStatement>
 #[derive(Clone, Debug)]
 pub struct BlockStatement {
@@ -49,6 +35,11 @@ impl BlockStatement {
 
         let block_statement = Self { statements };
         Ok(block_statement)
+    }
+
+    #[must_use]
+    pub fn statement_list(&self) -> &[StatementListItem] {
+        &self.statements
     }
 }
 

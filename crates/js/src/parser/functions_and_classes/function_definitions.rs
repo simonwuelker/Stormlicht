@@ -13,8 +13,8 @@ use crate::{
 /// <https://262.ecma-international.org/14.0/#prod-FunctionDeclaration>
 #[derive(Clone, Debug)]
 pub struct FunctionDeclaration {
-    pub identifier: String,
-    pub body: Vec<StatementListItem>,
+    identifier: String,
+    body: Vec<StatementListItem>,
 }
 
 impl FunctionDeclaration {
@@ -44,6 +44,16 @@ impl FunctionDeclaration {
         let function_declaration = Self { identifier, body };
 
         Ok(function_declaration)
+    }
+
+    #[must_use]
+    pub fn identifier(&self) -> &str {
+        &self.identifier
+    }
+
+    #[must_use]
+    pub fn body(&self) -> &[StatementListItem] {
+        &self.body
     }
 }
 

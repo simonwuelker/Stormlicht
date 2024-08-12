@@ -51,8 +51,8 @@ pub enum LetOrConst {
 /// <https://262.ecma-international.org/14.0/#prod-LexicalDeclaration>
 #[derive(Clone, Debug)]
 pub struct LexicalDeclaration {
-    pub let_or_const: LetOrConst,
-    pub lexical_bindings: Vec<LexicalBinding>,
+    let_or_const: LetOrConst,
+    lexical_bindings: Vec<LexicalBinding>,
 }
 
 impl LetOrConst {
@@ -109,6 +109,16 @@ impl LexicalDeclaration {
         };
 
         Ok(lexical_declaration)
+    }
+
+    #[must_use]
+    pub fn qualifier(&self) -> LetOrConst {
+        self.let_or_const
+    }
+
+    #[must_use]
+    pub fn lexical_bindings(&self) -> &[LexicalBinding] {
+        &self.lexical_bindings
     }
 }
 

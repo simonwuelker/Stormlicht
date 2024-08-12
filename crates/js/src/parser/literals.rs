@@ -6,7 +6,7 @@ use super::{
 };
 
 /// <https://262.ecma-international.org/14.0/#prod-Literal>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Literal {
     NullLiteral,
     BooleanLiteral(bool),
