@@ -1,5 +1,6 @@
 use error_derive::Error;
 use http::request::HTTPError;
+use settings::SETTINGS;
 use sl_std::{ascii, base64};
 use std::{fs, io};
 use url::URL;
@@ -93,7 +94,13 @@ impl Resource {
         let resource = match url.scheme().as_str() {
             "http" | "https" => {
                 // Fetch the file via http
-                let response = http::request::Request::get(url).send()?;
+                let mut request = http::request::Request::get(url);
+
+                if let Some(proxy) = dbg!(SETTINGS.proxy) {
+                    request.set_proxy(proxy);
+                }
+
+                let response = request.send()?;
 
                 Self::new_for_http_request(response.body, response.headers)
             },
