@@ -1,6 +1,6 @@
-use crate::parser;
+use crate::{compiler, parser};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum OpCode {
     Add,
     Subtract,
@@ -28,6 +28,14 @@ pub enum OpCode {
     Jump(usize),
     JumpIfTrue(usize),
     JumpIfFalse(usize),
+
+    /// Pop the value on the top of the stack and store it in the given binding
+    StoreTo(compiler::Binding),
+
+    /// Put the value inside the binding on top of the stack
+    LoadFrom(compiler::Binding),
+
+    LoadConstant(compiler::ConstantHandle),
 }
 
 impl From<parser::BinaryOp> for OpCode {

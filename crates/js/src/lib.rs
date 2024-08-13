@@ -6,5 +6,6 @@ mod parser;
 mod runtime;
 mod value;
 
-pub use bytecode::{Program, Vm};
+pub use bytecode::Program;
+pub use runtime::{Executable, Vm};
 pub use value::{Number, Value};
