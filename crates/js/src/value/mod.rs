@@ -26,7 +26,7 @@ pub enum LeftFirst {
 }
 
 /// <https://262.ecma-international.org/14.0/#sec-ecmascript-language-types>
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum Value {
     /// <https://262.ecma-international.org/14.0/#sec-ecmascript-language-types-undefined-type>
     #[default]
