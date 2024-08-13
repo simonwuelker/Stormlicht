@@ -17,17 +17,22 @@ impl Default for DeclarativeEnvironment {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Binding {
     /// How many environment record "jumps" have to be performend
     /// to get to the environment that defines this binding
-    environment_index: usize,
+    pub environment_index: usize,
 
     /// The index of the binding within the environment
-    index: usize,
+    pub index: usize,
 }
 
 impl DeclarativeEnvironment {
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.bindings.borrow().len()
+    }
+
     #[must_use]
     pub fn locate_binding(&self, identifier: &str) -> Option<Binding> {
         self.locate_binding_inner(identifier, 0)
@@ -49,9 +54,18 @@ impl DeclarativeEnvironment {
         }
     }
 
-    pub fn insert_binding(&self, identifier: &str) {
+    /// Insert a new binding and return whether a previous
+    /// binding existed for this identifier.
+    pub fn insert_binding(&self, identifier: &str) -> (Binding, bool) {
         let mut bindings = self.bindings.borrow_mut();
         let index = bindings.len();
-        bindings.insert(identifier.to_string(), index);
+        let had_previous_binding = bindings.insert(identifier.to_string(), index).is_some();
+
+        let binding = Binding {
+            environment_index: 0,
+            index,
+        };
+
+        (binding, had_previous_binding)
     }
 }
