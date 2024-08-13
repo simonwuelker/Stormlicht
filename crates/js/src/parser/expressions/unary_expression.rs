@@ -1,11 +1,8 @@
 //! <https://262.ecma-international.org/14.0/#sec-unary-operators>
 
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
 };
 
 use super::{Expression, UpdateExpression};
@@ -76,48 +73,5 @@ impl UnaryExpression {
         };
 
         Ok(unary_expression.into())
-    }
-}
-
-impl CompileToBytecode for UnaryExpression {
-    type Result = bytecode::Register;
-
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        todo!()
-        // match self {
-        //     Self::Delete(expression) => {
-        //         _ = expression;
-        //         todo!();
-        //     },
-        //     Self::Void(expression) => {
-        //         _ = expression;
-        //         todo!();
-        //     },
-        //     Self::TypeOf(expression) => {
-        //         _ = expression;
-        //         todo!();
-        //     },
-        //     Self::Plus(expression) => {
-        //         // https://262.ecma-international.org/14.0/#sec-unary-plus-operator-runtime-semantics-evaluation
-
-        //         // 1. Let expr be ? Evaluation of UnaryExpression.
-        //         let result = expression.compile(builder);
-
-        //         // 2. Return ? ToNumber(? GetValue(expr)).
-        //         builder.get_current_block().to_number(result)
-        //     },
-        //     Self::Minus(expression) => {
-        //         _ = expression;
-        //         todo!();
-        //     },
-        //     Self::BitwiseNot(expression) => {
-        //         _ = expression;
-        //         todo!();
-        //     },
-        //     Self::LogicalNot(expression) => {
-        //         _ = expression;
-        //         todo!();
-        //     },
-        // }
     }
 }

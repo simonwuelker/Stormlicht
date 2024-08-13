@@ -20,10 +20,7 @@ pub use member::MemberExpression;
 pub use unary_expression::UnaryExpression;
 pub use update_expression::UpdateExpression;
 
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    Number,
-};
+use crate::Number;
 
 use self::object::ObjectLiteral;
 
@@ -104,36 +101,6 @@ impl Expression {
         tokenizer: &mut Tokenizer<'_>,
     ) -> Result<Self, SyntaxError> {
         AssignmentExpression::parse::<IN, YIELD, AWAIT>(tokenizer)
-    }
-}
-
-impl CompileToBytecode for Expression {
-    type Result = bytecode::Register;
-
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        match self {
-            Self::This => todo!(),
-            Self::Assignment(assignment_expression) => assignment_expression.compile(builder),
-            Self::Binary(binary_expression) => binary_expression.compile(builder),
-            Self::Call(call_expression) => call_expression.compile(builder),
-            Self::ConditionalExpression(conditional_expression) => {
-                conditional_expression.compile(builder)
-            },
-            Self::Unary(unary_expression) => unary_expression.compile(builder),
-            Self::Update(update_expression) => update_expression.compile(builder),
-            Self::IdentifierReference(identifier_reference) => {
-                let mut current_block = builder.get_current_block();
-                let dst = current_block.allocate_register();
-                current_block.load_variable(identifier_reference.clone(), dst);
-                dst
-            },
-            Self::Literal(literal) => builder
-                .get_current_block()
-                .allocate_register_with_value(literal.clone().into()),
-            Self::ObjectLiteral(object_literal) => object_literal.compile(builder),
-            Self::New(new_expression) => new_expression.compile(builder),
-            Self::Member(member_expression) => member_expression.compile(builder),
-        }
     }
 }
 

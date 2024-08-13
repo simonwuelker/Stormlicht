@@ -1,10 +1,7 @@
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        expressions::Expression,
-        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    expressions::Expression,
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
 };
 
 use super::{
@@ -94,30 +91,6 @@ impl Statement {
         };
 
         Ok(statement)
-    }
-}
-
-impl CompileToBytecode for StatementListItem {
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
-        match self {
-            Self::Statement(statement) => statement.compile(builder),
-            Self::Declaration(declaration) => declaration.compile(builder),
-        }
-    }
-}
-
-impl CompileToBytecode for Statement {
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
-        match self {
-            Self::BlockStatement(block_statement) => block_statement.compile(builder),
-            Self::IfStatement(if_statement) => if_statement.compile(builder),
-            Self::WhileStatement(while_statement) => while_statement.compile(builder),
-            Self::EmptyStatement => {},
-            Self::ExpressionStatement(expression) => {
-                expression.compile(builder);
-            },
-            Self::ThrowStatement(throw_statement) => throw_statement.compile(builder),
-        }
     }
 }
 

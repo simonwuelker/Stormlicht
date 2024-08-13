@@ -1,6 +1,6 @@
 //! <https://262.ecma-international.org/14.0/#sec-reference-record-specification-type>
 
-use crate::bytecode::ThrowCompletionOr;
+use crate::runtime::ThrowCompletionOr;
 
 use super::{object::PropertyKey, Value};
 

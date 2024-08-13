@@ -1,5 +1,3 @@
-use crate::bytecode::{self, CompileToBytecode};
-
 use super::{
     statements_and_declarations::StatementListItem,
     tokenization::{SkipLineTerminators, Tokenizer},
@@ -25,13 +23,5 @@ impl Script {
     #[must_use]
     pub fn statement_list(&self) -> &[StatementListItem] {
         &self.0
-    }
-}
-
-impl CompileToBytecode for Script {
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
-        for statement in &self.0 {
-            statement.compile(builder);
-        }
     }
 }

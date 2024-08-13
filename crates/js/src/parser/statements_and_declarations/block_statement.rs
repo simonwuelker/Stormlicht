@@ -1,12 +1,9 @@
 //! <https://262.ecma-international.org/14.0/#sec-block>
 
 use super::StatementListItem;
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
 };
 
 /// <https://262.ecma-international.org/14.0/#prod-BlockStatement>
@@ -40,13 +37,5 @@ impl BlockStatement {
     #[must_use]
     pub fn statement_list(&self) -> &[StatementListItem] {
         &self.statements
-    }
-}
-
-impl CompileToBytecode for BlockStatement {
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
-        for statement in &self.statements {
-            statement.compile(builder);
-        }
     }
 }

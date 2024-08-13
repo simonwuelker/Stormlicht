@@ -1,11 +1,8 @@
 //! <https://262.ecma-international.org/14.0/#sec-left-hand-side-expressions>
 
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
 };
 
 use super::{
@@ -84,16 +81,5 @@ impl NewExpression {
         };
 
         Ok(new_expression)
-    }
-}
-
-impl CompileToBytecode for NewExpression {
-    type Result = bytecode::Register;
-
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        _ = builder;
-        _ = self.nest_level;
-        _ = self.expression;
-        todo!("compile NewExpression")
     }
 }

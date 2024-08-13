@@ -1,11 +1,8 @@
 //! <https://262.ecma-international.org/14.0/#prod-MemberExpression>
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        identifiers::Identifier,
-        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    identifiers::Identifier,
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
 };
 
 use super::{parse_primary_expression, Expression};
@@ -65,26 +62,5 @@ impl MemberExpression {
         };
 
         Ok(member_expression)
-    }
-}
-
-impl CompileToBytecode for MemberExpression {
-    type Result = bytecode::Register;
-
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        // https://262.ecma-international.org/14.0/#sec-property-accessors-runtime-semantics-evaluation
-        let base = self.base.compile(builder);
-        match &self.member {
-            Member::Identifier(ident) => {
-                let value = builder
-                    .get_current_block()
-                    .member_access_with_identifier(base, ident.clone());
-                value
-            },
-            Member::Bracket(bracket) => {
-                _ = bracket;
-                todo!("compile member expression");
-            },
-        }
     }
 }

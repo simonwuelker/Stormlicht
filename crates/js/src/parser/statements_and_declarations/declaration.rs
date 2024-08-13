@@ -1,14 +1,11 @@
 //! <https://262.ecma-international.org/14.0/#sec-declarations-and-the-variable-statement>
 
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        expressions::Expression,
-        functions_and_classes::FunctionDeclaration,
-        identifiers::parse_binding_identifier,
-        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    expressions::Expression,
+    functions_and_classes::FunctionDeclaration,
+    identifiers::parse_binding_identifier,
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
 };
 
 /// <https://262.ecma-international.org/14.0/#prod-Declaration>
@@ -195,42 +192,6 @@ fn parse_initializer<const IN: bool, const YIELD: bool, const AWAIT: bool>(
     let assignment_expression = Expression::parse::<IN, YIELD, AWAIT>(tokenizer)?;
 
     Ok(assignment_expression)
-}
-
-impl CompileToBytecode for Declaration {
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
-        match self {
-            Self::Lexical(lexical_declaration) => lexical_declaration.compile(builder),
-            Self::Function(function_declaration) => function_declaration.compile(builder),
-        }
-    }
-}
-
-impl CompileToBytecode for LexicalDeclaration {
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        let current_block = builder.current_block();
-        let _ = self.let_or_const; // FIXME: Use this!
-
-        for lexical_binding in &self.lexical_bindings {
-            match lexical_binding {
-                LexicalBinding::WithIdentifier {
-                    identifier,
-                    initializer,
-                } => {
-                    builder
-                        .get_block(current_block)
-                        .create_variable(&identifier);
-
-                    if let Some(expression) = initializer {
-                        let result = expression.compile(builder);
-                        builder
-                            .get_block(current_block)
-                            .update_variable(identifier.clone(), result);
-                    }
-                },
-            }
-        }
-    }
 }
 
 impl From<FunctionDeclaration> for Declaration {

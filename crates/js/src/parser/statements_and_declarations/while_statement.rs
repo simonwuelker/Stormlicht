@@ -1,12 +1,9 @@
 //! <https://262.ecma-international.org/14.0/#sec-while-statement>
 
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        expressions::Expression,
-        tokenization::{Punctuator, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    expressions::Expression,
+    tokenization::{Punctuator, Tokenizer},
+    SyntaxError,
 };
 
 use super::Statement;
@@ -35,14 +32,5 @@ impl WhileStatement {
         };
 
         Ok(while_statement)
-    }
-}
-
-impl CompileToBytecode for WhileStatement {
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        _ = builder;
-        _ = self.loop_condition;
-        _ = self.body;
-        todo!()
     }
 }

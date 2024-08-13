@@ -1,10 +1,7 @@
 //! <https://262.ecma-international.org/14.0/#prod-CallExpression>
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
 };
 
 use super::{AssignmentExpression, Expression};
@@ -47,20 +44,4 @@ pub fn parse_arguments<const YIELD: bool, const AWAIT: bool>(
     tokenizer.next(SkipLineTerminators::Yes)?;
 
     Ok(arguments)
-}
-
-impl CompileToBytecode for CallExpression {
-    type Result = bytecode::Register;
-
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        // https://262.ecma-international.org/14.0/#sec-function-calls-runtime-semantics-evaluation
-        let callable = self.callable.compile(builder);
-        let arguments = self
-            .arguments
-            .iter()
-            .map(|arg| arg.compile(builder))
-            .collect();
-
-        builder.get_current_block().call(callable, arguments)
-    }
 }

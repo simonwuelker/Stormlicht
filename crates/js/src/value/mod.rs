@@ -9,8 +9,8 @@ pub use reference_record::{ReferenceRecord, ValueOrReference};
 pub use symbol::Symbol;
 
 use crate::{
-    bytecode::{Exception, ThrowCompletionOr},
     parser::Identifier,
+    runtime::{Exception, ThrowCompletionOr},
 };
 
 const SPEC_CANNOT_FAIL: &str =

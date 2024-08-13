@@ -2,7 +2,7 @@
 
 mod vtable;
 
-use crate::bytecode::{Exception, ThrowCompletionOr};
+use crate::runtime::{Exception, ThrowCompletionOr};
 
 use self::vtable::ObjectMethods;
 

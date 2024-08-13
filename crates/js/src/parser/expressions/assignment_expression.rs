@@ -1,11 +1,8 @@
 //! <https://262.ecma-international.org/14.0/#sec-assignment-operators>
 
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
 };
 
 use super::{ConditionalExpression, Expression};
@@ -152,18 +149,6 @@ enum AssignmentOp {
     NullishCoalescingAssignment,
 }
 
-impl CompileToBytecode for AssignmentExpression {
-    type Result = bytecode::Register;
-
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        _ = builder;
-        _ = self.lhs;
-        _ = self.rhs;
-        _ = self.operator;
-        todo!("compile AssignmentExpression")
-    }
-}
-
 impl AssignmentOp {
     #[must_use]
     fn from_token(token: &Token) -> Option<Self> {
@@ -220,17 +205,5 @@ impl AssignmentTarget {
         };
 
         Some(assignment_target)
-    }
-}
-
-impl CompileToBytecode for AssignmentTarget {
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        match self {
-            Self::IdentifierRef(identifier_ref) => {
-                _ = builder;
-                _ = identifier_ref;
-                todo!()
-            },
-        }
     }
 }

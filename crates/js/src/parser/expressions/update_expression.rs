@@ -1,11 +1,8 @@
 //! <https://262.ecma-international.org/14.0/#sec-update-expressions>
 
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
 };
 
 use super::{left_hand_side_expression::parse_lefthandside_expression, Expression};
@@ -61,32 +58,5 @@ impl UpdateExpression {
         };
 
         Ok(update_expression.into())
-    }
-}
-
-impl CompileToBytecode for UpdateExpression {
-    type Result = bytecode::Register;
-
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        _ = builder;
-
-        match self {
-            Self::PreDecrement(expression) => {
-                _ = expression;
-                todo!();
-            },
-            Self::PostDecrement(expression) => {
-                _ = expression;
-                todo!();
-            },
-            Self::PreIncrement(expression) => {
-                _ = expression;
-                todo!();
-            },
-            Self::PostIncrement(expression) => {
-                _ = expression;
-                todo!();
-            },
-        }
     }
 }

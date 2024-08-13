@@ -1,11 +1,8 @@
 //! <https://262.ecma-international.org/14.0/#sec-conditional-operator>
 
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
 };
 
 use super::{short_circuit::parse_short_circuit_expression, AssignmentExpression, Expression};
@@ -46,17 +43,5 @@ impl ConditionalExpression {
         } else {
             Ok(condition)
         }
-    }
-}
-
-impl CompileToBytecode for ConditionalExpression {
-    type Result = bytecode::Register;
-
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        _ = builder;
-        _ = self.condition;
-        _ = self.true_case;
-        _ = self.false_case;
-        todo!("implement conditional expression in bytecode");
     }
 }

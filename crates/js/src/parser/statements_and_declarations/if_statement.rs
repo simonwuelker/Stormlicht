@@ -1,12 +1,9 @@
 //! <https://262.ecma-international.org/14.0/#sec-if-statement>
 
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        expressions::Expression,
-        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    expressions::Expression,
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
 };
 
 use super::Statement;
@@ -64,45 +61,5 @@ impl IfStatement {
         };
 
         Ok(if_statement)
-    }
-}
-
-impl CompileToBytecode for IfStatement {
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
-        let condition_register = self.condition.compile(builder);
-        let branching_block = builder.current_block();
-
-        // The block that the two different executions will join on again
-        let after_block = builder.allocate_basic_block();
-
-        // Compile the "if" branch
-        let if_block = builder.allocate_basic_block();
-        builder.set_current_block(if_block);
-        self.if_branch.compile(builder);
-        builder
-            .get_current_block()
-            .unconditionally_jump_to(after_block);
-
-        if let Some(else_branch) = self.else_branch.as_ref() {
-            // Compile the "else" branch
-            let else_block = builder.allocate_basic_block();
-            builder.set_current_block(else_block);
-            else_branch.compile(builder);
-            builder
-                .get_current_block()
-                .unconditionally_jump_to(after_block);
-
-            // Branch to either the "if" or the "else" branch
-            builder
-                .get_block(branching_block)
-                .branch_if(condition_register, if_block, else_block);
-        } else {
-            // Branch to either the "if" or the "after" branch
-            builder
-                .get_block(branching_block)
-                .branch_if(condition_register, if_block, after_block);
-        }
-
-        builder.set_current_block(after_block);
     }
 }

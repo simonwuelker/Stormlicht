@@ -1,10 +1,7 @@
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        expressions::UpdateExpression,
-        tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    expressions::UpdateExpression,
+    tokenization::{Punctuator, SkipLineTerminators, Token, Tokenizer},
+    SyntaxError,
 };
 
 use super::{Expression, UnaryExpression};
@@ -239,52 +236,6 @@ pub fn parse_exponentiation_expression<const YIELD: bool, const AWAIT: bool>(
     };
 
     Ok(exponentiation_expression)
-}
-
-impl CompileToBytecode for BinaryExpression {
-    type Result = bytecode::Register;
-
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) -> Self::Result {
-        let lhs = self.lhs.compile(builder);
-        let rhs = self.rhs.compile(builder);
-        let mut current_block = builder.get_current_block();
-
-        let dst = match self.op {
-            BinaryOp::Arithmetic(ArithmeticOp::Add) => current_block.add(lhs, rhs),
-            BinaryOp::Arithmetic(ArithmeticOp::Subtract) => current_block.subtract(lhs, rhs),
-            BinaryOp::Arithmetic(ArithmeticOp::Multiply) => current_block.multiply(lhs, rhs),
-            BinaryOp::Arithmetic(ArithmeticOp::Divide) => current_block.divide(lhs, rhs),
-            BinaryOp::Arithmetic(ArithmeticOp::Modulo) => current_block.modulo(lhs, rhs),
-            BinaryOp::Arithmetic(ArithmeticOp::Exponentiation) => {
-                current_block.exponentiate(lhs, rhs)
-            },
-            BinaryOp::Bitwise(BitwiseOp::And) => current_block.bitwise_and(lhs, rhs),
-            BinaryOp::Bitwise(BitwiseOp::Or) => current_block.bitwise_or(lhs, rhs),
-            BinaryOp::Bitwise(BitwiseOp::Xor) => current_block.bitwise_xor(lhs, rhs),
-            BinaryOp::Logical(LogicalOp::And) => current_block.logical_and(lhs, rhs),
-            BinaryOp::Logical(LogicalOp::Or) => current_block.logical_or(lhs, rhs),
-            BinaryOp::Logical(LogicalOp::Coalesce) => current_block.coalesce(lhs, rhs),
-            BinaryOp::Equality(EqualityOp::Equal) => current_block.loosely_equal(lhs, rhs),
-            BinaryOp::Equality(EqualityOp::NotEqual) => current_block.not_loosely_equal(lhs, rhs),
-            BinaryOp::Equality(EqualityOp::StrictEqual) => current_block.strict_equal(lhs, rhs),
-            BinaryOp::Equality(EqualityOp::StrictNotEqual) => {
-                current_block.strict_not_equal(lhs, rhs)
-            },
-            BinaryOp::Relational(RelationalOp::LessThan) => current_block.less_than(lhs, rhs),
-            BinaryOp::Relational(RelationalOp::GreaterThan) => current_block.greater_than(lhs, rhs),
-            BinaryOp::Relational(RelationalOp::LessThanOrEqual) => {
-                current_block.less_than_or_equal(lhs, rhs)
-            },
-            BinaryOp::Relational(RelationalOp::GreaterThanOrEqual) => {
-                current_block.greater_than_or_equal(lhs, rhs)
-            },
-            BinaryOp::Shift(ShiftOp::ShiftLeft) => current_block.shift_left(lhs, rhs),
-            BinaryOp::Shift(ShiftOp::ShiftRight) => current_block.shift_right(lhs, rhs),
-            BinaryOp::Shift(ShiftOp::ShiftRightZeros) => current_block.shift_right_zeros(lhs, rhs),
-        };
-
-        dst
-    }
 }
 
 impl From<ArithmeticOp> for BinaryOp {

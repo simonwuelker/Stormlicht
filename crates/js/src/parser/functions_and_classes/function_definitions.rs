@@ -1,13 +1,10 @@
 //! <https://262.ecma-international.org/14.0/#sec-function-definitions>
 
-use crate::{
-    bytecode::{self, CompileToBytecode},
-    parser::{
-        identifiers::parse_binding_identifier,
-        statements_and_declarations::StatementListItem,
-        tokenization::{Punctuator, SkipLineTerminators, Tokenizer},
-        SyntaxError,
-    },
+use crate::parser::{
+    identifiers::parse_binding_identifier,
+    statements_and_declarations::StatementListItem,
+    tokenization::{Punctuator, SkipLineTerminators, Tokenizer},
+    SyntaxError,
 };
 
 /// <https://262.ecma-international.org/14.0/#prod-FunctionDeclaration>
@@ -54,14 +51,5 @@ impl FunctionDeclaration {
     #[must_use]
     pub fn body(&self) -> &[StatementListItem] {
         &self.body
-    }
-}
-
-impl CompileToBytecode for FunctionDeclaration {
-    fn compile(&self, builder: &mut bytecode::ProgramBuilder) {
-        _ = builder;
-        _ = self.identifier;
-        _ = self.body;
-        todo!()
     }
 }
